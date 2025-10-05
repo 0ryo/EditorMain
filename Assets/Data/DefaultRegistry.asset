@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 60ed7a992adca33498ef468b7d0e0ac1, type: 3}
+  m_Name: DefaultRegistry
+  m_EditorClassIdentifier: Assembly-CSharp::PrefabRegistry
+  entries:
+  - typeId: Vehicle/Car_Proxy
+    prefab: {fileID: 1142807961295399604, guid: 1c690c77e8c65ee42af8fd37908787ec, type: 3}
+  - typeId: ToolBox/Basic_Proxy
+    prefab: {fileID: 4289515882471490109, guid: 9740582f2ec2b47458da298e18c9e1e1, type: 3}
+  - typeId: Tire/Replacement_Proxy
+    prefab: {fileID: 3507959828662749789, guid: 5215446bd1560cf41a446a00f43ab84e, type: 3}
+  - typeId: Env/Wall_Min
+    prefab: {fileID: 5827425159960688368, guid: 67fe6a28571a31044af6098bf087c2a9, type: 3}
