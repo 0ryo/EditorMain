@@ -51,7 +51,9 @@
     <Compile Include="Assets\Scripts\CatalogUI.cs" />
     <Compile Include="Assets\Scripts\EditModeService.cs" />
     <Compile Include="Assets\Scripts\SelectionService.cs" />
+    <Compile Include="Assets\Scripts\MoveTool.cs" />
     <Compile Include="Assets\Scripts\PlacementController.cs" />
+    <Compile Include="Assets\Scripts\RotateTool.cs" />
     <Compile Include="Assets\Scripts\SelectionOutline.cs" />
     <Compile Include="Assets\Scripts\PrefabRegistry.cs" />
   </ItemGroup>
