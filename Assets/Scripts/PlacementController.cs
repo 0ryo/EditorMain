@@ -9,7 +9,7 @@ public class PlacementController : MonoBehaviour
     public float gridSize = 0.1f;   // 10cm
     public LayerMask floorMask;     // Floorレイヤー
 
-    // 追加：配置した直後に選択するための参照
+    // 配置した直後に選択するための参照
     public SelectionService selection;
 
     string currentTypeId = null;
@@ -61,6 +61,10 @@ public class PlacementController : MonoBehaviour
         if (map.ContainsKey(typeId))
         {
             currentTypeId = typeId;
+
+            // ★フェーズE追加：配置モードに入ったことを EditModeService に伝える
+            EditModeService.I.Mode = EditMode.Place;
+
             Debug.Log($"[Placement] EnterPlacement OK: {currentTypeId}");
         }
         else
@@ -114,7 +118,7 @@ public class PlacementController : MonoBehaviour
 
                     Debug.Log($"[Placement] Placed {currentTypeId} as {go.name} at {p}");
 
-                    // 追加：配置したオブジェクトを自動選択
+                    // 配置したオブジェクトを自動選択
                     if (selection != null)
                     {
                         selection.Select(po);
@@ -124,7 +128,7 @@ public class PlacementController : MonoBehaviour
                         Debug.LogWarning("[Placement] selection is not assigned, auto-selection skipped");
                     }
 
-                    // 追加：1回置いたら配置モード終了
+                    // 1回置いたら配置モード終了
                     CancelPlacement();
                 }
                 else

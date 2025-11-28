@@ -18,11 +18,13 @@ public class SelectionOutline : MonoBehaviour
             lr.positionCount = 2;
             lr.useWorldSpace = true;
 
-            // 見やすいように太め＋カメラ向き
-            lr.widthMultiplier = 0.03f;          // 必要なら 0.05f くらいまで上げてもOK
-            lr.alignment = LineAlignment.View;    // カメラに正対
+            // 見やすさ設定
+            lr.widthMultiplier = 0.05f;
+            lr.alignment = LineAlignment.View;
             lr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             lr.receiveShadows = false;
+            lr.startColor = Color.cyan;
+            lr.endColor   = Color.cyan;
 
             lines.Add(lr);
         }
@@ -33,6 +35,16 @@ public class SelectionOutline : MonoBehaviour
         }
     }
 
+    // 毎フレーム、選択中の target に合わせて枠を更新
+    void Update()
+    {
+        if (target != null)
+        {
+            UpdateOutline();
+        }
+    }
+
+    // 外から呼ぶのはこれだけ：選択対象の変更
     public void ShowFor(GameObject t)
     {
         target = t;
@@ -41,6 +53,15 @@ public class SelectionOutline : MonoBehaviour
             EnsureLines(0);
             return;
         }
+
+        // 選択した瞬間にも一度更新
+        UpdateOutline();
+    }
+
+    // 実際に bounds からラインを引く処理
+    void UpdateOutline()
+    {
+        if (target == null) return;
 
         var r = new Bounds(target.transform.position, Vector3.one * 0.5f);
         var renderers = target.GetComponentsInChildren<Renderer>();

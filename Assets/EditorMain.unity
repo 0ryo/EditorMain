@@ -328,6 +328,9 @@ GameObject:
   - component: {fileID: 284849284}
   - component: {fileID: 284849283}
   - component: {fileID: 284849285}
+  - component: {fileID: 284849287}
+  - component: {fileID: 284849286}
+  - component: {fileID: 284849288}
   m_Layer: 0
   m_Name: Systems
   m_TagString: Untagged
@@ -387,6 +390,51 @@ MonoBehaviour:
     m_Bits: 4294967295
   Current: {fileID: 0}
   outline: {fileID: 1070853161}
+--- !u!114 &284849286
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 284849282}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5efbd58e7f250af4d9e1c1cf0302e86a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::MoveTool
+  cam: {fileID: 519420031}
+  sel: {fileID: 284849285}
+  gridSize: 0.1
+  floorMask:
+    serializedVersion: 2
+    m_Bits: 256
+--- !u!114 &284849287
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 284849282}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cd796c9bd49beb4469cb6a55cea5cad4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EditModeService
+  Mode: 0
+--- !u!114 &284849288
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 284849282}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 765743257367323469c33e4790671e8d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::RotateTool
+  sel: {fileID: 284849285}
+  stepDeg: 15
 --- !u!1 &519420028
 GameObject:
   m_ObjectHideFlags: 0
