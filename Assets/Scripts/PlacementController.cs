@@ -106,27 +106,29 @@ public class PlacementController : MonoBehaviour
 
                 if (map.TryGetValue(currentTypeId, out var prefab) && prefab != null)
                 {
-                    var go = Object.Instantiate(prefab, p, Quaternion.identity);
-
-                    // プレハブに PlacedObject が無ければ追加
-                    var po = go.GetComponent<PlacedObject>();
-                    if (po == null)
+                    // Command経由で配置
+                    // factory: (typeId) => Instantiate(...)
+                    System.Func<string, GameObject> factory = (tId) =>
                     {
-                        po = go.AddComponent<PlacedObject>();
-                    }
-                    po.Init(currentTypeId);
+                        if (map.TryGetValue(tId, out var p) && p != null)
+                        {
+                            var g = Object.Instantiate(p);
+                            var po = g.GetComponent<PlacedObject>();
+                            if (po == null) po = g.AddComponent<PlacedObject>();
+                            po.Init(tId);
+                            
+                            // 配置したオブジェクトを自動選択 (Command実行時に呼ばれる)
+                            if (selection != null) selection.Select(po);
+                            
+                            return g;
+                        }
+                        return null;
+                    };
 
-                    Debug.Log($"[Placement] Placed {currentTypeId} as {go.name} at {p}");
+                    var cmd = new PlaceObjectCommand(currentTypeId, p, Quaternion.identity, factory);
+                    CommandService.I.Stack.Execute(cmd);
 
-                    // 配置したオブジェクトを自動選択
-                    if (selection != null)
-                    {
-                        selection.Select(po);
-                    }
-                    else
-                    {
-                        Debug.LogWarning("[Placement] selection is not assigned, auto-selection skipped");
-                    }
+                    Debug.Log($"[Placement] Placed {currentTypeId} at {p} via Command");
 
                     // 1回置いたら配置モード終了
                     CancelPlacement();
