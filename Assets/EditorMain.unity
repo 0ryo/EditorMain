@@ -353,6 +353,7 @@ MonoBehaviour:
   floorMask:
     serializedVersion: 2
     m_Bits: 256
+  selection: {fileID: 284849285}
 --- !u!4 &284849284
 Transform:
   m_ObjectHideFlags: 0
@@ -385,7 +386,7 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 4294967295
   Current: {fileID: 0}
-  outline: {fileID: 0}
+  outline: {fileID: 1070853161}
 --- !u!1 &519420028
 GameObject:
   m_ObjectHideFlags: 0
