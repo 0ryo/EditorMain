@@ -10,6 +10,11 @@ public class SelectionService : MonoBehaviour {
     public PrefabRegistry registry; // Undo時の再生成用
 
     void Update() {
+        // Currentが外部(Undoなど)で削除されていたら選択解除
+        if (Current != null && Current.gameObject == null) {
+            Select(null);
+        }
+
         if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject()) return;
 
         if (Input.GetMouseButtonDown(0)) {
