@@ -7,6 +7,8 @@ public class SelectionService : MonoBehaviour {
     public PlacedObject Current;
     public SelectionOutline outline; // ハイライト描画
 
+    public PrefabRegistry registry; // Undo時の再生成用
+
     void Update() {
         if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject()) return;
 
@@ -20,7 +22,24 @@ public class SelectionService : MonoBehaviour {
         if (Current != null) {
             // 削除
             if (Input.GetKeyDown(KeyCode.Delete)) {
-                Destroy(Current.gameObject);
+                // Undo用の再生成関数
+                System.Func<string, GameObject> factory = (tId) => {
+                    if (registry == null) return null;
+                    var entry = registry.entries.Find(e => e.typeId == tId);
+                    if (entry != null && entry.prefab != null) {
+                        var g = Instantiate(entry.prefab);
+                        var po = g.GetComponent<PlacedObject>();
+                        if (po == null) po = g.AddComponent<PlacedObject>();
+                        po.Init(tId);
+                        Select(po);
+                        return g;
+                    }
+                    return null;
+                };
+
+                var cmd = new DeleteObjectCommand(Current.gameObject, Current.typeId, factory);
+                CommandService.I.Stack.Execute(cmd);
+                
                 Select(null);
             }
             // 複製

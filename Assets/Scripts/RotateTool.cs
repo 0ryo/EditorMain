@@ -13,8 +13,10 @@ public class RotateTool : MonoBehaviour {
     }
     void Add(int d) {
         var t = sel.Current.transform;
-        var e = t.eulerAngles;
-        e.y = Mathf.Round((e.y + d) / stepDeg) * stepDeg;
-        t.eulerAngles = e;
+        float fromY = t.eulerAngles.y;
+        float toY = Mathf.Round((fromY + d) / stepDeg) * stepDeg;
+
+        var cmd = new RotateObjectCommand(sel.Current.gameObject, fromY, toY);
+        CommandService.I.Stack.Execute(cmd);
     }
 }

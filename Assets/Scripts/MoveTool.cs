@@ -9,6 +9,7 @@ public class MoveTool : MonoBehaviour
     public LayerMask floorMask;
 
     bool isDragging = false;
+    Vector3 startPos;
 
     void Update()
     {
@@ -38,6 +39,7 @@ public class MoveTool : MonoBehaviour
                     {
                         // 選択中オブジェクトの上を押した → ドラッグ開始
                         isDragging = true;
+                        startPos = sel.Current.transform.position;
                     }
                     else
                     {
@@ -69,6 +71,15 @@ public class MoveTool : MonoBehaviour
         // ボタン離したらドラッグ終了
         if (Input.GetMouseButtonUp(0))
         {
+            if (isDragging && sel.Current != null)
+            {
+                var endPos = sel.Current.transform.position;
+                if (Vector3.Distance(startPos, endPos) > 0.001f)
+                {
+                    var cmd = new MoveObjectCommand(sel.Current.gameObject, startPos, endPos);
+                    CommandService.I.Stack.Execute(cmd);
+                }
+            }
             isDragging = false;
         }
 
