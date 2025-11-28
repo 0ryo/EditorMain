@@ -327,6 +327,7 @@ GameObject:
   m_Component:
   - component: {fileID: 284849284}
   - component: {fileID: 284849283}
+  - component: {fileID: 284849285}
   m_Layer: 0
   m_Name: Systems
   m_TagString: Untagged
@@ -352,6 +353,7 @@ MonoBehaviour:
   floorMask:
     serializedVersion: 2
     m_Bits: 256
+  selection: {fileID: 284849285}
 --- !u!4 &284849284
 Transform:
   m_ObjectHideFlags: 0
@@ -367,6 +369,24 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &284849285
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 284849282}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9b3994c4eda66454fadcccd84c887b83, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SelectionService
+  cam: {fileID: 519420031}
+  pickMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  Current: {fileID: 0}
+  outline: {fileID: 1070853161}
 --- !u!1 &519420028
 GameObject:
   m_ObjectHideFlags: 0
@@ -902,6 +922,51 @@ MonoBehaviour:
   m_ChildScaleWidth: 0
   m_ChildScaleHeight: 0
   m_ReverseArrangement: 0
+--- !u!1 &1070853160
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1070853162}
+  - component: {fileID: 1070853161}
+  m_Layer: 0
+  m_Name: SelectionOutlineRoot
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1070853161
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1070853160}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8880382b6523ae84ea3ed29b003f71b6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SelectionOutline
+  lineMat: {fileID: 2100000, guid: 202dce86b7301234193a3967dacd0127, type: 2}
+--- !u!4 &1070853162
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1070853160}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -274.46332, y: 0, z: -53.96918}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1155456907
 GameObject:
   m_ObjectHideFlags: 0
@@ -1481,3 +1546,4 @@ SceneRoots:
   - {fileID: 599817273}
   - {fileID: 1451443229}
   - {fileID: 284849284}
+  - {fileID: 1070853162}
