@@ -9,6 +9,9 @@ public class PlacementController : MonoBehaviour
     public float gridSize = 0.1f;   // 10cm
     public LayerMask floorMask;     // Floorレイヤー
 
+    // 追加：配置した直後に選択するための参照
+    public SelectionService selection;
+
     string currentTypeId = null;
     Dictionary<string, GameObject> map;
 
@@ -33,13 +36,25 @@ public class PlacementController : MonoBehaviour
         Debug.Log($"[Placement] Registry loaded. entries={map.Count}");
     }
 
+    // 配置モード終了用ヘルパー
+    void CancelPlacement()
+    {
+        if (!string.IsNullOrEmpty(currentTypeId))
+        {
+            Debug.Log($"[Placement] CancelPlacement: {currentTypeId}");
+        }
+        currentTypeId = null;
+    }
+
     // カタログのボタンから呼ばれる
     public void EnterPlacement(string typeId)
     {
+        // いったん前のモードをクリア
+        CancelPlacement();
+
         if (string.IsNullOrEmpty(typeId))
         {
             Debug.LogWarning("[Placement] EnterPlacement called with null/empty typeId");
-            currentTypeId = null;
             return;
         }
 
@@ -50,7 +65,6 @@ public class PlacementController : MonoBehaviour
         }
         else
         {
-            currentTypeId = null;
             Debug.LogWarning($"[Placement] EnterPlacement NG: {typeId} is not in registry");
         }
     }
@@ -89,10 +103,29 @@ public class PlacementController : MonoBehaviour
                 if (map.TryGetValue(currentTypeId, out var prefab) && prefab != null)
                 {
                     var go = Object.Instantiate(prefab, p, Quaternion.identity);
-                    var po = go.AddComponent<PlacedObject>();
+
+                    // プレハブに PlacedObject が無ければ追加
+                    var po = go.GetComponent<PlacedObject>();
+                    if (po == null)
+                    {
+                        po = go.AddComponent<PlacedObject>();
+                    }
                     po.Init(currentTypeId);
 
                     Debug.Log($"[Placement] Placed {currentTypeId} as {go.name} at {p}");
+
+                    // 追加：配置したオブジェクトを自動選択
+                    if (selection != null)
+                    {
+                        selection.Select(po);
+                    }
+                    else
+                    {
+                        Debug.LogWarning("[Placement] selection is not assigned, auto-selection skipped");
+                    }
+
+                    // 追加：1回置いたら配置モード終了
+                    CancelPlacement();
                 }
                 else
                 {
@@ -112,6 +145,7 @@ public class PlacedObject : MonoBehaviour
     public string id;
     public string typeId;
     static int seq = 0;
+
     public void Init(string t)
     {
         typeId = t;
