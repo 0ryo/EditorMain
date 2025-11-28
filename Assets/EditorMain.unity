@@ -317,6 +317,56 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: -20, y: -20}
   m_Pivot: {x: 0.5, y: 0.5}
+--- !u!1 &284849282
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 284849284}
+  - component: {fileID: 284849283}
+  m_Layer: 0
+  m_Name: Systems
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &284849283
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 284849282}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dcab45be6ab37aa40bcfcdb53d86b10e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlacementController
+  registry: {fileID: 11400000, guid: 9bbcc927f75bb8f429114c3969aaa7b9, type: 2}
+  cam: {fileID: 519420031}
+  gridSize: 0.1
+  floorMask:
+    serializedVersion: 2
+    m_Bits: 256
+--- !u!4 &284849284
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 284849282}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 71.42853, y: 92.1915, z: -30.81711}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &519420028
 GameObject:
   m_ObjectHideFlags: 0
@@ -1031,6 +1081,21 @@ MonoBehaviour:
   registry: {fileID: 11400000, guid: 9bbcc927f75bb8f429114c3969aaa7b9, type: 2}
   content: {fileID: 992450198}
   buttonTemplate: {fileID: 8610820764120231703, guid: fb4a833cefb849b49b32d62c4641b986, type: 3}
+  onSelectType:
+    m_PersistentCalls:
+      m_Calls:
+      - m_Target: {fileID: 284849283}
+        m_TargetAssemblyTypeName: PlacementController, Assembly-CSharp
+        m_MethodName: EnterPlacement
+        m_Mode: 0
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
 --- !u!114 &1437998509
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1415,3 +1480,4 @@ SceneRoots:
   - {fileID: 600907203}
   - {fileID: 599817273}
   - {fileID: 1451443229}
+  - {fileID: 284849284}
