@@ -1,3 +1,4 @@
+using System.IO;
 using System.Text;
 using UnityEngine;
 
@@ -18,7 +19,6 @@ public class PlacementExportService : MonoBehaviour
         for (int i = 0; i < all.Length; i++)
         {
             var po = all[i];
-            // 念のため id を保証（EnsureHasId がある前提）
             po.EnsureHasId();
 
             sb.AppendLine(
@@ -27,5 +27,41 @@ public class PlacementExportService : MonoBehaviour
         }
 
         Debug.Log(sb.ToString());
+    }
+
+    public void ExportPlacementJson()
+    {
+        var data = new PlacementExport
+        {
+            version = 1,
+            projectName = projectName
+        };
+
+        var all = FindObjectsOfType<PlacedObject>();
+        for (int i = 0; i < all.Length; i++)
+        {
+            var po = all[i];
+            po.EnsureHasId();
+
+            data.objects.Add(new PlacementExportObject
+            {
+                id = po.id,
+                typeId = po.typeId,
+                position = po.transform.position,
+                rotation = po.transform.rotation,
+                scale = po.transform.localScale
+            });
+        }
+
+        string dir = Path.Combine(Application.dataPath, "Exports");
+        Directory.CreateDirectory(dir);
+
+        string fileName = $"{projectName}-placement.json";
+        string path = Path.Combine(dir, fileName);
+
+        string json = JsonUtility.ToJson(data, true);
+        File.WriteAllText(path, json);
+
+        Debug.Log($"[Export] Saved: Assets/Exports/{fileName} (count={data.objects.Count})");
     }
 }
