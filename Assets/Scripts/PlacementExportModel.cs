@@ -7,7 +7,7 @@ public class PlacementExport
 {
     public int version = 1;
     public string projectName = "MyProject";
-    public List<PlacementExportObject> objects = new();
+    public List<PlacementExportObject> objects = new List<PlacementExportObject>();
 }
 
 [Serializable]
