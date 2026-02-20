@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.IO;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -14,6 +15,7 @@ public class ScenarioGraphUI : MonoBehaviour
     RectTransform panelRoot;
     InputField projectNameInput;
     Button addStepButton;
+    Button saveButton;
     Text statusText;
     RectTransform nodeArea;
     RectTransform lineLayer;
@@ -82,6 +84,10 @@ public class ScenarioGraphUI : MonoBehaviour
         addStepButton = EnsureButton(addButtonRoot.gameObject, "+ Step");
         SetMinWidth(addButtonRoot.gameObject, 120f);
 
+        var saveButtonRoot = FindOrCreateRect("Button_SaveCurriculum", topBar);
+        saveButton = EnsureButton(saveButtonRoot.gameObject, "Save");
+        SetMinWidth(saveButtonRoot.gameObject, 110f);
+
         var statusRoot = FindOrCreateRect("Text_Status", topBar);
         statusText = EnsureText(statusRoot.gameObject, "");
         statusText.alignment = TextAnchor.MiddleLeft;
@@ -107,6 +113,9 @@ public class ScenarioGraphUI : MonoBehaviour
             graph.AddStep();
             RebuildAll();
         });
+
+        saveButton.onClick.RemoveAllListeners();
+        saveButton.onClick.AddListener(SaveCurriculum);
     }
 
     void RebuildAll()
@@ -192,6 +201,53 @@ public class ScenarioGraphUI : MonoBehaviour
                 lines.Add(line);
             }
         }
+    }
+
+    void SaveCurriculum()
+    {
+        if (!string.IsNullOrWhiteSpace(projectNameInput.text))
+        {
+            graph.curriculum.projectName = projectNameInput.text.Trim();
+        }
+
+        int warningCount = 0;
+        foreach (var step in graph.curriculum.steps)
+        {
+            if (graph.HasUnconfiguredConditions(step))
+            {
+                warningCount++;
+            }
+        }
+
+        string exportDir = Path.Combine(Application.dataPath, "Exports");
+        Directory.CreateDirectory(exportDir);
+
+        string fileName = $"{graph.curriculum.projectName}-curriculum.json";
+        string finalPath = Path.Combine(exportDir, fileName);
+        string tempPath = finalPath + ".tmp";
+
+        string json = JsonUtility.ToJson(graph.curriculum, true);
+        File.WriteAllText(tempPath, json);
+
+        if (File.Exists(finalPath))
+        {
+            File.Replace(tempPath, finalPath, null);
+        }
+        else
+        {
+            File.Move(tempPath, finalPath);
+        }
+
+        if (warningCount > 0)
+        {
+            statusText.text = $"保存しました（⚠未設定手順: {warningCount}）: Assets/Exports/{fileName}";
+        }
+        else
+        {
+            statusText.text = $"保存しました: Assets/Exports/{fileName}";
+        }
+
+        Debug.Log("[ScenarioGraph] " + statusText.text);
     }
 
     StepNodeUI BuildNodeTemplate(Transform parent)
