@@ -5,16 +5,16 @@ using UnityEngine.Events;
 
 public class CatalogUI : MonoBehaviour
 {
-    public PrefabRegistry registry;
-    public RectTransform content;      // ScrollViewのContent
-    public Button buttonTemplate;      // 1行のボタンプレハブ
+    [SerializeField] PrefabRegistry registry;
+    [SerializeField] RectTransform content;      // ScrollViewのContent
+    [SerializeField] Button buttonTemplate;      // 1行のボタンプレハブ
 
     // Inspector から登録できる string イベント
     [System.Serializable]
     public class StringEvent : UnityEvent<string> { }
 
     // 選択時コールバック（Inspector に「On Select Type」として出てくる）
-    public StringEvent onSelectType;
+    [SerializeField] StringEvent onSelectType;
 
     void Start()
     {
