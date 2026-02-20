@@ -72,6 +72,7 @@ public class StepNodeUI : MonoBehaviour
     {
         foreach (Transform child in conditionListRoot)
         {
+            if (conditionRowTemplate != null && child == conditionRowTemplate.transform) continue;
             Destroy(child.gameObject);
         }
 
