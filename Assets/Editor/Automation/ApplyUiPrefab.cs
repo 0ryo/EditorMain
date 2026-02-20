@@ -67,19 +67,29 @@ public static class ApplyUiPrefab
 
     static List<string> CollectTargetScenes()
     {
+        const string editorMainScene = "Assets/EditorMain.unity";
         var buildScenes = EditorBuildSettings.scenes
             .Where(s => s.enabled && !string.IsNullOrWhiteSpace(s.path))
             .Select(s => s.path)
             .Distinct()
             .ToList();
+        if (AssetDatabase.LoadAssetAtPath<SceneAsset>(editorMainScene) != null && !buildScenes.Contains(editorMainScene))
+        {
+            buildScenes.Add(editorMainScene);
+        }
         if (buildScenes.Count > 0) return buildScenes;
 
         var scenesRoot = "Assets/Scenes";
         if (!AssetDatabase.IsValidFolder(scenesRoot)) return new List<string>();
 
-        return AssetDatabase.FindAssets("t:Scene", new[] { scenesRoot })
+        var fallback = AssetDatabase.FindAssets("t:Scene", new[] { scenesRoot })
             .Select(AssetDatabase.GUIDToAssetPath)
             .Distinct()
             .ToList();
+        if (AssetDatabase.LoadAssetAtPath<SceneAsset>(editorMainScene) != null && !fallback.Contains(editorMainScene))
+        {
+            fallback.Add(editorMainScene);
+        }
+        return fallback;
     }
 }
