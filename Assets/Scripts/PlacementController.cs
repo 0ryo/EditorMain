@@ -6,14 +6,18 @@ public class PlacementController : MonoBehaviour
 {
     public PrefabRegistry registry;
     public Camera cam;
-    public float gridSize = 0.1f;   // 10cm
-    public LayerMask floorMask;     // Floorレイヤー
-
-    // 配置した直後に選択するための参照
+    public float gridSize = 0.1f;
+    public LayerMask floorMask;
     public SelectionService selection;
 
-    string currentTypeId = null;
+    string currentTypeId;
     Dictionary<string, GameObject> map;
+    static bool uiDragInProgress;
+
+    public static void SetUiDragInProgress(bool isDragging)
+    {
+        uiDragInProgress = isDragging;
+    }
 
     void Awake()
     {
@@ -25,18 +29,17 @@ public class PlacementController : MonoBehaviour
             return;
         }
 
-        foreach (var e in registry.entries)
+        foreach (var entry in registry.entries)
         {
-            if (!map.ContainsKey(e.typeId) && e.prefab != null)
+            if (!map.ContainsKey(entry.typeId) && entry.prefab != null)
             {
-                map.Add(e.typeId, e.prefab);
+                map.Add(entry.typeId, entry.prefab);
             }
         }
 
         Debug.Log($"[Placement] Registry loaded. entries={map.Count}");
     }
 
-    // 配置モード終了用ヘルパー
     void CancelPlacement()
     {
         if (!string.IsNullOrEmpty(currentTypeId))
@@ -46,10 +49,8 @@ public class PlacementController : MonoBehaviour
         currentTypeId = null;
     }
 
-    // カタログのボタンから呼ばれる
     public void EnterPlacement(string typeId)
     {
-        // いったん前のモードをクリア
         CancelPlacement();
 
         if (string.IsNullOrEmpty(typeId))
@@ -58,156 +59,140 @@ public class PlacementController : MonoBehaviour
             return;
         }
 
-        if (map.ContainsKey(typeId))
-        {
-            currentTypeId = typeId;
-
-            // ★配置モードに入ったことを EditModeService に伝える
-            if (EditModeService.I != null)
-                EditModeService.I.Mode = EditMode.Place;
-
-            Debug.Log($"[Placement] EnterPlacement OK: {currentTypeId}");
-        }
-        else
+        if (!map.ContainsKey(typeId))
         {
             Debug.LogWarning($"[Placement] EnterPlacement NG: {typeId} is not in registry");
+            return;
         }
+
+        currentTypeId = typeId;
+        if (EditModeService.I != null)
+        {
+            EditModeService.I.Mode = EditMode.Place;
+        }
+
+        Debug.Log($"[Placement] EnterPlacement OK: {currentTypeId}");
+    }
+
+    public bool PlaceOnceAtScreenPoint(string typeId, Vector2 screenPosition)
+    {
+        if (string.IsNullOrWhiteSpace(typeId)) return false;
+        if (cam == null)
+        {
+            Debug.LogWarning("[Placement] PlaceOnceAtScreenPoint failed. Camera is null.");
+            return false;
+        }
+
+        if (!TryRaycastFloor(screenPosition, out var hit))
+        {
+            Debug.LogWarning("[Placement] PlaceOnceAtScreenPoint failed. Floor raycast did not hit.");
+            return false;
+        }
+
+        return PlaceType(typeId, hit.point);
     }
 
     void Update()
     {
-        // 何も選択されてなければ配置モードじゃない
         if (string.IsNullOrEmpty(currentTypeId)) return;
+        if (uiDragInProgress) return;
 
-        // UI 上をクリックしてるときは無視
         if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
         {
-            if (Input.GetMouseButtonDown(0))
-            {
-                Debug.Log("[Placement] Click ignored because pointer is over UI");
-            }
             return;
         }
 
-        // 左クリックされたら Raycast
-        if (Input.GetMouseButtonDown(0))
+        if (!Input.GetMouseButtonDown(0)) return;
+
+        if (PlaceOnceAtScreenPoint(currentTypeId, Input.mousePosition))
         {
-            Debug.Log("[Placement] Click received, doing raycast");
-
-            Ray ray = cam.ScreenPointToRay(Input.mousePosition);
-            if (Physics.Raycast(ray, out var hit, 1000f, floorMask))
-            {
-                Debug.Log($"[Placement] Ray hit: {hit.collider.gameObject.name} at {hit.point}");
-
-                // スナップ付き位置計算
-                Vector3 p = hit.point;
-                p.x = Mathf.Round(p.x / gridSize) * gridSize;
-                p.z = Mathf.Round(p.z / gridSize) * gridSize;
-                p.y = hit.point.y + 0.5f;  // 床から少し浮かせる（見やすくする用）
-
-                if (map.TryGetValue(currentTypeId, out var prefab) && prefab != null)
-                {
-                    // Command経由で配置
-                    // factory: (typeId) => Instantiate(...)
-                    System.Func<string, GameObject> factory = (tId) =>
-                    {
-                        if (map.TryGetValue(tId, out var pfb) && pfb != null)
-                        {
-                            var g = Object.Instantiate(pfb);
-
-                            // PlacedObject を必ず付ける
-                            var po = g.GetComponent<PlacedObject>();
-                            if (po == null) po = g.AddComponent<PlacedObject>();
-
-                            // typeId設定
-                            po.InitType(tId);
-
-                            // 配置時は必ず新規ID（Prefabにidが入ってても強制上書き）
-                            po.ForceNewId();
-
-                            // 配置したオブジェクトを自動選択 (Command実行時に呼ばれる)
-                            if (selection != null) selection.Select(po);
-
-                            return g;
-                        }
-                        return null;
-                    };
-
-                    var cmd = new PlaceObjectCommand(currentTypeId, p, Quaternion.identity, factory);
-                    CommandService.I.Stack.Execute(cmd);
-
-                    Debug.Log($"[Placement] Placed {currentTypeId} at {p} via Command");
-
-                    // 1回置いたら配置モード終了
-                    CancelPlacement();
-                }
-                else
-                {
-                    Debug.LogError($"[Placement] currentTypeId {currentTypeId} not found in map at placement time");
-                }
-            }
-            else
-            {
-                Debug.LogWarning("[Placement] Raycast did not hit floor");
-            }
+            CancelPlacement();
         }
+    }
+
+    bool TryRaycastFloor(Vector2 screenPosition, out RaycastHit hit)
+    {
+        hit = default;
+        if (cam == null) return false;
+
+        Ray ray = cam.ScreenPointToRay(screenPosition);
+        return Physics.Raycast(ray, out hit, 1000f, floorMask);
+    }
+
+    bool PlaceType(string typeId, Vector3 floorPoint)
+    {
+        if (!map.TryGetValue(typeId, out var prefab) || prefab == null)
+        {
+            Debug.LogWarning($"[Placement] PlaceType failed. {typeId} is not registered.");
+            return false;
+        }
+
+        var placedPosition = floorPoint;
+        placedPosition.x = Mathf.Round(placedPosition.x / gridSize) * gridSize;
+        placedPosition.z = Mathf.Round(placedPosition.z / gridSize) * gridSize;
+        placedPosition.y = floorPoint.y + 0.5f;
+
+        System.Func<string, GameObject> factory = (tId) =>
+        {
+            if (!map.TryGetValue(tId, out var sourcePrefab) || sourcePrefab == null) return null;
+
+            var obj = Object.Instantiate(sourcePrefab);
+            var placed = obj.GetComponent<PlacedObject>();
+            if (placed == null) placed = obj.AddComponent<PlacedObject>();
+
+            placed.InitType(tId);
+            placed.ForceNewId();
+
+            if (selection != null)
+            {
+                selection.Select(placed);
+            }
+
+            return obj;
+        };
+
+        var cmd = new PlaceObjectCommand(typeId, placedPosition, Quaternion.identity, factory);
+        CommandService.I.Stack.Execute(cmd);
+        Debug.Log($"[Placement] Placed {typeId} at {placedPosition} via Command");
+        return true;
     }
 }
 
 public class PlacedObject : MonoBehaviour
 {
-    // 既存コードとの互換のため public のまま維持
     public string id;
     public string typeId;
 
-    // フォールバック連番（IdGeneratorが無い場合用）
-    static int fallbackSeq = 0;
+    static int fallbackSeq;
 
-    // 互換用プロパティ（以降の実装で使うと安全）
     public string Id => id;
     public string TypeId => typeId;
 
-    /// <summary>
-    /// typeIdのみ設定（IDはここでは触らない）
-    /// </summary>
     public void InitType(string t)
     {
         typeId = t;
     }
 
-    /// <summary>
-    /// IDが空なら採番してセット（既に入っているなら維持）
-    /// </summary>
     public void EnsureHasId()
     {
         if (!string.IsNullOrEmpty(id)) return;
 
-        // シーンに IdGenerator があればそれを使用
-        // （IdGenerator.cs はフェーズ1-2で作成した想定）
         if (IdGenerator.I != null)
         {
             id = IdGenerator.I.NewObjectId();
             return;
         }
 
-        // 無い場合はフォールバック連番（MVPの安全策）
         id = "obj-" + (++fallbackSeq).ToString("D4");
         Debug.LogWarning("[PlacedObject] IdGenerator not found. Fallback sequence is used.");
     }
 
-    /// <summary>
-    /// 複製などでID重複しうるケース用：強制的に新規IDを付与
-    /// </summary>
     public void ForceNewId()
     {
         id = null;
         EnsureHasId();
     }
 
-    /// <summary>
-    /// 既存コード互換：MVP-1の Init(tId) 呼び出しが残っていても動くようにする。
-    /// 配置用途として扱い、typeId設定＋新規ID付与を行う。
-    /// </summary>
     public void Init(string t)
     {
         InitType(t);
