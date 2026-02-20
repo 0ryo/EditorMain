@@ -17,7 +17,6 @@ public class StepNodeUI : MonoBehaviour
     [Header("Conditions")]
     public RectTransform conditionListRoot;
     public ConditionRowUI conditionRowTemplate;
-    public Button addConditionButton;
 
     StepNode step;
     CurriculumGraphService graphService;
@@ -47,13 +46,10 @@ public class StepNodeUI : MonoBehaviour
         inputConnector.onClick.AddListener(() => onClickInputConnector?.Invoke(step.id));
         outputConnector.onClick.AddListener(() => onClickOutputConnector?.Invoke(step.id));
 
-        addConditionButton.onClick.RemoveAllListeners();
-        addConditionButton.onClick.AddListener(() =>
+        if (step.conditions.Count == 0)
         {
             step.conditions.Add(new ProximityPair { aObjectId = null, bObjectId = null });
-            RebuildConditions();
-            onChanged?.Invoke();
-        });
+        }
 
         RebuildConditions();
         RefreshWarning();
@@ -79,47 +75,27 @@ public class StepNodeUI : MonoBehaviour
         conditionRows.Clear();
         var options = PlacedObjectOptionProvider.GetOptions();
 
-        for (int i = 0; i < step.conditions.Count; i++)
-        {
-            int index = i;
-            var row = Instantiate(conditionRowTemplate, conditionListRoot);
-            row.gameObject.SetActive(true);
+        var row = Instantiate(conditionRowTemplate, conditionListRoot);
+        row.gameObject.SetActive(true);
 
-            row.Bind(
-                options,
-                step.conditions[index].aObjectId,
-                step.conditions[index].bObjectId,
-                onAChanged: newId =>
-                {
-                    step.conditions[index].aObjectId = newId;
-                    RefreshWarning();
-                    onChanged?.Invoke();
-                },
-                onBChanged: newId =>
-                {
-                    step.conditions[index].bObjectId = newId;
-                    RefreshWarning();
-                    onChanged?.Invoke();
-                },
-                onRemove: () =>
-                {
-                    if (step.conditions.Count <= 1)
-                    {
-                        step.conditions[index].aObjectId = null;
-                        step.conditions[index].bObjectId = null;
-                    }
-                    else
-                    {
-                        step.conditions.RemoveAt(index);
-                    }
+        row.Bind(
+            options,
+            step.conditions[0].aObjectId,
+            step.conditions[0].bObjectId,
+            onAChanged: newId =>
+            {
+                step.conditions[0].aObjectId = newId;
+                RefreshWarning();
+                onChanged?.Invoke();
+            },
+            onBChanged: newId =>
+            {
+                step.conditions[0].bObjectId = newId;
+                RefreshWarning();
+                onChanged?.Invoke();
+            }
+        );
 
-                    RebuildConditions();
-                    RefreshWarning();
-                    onChanged?.Invoke();
-                }
-            );
-
-            conditionRows.Add(row);
-        }
+        conditionRows.Add(row);
     }
 }

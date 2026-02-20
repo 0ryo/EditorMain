@@ -309,12 +309,8 @@ public class ScenarioGraphUI : MonoBehaviour
         SetAnchors(outputButton.GetComponent<RectTransform>(), new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(-30f, -12f), new Vector2(-6f, 12f));
 
         var listRoot = FindOrCreateRect("ConditionList", root.transform);
-        SetAnchors(listRoot, new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(12f, 36f), new Vector2(-12f, 96f));
+        SetAnchors(listRoot, new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(12f, 10f), new Vector2(-12f, 76f));
         EnsureVerticalLayout(listRoot.gameObject, 4f);
-
-        var addCondition = EnsureButton(FindOrCreateRect("Button_AddCondition", root.transform).gameObject, "+ 条件");
-        addCondition.GetComponent<Image>().color = new Color(0.99f, 0.94f, 0.70f, 1f);
-        SetAnchors(addCondition.GetComponent<RectTransform>(), new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(12f, 8f), new Vector2(-12f, 30f));
 
         var rowTemplate = BuildConditionRowTemplate(listRoot);
 
@@ -325,7 +321,6 @@ public class ScenarioGraphUI : MonoBehaviour
         node.outputConnector = outputButton;
         node.conditionListRoot = listRoot;
         node.conditionRowTemplate = rowTemplate;
-        node.addConditionButton = addCondition;
 
         root.SetActive(false);
         rowTemplate.gameObject.SetActive(false);
@@ -345,21 +340,27 @@ public class ScenarioGraphUI : MonoBehaviour
         rowGo.transform.SetParent(parent, false);
         EnsureImage(rowGo, new Color(1f, 0.99f, 0.92f, 1f));
         var rowRect = rowGo.GetComponent<RectTransform>();
-        rowRect.sizeDelta = new Vector2(0f, 30f);
-        SetMinHeight(rowGo, 30f);
-        EnsureHorizontalLayout(rowGo, 4f);
+        rowRect.sizeDelta = new Vector2(0f, 62f);
+        SetMinHeight(rowGo, 62f);
+        EnsureVerticalLayout(rowGo, 4f);
 
         var row = rowGo.GetComponent<ConditionRowUI>();
-        row.dropdownA = CreateDropdown("DropdownA", rowGo.transform);
-        row.dropdownB = CreateDropdown("DropdownB", rowGo.transform);
-        row.removeButton = EnsureButton(FindOrCreateRect("ButtonRemove", rowGo.transform).gameObject, "x");
+        var lineA = FindOrCreateRect("LineA", rowGo.transform);
+        EnsureHorizontalLayout(lineA.gameObject, 6f);
+        var lineB = FindOrCreateRect("LineB", rowGo.transform);
+        EnsureHorizontalLayout(lineB.gameObject, 6f);
+
+        row.dropdownA = CreateDropdown("DropdownA", lineA.transform);
+        row.textAfterA = CreateText("Text_AfterA", lineA.transform, "を", 13, TextAnchor.MiddleLeft);
+        row.dropdownB = CreateDropdown("DropdownB", lineB.transform);
+        row.textAfterB = CreateText("Text_AfterB", lineB.transform, "に近づけたら", 13, TextAnchor.MiddleLeft);
         row.dropdownA.GetComponent<Image>().color = new Color(1f, 0.98f, 0.86f, 1f);
         row.dropdownB.GetComponent<Image>().color = new Color(1f, 0.98f, 0.86f, 1f);
-        row.removeButton.GetComponent<Image>().color = new Color(0.99f, 0.94f, 0.70f, 1f);
 
         SetFlexibleWidth(row.dropdownA.gameObject);
         SetFlexibleWidth(row.dropdownB.gameObject);
-        SetMinWidth(row.removeButton.gameObject, 30f);
+        SetMinWidth(row.textAfterA.gameObject, 24f);
+        SetMinWidth(row.textAfterB.gameObject, 96f);
 
         return row;
     }

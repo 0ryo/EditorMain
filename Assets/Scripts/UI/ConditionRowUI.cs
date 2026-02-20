@@ -7,15 +7,15 @@ public class ConditionRowUI : MonoBehaviour
 {
     public Dropdown dropdownA;
     public Dropdown dropdownB;
-    public Button removeButton;
+    public Text textAfterA;
+    public Text textAfterB;
 
     public void Bind(
         List<PlacedObjectOptionProvider.Option> options,
         string currentAId,
         string currentBId,
         Action<string> onAChanged,
-        Action<string> onBChanged,
-        Action onRemove
+        Action<string> onBChanged
     )
     {
         var labels = new List<string> { "未設定" };
@@ -38,8 +38,8 @@ public class ConditionRowUI : MonoBehaviour
         dropdownA.onValueChanged.AddListener(v => onAChanged?.Invoke(IndexToId(options, v)));
         dropdownB.onValueChanged.AddListener(v => onBChanged?.Invoke(IndexToId(options, v)));
 
-        removeButton.onClick.RemoveAllListeners();
-        removeButton.onClick.AddListener(() => onRemove?.Invoke());
+        if (textAfterA != null) textAfterA.text = "を";
+        if (textAfterB != null) textAfterB.text = "に近づけたら";
     }
 
     int IdToIndex(List<PlacedObjectOptionProvider.Option> options, string id)
