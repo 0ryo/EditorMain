@@ -56,7 +56,7 @@ public class ScenarioGraphUI : MonoBehaviour
     void BuildRuntimePanelIfNeeded()
     {
         defaultFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-        roundedSprite = Resources.GetBuiltinResource<Sprite>("UI/Skin/Background.psd");
+        roundedSprite = CreateRoundedRuntimeSprite(32, 8);
 
         var canvas = FindObjectOfType<Canvas>();
         if (canvas == null)
@@ -572,5 +572,47 @@ public class ScenarioGraphUI : MonoBehaviour
         var e = go.GetComponent<LayoutElement>();
         if (e == null) e = go.AddComponent<LayoutElement>();
         e.flexibleWidth = 1f;
+    }
+
+    Sprite CreateRoundedRuntimeSprite(int size, int radius)
+    {
+        var tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+        tex.wrapMode = TextureWrapMode.Clamp;
+
+        float r = radius;
+        float innerMin = r;
+        float innerMax = size - r - 1;
+
+        for (int y = 0; y < size; y++)
+        {
+            for (int x = 0; x < size; x++)
+            {
+                bool insideX = x >= innerMin && x <= innerMax;
+                bool insideY = y >= innerMin && y <= innerMax;
+
+                bool opaque = insideX || insideY;
+                if (!opaque)
+                {
+                    float cx = x < innerMin ? innerMin : innerMax;
+                    float cy = y < innerMin ? innerMin : innerMax;
+                    float dx = x - cx;
+                    float dy = y - cy;
+                    opaque = (dx * dx + dy * dy) <= (r * r);
+                }
+
+                tex.SetPixel(x, y, opaque ? Color.white : new Color(1f, 1f, 1f, 0f));
+            }
+        }
+
+        tex.Apply();
+        return Sprite.Create(
+            tex,
+            new Rect(0f, 0f, size, size),
+            new Vector2(0.5f, 0.5f),
+            100f,
+            0u,
+            SpriteMeshType.FullRect,
+            new Vector4(radius, radius, radius, radius)
+        );
     }
 }
