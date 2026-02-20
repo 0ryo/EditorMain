@@ -17,6 +17,20 @@ Unity上で動作する、オブジェクト配置・編集ツールのエディ
 - 全ての操作（配置、移動、回転、削除）はコマンドとして管理されます。
 - `Ctrl+Z` で元に戻す (Undo)、`Ctrl+Y` でやり直し (Redo) が可能です。
 
+### 3. UI（Canvas/Prefab運用）
+- UIは **uGUI（Canvas） + Prefab** を正として運用します。
+- `Assets/UI/Prefabs/UIRoot.prefab` に以下の操作ウィンドウを統合しています。
+  - オブジェクト一覧ウィンドウ（`Panel_Catalog`）
+  - ノード追加ウィンドウ（`Panel_ScenarioGraph`）
+- 両ウィンドウは隙間なく接続され、以下のリサイズに対応しています。
+  - オブジェクト一覧: 左右方向リサイズ
+  - ノード追加: 上下方向リサイズ
+
+### 4. シナリオ作成UI（MVP）
+- ノード追加・接続・保存（`curriculum.json`）に対応。
+- 保存先は `Assets/Exports/<ProjectName>-curriculum.json`。
+- ノードUIはCanvas上のPrefab参照で構築し、見た目調整はPrefab側で行います。
+
 ## 主要スクリプト (Key Scripts)
 
 ### Core Systems
@@ -38,7 +52,15 @@ Unity上で動作する、オブジェクト配置・編集ツールのエディ
 
 ### UI & Visuals
 - **`CatalogUI.cs`**: 配置するプレハブを選択するUIの制御。
+- **`ScenarioGraphUI.cs`**: シナリオノードUI（追加・接続・保存）の制御。
 - **`SelectionOutline.cs`**: 選択されたオブジェクトの輪郭線描画。
+- **`PanelHorizontalResizeHandle.cs`**: オブジェクト一覧ウィンドウの横リサイズ。
+- **`PanelVerticalResizeHandle.cs`**: ノード追加ウィンドウの縦リサイズ。
+- **`UiPanelDockSync.cs`**: 2ウィンドウ間の隙間ゼロ維持（追従同期）。
+
+### Editor Automation
+- **`BuildUiPrefabs.cs`**: `UIRoot.prefab` を自動生成/更新。
+- **`ApplyUiPrefab.cs`**: Sceneへ `UIRoot` を適用し、必要なUI参照・構成を反映。
 
 ## 操作方法 (Controls)
 
@@ -53,11 +75,26 @@ Unity上で動作する、オブジェクト配置・編集ツールのエディ
 ## ディレクトリ構造
 ```text
 Assets/
-├── Scripts/            # C#スクリプト
-├── Prefabs/            # 配置用プレハブ
-├── Data/               # 設定データ (ScriptableObjects)
-└── Scenes/             # サンプルシーン
+├── Scripts/                  # C#スクリプト
+│   ├── Core/                 # データモデル
+│   ├── Services/             # サービス層
+│   └── UI/                   # UI制御/リサイズ/同期
+├── UI/
+│   └── Prefabs/
+│       └── UIRoot.prefab     # 操作UIルート（Canvas）
+├── Editor/
+│   └── Automation/           # UI Prefab生成/Scene適用自動化
+├── Prefabs/                  # 配置用プレハブ
+├── Data/                     # 設定データ (ScriptableObjects)
+├── Exports/                  # 出力JSON
+└── Scenes/                   # サンプルシーン
 ```
+
+## UI自動化の実行
+- `BuildUiPrefabs.Build`:
+  - `Assets/UI/Prefabs/UIRoot.prefab` を生成/更新します。
+- `ApplyUiPrefab.Apply`:
+  - 対象Sceneへ `UIRoot` を配置（未配置時）し、UI構成を適用します。
 
 ## ライセンス
 [License Information Here]
