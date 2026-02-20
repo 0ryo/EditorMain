@@ -25,6 +25,7 @@ public class ScenarioGraphUI : MonoBehaviour
 
     string linkingFromStepId;
     readonly Dictionary<string, StepNodeUI> nodeUIs = new Dictionary<string, StepNodeUI>();
+    readonly Dictionary<string, Vector2> nodePositions = new Dictionary<string, Vector2>();
     readonly List<ConnectionLineGraphic> lines = new List<ConnectionLineGraphic>();
 
     void Start()
@@ -125,6 +126,13 @@ public class ScenarioGraphUI : MonoBehaviour
     {
         graph.RepairBrokenReferences();
 
+        foreach (var pair in nodeUIs)
+        {
+            if (pair.Value == null) continue;
+            var rt = pair.Value.GetComponent<RectTransform>();
+            nodePositions[pair.Key] = rt.anchoredPosition;
+        }
+
         foreach (Transform child in nodeArea)
         {
             if (child == nodeTemplate.transform || child == lineLayer) continue;
@@ -133,8 +141,6 @@ public class ScenarioGraphUI : MonoBehaviour
 
         nodeUIs.Clear();
 
-        float x = 30f;
-        float y = -22f;
         foreach (var step in graph.curriculum.steps)
         {
             var ui = Instantiate(nodeTemplate, nodeArea);
@@ -142,13 +148,13 @@ public class ScenarioGraphUI : MonoBehaviour
             ui.gameObject.SetActive(true);
 
             var rt = ui.GetComponent<RectTransform>();
-            rt.anchoredPosition = new Vector2(x, y);
-
-            y -= 170f;
-            if (y < -320f)
+            if (nodePositions.TryGetValue(step.id, out var savedPosition))
             {
-                y = -22f;
-                x += 420f;
+                rt.anchoredPosition = savedPosition;
+            }
+            else
+            {
+                rt.anchoredPosition = Vector2.zero;
             }
 
             ui.Bind(graph, step);
