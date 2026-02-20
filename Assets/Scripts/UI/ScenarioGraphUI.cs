@@ -266,7 +266,7 @@ public class ScenarioGraphUI : MonoBehaviour
         root.transform.SetParent(parent, false);
         var rt = root.GetComponent<RectTransform>();
         rt.sizeDelta = new Vector2(390f, 160f);
-        EnsureImage(root, new Color(1f, 1f, 1f, 1f));
+        EnsureImage(root, new Color(1f, 0.98f, 0.86f, 1f));
 
         var node = root.GetComponent<StepNodeUI>();
 
@@ -277,7 +277,7 @@ public class ScenarioGraphUI : MonoBehaviour
         dragHandle.transform.SetParent(root.transform, false);
         SetAnchors(dragHandle.GetComponent<RectTransform>(), new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0f, -28f), new Vector2(0f, 0f));
         var dragImage = dragHandle.GetComponent<Image>();
-        dragImage.color = new Color(0.9f, 0.9f, 0.9f, 1f);
+        dragImage.color = new Color(0.98f, 0.93f, 0.70f, 1f);
         dragHandle.GetComponent<NodeDragHandler>().target = rt;
 
         var warning = CreateText("Warning", root.transform, "!", 18, TextAnchor.MiddleCenter);
@@ -287,7 +287,7 @@ public class ScenarioGraphUI : MonoBehaviour
         var titleInputGo = new GameObject("Input_Title", typeof(RectTransform), typeof(Image), typeof(InputField));
         titleInputGo.transform.SetParent(root.transform, false);
         SetAnchors(titleInputGo.GetComponent<RectTransform>(), new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(12f, -60f), new Vector2(-12f, -30f));
-        EnsureImage(titleInputGo, new Color(1f, 1f, 1f, 1f));
+        EnsureImage(titleInputGo, new Color(1f, 0.99f, 0.92f, 1f));
         var titleInput = titleInputGo.GetComponent<InputField>();
         titleInput.textComponent = CreateText("Text", titleInputGo.transform, "", 14, TextAnchor.MiddleLeft);
         SetAnchors(titleInput.textComponent.rectTransform, new Vector2(0f, 0f), new Vector2(1f, 1f), new Vector2(8f, 0f), new Vector2(-8f, 0f));
@@ -296,8 +296,10 @@ public class ScenarioGraphUI : MonoBehaviour
         SetAnchors(((Text)titleInput.placeholder).rectTransform, new Vector2(0f, 0f), new Vector2(1f, 1f), new Vector2(8f, 0f), new Vector2(-8f, 0f));
 
         var inputButton = CreateCircleButton("InputConnector", root.transform, "<");
+        inputButton.GetComponent<Image>().color = new Color(0.99f, 0.94f, 0.70f, 1f);
         SetAnchors(inputButton.GetComponent<RectTransform>(), new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(6f, -12f), new Vector2(30f, 12f));
         var outputButton = CreateCircleButton("OutputConnector", root.transform, ">");
+        outputButton.GetComponent<Image>().color = new Color(0.99f, 0.94f, 0.70f, 1f);
         SetAnchors(outputButton.GetComponent<RectTransform>(), new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(-30f, -12f), new Vector2(-6f, 12f));
 
         var listRoot = FindOrCreateRect("ConditionList", root.transform);
@@ -305,6 +307,7 @@ public class ScenarioGraphUI : MonoBehaviour
         EnsureVerticalLayout(listRoot.gameObject, 4f);
 
         var addCondition = EnsureButton(FindOrCreateRect("Button_AddCondition", root.transform).gameObject, "+ 条件");
+        addCondition.GetComponent<Image>().color = new Color(0.99f, 0.94f, 0.70f, 1f);
         SetAnchors(addCondition.GetComponent<RectTransform>(), new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(12f, 8f), new Vector2(-12f, 30f));
 
         var rowTemplate = BuildConditionRowTemplate(listRoot);
@@ -334,7 +337,7 @@ public class ScenarioGraphUI : MonoBehaviour
 
         var rowGo = new GameObject("ConditionRowTemplate", typeof(RectTransform), typeof(ConditionRowUI), typeof(Image));
         rowGo.transform.SetParent(parent, false);
-        EnsureImage(rowGo, new Color(1f, 1f, 1f, 1f));
+        EnsureImage(rowGo, new Color(1f, 0.99f, 0.92f, 1f));
         var rowRect = rowGo.GetComponent<RectTransform>();
         rowRect.sizeDelta = new Vector2(0f, 30f);
         SetMinHeight(rowGo, 30f);
@@ -344,6 +347,9 @@ public class ScenarioGraphUI : MonoBehaviour
         row.dropdownA = CreateDropdown("DropdownA", rowGo.transform);
         row.dropdownB = CreateDropdown("DropdownB", rowGo.transform);
         row.removeButton = EnsureButton(FindOrCreateRect("ButtonRemove", rowGo.transform).gameObject, "x");
+        row.dropdownA.GetComponent<Image>().color = new Color(1f, 0.98f, 0.86f, 1f);
+        row.dropdownB.GetComponent<Image>().color = new Color(1f, 0.98f, 0.86f, 1f);
+        row.removeButton.GetComponent<Image>().color = new Color(0.99f, 0.94f, 0.70f, 1f);
 
         SetFlexibleWidth(row.dropdownA.gameObject);
         SetFlexibleWidth(row.dropdownB.gameObject);
