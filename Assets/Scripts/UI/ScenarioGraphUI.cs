@@ -12,6 +12,7 @@ public class ScenarioGraphUI : MonoBehaviour
     public float panelHeight = 280f;
 
     Font defaultFont;
+    Sprite roundedSprite;
     RectTransform panelRoot;
     InputField projectNameInput;
     Button addStepButton;
@@ -55,6 +56,7 @@ public class ScenarioGraphUI : MonoBehaviour
     void BuildRuntimePanelIfNeeded()
     {
         defaultFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        roundedSprite = Resources.GetBuiltinResource<Sprite>("UI/Skin/Background.psd");
 
         var canvas = FindObjectOfType<Canvas>();
         if (canvas == null)
@@ -70,7 +72,7 @@ public class ScenarioGraphUI : MonoBehaviour
 
         panelRoot = FindOrCreateRect("Panel_ScenarioGraph", canvas.transform);
         SetAnchors(panelRoot, new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(0f, 0f), new Vector2(0f, panelHeight));
-        EnsureImage(panelRoot.gameObject, new Color(0f, 0f, 0f, 0.55f));
+        EnsureImage(panelRoot.gameObject, new Color(0.96f, 0.96f, 0.96f, 1f));
 
         var topBar = FindOrCreateRect("TopBar", panelRoot);
         SetAnchors(topBar, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(12f, -44f), new Vector2(-12f, -8f));
@@ -95,7 +97,7 @@ public class ScenarioGraphUI : MonoBehaviour
 
         nodeArea = FindOrCreateRect("NodeArea", panelRoot);
         SetAnchors(nodeArea, new Vector2(0f, 0f), new Vector2(1f, 1f), new Vector2(12f, 8f), new Vector2(-12f, -52f));
-        EnsureImage(nodeArea.gameObject, new Color(1f, 1f, 1f, 0.04f));
+        EnsureImage(nodeArea.gameObject, new Color(1f, 1f, 1f, 1f));
 
         lineLayer = FindOrCreateRect("LineLayer", nodeArea);
         SetAnchors(lineLayer, new Vector2(0f, 0f), new Vector2(1f, 1f), Vector2.zero, Vector2.zero);
@@ -197,7 +199,7 @@ public class ScenarioGraphUI : MonoBehaviour
                 line.gameObject.SetActive(true);
                 line.from = fromUi.outputConnector.GetComponent<RectTransform>();
                 line.to = toUi.inputConnector.GetComponent<RectTransform>();
-                line.color = new Color(1f, 1f, 1f, 0.9f);
+                line.color = new Color(0.35f, 0.35f, 0.35f, 1f);
                 lines.Add(line);
             }
         }
@@ -263,7 +265,7 @@ public class ScenarioGraphUI : MonoBehaviour
         root.transform.SetParent(parent, false);
         var rt = root.GetComponent<RectTransform>();
         rt.sizeDelta = new Vector2(390f, 160f);
-        EnsureImage(root, new Color(0.11f, 0.11f, 0.11f, 0.95f));
+        EnsureImage(root, new Color(1f, 1f, 1f, 1f));
 
         var node = root.GetComponent<StepNodeUI>();
 
@@ -274,7 +276,7 @@ public class ScenarioGraphUI : MonoBehaviour
         dragHandle.transform.SetParent(root.transform, false);
         SetAnchors(dragHandle.GetComponent<RectTransform>(), new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0f, -28f), new Vector2(0f, 0f));
         var dragImage = dragHandle.GetComponent<Image>();
-        dragImage.color = new Color(1f, 1f, 1f, 0.02f);
+        dragImage.color = new Color(0.9f, 0.9f, 0.9f, 1f);
         dragHandle.GetComponent<NodeDragHandler>().target = rt;
 
         var warning = CreateText("Warning", root.transform, "!", 18, TextAnchor.MiddleCenter);
@@ -284,12 +286,12 @@ public class ScenarioGraphUI : MonoBehaviour
         var titleInputGo = new GameObject("Input_Title", typeof(RectTransform), typeof(Image), typeof(InputField));
         titleInputGo.transform.SetParent(root.transform, false);
         SetAnchors(titleInputGo.GetComponent<RectTransform>(), new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(12f, -60f), new Vector2(-12f, -30f));
-        EnsureImage(titleInputGo, new Color(1f, 1f, 1f, 0.1f));
+        EnsureImage(titleInputGo, new Color(1f, 1f, 1f, 1f));
         var titleInput = titleInputGo.GetComponent<InputField>();
         titleInput.textComponent = CreateText("Text", titleInputGo.transform, "", 14, TextAnchor.MiddleLeft);
         SetAnchors(titleInput.textComponent.rectTransform, new Vector2(0f, 0f), new Vector2(1f, 1f), new Vector2(8f, 0f), new Vector2(-8f, 0f));
         titleInput.placeholder = CreateText("Placeholder", titleInputGo.transform, "タイトル", 14, TextAnchor.MiddleLeft);
-        titleInput.placeholder.color = new Color(1f, 1f, 1f, 0.45f);
+        titleInput.placeholder.color = new Color(0.55f, 0.55f, 0.55f, 1f);
         SetAnchors(((Text)titleInput.placeholder).rectTransform, new Vector2(0f, 0f), new Vector2(1f, 1f), new Vector2(8f, 0f), new Vector2(-8f, 0f));
 
         var inputButton = CreateCircleButton("InputConnector", root.transform, "<");
@@ -331,7 +333,7 @@ public class ScenarioGraphUI : MonoBehaviour
 
         var rowGo = new GameObject("ConditionRowTemplate", typeof(RectTransform), typeof(ConditionRowUI), typeof(Image));
         rowGo.transform.SetParent(parent, false);
-        EnsureImage(rowGo, new Color(1f, 1f, 1f, 0.05f));
+        EnsureImage(rowGo, new Color(1f, 1f, 1f, 1f));
         var rowRect = rowGo.GetComponent<RectTransform>();
         rowRect.sizeDelta = new Vector2(0f, 30f);
         SetMinHeight(rowGo, 30f);
@@ -389,6 +391,11 @@ public class ScenarioGraphUI : MonoBehaviour
     {
         var image = go.GetComponent<Image>();
         if (image == null) image = go.AddComponent<Image>();
+        if (roundedSprite != null)
+        {
+            image.sprite = roundedSprite;
+            image.type = Image.Type.Sliced;
+        }
         image.color = color;
         return image;
     }
@@ -398,7 +405,7 @@ public class ScenarioGraphUI : MonoBehaviour
         var text = go.GetComponent<Text>();
         if (text == null) text = go.AddComponent<Text>();
         text.font = defaultFont;
-        text.color = Color.white;
+        text.color = Color.black;
         text.fontSize = 14;
         text.text = value;
         return text;
@@ -412,14 +419,14 @@ public class ScenarioGraphUI : MonoBehaviour
         text.font = defaultFont;
         text.text = value;
         text.fontSize = fontSize;
-        text.color = Color.white;
+        text.color = Color.black;
         text.alignment = anchor;
         return text;
     }
 
     InputField EnsureInputField(GameObject go, string placeholder)
     {
-        EnsureImage(go, new Color(1f, 1f, 1f, 0.1f));
+        EnsureImage(go, new Color(1f, 1f, 1f, 1f));
         var input = go.GetComponent<InputField>();
         if (input == null) input = go.AddComponent<InputField>();
 
@@ -432,7 +439,7 @@ public class ScenarioGraphUI : MonoBehaviour
         if (input.placeholder == null)
         {
             var ph = CreateText("Placeholder", go.transform, placeholder, 14, TextAnchor.MiddleLeft);
-            ph.color = new Color(1f, 1f, 1f, 0.45f);
+            ph.color = new Color(0.55f, 0.55f, 0.55f, 1f);
             SetAnchors(ph.rectTransform, new Vector2(0f, 0f), new Vector2(1f, 1f), new Vector2(8f, 0f), new Vector2(-8f, 0f));
             input.placeholder = ph;
         }
@@ -442,7 +449,7 @@ public class ScenarioGraphUI : MonoBehaviour
 
     Button EnsureButton(GameObject go, string label)
     {
-        EnsureImage(go, new Color(1f, 1f, 1f, 0.14f));
+        EnsureImage(go, new Color(1f, 1f, 1f, 1f));
         var button = go.GetComponent<Button>();
         if (button == null) button = go.AddComponent<Button>();
 
@@ -466,7 +473,7 @@ public class ScenarioGraphUI : MonoBehaviour
         go.transform.SetParent(parent, false);
         var button = EnsureButton(go, label);
         var image = go.GetComponent<Image>();
-        image.color = new Color(1f, 1f, 1f, 0.22f);
+        image.color = new Color(1f, 1f, 1f, 1f);
         return button;
     }
 
@@ -474,7 +481,7 @@ public class ScenarioGraphUI : MonoBehaviour
     {
         var root = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Dropdown));
         root.transform.SetParent(parent, false);
-        EnsureImage(root, new Color(1f, 1f, 1f, 0.12f));
+        EnsureImage(root, new Color(1f, 1f, 1f, 1f));
 
         var caption = CreateText("Caption", root.transform, "未設定", 13, TextAnchor.MiddleLeft);
         SetAnchors(caption.rectTransform, new Vector2(0f, 0f), new Vector2(1f, 1f), new Vector2(8f, 0f), new Vector2(-22f, 0f));
@@ -489,7 +496,7 @@ public class ScenarioGraphUI : MonoBehaviour
         viewport.transform.SetParent(template.transform, false);
         var viewportRect = viewport.GetComponent<RectTransform>();
         SetAnchors(viewportRect, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
-        viewport.GetComponent<Image>().color = new Color(0f, 0f, 0f, 0.2f);
+        viewport.GetComponent<Image>().color = new Color(1f, 1f, 1f, 1f);
         viewport.GetComponent<Mask>().showMaskGraphic = false;
 
         var content = new GameObject("Content", typeof(RectTransform), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
@@ -503,7 +510,7 @@ public class ScenarioGraphUI : MonoBehaviour
         var item = new GameObject("Item", typeof(RectTransform), typeof(Toggle));
         item.transform.SetParent(content.transform, false);
         item.GetComponent<RectTransform>().sizeDelta = new Vector2(0f, 24f);
-        EnsureImage(item, new Color(1f, 1f, 1f, 0.08f));
+        EnsureImage(item, new Color(1f, 1f, 1f, 1f));
 
         var itemLabel = CreateText("Item Label", item.transform, "Option", 13, TextAnchor.MiddleLeft);
         SetAnchors(itemLabel.rectTransform, Vector2.zero, Vector2.one, new Vector2(8f, 0f), new Vector2(-8f, 0f));
