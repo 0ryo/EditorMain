@@ -73,6 +73,7 @@ public class ScenarioGraphUI : MonoBehaviour
         panelRoot = FindOrCreateRect("Panel_ScenarioGraph", canvas.transform);
         SetAnchors(panelRoot, new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(0f, 0f), new Vector2(0f, panelHeight));
         EnsureImage(panelRoot.gameObject, new Color(0.96f, 0.96f, 0.96f, 1f));
+        BuildResizeHandle(panelRoot);
 
         var topBar = FindOrCreateRect("TopBar", panelRoot);
         SetAnchors(topBar, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(12f, -44f), new Vector2(-12f, -8f));
@@ -572,6 +573,19 @@ public class ScenarioGraphUI : MonoBehaviour
         var e = go.GetComponent<LayoutElement>();
         if (e == null) e = go.AddComponent<LayoutElement>();
         e.flexibleWidth = 1f;
+    }
+
+    void BuildResizeHandle(RectTransform panel)
+    {
+        var handle = FindOrCreateRect("ResizeHandle", panel);
+        SetAnchors(handle, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0f, -6f), new Vector2(0f, 6f));
+
+        var image = EnsureImage(handle.gameObject, new Color(0.8f, 0.8f, 0.8f, 1f));
+        image.raycastTarget = true;
+
+        var resize = handle.GetComponent<PanelVerticalResizeHandle>();
+        if (resize == null) resize = handle.gameObject.AddComponent<PanelVerticalResizeHandle>();
+        resize.targetPanel = panel;
     }
 
     Sprite CreateRoundedRuntimeSprite(int size, int radius)
