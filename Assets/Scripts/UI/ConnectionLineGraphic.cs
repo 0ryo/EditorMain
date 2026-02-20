@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 
+[RequireComponent(typeof(CanvasRenderer))]
 public class ConnectionLineGraphic : Graphic
 {
     public RectTransform from;
