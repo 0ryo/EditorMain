@@ -13,6 +13,7 @@ public class ScenarioGraphUI : MonoBehaviour
 
     Font defaultFont;
     Sprite roundedSprite;
+    Sprite circleSprite;
     RectTransform panelRoot;
     InputField projectNameInput;
     Button addStepButton;
@@ -58,6 +59,7 @@ public class ScenarioGraphUI : MonoBehaviour
     {
         defaultFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
         roundedSprite = CreateRoundedRuntimeSprite(32, 8);
+        circleSprite = CreateCircleRuntimeSprite(32);
 
         var canvas = FindObjectOfType<Canvas>();
         if (canvas == null)
@@ -78,6 +80,7 @@ public class ScenarioGraphUI : MonoBehaviour
 
         var topBar = FindOrCreateRect("TopBar", panelRoot);
         SetAnchors(topBar, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(12f, -44f), new Vector2(-12f, -8f));
+        EnsureImage(topBar.gameObject, new Color(0.96f, 0.96f, 0.96f, 1f));
         EnsureHorizontalLayout(topBar.gameObject, 10f);
 
         var projectFieldRoot = FindOrCreateRect("Input_ProjectName", topBar);
@@ -271,7 +274,7 @@ public class ScenarioGraphUI : MonoBehaviour
         var root = new GameObject("StepNodeTemplate", typeof(RectTransform), typeof(Image), typeof(StepNodeUI));
         root.transform.SetParent(parent, false);
         var rt = root.GetComponent<RectTransform>();
-        rt.sizeDelta = new Vector2(390f, 160f);
+        rt.sizeDelta = new Vector2(390f, 180f);
         EnsureImage(root, new Color(1f, 0.98f, 0.86f, 1f));
 
         var node = root.GetComponent<StepNodeUI>();
@@ -301,16 +304,16 @@ public class ScenarioGraphUI : MonoBehaviour
         titleInput.placeholder.color = new Color(0.55f, 0.55f, 0.55f, 1f);
         SetAnchors(((Text)titleInput.placeholder).rectTransform, new Vector2(0f, 0f), new Vector2(1f, 1f), new Vector2(8f, 0f), new Vector2(-8f, 0f));
 
-        var inputButton = CreateCircleButton("InputConnector", root.transform, "<");
+        var inputButton = CreateCircleButton("InputConnector", root.transform);
         inputButton.GetComponent<Image>().color = new Color(0.99f, 0.94f, 0.70f, 1f);
-        SetAnchors(inputButton.GetComponent<RectTransform>(), new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(6f, -12f), new Vector2(30f, 12f));
-        var outputButton = CreateCircleButton("OutputConnector", root.transform, ">");
+        SetAnchors(inputButton.GetComponent<RectTransform>(), new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(-14f, -12f), new Vector2(10f, 12f));
+        var outputButton = CreateCircleButton("OutputConnector", root.transform);
         outputButton.GetComponent<Image>().color = new Color(0.99f, 0.94f, 0.70f, 1f);
-        SetAnchors(outputButton.GetComponent<RectTransform>(), new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(-30f, -12f), new Vector2(-6f, 12f));
+        SetAnchors(outputButton.GetComponent<RectTransform>(), new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(-10f, -12f), new Vector2(14f, 12f));
 
         var listRoot = FindOrCreateRect("ConditionList", root.transform);
-        SetAnchors(listRoot, new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(12f, 10f), new Vector2(-12f, 76f));
-        EnsureVerticalLayout(listRoot.gameObject, 4f);
+        SetAnchors(listRoot, new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(16f, 12f), new Vector2(-16f, 88f));
+        EnsureVerticalLayout(listRoot.gameObject, 8f);
 
         var rowTemplate = BuildConditionRowTemplate(listRoot);
 
@@ -340,15 +343,15 @@ public class ScenarioGraphUI : MonoBehaviour
         rowGo.transform.SetParent(parent, false);
         EnsureImage(rowGo, new Color(1f, 0.99f, 0.92f, 1f));
         var rowRect = rowGo.GetComponent<RectTransform>();
-        rowRect.sizeDelta = new Vector2(0f, 62f);
-        SetMinHeight(rowGo, 62f);
-        EnsureVerticalLayout(rowGo, 4f);
+        rowRect.sizeDelta = new Vector2(0f, 76f);
+        SetMinHeight(rowGo, 76f);
+        EnsureVerticalLayout(rowGo, 8f);
 
         var row = rowGo.GetComponent<ConditionRowUI>();
         var lineA = FindOrCreateRect("LineA", rowGo.transform);
-        EnsureHorizontalLayout(lineA.gameObject, 6f);
+        EnsureHorizontalLayout(lineA.gameObject, 10f);
         var lineB = FindOrCreateRect("LineB", rowGo.transform);
-        EnsureHorizontalLayout(lineB.gameObject, 6f);
+        EnsureHorizontalLayout(lineB.gameObject, 10f);
 
         row.dropdownA = CreateDropdown("DropdownA", lineA.transform);
         row.textAfterA = CreateText("Text_AfterA", lineA.transform, "を", 13, TextAnchor.MiddleLeft);
@@ -481,12 +484,18 @@ public class ScenarioGraphUI : MonoBehaviour
         return button;
     }
 
-    Button CreateCircleButton(string name, Transform parent, string label)
+    Button CreateCircleButton(string name, Transform parent)
     {
         var go = new GameObject(name, typeof(RectTransform));
         go.transform.SetParent(parent, false);
-        var button = EnsureButton(go, label);
+        var button = EnsureButton(go, "");
         var image = go.GetComponent<Image>();
+        if (circleSprite != null)
+        {
+            image.sprite = circleSprite;
+            image.type = Image.Type.Simple;
+            image.preserveAspect = true;
+        }
         image.color = new Color(1f, 1f, 1f, 1f);
         return button;
     }
@@ -603,6 +612,12 @@ public class ScenarioGraphUI : MonoBehaviour
                 image.type = Image.Type.Sliced;
             }
         }
+        var topBar = panel.Find("TopBar");
+        if (topBar != null)
+        {
+            var topBarImage = topBar.GetComponent<Image>();
+            if (topBarImage != null) image.color = topBarImage.color;
+        }
         image.raycastTarget = true;
 
         var resize = handle.GetComponent<PanelVerticalResizeHandle>();
@@ -649,6 +664,34 @@ public class ScenarioGraphUI : MonoBehaviour
             0u,
             SpriteMeshType.FullRect,
             new Vector4(radius, radius, radius, radius)
+        );
+    }
+
+    Sprite CreateCircleRuntimeSprite(int size)
+    {
+        var tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+        tex.wrapMode = TextureWrapMode.Clamp;
+        float center = (size - 1) * 0.5f;
+        float radius = center;
+        float radiusSq = radius * radius;
+
+        for (int y = 0; y < size; y++)
+        {
+            for (int x = 0; x < size; x++)
+            {
+                float dx = x - center;
+                float dy = y - center;
+                bool inside = (dx * dx + dy * dy) <= radiusSq;
+                tex.SetPixel(x, y, inside ? Color.white : new Color(1f, 1f, 1f, 0f));
+            }
+        }
+
+        tex.Apply();
+        return Sprite.Create(
+            tex,
+            new Rect(0f, 0f, size, size),
+            new Vector2(0.5f, 0.5f),
+            100f
         );
     }
 }
