@@ -54,7 +54,7 @@ public class ScenarioGraphUI : MonoBehaviour
 
     void BuildRuntimePanelIfNeeded()
     {
-        defaultFont = Resources.GetBuiltinResource<Font>("Arial.ttf");
+        defaultFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
 
         var canvas = FindObjectOfType<Canvas>();
         if (canvas == null)
