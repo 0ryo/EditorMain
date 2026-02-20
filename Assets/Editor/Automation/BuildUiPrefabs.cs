@@ -22,8 +22,9 @@ public static class BuildUiPrefabs
         scaler.referenceResolution = new Vector2(1920f, 1080f);
         root.AddComponent<GraphicRaycaster>();
 
-        BuildCatalogPanel(root.transform);
-        BuildScenarioPanel(root.transform);
+        var catalogPanel = BuildCatalogPanel(root.transform);
+        var scenarioPanel = BuildScenarioPanel(root.transform);
+        BuildDockSync(root, catalogPanel, scenarioPanel);
         BuildEventSystem(root.transform);
 
         PrefabUtility.SaveAsPrefabAsset(root, UiRootPrefabPath);
@@ -39,12 +40,18 @@ public static class BuildUiPrefabs
         eventGo.transform.SetParent(parent, false);
     }
 
-    static void BuildCatalogPanel(Transform parent)
+    static RectTransform BuildCatalogPanel(Transform parent)
     {
         var panel = CreateUiRect("Panel_Catalog", parent);
-        SetRect(panel, new Vector2(0f, 0f), new Vector2(0f, 1f), new Vector2(8f, 8f), new Vector2(280f, -8f));
+        SetRect(panel, new Vector2(0f, 0f), new Vector2(0f, 1f), new Vector2(8f, 8f), new Vector2(288f, -8f));
         var panelImage = panel.gameObject.AddComponent<Image>();
         panelImage.color = new Color(0.96f, 0.96f, 0.96f, 1f);
+
+        var resizeHandle = CreateUiRect("ResizeHandleX", panel);
+        SetRect(resizeHandle, new Vector2(1f, 0f), new Vector2(1f, 1f), new Vector2(-6f, 0f), new Vector2(6f, 0f));
+        resizeHandle.gameObject.AddComponent<Image>().color = new Color(0.96f, 0.96f, 0.96f, 1f);
+        var resize = resizeHandle.gameObject.AddComponent<PanelHorizontalResizeHandle>();
+        resize.targetPanel = panel;
 
         var scroll = CreateUiRect("Scroll_Catalog", panel);
         SetRect(scroll, new Vector2(0f, 0f), new Vector2(1f, 1f), new Vector2(8f, 8f), new Vector2(-8f, -8f));
@@ -86,12 +93,14 @@ public static class BuildUiPrefabs
         so.FindProperty("content").objectReferenceValue = content;
         so.FindProperty("buttonTemplate").objectReferenceValue = btn;
         so.ApplyModifiedPropertiesWithoutUndo();
+
+        return panel;
     }
 
-    static void BuildScenarioPanel(Transform parent)
+    static RectTransform BuildScenarioPanel(Transform parent)
     {
         var panel = CreateUiRect("Panel_ScenarioGraph", parent);
-        SetRect(panel, new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(300f, 0f), new Vector2(-8f, 300f));
+        SetRect(panel, new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(288f, 0f), new Vector2(-8f, 300f));
         panel.gameObject.AddComponent<Image>().color = new Color(0.96f, 0.96f, 0.96f, 1f);
 
         var topBar = CreateUiRect("TopBar", panel);
@@ -147,6 +156,16 @@ public static class BuildUiPrefabs
         so.FindProperty("lineTemplate").objectReferenceValue = lineGraphic;
         so.FindProperty("resizeHandle").objectReferenceValue = resizeComp;
         so.ApplyModifiedPropertiesWithoutUndo();
+
+        return panel;
+    }
+
+    static void BuildDockSync(GameObject root, RectTransform catalogPanel, RectTransform scenarioPanel)
+    {
+        var sync = root.AddComponent<UiPanelDockSync>();
+        sync.catalogPanel = catalogPanel;
+        sync.scenarioPanel = scenarioPanel;
+        sync.gap = 0f;
     }
 
     static StepNodeUI BuildStepNodeTemplate(Transform parent)
