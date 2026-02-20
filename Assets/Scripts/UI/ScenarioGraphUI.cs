@@ -593,7 +593,16 @@ public class ScenarioGraphUI : MonoBehaviour
         var handle = FindOrCreateRect("ResizeHandle", panel);
         SetAnchors(handle, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0f, -6f), new Vector2(0f, 6f));
 
-        var image = EnsureImage(handle.gameObject, new Color(0.8f, 0.8f, 0.8f, 1f));
+        var image = handle.GetComponent<Image>();
+        if (image == null)
+        {
+            image = handle.gameObject.AddComponent<Image>();
+            if (roundedSprite != null)
+            {
+                image.sprite = roundedSprite;
+                image.type = Image.Type.Sliced;
+            }
+        }
         image.raycastTarget = true;
 
         var resize = handle.GetComponent<PanelVerticalResizeHandle>();
