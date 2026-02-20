@@ -622,6 +622,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: UIRoot
       objectReference: {fileID: 0}
+    - target: {fileID: 6547374033007914621, guid: dfa67d6a77b1f4b478f3859971fb8906, type: 3}
+      propertyPath: registry
+      value: 
+      objectReference: {fileID: 11400000, guid: 9bbcc927f75bb8f429114c3969aaa7b9, type: 2}
     - target: {fileID: 8093311693951865501, guid: dfa67d6a77b1f4b478f3859971fb8906, type: 3}
       propertyPath: m_Pivot.x
       value: 0
@@ -1838,7 +1842,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &1437998507
 RectTransform:
   m_ObjectHideFlags: 0

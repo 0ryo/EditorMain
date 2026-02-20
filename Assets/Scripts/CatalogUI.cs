@@ -15,9 +15,12 @@ public class CatalogUI : MonoBehaviour
 
     // 選択時コールバック（Inspector に「On Select Type」として出てくる）
     [SerializeField] StringEvent onSelectType;
+    bool runtimeListenerBound;
 
     void Start()
     {
+        EnsureRuntimeBindings();
+
         if (!registry)        { Debug.LogError("CatalogUI: registry not set");        return; }
         if (!content)         { Debug.LogError("CatalogUI: content not set");         return; }
         if (!buttonTemplate)  { Debug.LogError("CatalogUI: buttonTemplate not set");  return; }
@@ -54,6 +57,23 @@ public class CatalogUI : MonoBehaviour
                     onSelectType.Invoke(id);
                 }
             });
+        }
+    }
+
+    void EnsureRuntimeBindings()
+    {
+        if (onSelectType == null) onSelectType = new StringEvent();
+
+        var placement = FindFirstObjectByType<PlacementController>();
+        if (registry == null && placement != null)
+        {
+            registry = placement.registry;
+        }
+
+        if (!runtimeListenerBound && onSelectType.GetPersistentEventCount() == 0 && placement != null)
+        {
+            onSelectType.AddListener(placement.EnterPlacement);
+            runtimeListenerBound = true;
         }
     }
 }

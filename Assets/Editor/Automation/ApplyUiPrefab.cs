@@ -4,6 +4,7 @@ using System.Linq;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using Object = UnityEngine.Object;
 
 public static class ApplyUiPrefab
 {
@@ -32,16 +33,19 @@ public static class ApplyUiPrefab
             var scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
             bool changed = false;
 
-            var uiRootInScene = Object.FindObjectsOfType<Transform>()
+            var uiRootInScene = Object.FindObjectsByType<Transform>(FindObjectsSortMode.None)
                 .FirstOrDefault(t => t.name == "UIRoot");
 
             if (uiRootInScene == null)
             {
                 var instance = (GameObject)PrefabUtility.InstantiatePrefab(uiRootPrefab, scene);
                 instance.name = "UIRoot";
+                uiRootInScene = instance.transform;
                 changed = true;
                 Debug.Log($"[ApplyUiPrefab] UIRoot added to scene: {scenePath}");
             }
+
+            changed |= ConfigureCatalogUi(scene, uiRootInScene);
 
             if (changed)
             {
@@ -56,6 +60,43 @@ public static class ApplyUiPrefab
 
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
+    }
+
+    static bool ConfigureCatalogUi(UnityEngine.SceneManagement.Scene scene, Transform uiRootInScene)
+    {
+        if (uiRootInScene == null) return false;
+
+        bool changed = false;
+        var preferredCatalog = uiRootInScene.GetComponentInChildren<CatalogUI>(true);
+        var allCatalogs = Object.FindObjectsByType<CatalogUI>(FindObjectsSortMode.None);
+        var placement = Object.FindFirstObjectByType<PlacementController>(FindObjectsInactive.Exclude);
+
+        foreach (var catalog in allCatalogs)
+        {
+            if (catalog == null) continue;
+            if (catalog == preferredCatalog)
+            {
+                var so = new SerializedObject(catalog);
+                var registryProp = so.FindProperty("registry");
+                if (placement != null && placement.registry != null && registryProp != null &&
+                    registryProp.objectReferenceValue != placement.registry)
+                {
+                    registryProp.objectReferenceValue = placement.registry;
+                    so.ApplyModifiedPropertiesWithoutUndo();
+                    changed = true;
+                }
+                continue;
+            }
+
+            if (catalog.gameObject.activeSelf)
+            {
+                catalog.gameObject.SetActive(false);
+                changed = true;
+                Debug.Log($"[ApplyUiPrefab] Legacy Catalog disabled: {catalog.gameObject.name} ({scene.path})");
+            }
+        }
+
+        return changed;
     }
 
     static void EnsureUiRootPrefab()
