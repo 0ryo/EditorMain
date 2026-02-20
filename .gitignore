@@ -6,3 +6,10 @@
 /[Ll]ogs/
 /[Uu]ser[Ss]ettings/
 /[Mm]emoryCaptures/
+
+# Local runtime/export artifacts
+/Assets/Exports/*-curriculum.json
+/Assets/Exports/*-curriculum.json.meta
+
+# Local planning image draft
+/開発計画/UI案.png
