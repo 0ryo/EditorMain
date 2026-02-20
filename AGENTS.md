@@ -33,7 +33,9 @@ Codex（CLI / App）に対して、このUnityプロジェクトでの **作業�
    - uGUI（Canvas/Prefab中心、`UnityEngine.UI` を使用）
 3) シナリオ機能の既存痕跡を検索（`Scenario`, `Story`, `Lesson`, `Step` などの語）
 4) 現状のUI構造（主要Scene/Prefab、UIルート、画面遷移の入口）を短くメモ（作業ログに残す）
-5) 仕様確認が必要な場合は、まず `開発計画/仕様/` 配下のウィンドウ仕様書（`*.md`）を参照する
+5) **新規チャットで作業開始時は、必ず最初に** `Docs/worklog/worklog_latest.md` を参照する
+6) UI実装・UI仕様確認が必要な場合は、`Docs/worklog_UI/` 配下を参照する  
+   参照順は `全体UI仕様.md` → `worklog_*.md`（個別ウィンドウ）とする
 
 ### Phase B: 変更計画（軽量でよいが必須）
 - 何を編集するかを「ファイル単位」で列挙し、依存関係（参照/Prefab/ScriptableObject）を明示する。
@@ -72,6 +74,7 @@ Codex（CLI / App）に対して、このUnityプロジェクトでの **作業�
 - “Scene直置き”を増やさない。可能ならUIはPrefab化して参照で差し込む。
 - RectTransform/アンカー/スケールは既存規約を維持。
 - ボタン/入力/リストなどは共通コンポーネント化を優先（同じ見た目・同じ挙動を量産しない）。
+- UIを実装/調整する前に `Docs/worklog_UI/` を確認し、実装後に仕様差分が出た場合は同ディレクトリの文書を更新する。
 
 ### 3.4 Scene/Prefabを更新する必要がある場合（重要）
 - 直接YAML編集は禁止（最終手段）。
@@ -185,3 +188,13 @@ Codexは以下の手順で進めること：
 ## 8. MCP/外部連携について（方針）🧰
 - Unity MCP は必須ではない。まずは「ファイル編集 + Unity CLI（-executeMethod）」で完結させる。
 - MCP等の導入が必要になった場合のみ、導入理由・運用コスト・代替案を先に提示すること。
+
+---
+
+## 9. Worklog運用ルール 🗂️
+- 作業開始時（新規チャット）は、必ず `Docs/worklog/worklog_latest.md` を先に読む。
+- 作業完了時は、以下を必ず実施する。
+1) その時点の `Docs/worklog/worklog_latest.md` を、内容に合わせた名前でアーカイブする  
+   例: `Docs/worklog/worklog_ui_prefab移植.md`
+2) 新しい `Docs/worklog/worklog_latest.md` を作成し、今回作業の最新内容を記載する
+3) UI関連の変更がある場合は、`Docs/worklog_UI/` 側の仕様文書も更新する
