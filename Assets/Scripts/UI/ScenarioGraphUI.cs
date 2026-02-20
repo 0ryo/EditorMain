@@ -270,6 +270,13 @@ public class ScenarioGraphUI : MonoBehaviour
         var idText = CreateText("Text_StepId", root.transform, "step-0000", 14, TextAnchor.MiddleLeft);
         SetAnchors(idText.rectTransform, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(12f, -24f), new Vector2(-44f, -4f));
 
+        var dragHandle = new GameObject("DragHandle", typeof(RectTransform), typeof(Image), typeof(NodeDragHandler));
+        dragHandle.transform.SetParent(root.transform, false);
+        SetAnchors(dragHandle.GetComponent<RectTransform>(), new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0f, -28f), new Vector2(0f, 0f));
+        var dragImage = dragHandle.GetComponent<Image>();
+        dragImage.color = new Color(1f, 1f, 1f, 0.02f);
+        dragHandle.GetComponent<NodeDragHandler>().target = rt;
+
         var warning = CreateText("Warning", root.transform, "!", 18, TextAnchor.MiddleCenter);
         warning.color = new Color(1f, 0.82f, 0f, 1f);
         SetAnchors(warning.rectTransform, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-30f, -30f), new Vector2(-10f, -10f));
