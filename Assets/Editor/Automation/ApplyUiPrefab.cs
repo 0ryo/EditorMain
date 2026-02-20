@@ -46,6 +46,7 @@ public static class ApplyUiPrefab
             }
 
             changed |= ConfigureCatalogUi(scene, uiRootInScene);
+            changed |= ConfigurePanelEdges(uiRootInScene);
 
             if (changed)
             {
@@ -93,6 +94,35 @@ public static class ApplyUiPrefab
                 catalog.gameObject.SetActive(false);
                 changed = true;
                 Debug.Log($"[ApplyUiPrefab] Legacy Catalog disabled: {catalog.gameObject.name} ({scene.path})");
+            }
+        }
+
+        return changed;
+    }
+
+    static bool ConfigurePanelEdges(Transform uiRootInScene)
+    {
+        bool changed = false;
+
+        var catalog = uiRootInScene.Find("Panel_Catalog") as RectTransform;
+        if (catalog != null)
+        {
+            if (catalog.offsetMin.y != 0f || catalog.offsetMax.y != 0f || catalog.offsetMin.x != 0f)
+            {
+                catalog.offsetMin = new Vector2(0f, 0f);
+                catalog.offsetMax = new Vector2(catalog.offsetMax.x, 0f);
+                changed = true;
+            }
+        }
+
+        var scenario = uiRootInScene.Find("Panel_ScenarioGraph") as RectTransform;
+        if (scenario != null)
+        {
+            if (scenario.offsetMin.y != 0f || scenario.offsetMax.x != 0f)
+            {
+                scenario.offsetMin = new Vector2(scenario.offsetMin.x, 0f);
+                scenario.offsetMax = new Vector2(0f, scenario.offsetMax.y);
+                changed = true;
             }
         }
 

@@ -43,7 +43,7 @@ public static class BuildUiPrefabs
     static RectTransform BuildCatalogPanel(Transform parent)
     {
         var panel = CreateUiRect("Panel_Catalog", parent);
-        SetRect(panel, new Vector2(0f, 0f), new Vector2(0f, 1f), new Vector2(8f, 8f), new Vector2(288f, -8f));
+        SetRect(panel, new Vector2(0f, 0f), new Vector2(0f, 1f), new Vector2(0f, 0f), new Vector2(288f, 0f));
         var panelImage = panel.gameObject.AddComponent<Image>();
         panelImage.color = new Color(0.96f, 0.96f, 0.96f, 1f);
 
@@ -100,7 +100,7 @@ public static class BuildUiPrefabs
     static RectTransform BuildScenarioPanel(Transform parent)
     {
         var panel = CreateUiRect("Panel_ScenarioGraph", parent);
-        SetRect(panel, new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(288f, 0f), new Vector2(-8f, 300f));
+        SetRect(panel, new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(288f, 0f), new Vector2(0f, 300f));
         panel.gameObject.AddComponent<Image>().color = new Color(0.96f, 0.96f, 0.96f, 1f);
 
         var topBar = CreateUiRect("TopBar", panel);
