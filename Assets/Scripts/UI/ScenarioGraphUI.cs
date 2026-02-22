@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using UnityEngine;
@@ -33,6 +33,7 @@ public class ScenarioGraphUI : MonoBehaviour
 
     [Header("Layout")]
     [SerializeField] PanelVerticalResizeHandle resizeHandle;
+    [SerializeField] float cornerRadius = 14f;
 
     string linkingFromNodeId;
     string draggingFromNodeId;
@@ -137,6 +138,7 @@ public class ScenarioGraphUI : MonoBehaviour
         }
 
         EnsureRuntimeTemplates();
+        ApplyRoundedTheme();
 
         if (resizeHandle != null && panelRoot != null)
         {
@@ -344,6 +346,7 @@ public class ScenarioGraphUI : MonoBehaviour
         conditionUi.warningIcon = sourceStepUi.warningIcon;
         conditionUi.conditionRow = row;
         conditionUi.outputConnector = sourceStepUi.outputConnector;
+        conditionUi.deleteButton = sourceStepUi.deleteButton;
         return conditionUi;
     }
 
@@ -382,6 +385,9 @@ public class ScenarioGraphUI : MonoBehaviour
         if (sourceStepUi.titleInput != null) sourceStepUi.titleInput.gameObject.SetActive(false);
         if (sourceStepUi.conditionListRoot != null) sourceStepUi.conditionListRoot.gameObject.SetActive(false);
         if (sourceStepUi.conditionSummaryText != null) sourceStepUi.conditionSummaryText.gameObject.SetActive(false);
+        if (sourceStepUi.deleteButton != null) sourceStepUi.deleteButton.gameObject.SetActive(false);
+        var legacyDeleteButton = clone.transform.Find("Button_Delete");
+        if (legacyDeleteButton != null) legacyDeleteButton.gameObject.SetActive(false);
         if (sourceStepUi.stepIdText != null) sourceStepUi.stepIdText.text = label;
         if (sourceStepUi.inputConnector != null) sourceStepUi.inputConnector.gameObject.SetActive(hasInput);
         if (sourceStepUi.outputConnector != null) sourceStepUi.outputConnector.gameObject.SetActive(hasOutput);
@@ -452,6 +458,7 @@ public class ScenarioGraphUI : MonoBehaviour
             lineLayer.SetAsLastSibling();
         }
 
+        ApplyRoundedTheme();
         RefreshLines();
         RefreshValidationStatus();
         if (!string.IsNullOrEmpty(linkingFromNodeId))
@@ -460,7 +467,7 @@ public class ScenarioGraphUI : MonoBehaviour
         }
         else if (!string.IsNullOrEmpty(draggingFromNodeId))
         {
-            statusText.text = "入力コネクタへドラッグしてドロップ";
+            statusText.text = "蜈･蜉帙さ繝阪け繧ｿ縺ｸ繝峨Λ繝・げ縺励※繝峨Ο繝・・";
         }
     }
 
@@ -575,6 +582,7 @@ public class ScenarioGraphUI : MonoBehaviour
         ui.onOutputConnectorDrag = UpdateConnectorDrag;
         ui.onCompleteConnectorDrag = CompleteConnectorDrag;
         ui.onCancelConnectorDrag = () => CancelConnectorDrag(clearStatus: true);
+        ui.onClickDelete = OnClickDeleteNode;
         ui.onChanged = RefreshValidationStatus;
 
         int stepIndex = stepIndexMap.TryGetValue(node.nodeId, out var mapped) ? mapped : 0;
@@ -602,6 +610,7 @@ public class ScenarioGraphUI : MonoBehaviour
         ui.onOutputConnectorDrag = UpdateConnectorDrag;
         ui.onCompleteConnectorDrag = CompleteConnectorDrag;
         ui.onCancelConnectorDrag = () => CancelConnectorDrag(clearStatus: true);
+        ui.onClickDelete = OnClickDeleteNode;
         ui.onChanged = RefreshValidationStatus;
         ui.Bind(graph, node);
 
@@ -722,13 +731,42 @@ public class ScenarioGraphUI : MonoBehaviour
         linkingFromNodeId = null;
     }
 
+    void OnClickDeleteNode(string nodeId)
+    {
+        if (string.IsNullOrWhiteSpace(nodeId)) return;
+
+        if (draggingFromNodeId == nodeId)
+        {
+            CancelConnectorDrag(clearStatus: true);
+        }
+
+        if (linkingFromNodeId == nodeId)
+        {
+            linkingFromNodeId = null;
+        }
+
+        graph.RemoveNode(nodeId);
+        statusText.text = string.Empty;
+        RebuildAll();
+    }
+
+    void OnClickConnectionPath(ConnectionLineGraphic line)
+    {
+        if (line == null) return;
+        if (string.IsNullOrWhiteSpace(line.fromNodeId) || string.IsNullOrWhiteSpace(line.toNodeId)) return;
+
+        graph.RemoveEdge(line.fromNodeId, line.toNodeId, line.edgeType);
+        statusText.text = string.Empty;
+        RebuildAll();
+    }
+
     void TryConnectNodes(string fromNodeId, string toNodeId, string mode)
     {
         if (string.IsNullOrWhiteSpace(fromNodeId) || string.IsNullOrWhiteSpace(toNodeId)) return;
 
         if (!graph.TryAddEdge(fromNodeId, toNodeId, out var reason))
         {
-            statusText.text = $"接続不可: {reason}";
+            statusText.text = $"謗･邯壻ｸ榊庄: {reason}";
             Debug.LogWarning($"[ScenarioGraphUI] Connect rejected mode={mode} from={fromNodeId} to={toNodeId} reason={reason}");
             return;
         }
@@ -748,7 +786,7 @@ public class ScenarioGraphUI : MonoBehaviour
         linkingFromNodeId = null;
         EnsureDragPreview(fromUi.outputConnector);
         UpdateDragPreviewPosition(screenPosition);
-        statusText.text = "入力コネクタへドラッグしてドロップ";
+        statusText.text = "蜈･蜉帙さ繝阪け繧ｿ縺ｸ繝峨Λ繝・げ縺励※繝峨Ο繝・・";
     }
 
     void UpdateConnectorDrag(string fromNodeId, Vector2 screenPosition)
@@ -803,11 +841,14 @@ public class ScenarioGraphUI : MonoBehaviour
             dragPreviewLine = Instantiate(lineTemplate, lineLayer);
             dragPreviewLine.gameObject.name = "DragPreviewLine";
             dragPreviewLine.gameObject.SetActive(true);
-            ConfigureLineGraphic(dragPreviewLine, DragPreviewLineColor, 8f);
+            ConfigureLineGraphic(dragPreviewLine, DragPreviewLineColor, 8f, raycastTarget: false);
         }
 
         dragPreviewLine.from = fromConnector;
         dragPreviewLine.to = dragPreviewTarget;
+        dragPreviewLine.fromNodeId = null;
+        dragPreviewLine.toNodeId = null;
+        dragPreviewLine.onClickLine = null;
     }
 
     void UpdateDragPreviewPosition(Vector2 screenPosition)
@@ -854,7 +895,11 @@ public class ScenarioGraphUI : MonoBehaviour
             line.gameObject.SetActive(true);
             line.from = fromUi.outputConnector;
             line.to = toUi.inputConnector;
-            ConfigureLineGraphic(line, ConnectionLineColor, 8f);
+            line.fromNodeId = edge.fromNodeId;
+            line.toNodeId = edge.toNodeId;
+            line.edgeType = edge.edgeType;
+            line.onClickLine = OnClickConnectionPath;
+            ConfigureLineGraphic(line, ConnectionLineColor, 8f, raycastTarget: true);
             lines.Add(line);
             created++;
         }
@@ -863,7 +908,7 @@ public class ScenarioGraphUI : MonoBehaviour
         Debug.Log($"[ScenarioGraphUI] RefreshLines expectedEdges={expectedEdges} created={created} removed={removed} lineLayerSize={layerSize}");
     }
 
-    void ConfigureLineGraphic(ConnectionLineGraphic line, Color color, float thickness)
+    void ConfigureLineGraphic(ConnectionLineGraphic line, Color color, float thickness, bool raycastTarget)
     {
         if (line == null || lineLayer == null) return;
 
@@ -884,7 +929,7 @@ public class ScenarioGraphUI : MonoBehaviour
 
         line.color = color;
         line.thickness = thickness;
-        line.raycastTarget = false;
+        line.raycastTarget = raycastTarget;
         line.SetAllDirty();
     }
 
@@ -909,7 +954,7 @@ public class ScenarioGraphUI : MonoBehaviour
         }
         catch (System.Exception ex)
         {
-            statusText.text = $"保存失敗: {ex.Message}";
+            statusText.text = $"菫晏ｭ伜､ｱ謨・ {ex.Message}";
             Debug.LogException(ex);
             return;
         }
@@ -926,8 +971,8 @@ public class ScenarioGraphUI : MonoBehaviour
         else File.Move(tempPath, finalPath);
 
         statusText.text = validation.warnings.Count > 0
-            ? $"保存しました（警告: {validation.warnings.Count}）: Assets/Exports/{fileName}"
-            : $"保存しました: Assets/Exports/{fileName}";
+            ? $"菫晏ｭ倥＠縺ｾ縺励◆・郁ｭｦ蜻・ {validation.warnings.Count}・・ Assets/Exports/{fileName}"
+            : $"菫晏ｭ倥＠縺ｾ縺励◆: Assets/Exports/{fileName}";
         Debug.Log("[ScenarioGraph] " + statusText.text);
         saveButton.interactable = true;
     }
@@ -947,7 +992,7 @@ public class ScenarioGraphUI : MonoBehaviour
 
         if (validation.warnings.Count > 0)
         {
-            statusText.text = "警告あり: " + string.Join(" / ", validation.warnings.Select(w => $"{w.code} {w.message}"));
+            statusText.text = "隴ｦ蜻翫≠繧・ " + string.Join(" / ", validation.warnings.Select(w => $"{w.code} {w.message}"));
             return;
         }
 
@@ -957,9 +1002,16 @@ public class ScenarioGraphUI : MonoBehaviour
         }
     }
 
+    void ApplyRoundedTheme()
+    {
+        Transform root = panelRoot != null ? panelRoot : transform;
+        UiRoundedTheme.ApplyToHierarchy(root, cornerRadius);
+    }
+
     static string BuildValidationMessage(GraphValidationResult validation)
     {
         if (validation == null || validation.errors.Count == 0) return string.Empty;
-        return "保存不可: " + string.Join(" / ", validation.errors.Select(e => $"{e.code} {e.message}"));
+        return "菫晏ｭ倅ｸ榊庄: " + string.Join(" / ", validation.errors.Select(e => $"{e.code} {e.message}"));
     }
 }
+

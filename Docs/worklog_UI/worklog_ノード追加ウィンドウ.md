@@ -111,3 +111,24 @@
 ## 13. 2026-02-22 line clipping fix
 - `ConnectionLineGraphic` changed from `Graphic` to `MaskableGraphic`.
 - Connection paths are now clipped by `NodeArea` (`RectMask2D`) during pan/zoom.
+
+## 14. 2026-02-22 terminal label z-order fix
+- `TerminalNodeUI` now forces label text to front via `SetAsLastSibling()`.
+- `labelText.raycastTarget = false` to avoid blocking drag/connector interactions.
+
+## 15. 2026-02-22 global rounded UI
+- Added `UiRoundedTheme` and applied it to full hierarchy in `CatalogUI` and `ScenarioGraphUI`.
+- Corner radius is configurable via `cornerRadius` (default: 14).
+- Covers object cards, search inputs, buttons, node cards, dropdowns, and panel backgrounds.
+
+## 16. 2026-02-22 node/path delete interactions
+- Added delete `X` button at top-right for `Step` and `Condition` nodes.
+- `Start`/`End` nodes do not show delete button.
+- Clicking a path now removes the corresponding edge.
+- Hovering a path shows `çÌèú` text on the path center.
+
+## 17. 2026-02-22 delete button and path hover behavior tuning
+- Delete button visual updated: gray background and centered on the yellow node header bar.
+- Fixed path hit testing to react only near the visible line segment.
+- Restored node dragging while connections already exist.
+- Path delete hint now appears only during hover and is displayed above the path.

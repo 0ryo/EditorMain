@@ -197,3 +197,23 @@
 ## 16. 2026-02-22 Connection Path Clipping
 - Updated `ConnectionLineGraphic` to `MaskableGraphic` so paths obey `RectMask2D` clipping in `NodeArea`.
 - This fixes paths visually escaping the viewport while zooming/panning.
+
+## 17. 2026-02-22 Start/End Label Visibility
+- `TerminalNodeUI` brings label text to front so START/END captions remain visible above overlay children.
+- Disabled label raycast to keep input handling unchanged.
+
+## 18. 2026-02-22 Global Corner Radius
+- Introduced `UiRoundedTheme` to apply rounded sprites to `Image` components across UI hierarchies.
+- Applied from both `CatalogUI` and `ScenarioGraphUI` so existing prefabs also receive rounded corners at runtime.
+- Added serialized `cornerRadius` fields (default 14) for easy tuning.
+
+## 19. 2026-02-22 Node/Path Deletion UX
+- `StepNodeUI` and `ConditionNodeUI` now include a top-right `X` delete button.
+- Path (`ConnectionLineGraphic`) supports hover/click events; hover shows `çÌèú`, click deletes that edge.
+- `Start` and `End` terminal nodes keep delete disabled.
+
+## 20. 2026-02-22 Path Hover Hit-Test + Delete Button Visual Tuning
+- Delete X button background changed to gray and aligned to the center of the yellow header bar (DragHandle).
+- ConnectionLineGraphic now uses segment-distance raycast hit testing instead of full-rect hit testing.
+- Node drag now works while edges are connected.
+- Path delete hint text appears only on hover and is shown above the path stroke.

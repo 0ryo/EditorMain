@@ -10,3 +10,7 @@
 # Local runtime/export artifacts
 /Assets/Exports/*-curriculum.json
 /Assets/Exports/*-curriculum.json.meta
+
+# Local-only working files
+/AGENTS.md
+/Docs/worklog/worklog_skill_千段構え作成.md

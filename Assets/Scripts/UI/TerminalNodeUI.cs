@@ -37,6 +37,8 @@ public class TerminalNodeUI : MonoBehaviour
         if (labelText != null)
         {
             labelText.text = displayLabel;
+            labelText.raycastTarget = false;
+            labelText.transform.SetAsLastSibling();
         }
 
         ConfigureInputConnector(allowInput);

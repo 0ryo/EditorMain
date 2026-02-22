@@ -246,17 +246,27 @@ public static class BuildUiPrefabs
         conditionSummary.color = new Color(0.2f, 0.2f, 0.2f, 1f);
         SetRect(conditionSummary.rectTransform, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(12f, -42f), new Vector2(-44f, -22f));
 
-        var warning = CreateText("Warning", root, "!");
-        warning.fontSize = 18;
-        warning.color = new Color(1f, 0.82f, 0f, 1f);
-        warning.alignment = TextAnchor.MiddleCenter;
-        SetRect(warning.rectTransform, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-30f, -30f), new Vector2(-10f, -10f));
-
         var dragHandle = CreateUiRect("DragHandle", root);
         SetRect(dragHandle, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0f, -28f), new Vector2(0f, 0f));
         dragHandle.gameObject.AddComponent<Image>().color = new Color(0.98f, 0.93f, 0.70f, 1f);
         var drag = dragHandle.gameObject.AddComponent<NodeDragHandler>();
         drag.target = root;
+
+        var warning = CreateText("Warning", root, "!");
+        warning.fontSize = 18;
+        warning.color = new Color(1f, 0.82f, 0f, 1f);
+        warning.alignment = TextAnchor.MiddleCenter;
+        SetRect(warning.rectTransform, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-56f, -30f), new Vector2(-36f, -10f));
+
+        var deleteButton = CreateButton("Button_Delete", dragHandle, "X");
+        SetRect(deleteButton.GetComponent<RectTransform>(), new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(-30f, -11f), new Vector2(-8f, 11f));
+        deleteButton.GetComponent<Image>().color = new Color(0.82f, 0.82f, 0.82f, 1f);
+        var deleteLabel = deleteButton.GetComponentInChildren<Text>(true);
+        if (deleteLabel != null)
+        {
+            deleteLabel.color = new Color(0.2f, 0.2f, 0.2f, 1f);
+            deleteLabel.fontSize = 14;
+        }
 
         var title = CreateInputField("Input_Title", root, "\u30BF\u30A4\u30C8\u30EB");
         SetRect(title.GetComponent<RectTransform>(), new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(12f, -60f), new Vector2(-12f, -30f));
@@ -284,6 +294,7 @@ public static class BuildUiPrefabs
         stepNode.warningIcon = warning.gameObject;
         stepNode.inputConnector = inputConnector;
         stepNode.outputConnector = outputConnector;
+        stepNode.deleteButton = deleteButton;
         stepNode.conditionListRoot = conditionList;
         stepNode.conditionRowTemplate = rowTemplate;
 

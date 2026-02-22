@@ -17,6 +17,7 @@ public class CatalogUI : MonoBehaviour
     [SerializeField] Button addButton;
     [SerializeField] Text statusText;
     [SerializeField] float statusAutoClearSeconds = 2f;
+    [SerializeField] float cornerRadius = 14f;
 
     [Serializable]
     public class StringEvent : UnityEvent<string> { }
@@ -41,6 +42,7 @@ public class CatalogUI : MonoBehaviour
         EnsureTemplateCardHeight();
         WireUiEvents();
         RebuildCards();
+        ApplyRoundedTheme();
     }
 
     void OnDestroy()
@@ -59,16 +61,15 @@ public class CatalogUI : MonoBehaviour
 
         if (placementController == null)
         {
-            SetStatus("PlacementController が見つかりません");
+            SetStatus("PlacementController is not found.");
             return;
         }
 
         if (!placementController.PlaceOnceAtScreenPoint(typeId, screenPosition))
         {
-            SetStatus("配置に失敗しました");
+            SetStatus("Placement failed.");
         }
     }
-
     void EnsureRuntimeBindings()
     {
         if (onSelectType == null) onSelectType = new StringEvent();
@@ -163,6 +164,12 @@ public class CatalogUI : MonoBehaviour
         }
 
         ApplyFilter(searchInput != null ? searchInput.text : string.Empty);
+        ApplyRoundedTheme();
+    }
+
+    void ApplyRoundedTheme()
+    {
+        UiRoundedTheme.ApplyToHierarchy(transform, cornerRadius);
     }
 
     void EnsureRuntimeCatalogControls()
@@ -181,7 +188,7 @@ public class CatalogUI : MonoBehaviour
         searchRowRt.offsetMax = new Vector2(-10f, -8f);
         searchRow.GetComponent<Image>().color = Color.white;
 
-        searchInput = CreateInputField(searchRowRt, "Input_Search_Runtime", "オブジェクトを検索...");
+        searchInput = CreateInputField(searchRowRt, "Input_Search_Runtime", "\u30AA\u30D6\u30B8\u30A7\u30AF\u30C8\u3092\u691C\u7D22...");
         var inputRt = searchInput.GetComponent<RectTransform>();
         inputRt.anchorMin = Vector2.zero;
         inputRt.anchorMax = Vector2.one;
@@ -279,9 +286,8 @@ public class CatalogUI : MonoBehaviour
 
     void OnClickAdd()
     {
-        SetStatus("未実装（後で実装）");
+        SetStatus("Add action is not configured.");
     }
-
     void SetStatus(string message)
     {
         if (statusText == null)
@@ -401,3 +407,4 @@ public class CatalogCardDragHandler : MonoBehaviour, IBeginDragHandler, IDragHan
         isDragging = false;
     }
 }
+

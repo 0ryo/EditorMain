@@ -331,6 +331,15 @@ public class CurriculumGraphService : MonoBehaviour
         curriculum.edges.RemoveAll(e => e.fromNodeId == fromNodeId && e.toNodeId == toNodeId);
     }
 
+    public void RemoveEdge(string fromNodeId, string toNodeId, ScenarioEdgeType edgeType)
+    {
+        EnsureGraphInitialized();
+        curriculum.edges.RemoveAll(e =>
+            e.fromNodeId == fromNodeId &&
+            e.toNodeId == toNodeId &&
+            e.edgeType == edgeType);
+    }
+
     public List<string> GetParents(string nodeId)
     {
         EnsureGraphInitialized();
@@ -565,13 +574,13 @@ public class CurriculumGraphService : MonoBehaviour
 
         if (nodes.Any(n => string.IsNullOrWhiteSpace(n.nodeId)))
         {
-            result.AddError("E-11", "nodeId が欠落しているノードがあります。");
+            result.AddError("E-11", "Found node with empty nodeId.");
         }
 
         var duplicateIds = nodeIds.GroupBy(id => id).Where(g => g.Count() > 1).Select(g => g.Key).ToList();
         if (duplicateIds.Count > 0)
         {
-            result.AddError("E-11", $"nodeId が重複しています: {string.Join(", ", duplicateIds)}");
+            result.AddError("E-11", $"Duplicate nodeId detected: {string.Join(", ", duplicateIds)}");
         }
 
         var startNodes = nodes.Where(n => n.nodeType == ScenarioNodeType.Start).ToList();
@@ -581,19 +590,19 @@ public class CurriculumGraphService : MonoBehaviour
 
         if (startNodes.Count != 1)
         {
-            result.AddError("E-01", $"Start ノード数が不正です（{startNodes.Count}）。");
+            result.AddError("E-01", $"Start node count must be exactly 1 (actual={startNodes.Count}).");
         }
 
         if (endNodes.Count != 1)
         {
-            result.AddError("E-02", $"End ノード数が不正です（{endNodes.Count}）。");
+            result.AddError("E-02", $"End node count must be exactly 1 (actual={endNodes.Count}).");
         }
 
         foreach (var edge in curriculum.edges)
         {
             if (string.IsNullOrWhiteSpace(edge.fromNodeId) || string.IsNullOrWhiteSpace(edge.toNodeId))
             {
-                result.AddError("E-11", "edge の from/to nodeId が欠落しています。");
+                result.AddError("E-11", "Edge has empty from/to nodeId.");
                 continue;
             }
 
@@ -601,7 +610,7 @@ public class CurriculumGraphService : MonoBehaviour
             var toNode = FindNode(edge.toNodeId);
             if (fromNode == null || toNode == null)
             {
-                result.AddError("E-11", $"edge の参照先が欠落しています: {edge.fromNodeId} -> {edge.toNodeId}");
+                result.AddError("E-11", $"Edge points to missing node: {edge.fromNodeId} -> {edge.toNodeId}");
                 continue;
             }
 
@@ -611,7 +620,7 @@ public class CurriculumGraphService : MonoBehaviour
                              (toNode.nodeType == ScenarioNodeType.Step || toNode.nodeType == ScenarioNodeType.End);
                 if (!valid)
                 {
-                    result.AddError("E-04", $"StepFlow 接続が不正です: {fromNode.nodeType} -> {toNode.nodeType}");
+                    result.AddError("E-04", $"Invalid StepFlow route: {fromNode.nodeType} -> {toNode.nodeType}");
                 }
             }
             else if (edge.edgeType == ScenarioEdgeType.ConditionBind)
@@ -619,7 +628,7 @@ public class CurriculumGraphService : MonoBehaviour
                 bool valid = fromNode.nodeType == ScenarioNodeType.Condition && toNode.nodeType == ScenarioNodeType.Step;
                 if (!valid)
                 {
-                    result.AddError("E-07", $"ConditionBind 接続が不正です: {fromNode.nodeType} -> {toNode.nodeType}");
+                    result.AddError("E-07", $"Invalid ConditionBind route: {fromNode.nodeType} -> {toNode.nodeType}");
                 }
             }
         }
@@ -632,7 +641,7 @@ public class CurriculumGraphService : MonoBehaviour
             int outCount = stepFlowEdges.Count(e => e.fromNodeId == startNodes[0].nodeId);
             if (outCount != 1)
             {
-                result.AddError("E-03", $"Start から最初の Step への接続数が不正です（{outCount}）。");
+                result.AddError("E-03", $"Start must have exactly one outgoing StepFlow edge (actual={outCount}).");
             }
         }
 
@@ -641,7 +650,7 @@ public class CurriculumGraphService : MonoBehaviour
             int inCount = stepFlowEdges.Count(e => e.toNodeId == endNodes[0].nodeId);
             if (inCount != 1)
             {
-                result.AddError("E-05", $"End への入力接続数が不正です（{inCount}）。");
+                result.AddError("E-05", $"End must have exactly one incoming StepFlow edge (actual={inCount}).");
             }
         }
 
@@ -651,17 +660,17 @@ public class CurriculumGraphService : MonoBehaviour
             int outCount = stepFlowEdges.Count(e => e.fromNodeId == step.nodeId);
             if (inCount > 1 || outCount > 1)
             {
-                result.AddError("E-04", $"Step '{step.nodeId}' が分岐/多重入力を持っています。");
+                result.AddError("E-04", $"Step '{step.nodeId}' has multiple incoming or outgoing StepFlow edges.");
             }
         }
 
         if (stepNodes.Count <= 0)
         {
-            result.AddError("E-04", "Step ノードが存在しません。");
+            result.AddError("E-04", "No Step node exists.");
         }
         else if (!TryBuildLinearStepSequence(out _, out var linearReason))
         {
-            result.AddError("E-04", $"Step 順序が線形ではありません: {linearReason}");
+            result.AddError("E-04", $"Step chain is invalid: {linearReason}");
         }
 
         var placedObjects = FindObjectsByType<PlacedObject>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
@@ -672,7 +681,7 @@ public class CurriculumGraphService : MonoBehaviour
 
             if (string.IsNullOrWhiteSpace(placed.id) || string.IsNullOrWhiteSpace(placed.typeId))
             {
-                result.AddError("E-11", "配置オブジェクトに必須ID（id/typeId）が欠落しています。");
+                result.AddError("E-11", "PlacedObject has missing id or typeId.");
             }
         }
 
@@ -687,25 +696,25 @@ public class CurriculumGraphService : MonoBehaviour
             int bindCount = conditionBindEdges.Count(e => e.fromNodeId == condition.nodeId);
             if (bindCount != 1)
             {
-                result.AddError("E-07", $"Condition '{condition.nodeId}' は Step へ1本だけ接続する必要があります（現在 {bindCount}）。");
+                result.AddError("E-07", $"Condition '{condition.nodeId}' must bind to exactly one Step (actual={bindCount}).");
             }
 
             if (string.IsNullOrWhiteSpace(condition.condition.objectAId) ||
                 string.IsNullOrWhiteSpace(condition.condition.objectBId))
             {
-                result.AddError("E-08", $"Condition '{condition.nodeId}' のA/Bが未設定です。");
+                result.AddError("E-08", $"Condition '{condition.nodeId}' has unassigned A/B object.");
             }
             else
             {
                 if (condition.condition.objectAId == condition.condition.objectBId)
                 {
-                    result.AddError("E-09", $"Condition '{condition.nodeId}' で A == B は許可されません。");
+                    result.AddError("E-09", $"Condition '{condition.nodeId}' cannot use the same object for A and B.");
                 }
 
                 if (!placedObjectIds.Contains(condition.condition.objectAId) ||
                     !placedObjectIds.Contains(condition.condition.objectBId))
                 {
-                    result.AddError("E-10", $"Condition '{condition.nodeId}' が存在しないオブジェクトIDを参照しています。");
+                    result.AddError("E-10", $"Condition '{condition.nodeId}' references missing placed object id.");
                 }
             }
         }
@@ -715,12 +724,12 @@ public class CurriculumGraphService : MonoBehaviour
             var conditions = GetConditionNodesForStep(step.nodeId);
             if (conditions.Count <= 0 || conditions.Count > MaxConditionsPerStep)
             {
-                result.AddError("E-06", $"Step '{step.nodeId}' のCondition数が不正です（{conditions.Count}）。");
+                result.AddError("E-06", $"Step '{step.nodeId}' condition count out of range (actual={conditions.Count}, allowed=1..{MaxConditionsPerStep}).");
             }
 
             if (conditions.Count == MaxConditionsPerStep)
             {
-                result.AddWarning("W-01", $"Step '{step.nodeId}' のConditionが3件です。");
+                result.AddWarning("W-01", $"Step '{step.nodeId}' reached max condition count.");
             }
 
             var duplicateKeys = conditions
@@ -731,7 +740,7 @@ public class CurriculumGraphService : MonoBehaviour
                 .ToList();
             if (duplicateKeys.Count > 0)
             {
-                result.AddError("E-06", $"Step '{step.nodeId}' に重複Conditionがあります。");
+                result.AddError("E-06", $"Step '{step.nodeId}' has duplicate condition definitions.");
             }
 
             foreach (var condition in conditions)
@@ -751,13 +760,12 @@ public class CurriculumGraphService : MonoBehaviour
         {
             if (pair.Value.Count > 1)
             {
-                result.AddWarning("W-02", $"ObjectA '{pair.Key}' が複数Stepで要求されています。");
+                result.AddWarning("W-02", $"ObjectA '{pair.Key}' is reused across multiple steps.");
             }
         }
 
         return result;
     }
-
     public ScenarioExport BuildScenarioExport()
     {
         EnsureGraphInitialized();
@@ -862,3 +870,4 @@ public class GraphValidationIssue
         this.message = message;
     }
 }
+
