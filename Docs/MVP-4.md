@@ -1,645 +1,407 @@
-# MVP-3（シナリオ作成機能：ノードベース + curriculum.json）
+# SkillSync シナリオ作成機能 仕様書
 
-status: 未着手（MVP-1完了後に着手）
-goal: Unity知識がなくても「手順」と「近接条件」と「手順の接続（分岐/合流）」を直感的に編集し、VR側でそのまま進行制御できる curriculum.json を出力する
+## 0. スコープ
 
----
+### 0.1 目的
 
-## 0. 用語定義
+* プログラミング知識のない指導者が、PCエディタ上で **手順（Step）** と **成功条件（Condition）** をノードで定義し、Quest側で **自動進行**できる教材を作れるようにする。
+* 対象題材は **タイヤ交換**（研究スコープ）。
 
-- シナリオ: 教材の開始から終了までの「全手順」を指す（1教材=1シナリオ）
-- 手順（Step）: タイトルを持ち、条件を満たすと完了する単位
-- 条件（Condition）: MVP-3では「オブジェクト同士が一定距離以内」が唯一の条件
-- 接続（Edge）: Stepの完了後に、次のStepをアクティブ化するための有向リンク
-- 合流（Join）: あるStepが複数の親Stepを持つ状態。開始には「全親が完了」が必要
+### 0.2 MVPでやること（In Scope）
 
----
+* 線形手順（分岐なし）を **Start→Step…→End** で構築
+* Stepごとに **1〜3個の条件**（AND）を持たせる
+* 条件は **「AをBに近づける」**（選択式）で表現
+* 条件達成：**スナップ吸着状態が1.0秒維持**
+* Step完了：条件が全て達成されたら **自動で次Stepへ**
+* Step完了は確定（巻き戻しなし）
+* 参照切れ（配置オブジェクト削除等）は **未設定に戻す**＋**エクスポート禁止**
+* JSON出力：既存 `requiredActions` を **拡張**して条件を持たせる
+* ノード座標は保存せず、読み込み時に **自動整列**
 
-## 1. 仕様（MVP-3の確定事項）
+### 0.3 MVPでやらないこと（Out of Scope）
 
-### 1-1. 条件
-- 条件タイプ: Proximity のみ
-- 判定方式: オブジェクト中心距離
-- 距離しきい値: 固定（例: 0.5m）
-- キープ時間: 固定（1.0秒）
-- 複合条件: ANDのみ
-  - 例: (A-B近接) AND (C-D近接) を1秒キープで完了
-
-### 1-2. 進行（ゲート概念の実装）
-- 手順完了はラッチ（完了後に条件が外れても未完了に戻らない）
-- 手順の開始は自動
-  - 開始条件: 親Step（incoming edge）の全てが完了
-  - 親を持たないStepは開始Stepとして最初からアクティブ
-- 分岐: 1つのStepから複数の次Stepへ接続可能
-- 合流: 複数の親Stepが1つの子Stepに接続可能（全親完了が必要）
-
-### 1-3. 参照切れ
-- 参照しているPlacedObjectが削除された場合:
-  - 該当条件の参照を null に戻す（未設定扱い）
-  - Step自体は残し、⚠表示する
-
-### 1-4. 出力ファイル
-- 配置情報JSONとは別ファイル
-- ファイル名: 「プロジェクト名-curriculum.json」
-- 出力先: `Assets/Exports/`（存在しない場合は作成）
+* 分岐（IF/ELSE）、OR/NOT
+* 条件タイプ追加（掴む/回す/使う 等）
+* 教師による文言編集（自由文）
+* スコア、ログ詳細、誤操作判定、難易度分岐
+* SnapPointの任意配置UI（教師操作）
 
 ---
 
-## 2. Unity UI（下部常設）
+## 1. 用語定義
 
-### 2-1. 画面構成
-- 既存: 左にカタログ、中央に3Dビュー
-- 追加: 画面下部に「Panel_ScenarioGraph」を常設
-
-### 2-2. ノード（Stepカード）UI
-各ノードは以下を持つ:
-- 手順番号（表示用） + タイトル（InputField）
-- 条件リスト（行の追加/削除）
-  - 行: Dropdown(A) + 「を」 + Dropdown(B) + 「に近づけたら」
-- 左に入力コネクタ（白丸）
-- 右に出力コネクタ（白丸）
-- ⚠（参照切れや未設定条件がある場合に表示）
-
-### 2-3. 接続操作（MVP方式）
-- 出力コネクタをクリックすると「接続モード」
-- 接続モード中に、別ノードの入力コネクタをクリックすると Edge 作成
-- 既存Edgeを削除できる（後述の最小仕様）
-
-※ドラッグ接続やベジェ曲線はMVP外（線は直線でOK）
+* **Step（手順）**：教材進行の単位。順序を持ち、完了すると次へ進む。
+* **Condition（条件）**：Stepを完了するために達成すべき要素。MVPでは「SnapHold」のみ。
+* **Stepノード**：複数Conditionを束ねる“器”。Step順序のチェーンを構成する。
+* **Conditionノード**：1ノード＝1条件。「AをBに近づける」のみ。
+* **スナップ吸着状態**：オブジェクトAが、ターゲットBに吸着している状態。MVPでは **Aの currentSnapTargetId == B.id** を吸着と定義（1対1）。
+* **SnapPoint**：吸着判定/吸着位置の基準点。MVPでは **Transform pivot（local origin）**。
 
 ---
 
-## 3. 実装タスク
+## 2. ユーザー（指導者）体験フロー
 
-### 3-1. データモデル（Curriculum）
-- Steps（配列）
-- 各Step:
-  - id（step-0001）
-  - title
-  - description（オプション、MVPでは入力欄は後回しでも可）
-  - conditions（ProximityPair配列）
-  - nextStepIds（接続先のStepId配列）
-
-### 3-2. Graph編集（追加/削除/接続）
-- Step追加（+）
-- Step削除（対象Stepおよび関連Edge削除）
-- Edge追加（クリック接続）
-- Edge削除（MVPでは「選択中Stepのnext一覧から×で削除」方式でOK）
-
-### 3-3. オブジェクト一覧（Dropdown用）
-- シーン内のPlacedObjectを列挙
-- 表示: `typeId`（MVPはこれだけ。将来Renameで表示を変える）
-
-### 3-4. curriculum.json出力
-- 保存ボタンで `Assets/Exports/<ProjectName>-curriculum.json` を生成
-- 参照切れ/未設定がある場合:
-  - 保存はできるが警告を表示（または保存ボタンを無効化。MVPでは警告のみでOK）
+1. 左のオブジェクト一覧から選択してワールドに配置（既存機能）
+2. シナリオ画面でノード作成（既存機能：ノード追加・接続）
+3. Conditionノードで A/B をドロップダウンから選択（既存機能）
+4. Stepノードに複数Conditionノードを接続してAND構成
+5. Stepノード同士を線形に接続し、Start→…→Endを完成
+6. バリデーションOKならエクスポート（JSON）
 
 ---
 
-## 4. Definition of Done（完了条件）
+## 3. UI仕様（ノードエディタ）
 
-- [ ] 下部にノードUIが常設表示される
-- [ ] Stepを追加/削除できる
-- [ ] Step内でProximity条件を複数（AND）設定できる
-- [ ] Dropdownはシーン内PlacedObject(typeId)から選べる
-- [ ] ノード間を接続できる（分岐/合流対応）
-- [ ] prerequisites（親全完了）が満たされたStepがアクティブになるロジックをcurriculumに持てる
-- [ ] プロジェクト名-curriculum.json を Assets/Exports に出力できる
-- [ ] 参照切れ時に条件が未設定へ戻り、⚠が表示される
-```
+### 3.1 ノード種別
+
+#### (1) Startノード（必須）
+
+* 入力：なし
+* 出力：Stepへ1本のみ
+* 役割：開始点
+
+#### (2) Endノード（必須）
+
+* 入力：Stepから1本のみ
+* 出力：なし
+* 役割：終了点
+
+#### (3) Stepノード（必須・複数）
+
+* 表示：
+
+  * `STEP {index}`（indexはStartからの順序で自動）
+  * 任意で「条件達成数/総数」（例：`0/2`）※表示有無は任意（ロジックは必要）
+* 接続：
+
+  * **Step順序接続**：前Step→次Step（各Stepは次へ1本のみ）
+  * **Condition束ね接続**：Condition→Step（最大3本）
+
+#### (4) Conditionノード（複数）
+
+* 表示（固定テンプレ）：
+
+  * `"{A}" を "{B}" に近づける`
+  * A/Bが未設定なら `"{未設定}" を "{未設定}" に近づける`
+* 入力UI：
+
+  * Dropdown A：配置インスタンスID一覧
+  * Dropdown B：配置インスタンスID一覧
+* 接続：
+
+  * 出力：Stepへ接続（**必ず1つのStepに紐づく**）
+  * Start/Endへ接続は禁止
 
 ---
 
-# Unity 実装（貼って動く最小セット）
+### 3.2 接続ルール（編集段階で制限する）
 
-> 前提: MVP-1で `PlacedObject { id, typeId }` が存在している状態。
+#### Step順序（Start/Step/End）
 
-## 1) データモデル `CurriculumModel.cs`
+* Startの出力：**1本のみ**（最初のStepへ）
+* Stepの出力（次Step）：**0または1本**
 
-```csharp
-using System;
-using System.Collections.Generic;
+  * 中間Step：1本必須
+  * 最終Step：Endへ1本必須（または出力先がEnd）
+* Endの入力：**1本のみ**
+* Cycle（循環）禁止
+* 分岐禁止（Stepが次を2本以上持つのは禁止）
 
-[Serializable]
-public class Curriculum {
-    public int version = 1;
-    public string projectName = "VRCourseEditor";
-    public string mode = "Graph"; // 将来 "Set" など拡張余地
-    public RuleSet rules = new RuleSet();
-    public List<StepNode> steps = new List<StepNode>();
-}
+#### Condition束ね（AND）
 
-[Serializable]
-public class RuleSet {
-    public float proximityDistance = 0.5f; // 固定
-    public float holdSeconds = 1.0f;       // 固定
-}
+* Conditionは **必ず1つのStepに接続**
+* Stepが受け取れるConditionは **最大3**
+* StepのCondition数は **最小1（0は禁止）**
+* 同一Step内で同一条件（同じA,B,type）が重複した場合はエラー（推奨）
 
-[Serializable]
-public class StepNode {
-    public string id;            // "step-0001"
-    public string title = "タイトル";
-    public string description = ""; // MVPでは未使用でも可
+---
 
-    public List<ProximityPair> conditions = new List<ProximityPair>(); // AND
-    public List<string> nextStepIds = new List<string>();             // 出力エッジ
-}
+### 3.3 表示テキスト（Quest側表示）
 
-[Serializable]
-public class ProximityPair {
-    public string aObjectId; // PlacedObject.id
-    public string bObjectId; // PlacedObject.id
-}
-```
+* 各Stepの表示は **条件文を全て表示（複数行）**
 
-## 2) グラフ操作 `CurriculumGraphService.cs`
+  * Stepに2条件なら2行
+  * Stepに3条件なら3行
+* 文言は固定テンプレで生成し、教師編集は不可（MVP）
 
-```csharp
-using System.Collections.Generic;
-using System.Linq;
-using UnityEngine;
+---
 
-public class CurriculumGraphService : MonoBehaviour {
-    public Curriculum curriculum = new Curriculum();
+## 4. バリデーション仕様（エクスポート可否）
 
-    int stepSeq = 0;
+### 4.1 エラー（Export禁止）
 
-    public StepNode AddStep() {
-        var s = new StepNode {
-            id = "step-" + (++stepSeq).ToString("D4"),
-            title = "手順 " + stepSeq
-        };
-        // 最低1条件行を用意（未設定）
-        s.conditions.Add(new ProximityPair { aObjectId = null, bObjectId = null });
-        curriculum.steps.Add(s);
-        return s;
-    }
+**E-01** Startノードが存在しない / 複数ある
+**E-02** Endノードが存在しない / 複数ある
+**E-03** Start→最初のStepが未接続
+**E-04** Step順序が線形でない（分岐・循環・途中欠落）
+**E-05** Endが最終Stepから未接続
+**E-06** StepのCondition数が 0 または 4以上
+**E-07** ConditionがStepに接続されていない / 複数Stepに接続されている
+**E-08** ConditionのAまたはBが未設定（参照切れ含む）
+**E-09** Conditionで A == B（自己参照）※禁止にする場合（推奨）
+**E-10** 参照オブジェクトがシーンに存在しない（削除済み）
+**E-11** JSON生成に必要なID（object.id等）が欠落
 
-    public void RemoveStep(string stepId) {
-        // step本体削除
-        curriculum.steps.RemoveAll(s => s.id == stepId);
-        // 参照しているnextを除去
-        foreach (var s in curriculum.steps) {
-            s.nextStepIds.RemoveAll(n => n == stepId);
+> 参照切れの挙動は仕様固定：削除されたら Conditionの該当フィールドを **未設定** に戻し、E-08でエクスポート不可にする。
+
+### 4.2 警告（Exportは可能だが注意）
+
+※MVPでは警告は最小でも良い。例：
+
+* **W-01** あるStepのConditionが3個（複雑）
+* **W-02** 同じAが複数Stepで頻繁に要求される（進行が詰まりやすい）
+
+---
+
+## 5. データモデル（内部表現）
+
+### 5.1 Graph（メモリ上）
+
+最低限、以下が取れればOK（すでにノード/接続は実装済みとのことなので、それに合わせて）
+
+* `Node`
+
+  * `nodeId: string`（GUID推奨）
+  * `nodeType: Start | End | Step | Condition`
+* `Edge`
+
+  * `fromNodeId: string`
+  * `toNodeId: string`
+  * `edgeType: StepFlow | ConditionBind`
+
+    * StepFlow：Start/Step→Step/End
+    * ConditionBind：Condition→Step
+* `ConditionNodeData`
+
+  * `objectAId: string|null`
+  * `objectBId: string|null`
+* `StepNodeData`
+
+  * （座標は保存しないが、作業中はUI用に持って良い）
+  * 条件はEdgeから集計する（単一ソース化）
+
+---
+
+## 6. JSON仕様（requiredActions拡張）
+
+### 6.1 方針
+
+* 既存スキーマ `requiredActions: [{id,name}]` を拡張し、各手順に `conditions` を追加する。
+* **後方互換**：
+
+  * 旧データ：`conditions` が存在しない場合は “シナリオ未定義” として扱う（インポート時にエラー or 編集促進）
+* `version` は、実装方針として次のどちらかに統一する（推奨はB）：
+
+  * A) `version`は据え置き（1のまま）で optional field として追加
+  * B) `version`を **2** に上げる（Questローダーが厳格型ならこちらが安全）
+
+この仕様書では **B（version=2）** を推奨案として記述します（必要ならAに変更可能）。
+
+### 6.2 スキーマ（提案：version 2）
+
+```json
+{
+  "version": 2,
+  "meta": { "...": "既存のまま" },
+
+  "scenarioSettings": {
+    "holdSeconds": 1.0,
+    "snapDistance_m": 0.1
+  },
+
+  "requiredActions": [
+    {
+      "id": "act-001",
+      "name": "STEP 1",
+      "conditions": [
+        {
+          "type": "SnapHold",
+          "aObjectId": "obj-200",
+          "bObjectId": "obj-100",
+          "holdSeconds": 1.0
+        },
+        {
+          "type": "SnapHold",
+          "aObjectId": "obj-201",
+          "bObjectId": "obj-101",
+          "holdSeconds": 1.0
         }
+      ]
     }
+  ],
 
-    public StepNode FindStep(string stepId) {
-        return curriculum.steps.FirstOrDefault(s => s.id == stepId);
-    }
-
-    public void AddEdge(string fromStepId, string toStepId) {
-        if (fromStepId == toStepId) return;
-        var from = FindStep(fromStepId);
-        var to = FindStep(toStepId);
-        if (from == null || to == null) return;
-        if (!from.nextStepIds.Contains(toStepId)) from.nextStepIds.Add(toStepId);
-    }
-
-    public void RemoveEdge(string fromStepId, string toStepId) {
-        var from = FindStep(fromStepId);
-        if (from == null) return;
-        from.nextStepIds.RemoveAll(n => n == toStepId);
-    }
-
-    // 合流のため: incoming(親)一覧を導出
-    public List<string> GetParents(string stepId) {
-        var parents = new List<string>();
-        foreach (var s in curriculum.steps) {
-            if (s.nextStepIds.Contains(stepId)) parents.Add(s.id);
-        }
-        return parents;
-    }
-
-    // 参照切れを検出し、MVP仕様どおり「参照を空に戻す」
-    public bool RepairBrokenReferences() {
-        var placed = FindObjectsOfType<PlacedObject>().Select(p => p.id).ToHashSet();
-        bool changed = false;
-
-        foreach (var step in curriculum.steps) {
-            foreach (var c in step.conditions) {
-                if (!string.IsNullOrEmpty(c.aObjectId) && !placed.Contains(c.aObjectId)) { c.aObjectId = null; changed = true; }
-                if (!string.IsNullOrEmpty(c.bObjectId) && !placed.Contains(c.bObjectId)) { c.bObjectId = null; changed = true; }
-            }
-        }
-        return changed;
-    }
-
-    public bool HasUnconfiguredConditions(StepNode step) {
-        return step.conditions.Any(c => string.IsNullOrEmpty(c.aObjectId) || string.IsNullOrEmpty(c.bObjectId));
-    }
-}
-```
-
-## 3) Dropdown用のPlacedObject列挙 `PlacedObjectOptionProvider.cs`
-
-```csharp
-using System.Collections.Generic;
-using System.Linq;
-using UnityEngine;
-
-public static class PlacedObjectOptionProvider {
-    public struct Option {
-        public string id;
-        public string label; // MVPでは typeId 表示
-    }
-
-    public static List<Option> GetOptions() {
-        var list = new List<Option>();
-        foreach (var p in Object.FindObjectsOfType<PlacedObject>()) {
-            // MVP: 表示はtypeIdだけ（将来 rename で差し替え可能）
-            list.Add(new Option { id = p.id, label = p.typeId });
-        }
-        // 安定表示のためソート
-        return list.OrderBy(o => o.label).ToList();
-    }
+  "objects": [ "...": "既存のまま" ]
 }
 ```
 
-## 4) ノードUI（カード） `StepNodeUI.cs`
+#### フィールド定義
 
-> これは「1ノードの見た目とイベント」をまとめる部品です。
+* `scenarioSettings.holdSeconds`：MVP固定 1.0
+* `scenarioSettings.snapDistance_m`：仮置き 0.1（スナップ検出に距離を使う場合の共有値）
+* `requiredActions[i].id`：安定ID（自動採番 or GUID）
+* `requiredActions[i].name`：表示名（MVPでは `STEP n` で自動付与）
+* `requiredActions[i].conditions`：Step内のAND条件リスト（順不同）
 
-```csharp
-using System;
-using System.Collections.Generic;
-using UnityEngine;
-using UnityEngine.UI;
+#### Condition（MVPでは SnapHold のみ）
 
-public class StepNodeUI : MonoBehaviour {
-    [Header("Basic")]
-    public Text stepIdText;
-    public InputField titleInput;
-    public GameObject warningIcon;
+* `type`：`"SnapHold"`
+* `aObjectId`：動作側（ツール等）
+* `bObjectId`：ターゲット側（ナット等）
+* `holdSeconds`：固定 1.0（将来拡張を見越して残す）
 
-    [Header("Connectors")]
-    public Button inputConnector;
-    public Button outputConnector;
+---
 
-    [Header("Conditions")]
-    public RectTransform conditionListRoot;
-    public ConditionRowUI conditionRowTemplate;
-    public Button addConditionButton;
+## 7. エクスポート生成仕様（Graph → JSON）
 
-    // 外から注入
-    StepNode step;
-    CurriculumGraphService graph;
+### 7.1 手順順序の確定
 
-    public Action<string> onClickInputConnector;
-    public Action<string> onClickOutputConnector;
-    public Action onChanged;
+1. Startノードを取得（1つであること）
+2. StepFlowエッジを辿って線形列を構築
 
-    readonly List<ConditionRowUI> rows = new List<ConditionRowUI>();
+   * `Start -> Step1 -> Step2 -> ... -> End`
+3. Step列のindexを決定（1始まり）
 
-    public void Bind(CurriculumGraphService graphService, StepNode s) {
-        graph = graphService;
-        step = s;
+### 7.2 Stepごとの conditions 生成
 
-        stepIdText.text = s.id;
-        titleInput.SetTextWithoutNotify(s.title);
-        titleInput.onEndEdit.RemoveAllListeners();
-        titleInput.onEndEdit.AddListener(v => { step.title = v; onChanged?.Invoke(); });
+各Stepについて：
 
-        inputConnector.onClick.RemoveAllListeners();
-        outputConnector.onClick.RemoveAllListeners();
-        inputConnector.onClick.AddListener(() => onClickInputConnector?.Invoke(step.id));
-        outputConnector.onClick.AddListener(() => onClickOutputConnector?.Invoke(step.id));
+1. `ConditionBind` の入力エッジで接続されたConditionノードを取得
+2. 各Conditionノードについて：
 
-        addConditionButton.onClick.RemoveAllListeners();
-        addConditionButton.onClick.AddListener(() => {
-            step.conditions.Add(new ProximityPair { aObjectId = null, bObjectId = null });
-            RebuildConditions();
-            onChanged?.Invoke();
-        });
+   * `objectAId`, `objectBId` を読む
+   * 未設定/nullはエラー（E-08）
+3. `conditions` 配列を生成（並び順は **任意**。ただし安定化のため `nodeId` 昇順などでソート推奨）
+4. Stepの `name` は `STEP {index}` に自動設定
 
-        RebuildConditions();
-        RefreshWarning();
-    }
+### 7.3 参照切れ処理
 
-    public void RefreshWarning() {
-        bool warn = graph.HasUnconfiguredConditions(step);
-        if (warningIcon != null) warningIcon.SetActive(warn);
-    }
+* オブジェクト削除イベントを受けたら：
 
-    void RebuildConditions() {
-        foreach (Transform c in conditionListRoot) Destroy(c.gameObject);
-        rows.Clear();
+  * 該当Conditionノードの `objectAId` / `objectBId` を null にする
+  * UI表示を未設定に更新
+* エクスポート時に null があれば禁止
 
-        var options = PlacedObjectOptionProvider.GetOptions();
+---
 
-        for (int i = 0; i < step.conditions.Count; i++) {
-            int idx = i;
-            var row = Instantiate(conditionRowTemplate, conditionListRoot);
-            row.gameObject.SetActive(true);
+## 8. Quest側ランタイム契約（評価ロジック）
 
-            row.Bind(
-                options,
-                step.conditions[idx].aObjectId,
-                step.conditions[idx].bObjectId,
-                onAChanged: (newId) => { step.conditions[idx].aObjectId = newId; RefreshWarning(); onChanged?.Invoke(); },
-                onBChanged: (newId) => { step.conditions[idx].bObjectId = newId; RefreshWarning(); onChanged?.Invoke(); },
-                onRemove: () => {
-                    // 1行は最低残す
-                    if (step.conditions.Count <= 1) {
-                        step.conditions[idx].aObjectId = null;
-                        step.conditions[idx].bObjectId = null;
-                    } else {
-                        step.conditions.RemoveAt(idx);
-                    }
-                    RebuildConditions();
-                    RefreshWarning();
-                    onChanged?.Invoke();
-                }
-            );
+### 8.1 スナップ状態モデル（MVP固定）
 
-            rows.Add(row);
-        }
-    }
-}
-```
+* 各配置オブジェクトはランタイムで以下を持つ：
 
-## 5) 条件行UI `ConditionRowUI.cs`
+  * `objectId: string`
+  * `currentSnapTargetId: string|null`（1対1）
+* スナップイベント：
+
+  * `OnSnapEnter(aId, bId)`：aがbに吸着開始 → `a.currentSnapTargetId = bId`
+  * `OnSnapExit(aId, bId)`：吸着解除 → `a.currentSnapTargetId = null`（bId一致時）
+
+### 8.2 条件達成（SnapHold）
+
+* 条件 `c` が「成立している」とは：
+
+  * `a.currentSnapTargetId == bObjectId`
+* 条件達成は：
+
+  * 成立状態が **holdSeconds（1.0s）** 継続したら `c.satisfied = true`
+  * 継続途中で崩れたらタイマーリセット（未達のまま）
+
+### 8.3 Step進行（自動）
+
+* `currentStepIndex` を持つ（0始まり）
+* Step開始時に、そのStep内の `c.satisfied=false` を初期化
+* 全条件 `satisfied=true` になった瞬間に Step完了 → `currentStepIndex++`
+* 完了したStepは確定（巻き戻しなし）
+
+### 8.4 表示（MVP）
+
+* 現在Stepの条件文を **全行表示**
+* 文は固定テンプレ：
+
+  * `"{aObjectId} を {bObjectId} に近づける"`
+* 表示更新タイミング：
+
+  * Stepが進んだ時
+
+### 8.5 擬似コード（参考）
 
 ```csharp
-using System;
-using System.Collections.Generic;
-using UnityEngine;
-using UnityEngine.UI;
+void Update() {
+  var step = requiredActions[currentStepIndex];
+  foreach (var cond in step.conditions) {
+    if (cond.satisfied) continue;
 
-public class ConditionRowUI : MonoBehaviour {
-    public Dropdown dropdownA;
-    public Dropdown dropdownB;
-    public Button removeButton;
+    bool isHeld = (snapState[cond.aObjectId].currentTarget == cond.bObjectId);
 
-    public void Bind(
-        List<PlacedObjectOptionProvider.Option> options,
-        string currentAId,
-        string currentBId,
-        Action<string> onAChanged,
-        Action<string> onBChanged,
-        Action onRemove
-    ) {
-        // 選択肢: 先頭に "未設定"
-        var labels = new List<string> { "未設定" };
-        foreach (var o in options) labels.Add(o.label);
+    if (isHeld) cond.holdTimer += Time.deltaTime;
+    else cond.holdTimer = 0f;
 
-        dropdownA.ClearOptions();
-        dropdownB.ClearOptions();
-        dropdownA.AddOptions(labels);
-        dropdownB.AddOptions(labels);
+    if (cond.holdTimer >= cond.holdSeconds) cond.satisfied = true;
+  }
 
-        dropdownA.onValueChanged.RemoveAllListeners();
-        dropdownB.onValueChanged.RemoveAllListeners();
-
-        dropdownA.value = IdToIndex(options, currentAId);
-        dropdownB.value = IdToIndex(options, currentBId);
-
-        dropdownA.onValueChanged.AddListener(v => onAChanged(IndexToId(options, v)));
-        dropdownB.onValueChanged.AddListener(v => onBChanged(IndexToId(options, v)));
-
-        removeButton.onClick.RemoveAllListeners();
-        removeButton.onClick.AddListener(() => onRemove?.Invoke());
-    }
-
-    int IdToIndex(List<PlacedObjectOptionProvider.Option> options, string id) {
-        if (string.IsNullOrEmpty(id)) return 0;
-        for (int i = 0; i < options.Count; i++) {
-            if (options[i].id == id) return i + 1; // 0が未設定
-        }
-        return 0;
-    }
-
-    string IndexToId(List<PlacedObjectOptionProvider.Option> options, int index) {
-        if (index <= 0) return null;
-        int i = index - 1;
-        if (i < 0 || i >= options.Count) return null;
-        return options[i].id;
-    }
-}
-```
-
-## 6) 接続線（UI上に直線） `ConnectionLineGraphic.cs`
-
-> 最小の「線を引くGraphic」。ベジェ曲線はMVP外。直線でOK。
-
-```csharp
-using UnityEngine;
-using UnityEngine.UI;
-
-public class ConnectionLineGraphic : Graphic {
-    public RectTransform from;
-    public RectTransform to;
-    public float thickness = 3f;
-
-    protected override void OnPopulateMesh(VertexHelper vh) {
-        vh.Clear();
-        if (from == null || to == null) return;
-
-        Vector2 a = WorldToLocalCenter(from);
-        Vector2 b = WorldToLocalCenter(to);
-
-        Vector2 dir = (b - a).normalized;
-        Vector2 n = new Vector2(-dir.y, dir.x) * (thickness * 0.5f);
-
-        // Quad: a-n, a+n, b+n, b-n
-        AddQuad(vh, a - n, a + n, b + n, b - n);
-    }
-
-    Vector2 WorldToLocalCenter(RectTransform rt) {
-        Vector3 world = rt.TransformPoint(rt.rect.center);
-        Vector2 local = rectTransform.InverseTransformPoint(world);
-        return local;
-    }
-
-    void AddQuad(VertexHelper vh, Vector2 v0, Vector2 v1, Vector2 v2, Vector2 v3) {
-        int i = vh.currentVertCount;
-        UIVertex vert = UIVertex.simpleVert;
-        vert.color = color;
-
-        vert.position = v0; vh.AddVert(vert);
-        vert.position = v1; vh.AddVert(vert);
-        vert.position = v2; vh.AddVert(vert);
-        vert.position = v3; vh.AddVert(vert);
-
-        vh.AddTriangle(i, i + 1, i + 2);
-        vh.AddTriangle(i, i + 2, i + 3);
-    }
-
-    void Update() {
-        // 位置更新のために再描画
-        SetVerticesDirty();
-    }
-}
-```
-
-## 7) グラフUI（下部常設・ノード生成・クリック接続） `ScenarioGraphUI.cs`
-
-```csharp
-using System.Collections.Generic;
-using System.IO;
-using UnityEngine;
-using UnityEngine.UI;
-
-public class ScenarioGraphUI : MonoBehaviour {
-    [Header("Services")]
-    public CurriculumGraphService graph;
-
-    [Header("Top Controls")]
-    public InputField projectNameInput;
-    public Button addStepButton;
-    public Button saveButton;
-    public Text statusText;
-
-    [Header("Nodes")]
-    public RectTransform nodeArea;       // ノードを置く領域
-    public StepNodeUI nodeTemplate;
-
-    [Header("Lines")]
-    public RectTransform lineLayer;      // nodeAreaの上に重ねる全画面レイヤ
-    public ConnectionLineGraphic lineTemplate;
-
-    // 接続モード
-    string linkingFromStepId = null;
-
-    // 生成済みUI参照
-    readonly Dictionary<string, StepNodeUI> nodeUIs = new Dictionary<string, StepNodeUI>();
-    readonly List<ConnectionLineGraphic> lines = new List<ConnectionLineGraphic>();
-
-    void Start() {
-        if (graph.curriculum.steps.Count == 0) graph.AddStep();
-
-        projectNameInput.SetTextWithoutNotify(graph.curriculum.projectName);
-
-        addStepButton.onClick.AddListener(() => {
-            graph.AddStep();
-            RebuildAll();
-        });
-
-        saveButton.onClick.AddListener(() => SaveCurriculum());
-
-        RebuildAll();
-    }
-
-    void RebuildAll() {
-        // 参照切れ修復
-        graph.RepairBrokenReferences();
-
-        // Nodes
-        foreach (Transform c in nodeArea) Destroy(c.gameObject);
-        nodeUIs.Clear();
-
-        float x = 60f, y = -20f;
-        foreach (var s in graph.curriculum.steps) {
-            var ui = Instantiate(nodeTemplate, nodeArea);
-            ui.gameObject.SetActive(true);
-
-            // 雑に並べる（MVP: 後でドラッグ移動等を追加）
-            var rt = ui.GetComponent<RectTransform>();
-            rt.anchoredPosition = new Vector2(x, y);
-            y -= 150f;
-            if (y < -400f) { y = -20f; x += 420f; }
-
-            ui.Bind(graph, s);
-            ui.onClickOutputConnector = OnClickOutput;
-            ui.onClickInputConnector = OnClickInput;
-            ui.onChanged = () => { ui.RefreshWarning(); RefreshLines(); };
-
-            nodeUIs[s.id] = ui;
-        }
-
-        RefreshLines();
-        statusText.text = linkingFromStepId == null ? "" : "接続先ノードの入力●をクリック";
-    }
-
-    void OnClickOutput(string fromStepId) {
-        linkingFromStepId = fromStepId;
-        statusText.text = "接続先ノードの入力●をクリック";
-    }
-
-    void OnClickInput(string toStepId) {
-        if (string.IsNullOrEmpty(linkingFromStepId)) return;
-        graph.AddEdge(linkingFromStepId, toStepId);
-        linkingFromStepId = null;
-        statusText.text = "";
-        RefreshLines();
-    }
-
-    void RefreshLines() {
-        // Lines clear
-        foreach (var l in lines) Destroy(l.gameObject);
-        lines.Clear();
-
-        // Build edges
-        foreach (var s in graph.curriculum.steps) {
-            if (!nodeUIs.TryGetValue(s.id, out var fromUI)) continue;
-
-            foreach (var toId in s.nextStepIds) {
-                if (!nodeUIs.TryGetValue(toId, out var toUI)) continue;
-
-                var line = Instantiate(lineTemplate, lineLayer);
-                line.gameObject.SetActive(true);
-                line.color = new Color(1f, 1f, 1f, 0.9f);
-
-                // from: 出力コネクタ中心, to: 入力コネクタ中心
-                line.from = fromUI.outputConnector.GetComponent<RectTransform>();
-                line.to   = toUI.inputConnector.GetComponent<RectTransform>();
-                lines.Add(line);
-            }
-        }
-    }
-
-    void SaveCurriculum() {
-        graph.curriculum.projectName = string.IsNullOrWhiteSpace(projectNameInput.text)
-            ? graph.curriculum.projectName
-            : projectNameInput.text;
-
-        // 参照切れ/未設定があっても保存は可能（警告表示）
-        int warnCount = 0;
-        foreach (var s in graph.curriculum.steps) {
-            if (graph.HasUnconfiguredConditions(s)) warnCount++;
-        }
-
-        string dir = Path.Combine(Application.dataPath, "Exports");
-        Directory.CreateDirectory(dir);
-
-        string file = $"{graph.curriculum.projectName}-curriculum.json";
-        string path = Path.Combine(dir, file);
-
-        string json = JsonUtility.ToJson(graph.curriculum, true);
-        File.WriteAllText(path, json);
-
-        statusText.text = warnCount > 0
-            ? $"保存しました（⚠未設定手順: {warnCount}）: Assets/Exports/{file}"
-            : $"保存しました: Assets/Exports/{file}";
-
-        Debug.Log(statusText.text);
-    }
+  if (step.conditions.All(c => c.satisfied)) {
+    currentStepIndex++;
+    EnterStep(currentStepIndex);
+  }
 }
 ```
 
 ---
 
-# Unity 上での作り方（uGUI配置の最短手順）
+## 9. SnapPoint仕様（Editor/Quest共通ルール）
 
-1. 既存Canvasに下部パネルを追加
+* SnapPointは **Transform pivot（local origin）**
+* 教師操作は不要：
 
-* `Canvas` 右クリック → UI → Panel → `Panel_ScenarioGraph`
-* Anchor: 下に固定（Stretch X / Bottom）
-* 高さ: 260 くらい
+  * オブジェクトを追加した時点でSnapPointは「そのオブジェクトのpivot」として成立する
+* 重要制約（制作ルール）：
 
-2. `Panel_ScenarioGraph` の中身
+  * タイヤ交換で使用するPrefabは、**pivotが意味のある位置**（スナップしたい基準点）に置かれていること
+  * ここが崩れるとシナリオが成立しないので、**アセット制作要件**として明記する
 
-* 上段: `InputField(ProjectName)`, `Button(+Step)`, `Button(Save)`, `Text(Status)`
-* 中段: `NodeArea`（RectTransform）
-* 最前面: `LineLayer`（RectTransform, Stretch Full, Raycast Target off推奨）
+---
 
-3. Nodeテンプレを作る
+## 10. 既存実装との結合点（あなたの現状に合わせた「残タスク」）
 
-* `StepNodeUI` をアタッチするPanelを1つ作ってPrefab化して `nodeTemplate` に入れる
-* 左に `inputConnector`（丸いボタン）、右に `outputConnector`（丸いボタン）
-* `conditionRowTemplate` も同様に1行作ってPrefab化
+実装状況（ノード追加/接続/ドロップダウン表示まで実装済み）から、残りの主作業は次の4つに集約されます✅
 
-4. `Systems` に `CurriculumGraphService` を追加
-5. `Panel_ScenarioGraph` に `ScenarioGraphUI` を追加し参照を割り当てる
+1. **Stepノード導入**
 
+   * Stepノード追加UI
+   * StepFlow接続の制限（分岐禁止、End必須等）
+2. **Graphバリデーション実装**
+
+   * E-01〜E-11の検出
+   * エクスポートボタンのDisable + エラー一覧表示
+3. **Graph→requiredActions 変換**
+
+   * Startから線形走査してStep列化
+   * ConditionBindを集計してconditions生成
+4. **JSONスキーマ拡張**
+
+   * `scenarioSettings` 追加
+   * `requiredActions[].conditions[]` 追加
+   * version運用（推奨：2）
+
+---
+
+## 11. テスト観点（最低限）
+
+* 正常系
+
+  * Step 1条件 / 2条件 / 3条件でエクスポートできる
+  * 読み込み→自動整列→再エクスポートで同等JSONになる（論理等価）
+* 異常系（エクスポート禁止）
+
+  * Startなし / Endなし
+  * Step分岐（次が2本）
+  * Step条件0個 / 4個
+  * ConditionがStep未接続
+  * A/B未設定
+  * 参照オブジェクト削除→未設定化→禁止
+* ランタイム契約
+
+  * SnapEnter後、1.0s未満で解除→未達
+  * 1.0s維持→達成
+  * 全条件達成→Step自動進行
