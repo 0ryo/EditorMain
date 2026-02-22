@@ -6,7 +6,7 @@
 - 正となるアセット: `Assets/UI/Prefabs/UIRoot.prefab`
 
 ## 2. 目的
-- シナリオのノード（Step）編集、接続、保存を行う。
+- シナリオのノード（Start/End/Step/Condition）編集、接続、保存を行う。
 - 画面下部常設パネルとして、オブジェクト一覧ウィンドウの右隣に密着配置される。
 
 ## 3. レイアウト
@@ -24,25 +24,33 @@
 - `TopBar`
 - `TopBar/Input_ProjectName`
 - `TopBar/Button_AddStep`
+- `TopBar/Button_AddCondition`
 - `TopBar/Button_SaveCurriculum`
 - `TopBar/Text_Status`
 - `NodeArea`
 - `NodeArea/LineLayer`
 - `NodeArea/LineLayer/LineTemplate`（非表示テンプレート）
 - `NodeArea/StepNodeTemplate`（非表示テンプレート）
+- `NodeArea/ConditionNodeTemplate`（非表示テンプレートまたはランタイム生成）
+- `NodeArea/StartNodeTemplate`（非表示テンプレートまたはランタイム生成）
+- `NodeArea/EndNodeTemplate`（非表示テンプレートまたはランタイム生成）
 - `ResizeHandle`（縦リサイズ）
 
 ## 5. ノードテンプレート仕様
 - `StepNodeTemplate`
 - 上段: `Text_StepId`
-- 中段: `Input_Title`
-- 条件ブロック:
-  - 1段目: `DropdownA` + テキスト `を`
-  - 2段目: `DropdownB` + テキスト `に近づけたら`
+- 中段: `Input_Title`（表示専用）
+- 補助表示: `Text_ConditionSummary`
 - 接続コネクタ:
   - 左右に丸コネクタ（ノード外側に配置）
 - ドラッグ:
   - `DragHandle` 領域でノード移動
+- `ConditionNodeTemplate`
+  - 表示: `nodeId` + 条件行（`DropdownA`/`DropdownB`）
+  - 接続コネクタ: 出力のみ
+- `StartNodeTemplate` / `EndNodeTemplate`
+  - 表示: 固定ラベル（`START` / `END`）
+  - 接続コネクタ: Startは出力のみ、Endは入力のみ
 
 ## 6. 見た目
 - パネル: 薄いグレー基調
@@ -55,12 +63,17 @@
 - `+ Step`:
   - 新規Stepを追加
   - 既存ノード位置は保持
-  - 新規ノードは中央配置
+  - 未配置ノードは自動整列配置
+- `+ Condition`:
+  - 新規Conditionを追加
 - 接続:
   - 出力コネクタクリック後、入力コネクタクリックでEdge追加
+  - 接続不可時は理由コードをステータス表示
 - 保存:
   - `Assets/Exports/<ProjectName>-curriculum.json`
-  - 未設定条件があっても保存し、警告件数を表示
+  - 保存前に E-01〜E-11 を検証
+  - エラー時はSave不可（ボタン無効）
+  - 有効時は `version=2` / `requiredActions[].conditions[]` を含むJSONを出力
 
 ## 8. リサイズ
 - スクリプト: `PanelVerticalResizeHandle`
@@ -72,6 +85,8 @@
 ## 9. 依存スクリプト
 - `ScenarioGraphUI`
 - `StepNodeUI`
+- `ConditionNodeUI`
+- `TerminalNodeUI`
 - `ConditionRowUI`
 - `ConnectionLineGraphic`
 - `NodeDragHandler`
@@ -81,3 +96,18 @@
 ## 10. 変更ルール
 - 見た目と階層は `UIRoot.prefab` で調整する。
 - データ保存・接続ロジックは `ScenarioGraphUI`/`CurriculumGraphService` 側で調整する。
+
+## 11. 2026-02-22 UI bugfix
+- Clamp node positions to `NodeArea` when `Panel_ScenarioGraph` is resized.
+- Clamp node dragging inside `NodeArea` bounds.
+- Purpose: prevent nodes from protruding outside the node area after resize.
+
+## 12. 2026-02-22 NodeArea pan/zoom
+- Added `NodeArea/GraphContent` as the zoom/pan target container.
+- Mouse wheel: zoom in/out around cursor position.
+- Middle mouse drag: pan horizontally and vertically.
+- Node dragging is bounded by `GraphContent` area.
+
+## 13. 2026-02-22 line clipping fix
+- `ConnectionLineGraphic` changed from `Graphic` to `MaskableGraphic`.
+- Connection paths are now clipped by `NodeArea` (`RectMask2D`) during pan/zoom.

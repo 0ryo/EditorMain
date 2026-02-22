@@ -90,31 +90,38 @@
 ## 8. ノード追加ウィンドウ仕様
 - 対象: `Panel_ScenarioGraph` / `ScenarioGraphUI`
 - UI構成
-  - TopBar: プロジェクト名、`+ Step`、`Save`、ステータス
+  - TopBar: プロジェクト名、`+ Step`、`+ Condition`、`Save`、ステータス
   - NodeArea: ノード配置領域
   - LineLayer: 接続線描画レイヤー
   - 上端に縦リサイズハンドル
+- ノード種別
+  - `Start` / `End`（各1つ）
+  - `Step`（複数）
+  - `Condition`（複数）
 - `+ Step`
   - `CurriculumGraphService.AddStep()` を実行
   - 既存ノード位置は保持
-  - 新規ノードは NodeArea 中心付近（既定 `anchoredPosition = 0,0`）
+  - 未保存位置がないノードは自動整列位置を適用
+- `+ Condition`
+  - `CurriculumGraphService.AddCondition()` を実行
+  - 新規Conditionノードを追加
 - ノード移動
   - `NodeDragHandler` でドラッグ移動可能
 - 保存
   - `Assets/Exports/<ProjectName>-curriculum.json` に保存
-  - 未設定条件数をステータスに表示
+  - 保存前に E-01〜E-11 を検証し、エラー時は `Save` を無効化
+  - 出力形式は `version=2` + `scenarioSettings` + `requiredActions[].conditions[]`
 
 ## 9. ノードカード仕様
-- `StepNodeUI` をテンプレートから複製して使用
-- 構成
-  - 手順 ID 表示
-  - タイトル入力
-  - 入力/出力コネクタ（左右）
-  - 条件行（1行固定）
-- 条件行
-  - `DropdownA` + 文言 `を`
-  - `DropdownB` + 文言 `に近づけたら`
-  - `+条件` ボタンは廃止
+- `StepNodeUI`
+  - 表示: `STEP n`、条件数サマリ、警告アイコン
+  - 接続: 入力1 / 出力1（StepFlow）
+- `ConditionNodeUI`
+  - 表示: `Condition nodeId`、`DropdownA` + `DropdownB`
+  - 接続: 出力1（ConditionBind）
+- `TerminalNodeUI`
+  - `START`: 出力のみ
+  - `END`: 入力のみ
 
 ## 10. 条件ドロップダウン仕様
 - 対象: `ConditionRowUI`, `PlacedObjectOptionProvider`
@@ -122,7 +129,7 @@
   - 先頭は常に `未設定`
   - 以降は現在ワールドにある `PlacedObject.id`（`obj-xxxx`）を表示
 - 更新
-  - `StepNodeUI` が 0.2 秒間隔で選択肢差分を監視し再バインド
+  - `ConditionNodeUI` が 0.2 秒間隔で選択肢差分を監視し再バインド
 - 見た目
   - ボタン背景: グレー
   - テンプレート背景: 薄グレー
@@ -137,13 +144,21 @@
 - 接続方法
   - クリック接続: 出力クリック → 入力クリック
   - ドラッグ接続: 出力から入力へドラッグ&ドロップ
+- 接続種別
+  - `StepFlow`: `Start/Step -> Step/End`
+  - `ConditionBind`: `Condition -> Step`
+- 接続制約
+  - StepFlowは分岐禁止（各ノード出力は最大1）
+  - StepFlowは循環禁止
+  - Conditionは1つのStepにのみ接続
+  - StepのCondition受け取り上限は3
 - 接続線
   - `ConnectionLineGraphic` で描画
   - 色は明るい黄色、太さ `8`
   - `LineLayer` 上に描画
   - `CanvasRenderer` 欠落時はランタイム補完
 - 接続データ
-  - `CurriculumGraphService.AddEdge(from, to)` を呼ぶ
+  - `CurriculumGraphService.TryAddEdge(from, to, out reason)` を呼ぶ
   - 自己接続・重複接続は拒否
 
 ## 12. ログ運用（調査用）
@@ -166,8 +181,19 @@
 - カード検索・クリック配置・ドラッグ配置が機能すること
 - ノード接続線（明るい黄色）が表示されること
 - 条件ドロップダウンに `obj-xxxx` が表示されること
+- 無効なグラフで `Save` が無効化されること
+- 保存JSONに `requiredActions[].conditions[]` が出力されること
 
 ## 14. 運用ルール（今後）
 - UIを変更する場合は、先に `UIRoot.prefab` と対応スクリプトの責務分離を維持する。
 - レイアウト変更は Prefab 側を優先し、ロジック変更は `CatalogUI` / `ScenarioGraphUI` / `StepNodeUI` に閉じ込める。
 - 本仕様と差異が出た場合は、同一PR/同一コミット系列で `Docs/worklog_UI/` を更新する。
+
+## 15. 2026-02-22 NodeArea Pan/Zoom
+- Scenario graph viewport now supports wheel zoom and middle-drag pan.
+- Added `GraphContent` under `NodeArea` as a large canvas for navigation.
+- Related scripts: `NodeAreaPanZoomController`, `ScenarioGraphUI`, `NodeDragHandler`.
+
+## 16. 2026-02-22 Connection Path Clipping
+- Updated `ConnectionLineGraphic` to `MaskableGraphic` so paths obey `RectMask2D` clipping in `NodeArea`.
+- This fixes paths visually escaping the viewport while zooming/panning.

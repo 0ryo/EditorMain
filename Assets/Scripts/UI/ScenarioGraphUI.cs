@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -15,20 +16,39 @@ public class ScenarioGraphUI : MonoBehaviour
     [SerializeField] RectTransform panelRoot;
     [SerializeField] InputField projectNameInput;
     [SerializeField] Button addStepButton;
+    [SerializeField] Button addConditionButton;
     [SerializeField] Button saveButton;
     [SerializeField] Text statusText;
     [SerializeField] RectTransform nodeArea;
+    [SerializeField] RectTransform graphContent;
     [SerializeField] RectTransform lineLayer;
-    [SerializeField] StepNodeUI nodeTemplate;
     [SerializeField] ConnectionLineGraphic lineTemplate;
+
+    [Header("Node Templates")]
+    [SerializeField] StepNodeUI stepNodeTemplate;
+    [SerializeField] StepNodeUI nodeTemplate; // legacy field
+    [SerializeField] ConditionNodeUI conditionNodeTemplate;
+    [SerializeField] TerminalNodeUI startNodeTemplate;
+    [SerializeField] TerminalNodeUI endNodeTemplate;
+
+    [Header("Layout")]
     [SerializeField] PanelVerticalResizeHandle resizeHandle;
 
-    string linkingFromStepId;
-    string draggingFromStepId;
+    string linkingFromNodeId;
+    string draggingFromNodeId;
     ConnectionLineGraphic dragPreviewLine;
     RectTransform dragPreviewTarget;
+    float nextValidationPollTime;
 
-    readonly Dictionary<string, StepNodeUI> nodeUIs = new Dictionary<string, StepNodeUI>();
+    class NodeUiBinding
+    {
+        public ScenarioNodeType nodeType;
+        public RectTransform root;
+        public RectTransform inputConnector;
+        public RectTransform outputConnector;
+    }
+
+    readonly Dictionary<string, NodeUiBinding> nodeUIs = new Dictionary<string, NodeUiBinding>();
     readonly Dictionary<string, Vector2> nodePositions = new Dictionary<string, Vector2>();
     readonly List<ConnectionLineGraphic> lines = new List<ConnectionLineGraphic>();
 
@@ -40,13 +60,38 @@ public class ScenarioGraphUI : MonoBehaviour
 
     void Start()
     {
-        if (graph.curriculum.steps.Count == 0)
+        graph.EnsureGraphInitialized();
+        if (graph.GetNodes(ScenarioNodeType.Step).Count == 0)
         {
             graph.AddStep();
         }
 
-        projectNameInput.SetTextWithoutNotify(graph.curriculum.projectName);
+        if (projectNameInput != null)
+        {
+            projectNameInput.SetTextWithoutNotify(graph.curriculum.projectName);
+        }
+
         RebuildAll();
+    }
+
+    void Update()
+    {
+        if (graph == null || !isActiveAndEnabled) return;
+        if (Time.unscaledTime < nextValidationPollTime) return;
+
+        nextValidationPollTime = Time.unscaledTime + 0.5f;
+        if (graph.RepairBrokenReferences())
+        {
+            RebuildAll();
+            return;
+        }
+
+        RefreshValidationStatus();
+    }
+
+    void OnRectTransformDimensionsChange()
+    {
+        ClampNodesToNodeArea();
     }
 
     void EnsureGraphService()
@@ -62,13 +107,36 @@ public class ScenarioGraphUI : MonoBehaviour
 
     void ValidateAndBindReferences()
     {
-        if (projectNameInput == null || addStepButton == null || saveButton == null || statusText == null ||
-            nodeArea == null || lineLayer == null || nodeTemplate == null || lineTemplate == null)
+        if (stepNodeTemplate == null)
+        {
+            stepNodeTemplate = nodeTemplate;
+        }
+
+        if (stepNodeTemplate == null)
+        {
+            Debug.LogError("[ScenarioGraphUI] Step node template is not assigned.");
+            enabled = false;
+            return;
+        }
+
+        if (projectNameInput == null || addStepButton == null || saveButton == null ||
+            statusText == null || nodeArea == null || lineLayer == null || lineTemplate == null)
         {
             Debug.LogError("[ScenarioGraphUI] UI references are not assigned on prefab.");
             enabled = false;
             return;
         }
+
+        EnsureNodeAreaMask();
+        EnsureGraphContent();
+        EnsurePanZoomController();
+
+        if (addConditionButton == null)
+        {
+            addConditionButton = CreateRuntimeConditionButton();
+        }
+
+        EnsureRuntimeTemplates();
 
         if (resizeHandle != null && panelRoot != null)
         {
@@ -82,8 +150,248 @@ public class ScenarioGraphUI : MonoBehaviour
             RebuildAll();
         });
 
+        if (addConditionButton != null)
+        {
+            addConditionButton.onClick.RemoveAllListeners();
+            addConditionButton.onClick.AddListener(() =>
+            {
+                graph.AddCondition();
+                RebuildAll();
+            });
+        }
+
         saveButton.onClick.RemoveAllListeners();
-        saveButton.onClick.AddListener(SaveCurriculum);
+        saveButton.onClick.AddListener(SaveScenarioExport);
+
+        projectNameInput.onEndEdit.RemoveAllListeners();
+        projectNameInput.onEndEdit.AddListener(_ =>
+        {
+            graph.curriculum.projectName = string.IsNullOrWhiteSpace(projectNameInput.text)
+                ? "VRCourseEditor"
+                : projectNameInput.text.Trim();
+            RefreshValidationStatus();
+        });
+    }
+
+    Button CreateRuntimeConditionButton()
+    {
+        if (addStepButton == null) return null;
+
+        var cloned = Instantiate(addStepButton, addStepButton.transform.parent);
+        cloned.gameObject.name = "Button_AddCondition_Runtime";
+        cloned.transform.SetSiblingIndex(addStepButton.transform.GetSiblingIndex() + 1);
+
+        var label = cloned.GetComponentInChildren<Text>(true);
+        if (label != null)
+        {
+            label.text = "+ Condition";
+        }
+
+        return cloned;
+    }
+
+    void EnsureRuntimeTemplates()
+    {
+        if (startNodeTemplate == null)
+        {
+            startNodeTemplate = CreateTerminalTemplateFromStepTemplate(
+                "StartNodeTemplate_Runtime",
+                "START",
+                hasInput: false,
+                hasOutput: true,
+                color: new Color(0.93f, 0.98f, 0.90f, 1f));
+        }
+
+        if (endNodeTemplate == null)
+        {
+            endNodeTemplate = CreateTerminalTemplateFromStepTemplate(
+                "EndNodeTemplate_Runtime",
+                "END",
+                hasInput: true,
+                hasOutput: false,
+                color: new Color(0.90f, 0.96f, 0.98f, 1f));
+        }
+
+        if (conditionNodeTemplate == null)
+        {
+            conditionNodeTemplate = CreateConditionTemplateFromStepTemplate();
+        }
+    }
+
+    void EnsureNodeAreaMask()
+    {
+        if (nodeArea == null) return;
+        if (nodeArea.GetComponent<RectMask2D>() != null) return;
+
+        nodeArea.gameObject.AddComponent<RectMask2D>();
+    }
+
+    void EnsureGraphContent()
+    {
+        if (nodeArea == null) return;
+
+        if (graphContent == null)
+        {
+            var found = nodeArea.Find("GraphContent") as RectTransform;
+            if (found != null)
+            {
+                graphContent = found;
+            }
+        }
+
+        if (graphContent == null)
+        {
+            var graphGo = new GameObject("GraphContent", typeof(RectTransform));
+            graphContent = graphGo.GetComponent<RectTransform>();
+            graphContent.SetParent(nodeArea, false);
+            graphContent.anchorMin = new Vector2(0.5f, 0.5f);
+            graphContent.anchorMax = new Vector2(0.5f, 0.5f);
+            graphContent.pivot = new Vector2(0.5f, 0.5f);
+            graphContent.sizeDelta = new Vector2(4200f, 2400f);
+            graphContent.anchoredPosition = Vector2.zero;
+        }
+
+        if (graphContent.rect.width < 1f || graphContent.rect.height < 1f)
+        {
+            graphContent.anchorMin = new Vector2(0.5f, 0.5f);
+            graphContent.anchorMax = new Vector2(0.5f, 0.5f);
+            graphContent.pivot = new Vector2(0.5f, 0.5f);
+            graphContent.sizeDelta = new Vector2(4200f, 2400f);
+            graphContent.anchoredPosition = Vector2.zero;
+        }
+
+        ReparentToGraphContent(lineLayer);
+        if (stepNodeTemplate != null) ReparentToGraphContent(stepNodeTemplate.transform as RectTransform);
+        if (conditionNodeTemplate != null) ReparentToGraphContent(conditionNodeTemplate.transform as RectTransform);
+        if (startNodeTemplate != null) ReparentToGraphContent(startNodeTemplate.transform as RectTransform);
+        if (endNodeTemplate != null) ReparentToGraphContent(endNodeTemplate.transform as RectTransform);
+    }
+
+    void ReparentToGraphContent(RectTransform child)
+    {
+        if (graphContent == null || child == null) return;
+        if (child == graphContent) return;
+        if (child.parent == graphContent) return;
+        child.SetParent(graphContent, false);
+    }
+
+    void EnsurePanZoomController()
+    {
+        if (nodeArea == null || graphContent == null) return;
+
+        var panZoom = nodeArea.GetComponent<NodeAreaPanZoomController>();
+        if (panZoom == null)
+        {
+            panZoom = nodeArea.gameObject.AddComponent<NodeAreaPanZoomController>();
+        }
+
+        panZoom.Configure(nodeArea, graphContent);
+    }
+
+    Transform GetNodeParent()
+    {
+        return graphContent != null ? graphContent : nodeArea;
+    }
+
+    RectTransform GetNodeBoundsRoot()
+    {
+        return graphContent != null ? graphContent : nodeArea;
+    }
+
+    ConditionNodeUI CreateConditionTemplateFromStepTemplate()
+    {
+        var clone = Instantiate(stepNodeTemplate.gameObject, GetNodeParent());
+        clone.name = "ConditionNodeTemplate_Runtime";
+        clone.SetActive(false);
+
+        var rootRt = clone.GetComponent<RectTransform>();
+        if (rootRt != null)
+        {
+            rootRt.sizeDelta = new Vector2(390f, 180f);
+        }
+
+        var image = clone.GetComponent<Image>();
+        if (image != null)
+        {
+            image.color = new Color(1f, 0.98f, 0.86f, 1f);
+        }
+
+        var sourceStepUi = clone.GetComponent<StepNodeUI>();
+        if (sourceStepUi == null)
+        {
+            Debug.LogError("[ScenarioGraphUI] Failed to create condition template from step template.");
+            return null;
+        }
+
+        sourceStepUi.enabled = false;
+        if (sourceStepUi.titleInput != null) sourceStepUi.titleInput.gameObject.SetActive(false);
+        if (sourceStepUi.inputConnector != null) sourceStepUi.inputConnector.gameObject.SetActive(false);
+
+        ConditionRowUI row = null;
+        if (sourceStepUi.conditionListRoot != null && sourceStepUi.conditionRowTemplate != null)
+        {
+            row = Instantiate(sourceStepUi.conditionRowTemplate, sourceStepUi.conditionListRoot);
+            row.gameObject.SetActive(true);
+            sourceStepUi.conditionRowTemplate.gameObject.SetActive(false);
+            sourceStepUi.conditionListRoot.gameObject.SetActive(true);
+            sourceStepUi.conditionListRoot.offsetMin = new Vector2(16f, 18f);
+            sourceStepUi.conditionListRoot.offsetMax = new Vector2(-16f, 108f);
+        }
+
+        var conditionUi = clone.GetComponent<ConditionNodeUI>();
+        if (conditionUi == null) conditionUi = clone.AddComponent<ConditionNodeUI>();
+        conditionUi.nodeIdText = sourceStepUi.stepIdText;
+        conditionUi.warningIcon = sourceStepUi.warningIcon;
+        conditionUi.conditionRow = row;
+        conditionUi.outputConnector = sourceStepUi.outputConnector;
+        return conditionUi;
+    }
+
+    TerminalNodeUI CreateTerminalTemplateFromStepTemplate(
+        string name,
+        string label,
+        bool hasInput,
+        bool hasOutput,
+        Color color)
+    {
+        var clone = Instantiate(stepNodeTemplate.gameObject, GetNodeParent());
+        clone.name = name;
+        clone.SetActive(false);
+
+        var rootRt = clone.GetComponent<RectTransform>();
+        if (rootRt != null)
+        {
+            rootRt.sizeDelta = new Vector2(230f, 96f);
+        }
+
+        var image = clone.GetComponent<Image>();
+        if (image != null)
+        {
+            image.color = color;
+        }
+
+        var sourceStepUi = clone.GetComponent<StepNodeUI>();
+        if (sourceStepUi == null)
+        {
+            Debug.LogError("[ScenarioGraphUI] Failed to create terminal template from step template.");
+            return null;
+        }
+
+        sourceStepUi.enabled = false;
+        if (sourceStepUi.warningIcon != null) sourceStepUi.warningIcon.SetActive(false);
+        if (sourceStepUi.titleInput != null) sourceStepUi.titleInput.gameObject.SetActive(false);
+        if (sourceStepUi.conditionListRoot != null) sourceStepUi.conditionListRoot.gameObject.SetActive(false);
+        if (sourceStepUi.conditionSummaryText != null) sourceStepUi.conditionSummaryText.gameObject.SetActive(false);
+        if (sourceStepUi.stepIdText != null) sourceStepUi.stepIdText.text = label;
+        if (sourceStepUi.inputConnector != null) sourceStepUi.inputConnector.gameObject.SetActive(hasInput);
+        if (sourceStepUi.outputConnector != null) sourceStepUi.outputConnector.gameObject.SetActive(hasOutput);
+
+        var terminalUi = clone.GetComponent<TerminalNodeUI>();
+        if (terminalUi == null) terminalUi = clone.AddComponent<TerminalNodeUI>();
+        terminalUi.labelText = sourceStepUi.stepIdText;
+        terminalUi.inputConnector = sourceStepUi.inputConnector;
+        terminalUi.outputConnector = sourceStepUi.outputConnector;
+        return terminalUi;
     }
 
     void RebuildAll()
@@ -93,119 +401,378 @@ public class ScenarioGraphUI : MonoBehaviour
 
         foreach (var pair in nodeUIs)
         {
-            if (pair.Value == null) continue;
-            nodePositions[pair.Key] = pair.Value.GetComponent<RectTransform>().anchoredPosition;
+            if (pair.Value == null || pair.Value.root == null) continue;
+            nodePositions[pair.Key] = pair.Value.root.anchoredPosition;
         }
 
-        foreach (Transform child in nodeArea)
+        var nodeParent = GetNodeParent();
+        if (nodeParent == null)
         {
-            if (child == nodeTemplate.transform || child == lineLayer) continue;
+            Debug.LogError("[ScenarioGraphUI] Node parent is missing.");
+            return;
+        }
+
+        foreach (Transform child in nodeParent)
+        {
+            if (child == lineLayer) continue;
+            if (child == stepNodeTemplate.transform) continue;
+            if (conditionNodeTemplate != null && child == conditionNodeTemplate.transform) continue;
+            if (startNodeTemplate != null && child == startNodeTemplate.transform) continue;
+            if (endNodeTemplate != null && child == endNodeTemplate.transform) continue;
             Destroy(child.gameObject);
         }
 
         nodeUIs.Clear();
+        var defaultPositions = BuildDefaultNodePositions();
+        var stepIndexMap = graph.BuildStepIndexMap();
 
-        foreach (var step in graph.curriculum.steps)
+        foreach (var node in graph.curriculum.nodes.Where(n => n != null).OrderBy(GetNodeSortOrder).ThenBy(n => n.nodeId))
         {
-            var ui = Instantiate(nodeTemplate, nodeArea);
-            ui.gameObject.name = $"StepNode_{step.id}";
-            ui.gameObject.SetActive(true);
+            if (string.IsNullOrWhiteSpace(node.nodeId)) continue;
 
-            var rt = ui.GetComponent<RectTransform>();
-            rt.anchoredPosition = nodePositions.TryGetValue(step.id, out var saved) ? saved : Vector2.zero;
-
-            ui.onClickOutputConnector = OnClickOutputConnector;
-            ui.onClickInputConnector = OnClickInputConnector;
-            ui.onBeginOutputConnectorDrag = BeginConnectorDrag;
-            ui.onOutputConnectorDrag = UpdateConnectorDrag;
-            ui.onCompleteConnectorDrag = CompleteConnectorDrag;
-            ui.onCancelConnectorDrag = () => CancelConnectorDrag(clearStatus: true);
-            ui.onChanged = RefreshLines;
-            ui.Bind(graph, step);
-            nodeUIs[step.id] = ui;
+            switch (node.nodeType)
+            {
+                case ScenarioNodeType.Start:
+                    InstantiateStartNode(node, defaultPositions);
+                    break;
+                case ScenarioNodeType.End:
+                    InstantiateEndNode(node, defaultPositions);
+                    break;
+                case ScenarioNodeType.Step:
+                    InstantiateStepNode(node, stepIndexMap, defaultPositions);
+                    break;
+                case ScenarioNodeType.Condition:
+                    InstantiateConditionNode(node, defaultPositions);
+                    break;
+            }
         }
 
-        // Keep lines visible above node backgrounds.
         if (lineLayer != null)
         {
             lineLayer.SetAsLastSibling();
         }
 
         RefreshLines();
-        if (!string.IsNullOrEmpty(linkingFromStepId))
+        RefreshValidationStatus();
+        if (!string.IsNullOrEmpty(linkingFromNodeId))
         {
             statusText.text = "入力コネクタをクリックして接続";
         }
-        else if (!string.IsNullOrEmpty(draggingFromStepId))
+        else if (!string.IsNullOrEmpty(draggingFromNodeId))
         {
             statusText.text = "入力コネクタへドラッグしてドロップ";
         }
+    }
+
+    static int GetNodeSortOrder(ScenarioNode node)
+    {
+        return node.nodeType switch
+        {
+            ScenarioNodeType.Start => 0,
+            ScenarioNodeType.Step => 1,
+            ScenarioNodeType.Condition => 2,
+            ScenarioNodeType.End => 3,
+            _ => 9
+        };
+    }
+
+    Dictionary<string, Vector2> BuildDefaultNodePositions()
+    {
+        var defaults = new Dictionary<string, Vector2>();
+
+        var start = graph.GetStartNode();
+        if (start != null) defaults[start.nodeId] = new Vector2(-620f, 120f);
+
+        var orderedSteps = graph.GetDisplayOrderedSteps();
+        for (int i = 0; i < orderedSteps.Count; i++)
+        {
+            if (orderedSteps[i] == null || string.IsNullOrWhiteSpace(orderedSteps[i].nodeId)) continue;
+            defaults[orderedSteps[i].nodeId] = new Vector2(-320f + (i * 280f), 120f);
+        }
+
+        var end = graph.GetEndNode();
+        if (end != null)
+        {
+            defaults[end.nodeId] = new Vector2(-320f + (orderedSteps.Count * 280f) + 280f, 120f);
+        }
+
+        var slotByStep = new Dictionary<string, int>();
+        int unbound = 0;
+        foreach (var condition in graph.GetNodes(ScenarioNodeType.Condition))
+        {
+            if (condition == null || string.IsNullOrWhiteSpace(condition.nodeId)) continue;
+
+            var bindEdge = graph.curriculum.edges.FirstOrDefault(e =>
+                e.edgeType == ScenarioEdgeType.ConditionBind &&
+                e.fromNodeId == condition.nodeId);
+
+            if (bindEdge != null && defaults.TryGetValue(bindEdge.toNodeId, out var stepPos))
+            {
+                if (!slotByStep.TryGetValue(bindEdge.toNodeId, out int slot)) slot = 0;
+                defaults[condition.nodeId] = new Vector2(stepPos.x, -40f - (slot * 120f));
+                slotByStep[bindEdge.toNodeId] = slot + 1;
+            }
+            else
+            {
+                defaults[condition.nodeId] = new Vector2(-620f + (unbound % 3) * 240f, -60f - (unbound / 3) * 120f);
+                unbound++;
+            }
+        }
+
+        return defaults;
+    }
+
+    void InstantiateStartNode(ScenarioNode node, Dictionary<string, Vector2> defaults)
+    {
+        if (startNodeTemplate == null) return;
+
+        var ui = Instantiate(startNodeTemplate, GetNodeParent());
+        ui.gameObject.name = $"Node_{node.nodeId}";
+        ui.gameObject.SetActive(true);
+        ui.onClickOutputConnector = OnClickOutputConnector;
+        ui.onBeginOutputConnectorDrag = BeginConnectorDrag;
+        ui.onOutputConnectorDrag = UpdateConnectorDrag;
+        ui.onCompleteConnectorDrag = CompleteConnectorDrag;
+        ui.onCancelConnectorDrag = () => CancelConnectorDrag(clearStatus: true);
+        ui.Bind(node, "START", allowInput: false, allowOutput: true);
+
+        RegisterNode(
+            node,
+            ui.transform as RectTransform,
+            null,
+            ui.outputConnector != null ? ui.outputConnector.GetComponent<RectTransform>() : null,
+            defaults);
+    }
+
+    void InstantiateEndNode(ScenarioNode node, Dictionary<string, Vector2> defaults)
+    {
+        if (endNodeTemplate == null) return;
+
+        var ui = Instantiate(endNodeTemplate, GetNodeParent());
+        ui.gameObject.name = $"Node_{node.nodeId}";
+        ui.gameObject.SetActive(true);
+        ui.onClickInputConnector = OnClickInputConnector;
+        ui.Bind(node, "END", allowInput: true, allowOutput: false);
+
+        RegisterNode(
+            node,
+            ui.transform as RectTransform,
+            ui.inputConnector != null ? ui.inputConnector.GetComponent<RectTransform>() : null,
+            null,
+            defaults);
+    }
+
+    void InstantiateStepNode(ScenarioNode node, Dictionary<string, int> stepIndexMap, Dictionary<string, Vector2> defaults)
+    {
+        if (stepNodeTemplate == null) return;
+
+        var ui = Instantiate(stepNodeTemplate, GetNodeParent());
+        ui.gameObject.name = $"Node_{node.nodeId}";
+        ui.gameObject.SetActive(true);
+        ui.onClickInputConnector = OnClickInputConnector;
+        ui.onClickOutputConnector = OnClickOutputConnector;
+        ui.onBeginOutputConnectorDrag = BeginConnectorDrag;
+        ui.onOutputConnectorDrag = UpdateConnectorDrag;
+        ui.onCompleteConnectorDrag = CompleteConnectorDrag;
+        ui.onCancelConnectorDrag = () => CancelConnectorDrag(clearStatus: true);
+        ui.onChanged = RefreshValidationStatus;
+
+        int stepIndex = stepIndexMap.TryGetValue(node.nodeId, out var mapped) ? mapped : 0;
+        ui.Bind(graph, node, stepIndex);
+        ui.RefreshConditionSummary();
+        ui.RefreshWarning();
+
+        RegisterNode(
+            node,
+            ui.transform as RectTransform,
+            ui.inputConnector != null ? ui.inputConnector.GetComponent<RectTransform>() : null,
+            ui.outputConnector != null ? ui.outputConnector.GetComponent<RectTransform>() : null,
+            defaults);
+    }
+
+    void InstantiateConditionNode(ScenarioNode node, Dictionary<string, Vector2> defaults)
+    {
+        if (conditionNodeTemplate == null) return;
+
+        var ui = Instantiate(conditionNodeTemplate, GetNodeParent());
+        ui.gameObject.name = $"Node_{node.nodeId}";
+        ui.gameObject.SetActive(true);
+        ui.onClickOutputConnector = OnClickOutputConnector;
+        ui.onBeginOutputConnectorDrag = BeginConnectorDrag;
+        ui.onOutputConnectorDrag = UpdateConnectorDrag;
+        ui.onCompleteConnectorDrag = CompleteConnectorDrag;
+        ui.onCancelConnectorDrag = () => CancelConnectorDrag(clearStatus: true);
+        ui.onChanged = RefreshValidationStatus;
+        ui.Bind(graph, node);
+
+        RegisterNode(
+            node,
+            ui.transform as RectTransform,
+            null,
+            ui.outputConnector != null ? ui.outputConnector.GetComponent<RectTransform>() : null,
+            defaults);
+    }
+
+    void RegisterNode(
+        ScenarioNode node,
+        RectTransform root,
+        RectTransform inputConnector,
+        RectTransform outputConnector,
+        Dictionary<string, Vector2> defaults)
+    {
+        if (node == null || root == null) return;
+
+        if (nodePositions.TryGetValue(node.nodeId, out var saved))
+        {
+            root.anchoredPosition = saved;
+        }
+        else if (defaults.TryGetValue(node.nodeId, out var fallback))
+        {
+            root.anchoredPosition = fallback;
+        }
         else
         {
-            statusText.text = "";
+            root.anchoredPosition = Vector2.zero;
+        }
+
+        root.anchoredPosition = ClampNodePosition(root, root.anchoredPosition);
+
+        nodeUIs[node.nodeId] = new NodeUiBinding
+        {
+            nodeType = node.nodeType,
+            root = root,
+            inputConnector = inputConnector,
+            outputConnector = outputConnector
+        };
+    }
+
+    void ClampNodesToNodeArea()
+    {
+        var boundsRoot = GetNodeBoundsRoot();
+        if (!isActiveAndEnabled || boundsRoot == null || nodeUIs.Count == 0) return;
+        if (boundsRoot.rect.width <= 1f || boundsRoot.rect.height <= 1f) return;
+
+        bool moved = false;
+        foreach (var pair in nodeUIs)
+        {
+            if (pair.Value == null || pair.Value.root == null) continue;
+            var root = pair.Value.root;
+            var clamped = ClampNodePosition(root, root.anchoredPosition);
+            if ((clamped - root.anchoredPosition).sqrMagnitude > 0.01f)
+            {
+                root.anchoredPosition = clamped;
+                moved = true;
+            }
+
+            nodePositions[pair.Key] = root.anchoredPosition;
+        }
+
+        if (moved)
+        {
+            RefreshLines();
         }
     }
 
-    void OnClickOutputConnector(string fromStepId)
+    Vector2 ClampNodePosition(RectTransform nodeRoot, Vector2 anchoredPosition)
     {
-        linkingFromStepId = fromStepId;
-        Debug.Log($"[ScenarioGraphUI] Click connect start from={fromStepId}");
+        var boundsRoot = GetNodeBoundsRoot();
+        if (boundsRoot == null || nodeRoot == null) return anchoredPosition;
+
+        var areaRect = boundsRoot.rect;
+        var nodeRect = nodeRoot.rect;
+
+        float minX = areaRect.xMin + (nodeRect.width * nodeRoot.pivot.x);
+        float maxX = areaRect.xMax - (nodeRect.width * (1f - nodeRoot.pivot.x));
+        float minY = areaRect.yMin + (nodeRect.height * nodeRoot.pivot.y);
+        float maxY = areaRect.yMax - (nodeRect.height * (1f - nodeRoot.pivot.y));
+
+        if (minX > maxX)
+        {
+            anchoredPosition.x = areaRect.center.x;
+        }
+        else
+        {
+            anchoredPosition.x = Mathf.Clamp(anchoredPosition.x, minX, maxX);
+        }
+
+        if (minY > maxY)
+        {
+            anchoredPosition.y = areaRect.center.y;
+        }
+        else
+        {
+            anchoredPosition.y = Mathf.Clamp(anchoredPosition.y, minY, maxY);
+        }
+
+        return anchoredPosition;
+    }
+
+    void OnClickOutputConnector(string fromNodeId)
+    {
+        linkingFromNodeId = fromNodeId;
         statusText.text = "入力コネクタをクリックして接続";
+        Debug.Log($"[ScenarioGraphUI] Click connect start from={fromNodeId}");
     }
 
-    void OnClickInputConnector(string toStepId)
+    void OnClickInputConnector(string toNodeId)
     {
-        if (string.IsNullOrEmpty(linkingFromStepId)) return;
+        if (string.IsNullOrEmpty(linkingFromNodeId)) return;
 
-        Debug.Log($"[ScenarioGraphUI] Click connect complete from={linkingFromStepId} to={toStepId}");
-        graph.AddEdge(linkingFromStepId, toStepId);
-        linkingFromStepId = null;
-        statusText.text = "";
-        RefreshLines();
+        TryConnectNodes(linkingFromNodeId, toNodeId, "click");
+        linkingFromNodeId = null;
     }
 
-    void BeginConnectorDrag(string fromStepId, Vector2 screenPosition)
+    void TryConnectNodes(string fromNodeId, string toNodeId, string mode)
     {
-        if (string.IsNullOrEmpty(fromStepId)) return;
-        if (!nodeUIs.TryGetValue(fromStepId, out var fromUi)) return;
+        if (string.IsNullOrWhiteSpace(fromNodeId) || string.IsNullOrWhiteSpace(toNodeId)) return;
 
-        draggingFromStepId = fromStepId;
-        linkingFromStepId = null;
-        Debug.Log($"[ScenarioGraphUI] Drag connect start from={fromStepId} pos={screenPosition}");
-        EnsureDragPreview(fromUi);
+        if (!graph.TryAddEdge(fromNodeId, toNodeId, out var reason))
+        {
+            statusText.text = $"接続不可: {reason}";
+            Debug.LogWarning($"[ScenarioGraphUI] Connect rejected mode={mode} from={fromNodeId} to={toNodeId} reason={reason}");
+            return;
+        }
+
+        statusText.text = string.Empty;
+        Debug.Log($"[ScenarioGraphUI] Connect success mode={mode} from={fromNodeId} to={toNodeId}");
+        RebuildAll();
+    }
+
+    void BeginConnectorDrag(string fromNodeId, Vector2 screenPosition)
+    {
+        if (string.IsNullOrWhiteSpace(fromNodeId)) return;
+        if (!nodeUIs.TryGetValue(fromNodeId, out var fromUi)) return;
+        if (fromUi.outputConnector == null) return;
+
+        draggingFromNodeId = fromNodeId;
+        linkingFromNodeId = null;
+        EnsureDragPreview(fromUi.outputConnector);
         UpdateDragPreviewPosition(screenPosition);
         statusText.text = "入力コネクタへドラッグしてドロップ";
     }
 
-    void UpdateConnectorDrag(string fromStepId, Vector2 screenPosition)
+    void UpdateConnectorDrag(string fromNodeId, Vector2 screenPosition)
     {
-        if (string.IsNullOrEmpty(draggingFromStepId)) return;
-        if (draggingFromStepId != fromStepId) return;
+        if (string.IsNullOrWhiteSpace(draggingFromNodeId)) return;
+        if (draggingFromNodeId != fromNodeId) return;
         UpdateDragPreviewPosition(screenPosition);
     }
 
-    void CompleteConnectorDrag(string fromStepId, string toStepId)
+    void CompleteConnectorDrag(string fromNodeId, string toNodeId)
     {
-        if (string.IsNullOrEmpty(fromStepId) || string.IsNullOrEmpty(toStepId))
+        if (string.IsNullOrWhiteSpace(fromNodeId) || string.IsNullOrWhiteSpace(toNodeId))
         {
-            Debug.LogWarning($"[ScenarioGraphUI] Drag connect invalid from={fromStepId} to={toStepId}");
             CancelConnectorDrag(clearStatus: true);
             return;
         }
 
-        Debug.Log($"[ScenarioGraphUI] Drag connect complete from={fromStepId} to={toStepId}");
-        graph.AddEdge(fromStepId, toStepId);
+        TryConnectNodes(fromNodeId, toNodeId, "drag");
         CancelConnectorDrag(clearStatus: true);
-        RefreshLines();
     }
 
     void CancelConnectorDrag(bool clearStatus)
     {
-        if (!string.IsNullOrEmpty(draggingFromStepId))
-        {
-            Debug.Log($"[ScenarioGraphUI] Drag connect cancel from={draggingFromStepId}");
-        }
-        draggingFromStepId = null;
+        draggingFromNodeId = null;
 
         if (dragPreviewLine != null) Destroy(dragPreviewLine.gameObject);
         if (dragPreviewTarget != null) Destroy(dragPreviewTarget.gameObject);
@@ -214,11 +781,11 @@ public class ScenarioGraphUI : MonoBehaviour
 
         if (clearStatus && statusText != null)
         {
-            statusText.text = "";
+            statusText.text = string.Empty;
         }
     }
 
-    void EnsureDragPreview(StepNodeUI fromUi)
+    void EnsureDragPreview(RectTransform fromConnector)
     {
         if (dragPreviewTarget == null)
         {
@@ -239,7 +806,7 @@ public class ScenarioGraphUI : MonoBehaviour
             ConfigureLineGraphic(dragPreviewLine, DragPreviewLineColor, 8f);
         }
 
-        dragPreviewLine.from = fromUi.outputConnector.GetComponent<RectTransform>();
+        dragPreviewLine.from = fromConnector;
         dragPreviewLine.to = dragPreviewTarget;
     }
 
@@ -265,47 +832,31 @@ public class ScenarioGraphUI : MonoBehaviour
         int removed = 0;
         foreach (var line in lines)
         {
-            if (line != null)
-            {
-                Destroy(line.gameObject);
-                removed++;
-            }
+            if (line == null) continue;
+            Destroy(line.gameObject);
+            removed++;
         }
         lines.Clear();
 
-        int expectedEdges = 0;
+        int expectedEdges = graph.curriculum.edges.Count;
         int created = 0;
-        foreach (var step in graph.curriculum.steps)
+        foreach (var edge in graph.curriculum.edges)
         {
-            if (!nodeUIs.TryGetValue(step.id, out var fromUi))
+            if (!nodeUIs.TryGetValue(edge.fromNodeId, out var fromUi) ||
+                !nodeUIs.TryGetValue(edge.toNodeId, out var toUi))
             {
                 continue;
             }
 
-            foreach (var toId in step.nextStepIds)
-            {
-                expectedEdges++;
-                if (!nodeUIs.TryGetValue(toId, out var toUi))
-                {
-                    Debug.LogWarning($"[ScenarioGraphUI] Missing node UI for edge {step.id} -> {toId}");
-                    continue;
-                }
+            if (fromUi.outputConnector == null || toUi.inputConnector == null) continue;
 
-                var line = Instantiate(lineTemplate, lineLayer);
-                line.gameObject.SetActive(true);
-                line.from = fromUi.outputConnector.GetComponent<RectTransform>();
-                line.to = toUi.inputConnector.GetComponent<RectTransform>();
-                ConfigureLineGraphic(line, ConnectionLineColor, 8f);
-                lines.Add(line);
-                created++;
-
-                var fromRt = line.from;
-                var toRt = line.to;
-                var fromWorld = fromRt != null ? fromRt.TransformPoint(fromRt.rect.center) : Vector3.zero;
-                var toWorld = toRt != null ? toRt.TransformPoint(toRt.rect.center) : Vector3.zero;
-                float distance = Vector3.Distance(fromWorld, toWorld);
-                Debug.Log($"[ScenarioGraphUI] line edge {step.id}->{toId} distance={distance:F2} from={fromWorld} to={toWorld}");
-            }
+            var line = Instantiate(lineTemplate, lineLayer);
+            line.gameObject.SetActive(true);
+            line.from = fromUi.outputConnector;
+            line.to = toUi.inputConnector;
+            ConfigureLineGraphic(line, ConnectionLineColor, 8f);
+            lines.Add(line);
+            created++;
         }
 
         var layerSize = lineLayer != null ? lineLayer.rect.size : Vector2.zero;
@@ -337,33 +888,78 @@ public class ScenarioGraphUI : MonoBehaviour
         line.SetAllDirty();
     }
 
-    void SaveCurriculum()
+    void SaveScenarioExport()
     {
-        if (!string.IsNullOrWhiteSpace(projectNameInput.text))
+        graph.curriculum.projectName = string.IsNullOrWhiteSpace(projectNameInput.text)
+            ? "VRCourseEditor"
+            : projectNameInput.text.Trim();
+
+        var validation = graph.ValidateGraph();
+        if (!validation.CanExport)
         {
-            graph.curriculum.projectName = projectNameInput.text.Trim();
+            statusText.text = BuildValidationMessage(validation);
+            Debug.LogWarning("[ScenarioGraph] Export blocked: validation errors.");
+            return;
         }
 
-        int warningCount = 0;
-        foreach (var step in graph.curriculum.steps)
+        ScenarioExport export;
+        try
         {
-            if (graph.HasUnconfiguredConditions(step)) warningCount++;
+            export = graph.BuildScenarioExport();
+        }
+        catch (System.Exception ex)
+        {
+            statusText.text = $"保存失敗: {ex.Message}";
+            Debug.LogException(ex);
+            return;
         }
 
         string exportDir = Path.Combine(Application.dataPath, "Exports");
         Directory.CreateDirectory(exportDir);
 
-        string fileName = $"{graph.curriculum.projectName}-curriculum.json";
+        string fileName = $"{export.projectName}-curriculum.json";
         string finalPath = Path.Combine(exportDir, fileName);
         string tempPath = finalPath + ".tmp";
 
-        File.WriteAllText(tempPath, JsonUtility.ToJson(graph.curriculum, true));
+        File.WriteAllText(tempPath, JsonUtility.ToJson(export, true));
         if (File.Exists(finalPath)) File.Replace(tempPath, finalPath, null);
         else File.Move(tempPath, finalPath);
 
-        statusText.text = warningCount > 0
-            ? $"保存しました（未設定手順: {warningCount}）: Assets/Exports/{fileName}"
+        statusText.text = validation.warnings.Count > 0
+            ? $"保存しました（警告: {validation.warnings.Count}）: Assets/Exports/{fileName}"
             : $"保存しました: Assets/Exports/{fileName}";
         Debug.Log("[ScenarioGraph] " + statusText.text);
+        saveButton.interactable = true;
+    }
+
+    void RefreshValidationStatus()
+    {
+        if (graph == null || saveButton == null || statusText == null) return;
+
+        var validation = graph.ValidateGraph();
+        saveButton.interactable = validation.CanExport;
+
+        if (!validation.CanExport)
+        {
+            statusText.text = BuildValidationMessage(validation);
+            return;
+        }
+
+        if (validation.warnings.Count > 0)
+        {
+            statusText.text = "警告あり: " + string.Join(" / ", validation.warnings.Select(w => $"{w.code} {w.message}"));
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(statusText.text))
+        {
+            statusText.text = "保存できます";
+        }
+    }
+
+    static string BuildValidationMessage(GraphValidationResult validation)
+    {
+        if (validation == null || validation.errors.Count == 0) return string.Empty;
+        return "保存不可: " + string.Join(" / ", validation.errors.Select(e => $"{e.code} {e.message}"));
     }
 }

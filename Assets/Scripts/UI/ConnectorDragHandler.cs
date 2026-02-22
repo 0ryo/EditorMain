@@ -12,21 +12,21 @@ public class ConnectorDragHandler : MonoBehaviour, IBeginDragHandler, IDragHandl
     }
 
     [SerializeField] ConnectorRole role;
-    [SerializeField] string stepId;
+    [SerializeField] string nodeId;
 
     Action<string, Vector2> beginDragOutput;
     Action<string, Vector2> dragOutput;
     Action<string, string> completeDrag;
     Action cancelDrag;
 
-    public void ConfigureInput(string ownerStepId)
+    public void ConfigureInput(string ownerNodeId)
     {
         role = ConnectorRole.Input;
-        stepId = ownerStepId;
+        nodeId = ownerNodeId;
     }
 
     public void ConfigureOutput(
-        string ownerStepId,
+        string ownerNodeId,
         Action<string, Vector2> onBeginDragOutput,
         Action<string, Vector2> onDragOutput,
         Action<string, string> onCompleteDrag,
@@ -34,7 +34,7 @@ public class ConnectorDragHandler : MonoBehaviour, IBeginDragHandler, IDragHandl
     )
     {
         role = ConnectorRole.Output;
-        stepId = ownerStepId;
+        nodeId = ownerNodeId;
         beginDragOutput = onBeginDragOutput;
         dragOutput = onDragOutput;
         completeDrag = onCompleteDrag;
@@ -44,34 +44,34 @@ public class ConnectorDragHandler : MonoBehaviour, IBeginDragHandler, IDragHandl
     public void OnBeginDrag(PointerEventData eventData)
     {
         if (role != ConnectorRole.Output) return;
-        Debug.Log($"[ConnectorDrag] Begin from={stepId} pos={eventData.position}");
-        beginDragOutput?.Invoke(stepId, eventData.position);
+        Debug.Log($"[ConnectorDrag] Begin from={nodeId} pos={eventData.position}");
+        beginDragOutput?.Invoke(nodeId, eventData.position);
     }
 
     public void OnDrag(PointerEventData eventData)
     {
         if (role != ConnectorRole.Output) return;
-        dragOutput?.Invoke(stepId, eventData.position);
+        dragOutput?.Invoke(nodeId, eventData.position);
     }
 
     public void OnEndDrag(PointerEventData eventData)
     {
         if (role != ConnectorRole.Output) return;
 
-        string targetStepId = ResolveInputTargetStepId(eventData);
-        if (!string.IsNullOrEmpty(targetStepId))
+        string targetNodeId = ResolveInputTargetNodeId(eventData);
+        if (!string.IsNullOrEmpty(targetNodeId))
         {
-            Debug.Log($"[ConnectorDrag] Complete from={stepId} to={targetStepId} pos={eventData.position}");
-            completeDrag?.Invoke(stepId, targetStepId);
+            Debug.Log($"[ConnectorDrag] Complete from={nodeId} to={targetNodeId} pos={eventData.position}");
+            completeDrag?.Invoke(nodeId, targetNodeId);
         }
         else
         {
-            Debug.LogWarning($"[ConnectorDrag] Cancel from={stepId} target not found pos={eventData.position}");
+            Debug.LogWarning($"[ConnectorDrag] Cancel from={nodeId} target not found pos={eventData.position}");
             cancelDrag?.Invoke();
         }
     }
 
-    string ResolveInputTargetStepId(PointerEventData eventData)
+    string ResolveInputTargetNodeId(PointerEventData eventData)
     {
         var direct = ResolveFromGameObject(eventData.pointerCurrentRaycast.gameObject);
         if (!string.IsNullOrEmpty(direct)) return direct;
@@ -114,7 +114,7 @@ public class ConnectorDragHandler : MonoBehaviour, IBeginDragHandler, IDragHandl
         var handler = go.GetComponentInParent<ConnectorDragHandler>();
         if (handler == null) return null;
         if (handler.role != ConnectorRole.Input) return null;
-        if (string.IsNullOrEmpty(handler.stepId)) return null;
-        return handler.stepId;
+        if (string.IsNullOrEmpty(handler.nodeId)) return null;
+        return handler.nodeId;
     }
 }

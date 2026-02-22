@@ -2,7 +2,7 @@ using UnityEngine;
 using UnityEngine.UI;
 
 [RequireComponent(typeof(CanvasRenderer))]
-public class ConnectionLineGraphic : Graphic
+public class ConnectionLineGraphic : MaskableGraphic
 {
     public RectTransform from;
     public RectTransform to;

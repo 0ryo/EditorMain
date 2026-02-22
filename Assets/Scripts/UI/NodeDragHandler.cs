@@ -4,26 +4,66 @@ using UnityEngine.EventSystems;
 public class NodeDragHandler : MonoBehaviour, IBeginDragHandler, IDragHandler
 {
     public RectTransform target;
+    public bool clampToParentBounds = true;
 
     RectTransform dragSurface;
-    Canvas rootCanvas;
 
     public void OnBeginDrag(PointerEventData eventData)
     {
         if (target == null) return;
 
         dragSurface = target.parent as RectTransform;
-        rootCanvas = target.GetComponentInParent<Canvas>();
     }
 
     public void OnDrag(PointerEventData eventData)
     {
         if (target == null || dragSurface == null) return;
 
-        float scale = 1f;
-        if (rootCanvas != null) scale = rootCanvas.scaleFactor;
-        if (scale <= 0f) scale = 1f;
+        var eventCamera = eventData.pressEventCamera != null ? eventData.pressEventCamera : eventData.enterEventCamera;
+        if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                dragSurface, eventData.position, eventCamera, out var currentLocal) ||
+            !RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                dragSurface, eventData.position - eventData.delta, eventCamera, out var prevLocal))
+        {
+            return;
+        }
 
-        target.anchoredPosition += eventData.delta / scale;
+        target.anchoredPosition += currentLocal - prevLocal;
+        if (!clampToParentBounds) return;
+
+        target.anchoredPosition = ClampToSurface(target.anchoredPosition);
+    }
+
+    Vector2 ClampToSurface(Vector2 anchoredPosition)
+    {
+        if (dragSurface == null || target == null) return anchoredPosition;
+
+        var surfaceRect = dragSurface.rect;
+        var targetRect = target.rect;
+
+        float minX = surfaceRect.xMin + (targetRect.width * target.pivot.x);
+        float maxX = surfaceRect.xMax - (targetRect.width * (1f - target.pivot.x));
+        float minY = surfaceRect.yMin + (targetRect.height * target.pivot.y);
+        float maxY = surfaceRect.yMax - (targetRect.height * (1f - target.pivot.y));
+
+        if (minX > maxX)
+        {
+            anchoredPosition.x = surfaceRect.center.x;
+        }
+        else
+        {
+            anchoredPosition.x = Mathf.Clamp(anchoredPosition.x, minX, maxX);
+        }
+
+        if (minY > maxY)
+        {
+            anchoredPosition.y = surfaceRect.center.y;
+        }
+        else
+        {
+            anchoredPosition.y = Mathf.Clamp(anchoredPosition.y, minY, maxY);
+        }
+
+        return anchoredPosition;
     }
 }
