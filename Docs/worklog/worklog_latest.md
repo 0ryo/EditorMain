@@ -87,3 +87,40 @@
 - 次の作業では、まず `AutomationEntry.ApplyUiEdits` 実行でPrefab参照を最新化する。
 - その後、MVP-4バリデーション（E-01〜E-11）のUI表示とExport結果をEditor上で確認する。
 - 追加でQuest側ランタイム（SnapHold評価）の実装が必要な場合は `Docs/MVP-4.md` の8章契約に合わせる。
+
+## 6. 追記（2026-02-22 / UI改善・ノード編集導線）
+
+### 6.1 ノード削除/パス削除UIの調整
+- Step/Conditionノード右上の `X` 削除ボタンをグレー背景に変更。
+- 削除ボタン位置をノードの黄色ヘッダーバー中央高さに調整。
+- パスは「線分近傍のみ」ヒットするようRaycast判定を改善（ノード操作を阻害しない）。
+- パスの `削除` ヒントはホバー時のみ表示し、線の上側に表示するよう調整。
+
+### 6.2 ConditionのStep内格納（近接スナップ）
+- ConditionノードをStepノード近傍でドラッグ終了すると、自動で `ConditionBind` 接続してStepへ格納する挙動を追加。
+- 格納済みConditionは独立ノードとしては非表示にし、Step内に埋め込み表示するよう変更。
+- Step内格納数に応じてStepノードの高さを自動拡張するように変更。
+
+### 6.3 格納後のCondition編集性改善
+- Step内に埋め込まれたConditionでもA/Bドロップダウン編集を継続可能に修正。
+- 選択可能オブジェクト一覧の変化に応じて、埋め込みCondition行の選択肢を再バインドする処理を追加。
+- パス側RaycastがノードUI（ドロップダウン等）の入力を奪わないようにブロッカー判定を追加。
+
+### 6.4 格納Conditionの視認性改善
+- 埋め込みConditionをカード表示に変更し、`Condition1`, `Condition2`, ... のタイトルを表示。
+- カード間の上下余白を拡大。
+- 複数格納時、各Conditionカード下にDividerを表示して境界を明示。
+- Step自動リサイズはカード高さ/カード間隔ベースで再計算するよう変更。
+
+### 6.5 エラー修正
+- `Assets/Scripts/UI/StepNodeUI.cs` のLINQ利用に対して `using System.Linq;` を追加し、CS1061を解消。
+
+### 6.6 主な更新ファイル（今回追記分）
+- 変更: `Assets/Scripts/UI/StepNodeUI.cs`
+- 変更: `Assets/Scripts/UI/ScenarioGraphUI.cs`
+- 変更: `Assets/Scripts/UI/ConnectionLineGraphic.cs`
+- 変更: `Assets/Scripts/UI/NodeDragHandler.cs`
+- 変更: `Assets/Scripts/Services/CurriculumGraphService.cs`
+- 変更: `Assets/Editor/Automation/BuildUiPrefabs.cs`
+- 変更: `Docs/worklog_UI/全体UI仕様.md`
+- 変更: `Docs/worklog_UI/worklog_ノード追加ウィンドウ.md`
