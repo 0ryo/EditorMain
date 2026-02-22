@@ -35,6 +35,9 @@ public class ScenarioGraphUI : MonoBehaviour
     [SerializeField] PanelVerticalResizeHandle resizeHandle;
     [SerializeField] float cornerRadius = 14f;
 
+    [Header("Condition Embed")]
+    [SerializeField] float conditionEmbedSnapDistance = 80f;
+
     string linkingFromNodeId;
     string draggingFromNodeId;
     ConnectionLineGraphic dragPreviewLine;
@@ -448,7 +451,10 @@ public class ScenarioGraphUI : MonoBehaviour
                     InstantiateStepNode(node, stepIndexMap, defaultPositions);
                     break;
                 case ScenarioNodeType.Condition:
-                    InstantiateConditionNode(node, defaultPositions);
+                    if (!graph.IsConditionBoundToStep(node.nodeId))
+                    {
+                        InstantiateConditionNode(node, defaultPositions);
+                    }
                     break;
             }
         }
@@ -508,6 +514,7 @@ public class ScenarioGraphUI : MonoBehaviour
         foreach (var condition in graph.GetNodes(ScenarioNodeType.Condition))
         {
             if (condition == null || string.IsNullOrWhiteSpace(condition.nodeId)) continue;
+            if (graph.IsConditionBoundToStep(condition.nodeId)) continue;
 
             var bindEdge = graph.curriculum.edges.FirstOrDefault(e =>
                 e.edgeType == ScenarioEdgeType.ConditionBind &&
@@ -583,6 +590,7 @@ public class ScenarioGraphUI : MonoBehaviour
         ui.onCompleteConnectorDrag = CompleteConnectorDrag;
         ui.onCancelConnectorDrag = () => CancelConnectorDrag(clearStatus: true);
         ui.onClickDelete = OnClickDeleteNode;
+        ui.onClickEmbeddedConditionDelete = OnClickDeleteNode;
         ui.onChanged = RefreshValidationStatus;
 
         int stepIndex = stepIndexMap.TryGetValue(node.nodeId, out var mapped) ? mapped : 0;
@@ -653,6 +661,89 @@ public class ScenarioGraphUI : MonoBehaviour
             inputConnector = inputConnector,
             outputConnector = outputConnector
         };
+
+        ConfigureNodeDragCallbacks(node.nodeId, node.nodeType, root);
+    }
+
+    void ConfigureNodeDragCallbacks(string nodeId, ScenarioNodeType nodeType, RectTransform root)
+    {
+        if (string.IsNullOrWhiteSpace(nodeId) || root == null) return;
+
+        var dragHandle = root.Find("DragHandle");
+        if (dragHandle == null) return;
+
+        var drag = dragHandle.GetComponent<NodeDragHandler>();
+        if (drag == null) return;
+
+        drag.target = root;
+        drag.onDrag = () =>
+        {
+            nodePositions[nodeId] = root.anchoredPosition;
+        };
+        drag.onEndDrag = () =>
+        {
+            nodePositions[nodeId] = root.anchoredPosition;
+            if (nodeType != ScenarioNodeType.Condition) return;
+            TryStoreConditionIntoNearbyStep(nodeId);
+        };
+    }
+
+    void TryStoreConditionIntoNearbyStep(string conditionNodeId)
+    {
+        if (string.IsNullOrWhiteSpace(conditionNodeId)) return;
+        if (!nodeUIs.TryGetValue(conditionNodeId, out var conditionUi) || conditionUi?.root == null) return;
+
+        var stepNodeId = FindNearestStepNodeForCondition(conditionUi.root);
+        if (string.IsNullOrWhiteSpace(stepNodeId)) return;
+
+        if (!graph.TryBindConditionToStep(conditionNodeId, stepNodeId, out var reason))
+        {
+            if (statusText != null)
+            {
+                statusText.text = $"Condition格納失敗: {reason}";
+            }
+            return;
+        }
+
+        if (statusText != null)
+        {
+            statusText.text = string.Empty;
+        }
+        RebuildAll();
+    }
+
+    string FindNearestStepNodeForCondition(RectTransform conditionRoot)
+    {
+        if (conditionRoot == null) return null;
+
+        string nearestStepNodeId = null;
+        float nearestDistance = float.MaxValue;
+        Vector2 conditionCenter = conditionRoot.anchoredPosition;
+        float conditionHalfWidth = conditionRoot.rect.width * 0.5f;
+        float conditionHalfHeight = conditionRoot.rect.height * 0.5f;
+
+        foreach (var pair in nodeUIs)
+        {
+            var nodeUi = pair.Value;
+            if (nodeUi == null || nodeUi.nodeType != ScenarioNodeType.Step || nodeUi.root == null) continue;
+
+            var stepRoot = nodeUi.root;
+            Vector2 stepCenter = stepRoot.anchoredPosition;
+            Vector2 delta = conditionCenter - stepCenter;
+
+            float rangeX = (stepRoot.rect.width * 0.5f) + conditionHalfWidth + conditionEmbedSnapDistance;
+            float rangeY = (stepRoot.rect.height * 0.5f) + conditionHalfHeight + conditionEmbedSnapDistance;
+            if (Mathf.Abs(delta.x) > rangeX || Mathf.Abs(delta.y) > rangeY) continue;
+
+            float distance = delta.sqrMagnitude;
+            if (distance < nearestDistance)
+            {
+                nearestDistance = distance;
+                nearestStepNodeId = pair.Key;
+            }
+        }
+
+        return nearestStepNodeId;
     }
 
     void ClampNodesToNodeArea()
@@ -848,6 +939,7 @@ public class ScenarioGraphUI : MonoBehaviour
         dragPreviewLine.to = dragPreviewTarget;
         dragPreviewLine.fromNodeId = null;
         dragPreviewLine.toNodeId = null;
+        dragPreviewLine.raycastBlockers = null;
         dragPreviewLine.onClickLine = null;
     }
 
@@ -881,6 +973,10 @@ public class ScenarioGraphUI : MonoBehaviour
 
         int expectedEdges = graph.curriculum.edges.Count;
         int created = 0;
+        var raycastBlockers = nodeUIs.Values
+            .Where(v => v != null && v.root != null)
+            .Select(v => v.root)
+            .ToArray();
         foreach (var edge in graph.curriculum.edges)
         {
             if (!nodeUIs.TryGetValue(edge.fromNodeId, out var fromUi) ||
@@ -898,6 +994,7 @@ public class ScenarioGraphUI : MonoBehaviour
             line.fromNodeId = edge.fromNodeId;
             line.toNodeId = edge.toNodeId;
             line.edgeType = edge.edgeType;
+            line.raycastBlockers = raycastBlockers;
             line.onClickLine = OnClickConnectionPath;
             ConfigureLineGraphic(line, ConnectionLineColor, 8f, raycastTarget: true);
             lines.Add(line);

@@ -132,3 +132,17 @@
 - Fixed path hit testing to react only near the visible line segment.
 - Restored node dragging while connections already exist.
 - Path delete hint now appears only during hover and is displayed above the path.
+## 18. 2026-02-22 condition auto-embed to step
+- Added proximity snap behavior: dropping Condition near Step embeds it into the Step.
+- Embedded Condition is edited inside Step (A/B dropdown row).
+- Step card auto-resizes based on embedded condition count.
+- Added delete X on embedded condition row.
+## 19. 2026-02-22 embedded condition edit fix
+- Fixed editing after embed: A/B dropdowns in embedded condition rows are now consistently editable.
+- Added option-list refresh for embedded rows when selectable objects change.
+- Prevented path raycast from intercepting pointer events on node UI.
+## 20. 2026-02-22 embedded condition card readability update
+- Added per-condition title in embedded view: Condition1, Condition2, ...
+- Increased vertical spacing between embedded conditions.
+- Added divider under each embedded condition card (for multi-condition steps).
+- Updated Step resize calculation to match embedded card dimensions.

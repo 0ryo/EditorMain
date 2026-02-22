@@ -1,10 +1,13 @@
 using UnityEngine;
 using UnityEngine.EventSystems;
 
-public class NodeDragHandler : MonoBehaviour, IBeginDragHandler, IDragHandler
+public class NodeDragHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler
 {
     public RectTransform target;
     public bool clampToParentBounds = true;
+    public System.Action onBeginDrag;
+    public System.Action onDrag;
+    public System.Action onEndDrag;
 
     RectTransform dragSurface;
 
@@ -13,6 +16,7 @@ public class NodeDragHandler : MonoBehaviour, IBeginDragHandler, IDragHandler
         if (target == null) return;
 
         dragSurface = target.parent as RectTransform;
+        onBeginDrag?.Invoke();
     }
 
     public void OnDrag(PointerEventData eventData)
@@ -29,9 +33,19 @@ public class NodeDragHandler : MonoBehaviour, IBeginDragHandler, IDragHandler
         }
 
         target.anchoredPosition += currentLocal - prevLocal;
-        if (!clampToParentBounds) return;
+        if (!clampToParentBounds)
+        {
+            onDrag?.Invoke();
+            return;
+        }
 
         target.anchoredPosition = ClampToSurface(target.anchoredPosition);
+        onDrag?.Invoke();
+    }
+
+    public void OnEndDrag(PointerEventData eventData)
+    {
+        onEndDrag?.Invoke();
     }
 
     Vector2 ClampToSurface(Vector2 anchoredPosition)

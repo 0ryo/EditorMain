@@ -340,6 +340,69 @@ public class CurriculumGraphService : MonoBehaviour
             e.edgeType == edgeType);
     }
 
+    public string GetConditionBoundStepNodeId(string conditionNodeId)
+    {
+        EnsureGraphInitialized();
+        if (string.IsNullOrWhiteSpace(conditionNodeId)) return null;
+
+        var edge = curriculum.edges.FirstOrDefault(e =>
+            e.edgeType == ScenarioEdgeType.ConditionBind &&
+            e.fromNodeId == conditionNodeId);
+        return edge != null ? edge.toNodeId : null;
+    }
+
+    public bool IsConditionBoundToStep(string conditionNodeId)
+    {
+        return !string.IsNullOrWhiteSpace(GetConditionBoundStepNodeId(conditionNodeId));
+    }
+
+    public bool TryBindConditionToStep(string conditionNodeId, string stepNodeId, out string reason)
+    {
+        reason = null;
+        EnsureGraphInitialized();
+
+        if (string.IsNullOrWhiteSpace(conditionNodeId) || string.IsNullOrWhiteSpace(stepNodeId))
+        {
+            reason = "CONNECT_EMPTY_ID";
+            return false;
+        }
+
+        var conditionNode = FindNode(conditionNodeId);
+        var stepNode = FindNode(stepNodeId);
+        if (conditionNode == null || stepNode == null)
+        {
+            reason = "CONNECT_NODE_NOT_FOUND";
+            return false;
+        }
+
+        if (conditionNode.nodeType != ScenarioNodeType.Condition || stepNode.nodeType != ScenarioNodeType.Step)
+        {
+            reason = "CONNECT_INVALID_ROUTE";
+            return false;
+        }
+
+        var existing = curriculum.edges
+            .Where(e => e.edgeType == ScenarioEdgeType.ConditionBind && e.fromNodeId == conditionNodeId)
+            .ToList();
+        if (existing.Any(e => e.toNodeId == stepNodeId))
+        {
+            return true;
+        }
+
+        curriculum.edges.RemoveAll(e =>
+            e.edgeType == ScenarioEdgeType.ConditionBind &&
+            e.fromNodeId == conditionNodeId);
+
+        if (TryAddEdge(conditionNodeId, stepNodeId, out reason))
+        {
+            return true;
+        }
+
+        // Restore old bind edge if new bind failed.
+        curriculum.edges.AddRange(existing);
+        return false;
+    }
+
     public List<string> GetParents(string nodeId)
     {
         EnsureGraphInitialized();

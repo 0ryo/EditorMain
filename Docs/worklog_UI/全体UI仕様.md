@@ -217,3 +217,17 @@
 - ConnectionLineGraphic now uses segment-distance raycast hit testing instead of full-rect hit testing.
 - Node drag now works while edges are connected.
 - Path delete hint text appears only on hover and is shown above the path stroke.
+## 21. 2026-02-22 Condition Embed Into Step By Proximity
+- Drag a Condition node near a Step node and release to auto-bind and embed it into that Step.
+- Bound Condition nodes are rendered inside the Step card as editable condition rows.
+- Step card height auto-expands to fit the embedded condition rows.
+- Embedded condition rows include a delete X button to remove the underlying Condition node.
+## 22. 2026-02-22 Embedded Condition Editing Stability
+- Embedded condition rows keep A/B dropdown editing enabled after embed.
+- StepNodeUI now rebinds embedded dropdown options when placed-object option list changes.
+- Connection path raycast is blocked while pointer is over node cards, preventing path hit from stealing dropdown input.
+## 23. 2026-02-22 Embedded Condition Card Visual Update
+- Embedded conditions are shown as titled cards (Condition1, Condition2, ...).
+- Vertical spacing between embedded condition cards was increased for readability.
+- Divider line is shown under each embedded condition card (between cards when multiple).
+- Step auto-resize logic now uses embedded card height/spacing.

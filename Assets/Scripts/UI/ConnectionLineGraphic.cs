@@ -15,6 +15,7 @@ public class ConnectionLineGraphic : MaskableGraphic, IPointerEnterHandler, IPoi
     public string fromNodeId;
     public string toNodeId;
     public ScenarioEdgeType edgeType;
+    public RectTransform[] raycastBlockers;
 
     public Action<ConnectionLineGraphic> onClickLine;
 
@@ -38,6 +39,17 @@ public class ConnectionLineGraphic : MaskableGraphic, IPointerEnterHandler, IPoi
     public override bool Raycast(Vector2 sp, Camera eventCamera)
     {
         if (!raycastTarget || from == null || to == null) return false;
+
+        if (raycastBlockers != null)
+        {
+            for (int i = 0; i < raycastBlockers.Length; i++)
+            {
+                var blocker = raycastBlockers[i];
+                if (blocker == null || !blocker.gameObject.activeInHierarchy) continue;
+                if (RectTransformUtility.RectangleContainsScreenPoint(blocker, sp, eventCamera)) return false;
+            }
+        }
+
         if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(rectTransform, sp, eventCamera, out var localPoint))
         {
             return false;
