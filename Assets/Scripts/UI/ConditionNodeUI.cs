@@ -8,6 +8,7 @@ public class ConditionNodeUI : MonoBehaviour
 
     [Header("Basic")]
     public Text nodeIdText;
+    public InputField titleInput;
     public GameObject warningIcon;
     public ConditionRowUI conditionRow;
 
@@ -45,7 +46,10 @@ public class ConditionNodeUI : MonoBehaviour
         {
             conditionNode.condition = new ConditionNodeData();
         }
+        conditionNode.condition.title = NormalizeConditionTitle(conditionNode.condition.title);
 
+        EnsureTitleInputReference();
+        ConfigureTitleInput();
         ConfigureConnectorDragHandlers();
         ConfigureDeleteButton();
         RefreshConditionOptionsIfNeeded(force: true);
@@ -203,5 +207,46 @@ public class ConditionNodeUI : MonoBehaviour
         string a = string.IsNullOrWhiteSpace(conditionNode.condition.objectAId) ? LabelUnset : conditionNode.condition.objectAId;
         string b = string.IsNullOrWhiteSpace(conditionNode.condition.objectBId) ? LabelUnset : conditionNode.condition.objectBId;
         nodeIdText.text = $"\"{a}\" \u3092 \"{b}\" \u306B\u8FD1\u3065\u3051\u308B";
+    }
+
+    void EnsureTitleInputReference()
+    {
+        if (titleInput != null) return;
+
+        var titleTransform = transform.Find("Input_Title");
+        if (titleTransform != null)
+        {
+            titleInput = titleTransform.GetComponent<InputField>();
+        }
+    }
+
+    void ConfigureTitleInput()
+    {
+        if (titleInput == null || conditionNode == null || conditionNode.condition == null) return;
+
+        titleInput.gameObject.SetActive(true);
+        titleInput.onEndEdit.RemoveAllListeners();
+        titleInput.readOnly = false;
+        titleInput.interactable = true;
+        titleInput.SetTextWithoutNotify(NormalizeConditionTitle(conditionNode.condition.title));
+        titleInput.onEndEdit.AddListener(value =>
+        {
+            conditionNode.condition.title = NormalizeConditionTitle(value);
+            titleInput.SetTextWithoutNotify(conditionNode.condition.title);
+            onChanged?.Invoke();
+        });
+    }
+
+    static string NormalizeConditionTitle(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return ConditionNodeData.DefaultTitle;
+        }
+
+        string trimmed = value.Trim();
+        return string.IsNullOrEmpty(trimmed)
+            ? ConditionNodeData.DefaultTitle
+            : trimmed;
     }
 }

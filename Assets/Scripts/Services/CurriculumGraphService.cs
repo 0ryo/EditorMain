@@ -37,6 +37,7 @@ public class CurriculumGraphService : MonoBehaviour
 
         EnsureTerminalNode(ScenarioNodeType.Start, StartNodeId);
         EnsureTerminalNode(ScenarioNodeType.End, EndNodeId);
+        NormalizeNodeDataDefaults();
         RebuildSequences();
     }
 
@@ -52,6 +53,28 @@ public class CurriculumGraphService : MonoBehaviour
             step = new StepNodeData(),
             condition = new ConditionNodeData()
         });
+    }
+
+    void NormalizeNodeDataDefaults()
+    {
+        foreach (var node in curriculum.nodes.Where(n => n != null))
+        {
+            if (node.step == null)
+            {
+                node.step = new StepNodeData();
+            }
+
+            if (node.condition == null)
+            {
+                node.condition = new ConditionNodeData();
+            }
+
+            if (node.nodeType == ScenarioNodeType.Condition &&
+                string.IsNullOrWhiteSpace(node.condition.title))
+            {
+                node.condition.title = ConditionNodeData.DefaultTitle;
+            }
+        }
     }
 
     void RebuildSequences()
@@ -104,7 +127,10 @@ public class CurriculumGraphService : MonoBehaviour
             nodeId = "cond-" + (++conditionSequence).ToString("D4"),
             nodeType = ScenarioNodeType.Condition,
             step = new StepNodeData(),
-            condition = new ConditionNodeData()
+            condition = new ConditionNodeData
+            {
+                title = ConditionNodeData.DefaultTitle
+            }
         };
 
         curriculum.nodes.Add(condition);

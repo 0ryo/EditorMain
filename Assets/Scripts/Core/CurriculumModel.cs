@@ -61,6 +61,8 @@ public class StepNodeData
 [Serializable]
 public class ConditionNodeData
 {
+    public const string DefaultTitle = "手順1";
+    public string title = DefaultTitle;
     public string type = "SnapHold";
     public string objectAId;
     public string objectBId;

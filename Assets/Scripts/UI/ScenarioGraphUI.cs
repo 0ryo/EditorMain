@@ -329,7 +329,8 @@ public class ScenarioGraphUI : MonoBehaviour
         }
 
         sourceStepUi.enabled = false;
-        if (sourceStepUi.titleInput != null) sourceStepUi.titleInput.gameObject.SetActive(false);
+        if (sourceStepUi.titleInput != null) sourceStepUi.titleInput.gameObject.SetActive(true);
+        if (sourceStepUi.conditionSummaryText != null) sourceStepUi.conditionSummaryText.gameObject.SetActive(false);
         if (sourceStepUi.inputConnector != null) sourceStepUi.inputConnector.gameObject.SetActive(false);
 
         ConditionRowUI row = null;
@@ -346,6 +347,7 @@ public class ScenarioGraphUI : MonoBehaviour
         var conditionUi = clone.GetComponent<ConditionNodeUI>();
         if (conditionUi == null) conditionUi = clone.AddComponent<ConditionNodeUI>();
         conditionUi.nodeIdText = sourceStepUi.stepIdText;
+        conditionUi.titleInput = sourceStepUi.titleInput;
         conditionUi.warningIcon = sourceStepUi.warningIcon;
         conditionUi.conditionRow = row;
         conditionUi.outputConnector = sourceStepUi.outputConnector;
@@ -473,7 +475,7 @@ public class ScenarioGraphUI : MonoBehaviour
         }
         else if (!string.IsNullOrEmpty(draggingFromNodeId))
         {
-            statusText.text = "蜈･蜉帙さ繝阪け繧ｿ縺ｸ繝峨Λ繝・げ縺励※繝峨Ο繝・・";
+            statusText.text = "入力コネクタへドラッグしてドロップ";
         }
     }
 
@@ -592,6 +594,7 @@ public class ScenarioGraphUI : MonoBehaviour
         ui.onClickDelete = OnClickDeleteNode;
         ui.onClickEmbeddedConditionDelete = OnClickDeleteNode;
         ui.onChanged = RefreshValidationStatus;
+        ui.embeddedConditionTemplate = conditionNodeTemplate;
 
         int stepIndex = stepIndexMap.TryGetValue(node.nodeId, out var mapped) ? mapped : 0;
         ui.Bind(graph, node, stepIndex);
@@ -857,7 +860,7 @@ public class ScenarioGraphUI : MonoBehaviour
 
         if (!graph.TryAddEdge(fromNodeId, toNodeId, out var reason))
         {
-            statusText.text = $"謗･邯壻ｸ榊庄: {reason}";
+            statusText.text = $"接続失敗: {reason}";
             Debug.LogWarning($"[ScenarioGraphUI] Connect rejected mode={mode} from={fromNodeId} to={toNodeId} reason={reason}");
             return;
         }
@@ -877,7 +880,7 @@ public class ScenarioGraphUI : MonoBehaviour
         linkingFromNodeId = null;
         EnsureDragPreview(fromUi.outputConnector);
         UpdateDragPreviewPosition(screenPosition);
-        statusText.text = "蜈･蜉帙さ繝阪け繧ｿ縺ｸ繝峨Λ繝・げ縺励※繝峨Ο繝・・";
+        statusText.text = "入力コネクタへドラッグしてドロップ";
     }
 
     void UpdateConnectorDrag(string fromNodeId, Vector2 screenPosition)
@@ -1051,7 +1054,7 @@ public class ScenarioGraphUI : MonoBehaviour
         }
         catch (System.Exception ex)
         {
-            statusText.text = $"菫晏ｭ伜､ｱ謨・ {ex.Message}";
+            statusText.text = $"保存失敗: {ex.Message}";
             Debug.LogException(ex);
             return;
         }
@@ -1068,8 +1071,8 @@ public class ScenarioGraphUI : MonoBehaviour
         else File.Move(tempPath, finalPath);
 
         statusText.text = validation.warnings.Count > 0
-            ? $"菫晏ｭ倥＠縺ｾ縺励◆・郁ｭｦ蜻・ {validation.warnings.Count}・・ Assets/Exports/{fileName}"
-            : $"菫晏ｭ倥＠縺ｾ縺励◆: Assets/Exports/{fileName}";
+            ? $"保存しました（警告 {validation.warnings.Count} 件）: Assets/Exports/{fileName}"
+            : $"保存しました: Assets/Exports/{fileName}";
         Debug.Log("[ScenarioGraph] " + statusText.text);
         saveButton.interactable = true;
     }
@@ -1089,7 +1092,7 @@ public class ScenarioGraphUI : MonoBehaviour
 
         if (validation.warnings.Count > 0)
         {
-            statusText.text = "隴ｦ蜻翫≠繧・ " + string.Join(" / ", validation.warnings.Select(w => $"{w.code} {w.message}"));
+            statusText.text = "警告あり: " + string.Join(" / ", validation.warnings.Select(w => $"{w.code} {w.message}"));
             return;
         }
 
@@ -1108,7 +1111,7 @@ public class ScenarioGraphUI : MonoBehaviour
     static string BuildValidationMessage(GraphValidationResult validation)
     {
         if (validation == null || validation.errors.Count == 0) return string.Empty;
-        return "菫晏ｭ倅ｸ榊庄: " + string.Join(" / ", validation.errors.Select(e => $"{e.code} {e.message}"));
+        return "保存不可: " + string.Join(" / ", validation.errors.Select(e => $"{e.code} {e.message}"));
     }
 }
 
