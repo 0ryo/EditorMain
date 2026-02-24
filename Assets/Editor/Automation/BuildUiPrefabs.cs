@@ -19,7 +19,7 @@ public static class BuildUiPrefabs
         canvas.renderMode = RenderMode.ScreenSpaceOverlay;
         var scaler = root.AddComponent<CanvasScaler>();
         scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-        scaler.referenceResolution = new Vector2(1920f, 1080f);
+        scaler.referenceResolution = new Vector2(2560f, 1440f);
         root.AddComponent<GraphicRaycaster>();
 
         var catalogPanel = BuildCatalogPanel(root.transform);
@@ -44,11 +44,11 @@ public static class BuildUiPrefabs
     {
         var panel = CreateUiRect("Panel_Catalog", parent);
         SetRect(panel, new Vector2(0f, 0f), new Vector2(0f, 1f), new Vector2(0f, 0f), new Vector2(288f, 0f));
-        panel.gameObject.AddComponent<Image>().color = new Color(0.96f, 0.96f, 0.96f, 1f);
+        panel.gameObject.AddComponent<Image>().color = DesignTokens.BgPrimary;
 
         var header = CreateUiRect("Header", panel);
         SetRect(header, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(10f, -48f), new Vector2(-10f, -10f));
-        header.gameObject.AddComponent<Image>().color = Color.white;
+        header.gameObject.AddComponent<Image>().color = DesignTokens.Surface;
 
         var title = CreateText("Title", header, "\u30AA\u30D6\u30B8\u30A7\u30AF\u30C8\u4E00\u89A7");
         title.fontSize = 16;
@@ -57,40 +57,40 @@ public static class BuildUiPrefabs
 
         var addButton = CreateButton("Button_AddObject", header, "\uFF0B");
         SetRect(addButton.GetComponent<RectTransform>(), new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(-38f, -14f), new Vector2(-8f, 14f));
-        addButton.GetComponent<Image>().color = new Color(1f, 0.98f, 0.86f, 1f);
+        addButton.GetComponent<Image>().color = DesignTokens.BgSecondary;
 
         var searchRow = CreateUiRect("SearchRow", panel);
         SetRect(searchRow, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(10f, -44f), new Vector2(-10f, -8f));
-        searchRow.gameObject.AddComponent<Image>().color = Color.white;
+        searchRow.gameObject.AddComponent<Image>().color = DesignTokens.BgPrimary;
         var searchInput = CreateInputField("Input_Search", searchRow, "\u30AA\u30D6\u30B8\u30A7\u30AF\u30C8\u3092\u691C\u7D22...");
         SetRect(searchInput.GetComponent<RectTransform>(), Vector2.zero, Vector2.one, new Vector2(8f, 4f), new Vector2(-8f, -4f));
 
         var statusText = CreateText("Text_Status", panel, "");
         statusText.fontSize = 12;
-        statusText.color = new Color(0.2f, 0.2f, 0.2f, 1f);
+        statusText.color = DesignTokens.TextSecondary;
         SetRect(statusText.rectTransform, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(14f, -66f), new Vector2(-14f, -46f));
 
         var resizeHandle = CreateUiRect("ResizeHandleX", panel);
         SetRect(resizeHandle, new Vector2(1f, 0f), new Vector2(1f, 1f), new Vector2(-6f, 0f), new Vector2(6f, 0f));
-        resizeHandle.gameObject.AddComponent<Image>().color = new Color(0.96f, 0.96f, 0.96f, 1f);
+        resizeHandle.gameObject.AddComponent<Image>().color = DesignTokens.BgPrimary;
         var resize = resizeHandle.gameObject.AddComponent<PanelHorizontalResizeHandle>();
         resize.targetPanel = panel;
 
         var scroll = CreateUiRect("Scroll_Catalog", panel);
         SetRect(scroll, new Vector2(0f, 0f), new Vector2(1f, 1f), new Vector2(8f, 8f), new Vector2(-8f, -72f));
-        scroll.gameObject.AddComponent<Image>().color = Color.white;
+        scroll.gameObject.AddComponent<Image>().color = DesignTokens.Surface;
         var scrollRect = scroll.gameObject.AddComponent<ScrollRect>();
 
         var viewport = CreateUiRect("Viewport", scroll);
         SetRect(viewport, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
-        viewport.gameObject.AddComponent<Image>().color = Color.white;
+        viewport.gameObject.AddComponent<Image>().color = DesignTokens.Surface;
         viewport.gameObject.AddComponent<Mask>().showMaskGraphic = false;
 
         var content = CreateUiRect("Content", viewport);
         SetRect(content, new Vector2(0f, 1f), new Vector2(1f, 1f), Vector2.zero, Vector2.zero);
         var vLayout = content.gameObject.AddComponent<VerticalLayoutGroup>();
-        vLayout.spacing = 8f;
-        vLayout.padding = new RectOffset(6, 6, 6, 6);
+        vLayout.spacing = DesignTokens.SpaceSm;
+        vLayout.padding = new RectOffset((int)DesignTokens.SpaceSm, (int)DesignTokens.SpaceSm, (int)DesignTokens.SpaceSm, (int)DesignTokens.SpaceSm);
         vLayout.childAlignment = TextAnchor.UpperLeft;
         vLayout.childControlWidth = true;
         vLayout.childControlHeight = true;
@@ -103,7 +103,7 @@ public static class BuildUiPrefabs
 
         var cardTemplate = CreateUiRect("Card_Template", content);
         SetRect(cardTemplate, new Vector2(0f, 1f), new Vector2(1f, 1f), Vector2.zero, Vector2.zero);
-        cardTemplate.gameObject.AddComponent<Image>().color = new Color(1f, 0.98f, 0.86f, 1f);
+        cardTemplate.gameObject.AddComponent<Image>().color = DesignTokens.BgSecondary;
         var cardButton = cardTemplate.gameObject.AddComponent<Button>();
         var cardLayout = cardTemplate.gameObject.AddComponent<LayoutElement>();
         cardLayout.minHeight = 84f;
@@ -111,7 +111,7 @@ public static class BuildUiPrefabs
 
         var thumb = CreateUiRect("Thumbnail", cardTemplate);
         SetRect(thumb, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(10f, -22f), new Vector2(54f, 22f));
-        thumb.gameObject.AddComponent<Image>().color = new Color(0.93f, 0.92f, 0.85f, 1f);
+        thumb.gameObject.AddComponent<Image>().color = DesignTokens.BgSecondary;
 
         var labelMain = CreateText("LabelMain", cardTemplate, "Item");
         labelMain.fontSize = 14;
@@ -127,6 +127,8 @@ public static class BuildUiPrefabs
         catalogSo.FindProperty("searchInput").objectReferenceValue = searchInput;
         catalogSo.FindProperty("addButton").objectReferenceValue = addButton;
         catalogSo.FindProperty("statusText").objectReferenceValue = statusText;
+        var catalogCornerProp = catalogSo.FindProperty("cornerRadius");
+        if (catalogCornerProp != null) catalogCornerProp.floatValue = DesignTokens.CornerRadius;
         catalogSo.ApplyModifiedPropertiesWithoutUndo();
 
         return panel;
@@ -136,11 +138,11 @@ public static class BuildUiPrefabs
     {
         var panel = CreateUiRect("Panel_ScenarioGraph", parent);
         SetRect(panel, new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(288f, 0f), new Vector2(0f, 300f));
-        panel.gameObject.AddComponent<Image>().color = new Color(0.96f, 0.96f, 0.96f, 1f);
+        panel.gameObject.AddComponent<Image>().color = DesignTokens.BgPrimary;
 
         var topBar = CreateUiRect("TopBar", panel);
         SetRect(topBar, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(12f, -44f), new Vector2(-12f, -8f));
-        topBar.gameObject.AddComponent<Image>().color = new Color(0.96f, 0.96f, 0.96f, 1f);
+        topBar.gameObject.AddComponent<Image>().color = DesignTokens.BgPrimary;
         var topLayout = topBar.gameObject.AddComponent<HorizontalLayoutGroup>();
         topLayout.spacing = 10f;
         topLayout.childControlWidth = true;
@@ -164,7 +166,7 @@ public static class BuildUiPrefabs
 
         var nodeArea = CreateUiRect("NodeArea", panel);
         SetRect(nodeArea, new Vector2(0f, 0f), new Vector2(1f, 1f), new Vector2(12f, 8f), new Vector2(-12f, -52f));
-        nodeArea.gameObject.AddComponent<Image>().color = Color.white;
+        nodeArea.gameObject.AddComponent<Image>().color = DesignTokens.Surface;
         nodeArea.gameObject.AddComponent<RectMask2D>();
 
         var graphContent = CreateUiRect("GraphContent", nodeArea);
@@ -194,7 +196,7 @@ public static class BuildUiPrefabs
 
         var resizeHandle = CreateUiRect("ResizeHandle", panel);
         SetRect(resizeHandle, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0f, -6f), new Vector2(0f, 6f));
-        resizeHandle.gameObject.AddComponent<Image>().color = new Color(0.96f, 0.96f, 0.96f, 1f);
+        resizeHandle.gameObject.AddComponent<Image>().color = DesignTokens.BgPrimary;
         var resizeComp = resizeHandle.gameObject.AddComponent<PanelVerticalResizeHandle>();
         resizeComp.targetPanel = panel;
 
@@ -217,6 +219,8 @@ public static class BuildUiPrefabs
         if (legacyNodeTemplateProp != null) legacyNodeTemplateProp.objectReferenceValue = nodeTemplate;
         scenarioSo.FindProperty("lineTemplate").objectReferenceValue = lineTemplate;
         scenarioSo.FindProperty("resizeHandle").objectReferenceValue = resizeComp;
+        var scenarioCornerProp = scenarioSo.FindProperty("cornerRadius");
+        if (scenarioCornerProp != null) scenarioCornerProp.floatValue = DesignTokens.CornerRadius;
         scenarioSo.ApplyModifiedPropertiesWithoutUndo();
 
         return panel;
@@ -234,7 +238,7 @@ public static class BuildUiPrefabs
     {
         var root = CreateUiRect("StepNodeTemplate", parent);
         root.sizeDelta = new Vector2(390f, 180f);
-        root.gameObject.AddComponent<Image>().color = new Color(1f, 0.98f, 0.86f, 1f);
+        root.gameObject.AddComponent<Image>().color = DesignTokens.Surface;
         var stepNode = root.gameObject.AddComponent<StepNodeUI>();
 
         var stepId = CreateText("Text_StepId", root, "step-0000");
@@ -243,28 +247,28 @@ public static class BuildUiPrefabs
         var conditionSummary = CreateText("Text_ConditionSummary", root, "\u6761\u4EF6: 0");
         conditionSummary.fontSize = 12;
         conditionSummary.alignment = TextAnchor.MiddleLeft;
-        conditionSummary.color = new Color(0.2f, 0.2f, 0.2f, 1f);
+        conditionSummary.color = DesignTokens.TextSecondary;
         SetRect(conditionSummary.rectTransform, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(12f, -42f), new Vector2(-44f, -22f));
 
         var dragHandle = CreateUiRect("DragHandle", root);
         SetRect(dragHandle, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0f, -28f), new Vector2(0f, 0f));
-        dragHandle.gameObject.AddComponent<Image>().color = new Color(0.98f, 0.93f, 0.70f, 1f);
+        dragHandle.gameObject.AddComponent<Image>().color = DesignTokens.BgSecondary;
         var drag = dragHandle.gameObject.AddComponent<NodeDragHandler>();
         drag.target = root;
 
         var warning = CreateText("Warning", root, "!");
         warning.fontSize = 18;
-        warning.color = new Color(1f, 0.82f, 0f, 1f);
+        warning.color = DesignTokens.Warning;
         warning.alignment = TextAnchor.MiddleCenter;
         SetRect(warning.rectTransform, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-56f, -30f), new Vector2(-36f, -10f));
 
         var deleteButton = CreateButton("Button_Delete", dragHandle, "X");
         SetRect(deleteButton.GetComponent<RectTransform>(), new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(-30f, -11f), new Vector2(-8f, 11f));
-        deleteButton.GetComponent<Image>().color = new Color(0.82f, 0.82f, 0.82f, 1f);
+        deleteButton.GetComponent<Image>().color = DesignTokens.BgTertiary;
         var deleteLabel = deleteButton.GetComponentInChildren<Text>(true);
         if (deleteLabel != null)
         {
-            deleteLabel.color = new Color(0.2f, 0.2f, 0.2f, 1f);
+            deleteLabel.color = DesignTokens.TextPrimary;
             deleteLabel.fontSize = 14;
         }
 
@@ -273,11 +277,11 @@ public static class BuildUiPrefabs
 
         var inputConnector = CreateButton("InputConnector", root, "");
         SetRect(inputConnector.GetComponent<RectTransform>(), new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(-14f, -12f), new Vector2(10f, 12f));
-        inputConnector.GetComponent<Image>().color = new Color(0.99f, 0.94f, 0.70f, 1f);
+        inputConnector.GetComponent<Image>().color = DesignTokens.Accent;
 
         var outputConnector = CreateButton("OutputConnector", root, "");
         SetRect(outputConnector.GetComponent<RectTransform>(), new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(-10f, -12f), new Vector2(14f, 12f));
-        outputConnector.GetComponent<Image>().color = new Color(0.99f, 0.94f, 0.70f, 1f);
+        outputConnector.GetComponent<Image>().color = DesignTokens.Accent;
 
         var conditionList = CreateUiRect("ConditionList", root);
         SetRect(conditionList, new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(16f, 30f), new Vector2(-16f, 106f));
@@ -307,7 +311,7 @@ public static class BuildUiPrefabs
     {
         var row = CreateUiRect("ConditionRowTemplate", parent);
         row.sizeDelta = new Vector2(0f, 76f);
-        row.gameObject.AddComponent<Image>().color = new Color(1f, 0.99f, 0.92f, 1f);
+        row.gameObject.AddComponent<Image>().color = DesignTokens.BgPrimary;
         row.gameObject.AddComponent<LayoutElement>().minHeight = 76f;
 
         var rowLayout = row.gameObject.AddComponent<VerticalLayoutGroup>();
@@ -328,14 +332,14 @@ public static class BuildUiPrefabs
         lineBLayout.childControlWidth = true;
 
         var dropdownA = CreateDropdown("DropdownA", lineA);
-        dropdownA.GetComponent<Image>().color = new Color(0.92f, 0.92f, 0.92f, 1f);
+        dropdownA.GetComponent<Image>().color = DesignTokens.BgSecondary;
         StyleConditionDropdown(dropdownA);
         dropdownA.gameObject.AddComponent<LayoutElement>().flexibleWidth = 1f;
         var textA = CreateText("Text_AfterA", lineA, "\u3092");
         textA.gameObject.AddComponent<LayoutElement>().minWidth = 24f;
 
         var dropdownB = CreateDropdown("DropdownB", lineB);
-        dropdownB.GetComponent<Image>().color = new Color(0.92f, 0.92f, 0.92f, 1f);
+        dropdownB.GetComponent<Image>().color = DesignTokens.BgSecondary;
         StyleConditionDropdown(dropdownB);
         dropdownB.gameObject.AddComponent<LayoutElement>().flexibleWidth = 1f;
         var textB = CreateText("Text_AfterB", lineB, "\u306B\u8FD1\u3065\u3051\u305F\u3089");
@@ -352,7 +356,7 @@ public static class BuildUiPrefabs
     static Dropdown CreateDropdown(string name, Transform parent)
     {
         var root = CreateUiRect(name, parent);
-        root.gameObject.AddComponent<Image>().color = new Color(0.92f, 0.92f, 0.92f, 1f);
+        root.gameObject.AddComponent<Image>().color = DesignTokens.BgSecondary;
         var dropdown = root.gameObject.AddComponent<Dropdown>();
 
         var caption = CreateText("Caption", root, "\u672A\u8A2D\u5B9A");
@@ -362,13 +366,13 @@ public static class BuildUiPrefabs
         SetRect(template, new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(0f, -120f), new Vector2(0f, 0f));
         template.pivot = new Vector2(0.5f, 1f);
         template.anchoredPosition = Vector2.zero;
-        template.gameObject.AddComponent<Image>().color = new Color(0.97f, 0.97f, 0.97f, 1f);
+        template.gameObject.AddComponent<Image>().color = DesignTokens.Surface;
         var scroll = template.gameObject.AddComponent<ScrollRect>();
         template.gameObject.SetActive(false);
 
         var viewport = CreateUiRect("Viewport", template);
         SetRect(viewport, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
-        viewport.gameObject.AddComponent<Image>().color = new Color(0.97f, 0.97f, 0.97f, 1f);
+        viewport.gameObject.AddComponent<Image>().color = DesignTokens.Surface;
         viewport.gameObject.AddComponent<Mask>().showMaskGraphic = false;
 
         var content = CreateUiRect("Content", viewport);
@@ -380,7 +384,7 @@ public static class BuildUiPrefabs
 
         var item = CreateUiRect("Item", content);
         item.sizeDelta = new Vector2(0f, 24f);
-        item.gameObject.AddComponent<Image>().color = new Color(0.93f, 0.93f, 0.93f, 1f);
+        item.gameObject.AddComponent<Image>().color = DesignTokens.BgSecondary;
         item.gameObject.AddComponent<Toggle>();
         var itemLayout = item.gameObject.AddComponent<LayoutElement>();
         itemLayout.minHeight = 24f;
@@ -409,21 +413,21 @@ public static class BuildUiPrefabs
 
         if (dropdown.captionText != null)
         {
-            dropdown.captionText.color = Color.black;
+            dropdown.captionText.color = DesignTokens.TextPrimary;
         }
     }
 
     static InputField CreateInputField(string name, Transform parent, string placeholderText)
     {
         var root = CreateUiRect(name, parent);
-        root.gameObject.AddComponent<Image>().color = Color.white;
+        root.gameObject.AddComponent<Image>().color = DesignTokens.BgPrimary;
         var input = root.gameObject.AddComponent<InputField>();
 
         var text = CreateText("Text", root, "");
         SetRect(text.rectTransform, Vector2.zero, Vector2.one, new Vector2(8f, 0f), new Vector2(-8f, 0f));
 
         var placeholder = CreateText("Placeholder", root, placeholderText);
-        placeholder.color = new Color(0.55f, 0.55f, 0.55f, 1f);
+        placeholder.color = DesignTokens.TextTertiary;
         SetRect(placeholder.rectTransform, Vector2.zero, Vector2.one, new Vector2(8f, 0f), new Vector2(-8f, 0f));
 
         input.textComponent = text;
@@ -434,7 +438,7 @@ public static class BuildUiPrefabs
     static Button CreateButton(string name, Transform parent, string label)
     {
         var root = CreateUiRect(name, parent);
-        root.gameObject.AddComponent<Image>().color = new Color(1f, 0.98f, 0.86f, 1f);
+        root.gameObject.AddComponent<Image>().color = DesignTokens.BgSecondary;
         var button = root.gameObject.AddComponent<Button>();
 
         var text = CreateText("Label", root, label);
@@ -449,7 +453,7 @@ public static class BuildUiPrefabs
         textGo.transform.SetParent(parent, false);
         var text = textGo.GetComponent<Text>();
         text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-        text.color = Color.black;
+        text.color = DesignTokens.TextPrimary;
         text.fontSize = 14;
         text.alignment = TextAnchor.MiddleLeft;
         text.text = value;

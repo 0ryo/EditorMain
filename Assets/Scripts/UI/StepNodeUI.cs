@@ -388,20 +388,20 @@ public class StepNodeUI : MonoBehaviour
             labelText.text = "X";
             labelText.fontSize = 14;
             labelText.alignment = TextAnchor.MiddleCenter;
-            labelText.color = new Color(0.45f, 0.08f, 0.08f, 1f);
+            labelText.color = DesignTokens.Error;
             labelText.raycastTarget = false;
         }
 
         var image = deleteButton.GetComponent<Image>();
         if (image != null)
         {
-            image.color = new Color(0.82f, 0.82f, 0.82f, 1f);
+            image.color = DesignTokens.BgTertiary;
         }
 
         var labelTextCurrent = deleteButton.GetComponentInChildren<Text>(true);
         if (labelTextCurrent != null)
         {
-            labelTextCurrent.color = new Color(0.2f, 0.2f, 0.2f, 1f);
+            labelTextCurrent.color = DesignTokens.TextPrimary;
         }
 
         var deleteRt = deleteButton.GetComponent<RectTransform>();

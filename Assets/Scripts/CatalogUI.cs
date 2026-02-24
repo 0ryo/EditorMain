@@ -17,7 +17,7 @@ public class CatalogUI : MonoBehaviour
     [SerializeField] Button addButton;
     [SerializeField] Text statusText;
     [SerializeField] float statusAutoClearSeconds = 2f;
-    [SerializeField] float cornerRadius = 14f;
+    [SerializeField] float cornerRadius = DesignTokens.CornerRadius;
 
     [Serializable]
     public class StringEvent : UnityEvent<string> { }
@@ -35,6 +35,7 @@ public class CatalogUI : MonoBehaviour
 
     void Start()
     {
+        cornerRadius = DesignTokens.CornerRadius;
         EnsureSingleEventSystem();
         EnsureRuntimeBindings();
         EnsureRuntimeCatalogControls();
@@ -43,6 +44,7 @@ public class CatalogUI : MonoBehaviour
         WireUiEvents();
         RebuildCards();
         ApplyRoundedTheme();
+        DesignTokenApplier.ApplyCatalogPanel(transform);
     }
 
     void OnDestroy()
@@ -165,6 +167,7 @@ public class CatalogUI : MonoBehaviour
 
         ApplyFilter(searchInput != null ? searchInput.text : string.Empty);
         ApplyRoundedTheme();
+        DesignTokenApplier.ApplyCatalogPanel(transform);
     }
 
     void ApplyRoundedTheme()
@@ -186,7 +189,7 @@ public class CatalogUI : MonoBehaviour
         searchRowRt.anchorMax = new Vector2(1f, 1f);
         searchRowRt.offsetMin = new Vector2(10f, -44f);
         searchRowRt.offsetMax = new Vector2(-10f, -8f);
-        searchRow.GetComponent<Image>().color = Color.white;
+        searchRow.GetComponent<Image>().color = DesignTokens.BgPrimary;
 
         searchInput = CreateInputField(searchRowRt, "Input_Search_Runtime", "\u30AA\u30D6\u30B8\u30A7\u30AF\u30C8\u3092\u691C\u7D22...");
         var inputRt = searchInput.GetComponent<RectTransform>();
@@ -332,7 +335,7 @@ public class CatalogUI : MonoBehaviour
         var root = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(InputField));
         var rootRt = root.GetComponent<RectTransform>();
         rootRt.SetParent(parent, false);
-        root.GetComponent<Image>().color = Color.white;
+        root.GetComponent<Image>().color = DesignTokens.BgPrimary;
         var input = root.GetComponent<InputField>();
 
         var textGo = new GameObject("Text", typeof(RectTransform), typeof(Text));
@@ -344,7 +347,7 @@ public class CatalogUI : MonoBehaviour
         textRt.offsetMax = new Vector2(-8f, 0f);
         var text = textGo.GetComponent<Text>();
         text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-        text.color = Color.black;
+        text.color = DesignTokens.TextPrimary;
         text.fontSize = 14;
         text.alignment = TextAnchor.MiddleLeft;
         text.text = "";
@@ -358,7 +361,7 @@ public class CatalogUI : MonoBehaviour
         placeholderRt.offsetMax = new Vector2(-8f, 0f);
         var placeholder = placeholderGo.GetComponent<Text>();
         placeholder.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-        placeholder.color = new Color(0.55f, 0.55f, 0.55f, 1f);
+        placeholder.color = DesignTokens.TextTertiary;
         placeholder.fontSize = 14;
         placeholder.alignment = TextAnchor.MiddleLeft;
         placeholder.text = placeholderText;

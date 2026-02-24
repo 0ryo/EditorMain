@@ -22,6 +22,8 @@ public class ConnectionLineGraphic : MaskableGraphic, IPointerEnterHandler, IPoi
     Text hoverDeleteLabel;
     bool isPointerOver;
 
+    const float AaEdgeWidth = 1.5f; // アンチエイリアス用の端のぼかし幅
+
     protected override void OnPopulateMesh(VertexHelper vh)
     {
         vh.Clear();
@@ -31,9 +33,52 @@ public class ConnectionLineGraphic : MaskableGraphic, IPointerEnterHandler, IPoi
         Vector2 toPoint = WorldToLocalCenter(to);
 
         Vector2 direction = (toPoint - fromPoint).normalized;
-        Vector2 normal = new Vector2(-direction.y, direction.x) * (thickness * 0.5f);
+        Vector2 normal = new Vector2(-direction.y, direction.x);
 
-        AddQuad(vh, fromPoint - normal, fromPoint + normal, toPoint + normal, toPoint - normal);
+        float halfCore = thickness * 0.5f;
+        float halfTotal = halfCore + AaEdgeWidth;
+
+        // 8頂点: 外側(透明) → 内側(不透明) → 内側(不透明) → 外側(透明)
+        Vector2 outerL0 = fromPoint - normal * halfTotal;
+        Vector2 innerL0 = fromPoint - normal * halfCore;
+        Vector2 innerR0 = fromPoint + normal * halfCore;
+        Vector2 outerR0 = fromPoint + normal * halfTotal;
+
+        Vector2 outerL1 = toPoint - normal * halfTotal;
+        Vector2 innerL1 = toPoint - normal * halfCore;
+        Vector2 innerR1 = toPoint + normal * halfCore;
+        Vector2 outerR1 = toPoint + normal * halfTotal;
+
+        Color coreColor = color;
+        Color edgeColor = new Color(color.r, color.g, color.b, 0f);
+
+        int i = vh.currentVertCount;
+        AddVert(vh, outerL0, edgeColor);  // 0
+        AddVert(vh, innerL0, coreColor);  // 1
+        AddVert(vh, innerR0, coreColor);  // 2
+        AddVert(vh, outerR0, edgeColor);  // 3
+        AddVert(vh, outerL1, edgeColor);  // 4
+        AddVert(vh, innerL1, coreColor);  // 5
+        AddVert(vh, innerR1, coreColor);  // 6
+        AddVert(vh, outerR1, edgeColor);  // 7
+
+        // 左端ぼかし (0,1,5,4)
+        vh.AddTriangle(i+0, i+1, i+5);
+        vh.AddTriangle(i+0, i+5, i+4);
+        // 中央コア (1,2,6,5)
+        vh.AddTriangle(i+1, i+2, i+6);
+        vh.AddTriangle(i+1, i+6, i+5);
+        // 右端ぼかし (2,3,7,6)
+        vh.AddTriangle(i+2, i+3, i+7);
+        vh.AddTriangle(i+2, i+7, i+6);
+    }
+
+    static void AddVert(VertexHelper vh, Vector2 position, Color vertColor)
+    {
+        UIVertex vertex = UIVertex.simpleVert;
+        vertex.color = vertColor;
+        vertex.position = position;
+        vh.AddVert(vertex);
     }
 
     public override bool Raycast(Vector2 sp, Camera eventCamera)
@@ -66,28 +111,6 @@ public class ConnectionLineGraphic : MaskableGraphic, IPointerEnterHandler, IPoi
     {
         Vector3 worldCenter = target.TransformPoint(target.rect.center);
         return rectTransform.InverseTransformPoint(worldCenter);
-    }
-
-    void AddQuad(VertexHelper vh, Vector2 v0, Vector2 v1, Vector2 v2, Vector2 v3)
-    {
-        int start = vh.currentVertCount;
-        UIVertex vertex = UIVertex.simpleVert;
-        vertex.color = color;
-
-        vertex.position = v0;
-        vh.AddVert(vertex);
-
-        vertex.position = v1;
-        vh.AddVert(vertex);
-
-        vertex.position = v2;
-        vh.AddVert(vertex);
-
-        vertex.position = v3;
-        vh.AddVert(vertex);
-
-        vh.AddTriangle(start, start + 1, start + 2);
-        vh.AddTriangle(start, start + 2, start + 3);
     }
 
     void Update()
@@ -156,7 +179,7 @@ public class ConnectionLineGraphic : MaskableGraphic, IPointerEnterHandler, IPoi
         hoverDeleteLabel.text = "\u524A\u9664";
         hoverDeleteLabel.fontSize = 12;
         hoverDeleteLabel.alignment = TextAnchor.MiddleCenter;
-        hoverDeleteLabel.color = new Color(0.80f, 0.12f, 0.12f, 1f);
+        hoverDeleteLabel.color = DesignTokens.Error;
         hoverDeleteLabel.raycastTarget = false;
         hoverDeleteLabel.gameObject.SetActive(false);
     }
