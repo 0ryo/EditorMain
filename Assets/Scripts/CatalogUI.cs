@@ -20,6 +20,12 @@ public class CatalogUI : MonoBehaviour
     [SerializeField] InputField searchInput;
     [SerializeField] Button addButton;
     [SerializeField] Text statusText;
+    [SerializeField] RectTransform newObjectSettingsPanel;
+    [SerializeField] InputField newObjectNameInput;
+    [SerializeField] InputField newObjectDescriptionInput;
+    [SerializeField] Button newObjectApplyButton;
+    [SerializeField] Button newObjectCancelButton;
+    [SerializeField] Text newObjectPathText;
     [SerializeField] float statusAutoClearSeconds = 2f;
     [SerializeField] float cornerRadius = DesignTokens.CornerRadius;
     [SerializeField] string importedCardLabel = "New Object";
@@ -32,12 +38,17 @@ public class CatalogUI : MonoBehaviour
     Coroutine clearStatusCoroutine;
     readonly List<CardState> cards = new();
     string runtimeImportedTypeId;
+    string runtimeImportedCardLabel;
+    string runtimeImportedDescription;
     GameObject runtimeImportedPrefab;
+    GameObject pendingImportedPrefab;
+    string pendingImportedAssetPath;
 
     class CardState
     {
         public string typeId;
         public string displayLabel;
+        public string displayDescription;
         public GameObject root;
     }
 
@@ -128,6 +139,18 @@ public class CatalogUI : MonoBehaviour
             addButton.onClick.RemoveListener(OnClickAdd);
             addButton.onClick.AddListener(OnClickAdd);
         }
+
+        if (newObjectApplyButton != null)
+        {
+            newObjectApplyButton.onClick.RemoveListener(OnClickApplyNewObjectSettings);
+            newObjectApplyButton.onClick.AddListener(OnClickApplyNewObjectSettings);
+        }
+
+        if (newObjectCancelButton != null)
+        {
+            newObjectCancelButton.onClick.RemoveListener(OnClickCancelNewObjectSettings);
+            newObjectCancelButton.onClick.AddListener(OnClickCancelNewObjectSettings);
+        }
     }
 
     void RebuildCards()
@@ -170,6 +193,7 @@ public class CatalogUI : MonoBehaviour
             {
                 typeId = typeId,
                 displayLabel = typeId,
+                displayDescription = string.Empty,
                 root = cardButton.gameObject
             });
         }
@@ -190,7 +214,8 @@ public class CatalogUI : MonoBehaviour
         cardButton.gameObject.name = "Card_NewObject";
         cardButton.gameObject.SetActive(true);
         EnsureCardHeight(cardButton.gameObject);
-        SetCardLabel(cardButton.gameObject, importedCardLabel);
+        var cardLabel = string.IsNullOrWhiteSpace(runtimeImportedCardLabel) ? importedCardLabel : runtimeImportedCardLabel;
+        SetCardLabel(cardButton.gameObject, cardLabel);
 
         var importedTypeId = runtimeImportedTypeId;
         cardButton.onClick.RemoveAllListeners();
@@ -203,7 +228,8 @@ public class CatalogUI : MonoBehaviour
         cards.Add(new CardState
         {
             typeId = importedTypeId,
-            displayLabel = importedCardLabel,
+            displayLabel = cardLabel,
+            displayDescription = runtimeImportedDescription,
             root = cardButton.gameObject
         });
     }
@@ -220,6 +246,7 @@ public class CatalogUI : MonoBehaviour
 
         EnsureRuntimeSearchInput(panel);
         EnsureRuntimeBottomAddButton(panel);
+        EnsureRuntimeNewObjectSettingsDialog(panel);
         EnsureScrollBottomPadding(56f);
     }
 
@@ -300,6 +327,364 @@ public class CatalogUI : MonoBehaviour
         label.text = "Import FBX";
 
         EnsureScrollBottomPadding(56f);
+    }
+
+    void EnsureRuntimeNewObjectSettingsDialog(RectTransform panel)
+    {
+        var host = ResolveNewObjectSettingsHost(panel);
+        if (host == null) return;
+
+        var existing = FindExistingNewObjectSettingsPanel(panel, host);
+        if (existing != null)
+        {
+            if (existing.parent != host)
+            {
+                existing.SetParent(host, false);
+            }
+
+            newObjectSettingsPanel = existing;
+            ConfigureNewObjectSettingsOverlayRect(newObjectSettingsPanel);
+            BindNewObjectSettingsReferences(newObjectSettingsPanel);
+            ApplyNewObjectSettingsDesign(newObjectSettingsPanel);
+            newObjectSettingsPanel.gameObject.SetActive(false);
+            return;
+        }
+
+        var overlayRoot = new GameObject("Panel_NewObjectSettings", typeof(RectTransform), typeof(Image));
+        var overlayRt = overlayRoot.GetComponent<RectTransform>();
+        overlayRt.SetParent(host, false);
+        ConfigureNewObjectSettingsOverlayRect(overlayRt);
+
+        var window = new GameObject("Window", typeof(RectTransform), typeof(Image));
+        var windowRt = window.GetComponent<RectTransform>();
+        windowRt.SetParent(overlayRt, false);
+        ConfigureNewObjectSettingsWindowRect(windowRt);
+        var windowImage = window.GetComponent<Image>();
+        windowImage.color = DesignTokens.Surface;
+
+        var title = new GameObject("Text_Title", typeof(RectTransform), typeof(Text));
+        var titleRt = title.GetComponent<RectTransform>();
+        titleRt.SetParent(windowRt, false);
+        var titleText = title.GetComponent<Text>();
+        titleText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        titleText.color = DesignTokens.TextPrimary;
+        titleText.fontSize = 16;
+        titleText.alignment = TextAnchor.MiddleLeft;
+        titleText.text = "\u30AA\u30D6\u30B8\u30A7\u30AF\u30C8\u8A2D\u5B9A";
+
+        var pathTextObj = new GameObject("Text_FilePath", typeof(RectTransform), typeof(Text));
+        var pathTextRt = pathTextObj.GetComponent<RectTransform>();
+        pathTextRt.SetParent(windowRt, false);
+        var pathText = pathTextObj.GetComponent<Text>();
+        pathText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        pathText.color = DesignTokens.TextSecondary;
+        pathText.fontSize = 12;
+        pathText.alignment = TextAnchor.UpperLeft;
+        pathText.horizontalOverflow = HorizontalWrapMode.Wrap;
+        pathText.verticalOverflow = VerticalWrapMode.Truncate;
+        pathText.text = string.Empty;
+
+        var nameLabelObj = new GameObject("Text_NameLabel", typeof(RectTransform), typeof(Text));
+        var nameLabelRt = nameLabelObj.GetComponent<RectTransform>();
+        nameLabelRt.SetParent(windowRt, false);
+        var nameLabel = nameLabelObj.GetComponent<Text>();
+        nameLabel.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        nameLabel.color = DesignTokens.TextPrimary;
+        nameLabel.fontSize = 13;
+        nameLabel.alignment = TextAnchor.MiddleLeft;
+        nameLabel.text = "\u30AA\u30D6\u30B8\u30A7\u30AF\u30C8\u540D";
+
+        var input = CreateInputField(windowRt, "Input_NewObjectName", "New Object");
+
+        var descriptionLabelObj = new GameObject("Text_DescriptionLabel", typeof(RectTransform), typeof(Text));
+        var descriptionLabelRt = descriptionLabelObj.GetComponent<RectTransform>();
+        descriptionLabelRt.SetParent(windowRt, false);
+        var descriptionLabel = descriptionLabelObj.GetComponent<Text>();
+        descriptionLabel.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        descriptionLabel.color = DesignTokens.TextPrimary;
+        descriptionLabel.fontSize = 13;
+        descriptionLabel.alignment = TextAnchor.MiddleLeft;
+        descriptionLabel.text = "\u8AAC\u660E";
+
+        var descriptionInput = CreateMultilineInputField(windowRt, "Input_NewObjectDescription", "\u8AAC\u660E\u3092\u5165\u529B...");
+
+        var buttonsRow = new GameObject("ButtonsRow", typeof(RectTransform), typeof(HorizontalLayoutGroup));
+        var buttonsRowRt = buttonsRow.GetComponent<RectTransform>();
+        buttonsRowRt.SetParent(windowRt, false);
+        var buttonsLayout = buttonsRow.GetComponent<HorizontalLayoutGroup>();
+        buttonsLayout.spacing = 8f;
+        buttonsLayout.childControlWidth = true;
+        buttonsLayout.childControlHeight = true;
+        buttonsLayout.childForceExpandWidth = true;
+
+        var applyButton = new GameObject("Button_Apply", typeof(RectTransform), typeof(Image), typeof(Button), typeof(LayoutElement));
+        var applyRt = applyButton.GetComponent<RectTransform>();
+        applyRt.SetParent(buttonsRowRt, false);
+        applyButton.GetComponent<Image>().color = DesignTokens.Accent;
+        var applyLayout = applyButton.GetComponent<LayoutElement>();
+        applyLayout.minHeight = 40f;
+        applyLayout.preferredHeight = 40f;
+        var applyLabelObj = new GameObject("Label", typeof(RectTransform), typeof(Text));
+        var applyLabelRt = applyLabelObj.GetComponent<RectTransform>();
+        applyLabelRt.SetParent(applyRt, false);
+        applyLabelRt.anchorMin = Vector2.zero;
+        applyLabelRt.anchorMax = Vector2.one;
+        applyLabelRt.offsetMin = Vector2.zero;
+        applyLabelRt.offsetMax = Vector2.zero;
+        var applyLabel = applyLabelObj.GetComponent<Text>();
+        applyLabel.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        applyLabel.color = DesignTokens.Surface;
+        applyLabel.fontSize = 14;
+        applyLabel.alignment = TextAnchor.MiddleCenter;
+        applyLabel.text = "\u8FFD\u52A0";
+
+        var cancelButton = new GameObject("Button_Cancel", typeof(RectTransform), typeof(Image), typeof(Button), typeof(LayoutElement));
+        var cancelRt = cancelButton.GetComponent<RectTransform>();
+        cancelRt.SetParent(buttonsRowRt, false);
+        cancelButton.GetComponent<Image>().color = DesignTokens.BgSecondary;
+        var cancelLayout = cancelButton.GetComponent<LayoutElement>();
+        cancelLayout.minHeight = 40f;
+        cancelLayout.preferredHeight = 40f;
+        var cancelLabelObj = new GameObject("Label", typeof(RectTransform), typeof(Text));
+        var cancelLabelRt = cancelLabelObj.GetComponent<RectTransform>();
+        cancelLabelRt.SetParent(cancelRt, false);
+        cancelLabelRt.anchorMin = Vector2.zero;
+        cancelLabelRt.anchorMax = Vector2.one;
+        cancelLabelRt.offsetMin = Vector2.zero;
+        cancelLabelRt.offsetMax = Vector2.zero;
+        var cancelLabel = cancelLabelObj.GetComponent<Text>();
+        cancelLabel.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        cancelLabel.color = DesignTokens.TextPrimary;
+        cancelLabel.fontSize = 14;
+        cancelLabel.alignment = TextAnchor.MiddleCenter;
+        cancelLabel.text = "\u30AD\u30E3\u30F3\u30BB\u30EB";
+
+        newObjectSettingsPanel = overlayRt;
+        newObjectNameInput = input;
+        newObjectDescriptionInput = descriptionInput;
+        newObjectApplyButton = applyButton.GetComponent<Button>();
+        newObjectCancelButton = cancelButton.GetComponent<Button>();
+        newObjectPathText = pathText;
+
+        ApplyNewObjectSettingsDesign(newObjectSettingsPanel);
+        newObjectSettingsPanel.gameObject.SetActive(false);
+    }
+
+    RectTransform ResolveNewObjectSettingsHost(RectTransform panel)
+    {
+        if (panel == null) return null;
+        var root = panel.root as RectTransform;
+        return root != null ? root : panel;
+    }
+
+    RectTransform FindExistingNewObjectSettingsPanel(RectTransform panel, RectTransform host)
+    {
+        if (newObjectSettingsPanel != null) return newObjectSettingsPanel;
+
+        if (host != null)
+        {
+            var inHost = host.Find("Panel_NewObjectSettings") as RectTransform;
+            if (inHost != null) return inHost;
+        }
+
+        if (panel != null && panel != host)
+        {
+            var inPanel = panel.Find("Panel_NewObjectSettings") as RectTransform;
+            if (inPanel != null) return inPanel;
+        }
+
+        return null;
+    }
+
+    void ConfigureNewObjectSettingsOverlayRect(RectTransform overlayRt)
+    {
+        if (overlayRt == null) return;
+
+        overlayRt.anchorMin = Vector2.zero;
+        overlayRt.anchorMax = Vector2.one;
+        overlayRt.pivot = new Vector2(0.5f, 0.5f);
+        overlayRt.offsetMin = Vector2.zero;
+        overlayRt.offsetMax = Vector2.zero;
+
+        var overlayImage = overlayRt.GetComponent<Image>();
+        if (overlayImage == null) overlayImage = overlayRt.gameObject.AddComponent<Image>();
+        var overlayColor = DesignTokens.TextPrimary;
+        overlayColor.a = 0.32f;
+        overlayImage.color = overlayColor;
+        overlayImage.raycastTarget = true;
+    }
+
+    void ConfigureNewObjectSettingsWindowRect(RectTransform windowRt)
+    {
+        if (windowRt == null) return;
+
+        windowRt.anchorMin = new Vector2(0.5f, 0.5f);
+        windowRt.anchorMax = new Vector2(0.5f, 0.5f);
+        windowRt.pivot = new Vector2(0.5f, 0.5f);
+        windowRt.sizeDelta = new Vector2(560f, 430f);
+        windowRt.anchoredPosition = Vector2.zero;
+    }
+
+    void BindNewObjectSettingsReferences(RectTransform overlayRt)
+    {
+        if (overlayRt == null) return;
+
+        var nameInputTr = overlayRt.Find("Window/Input_NewObjectName");
+        if (nameInputTr != null) newObjectNameInput = nameInputTr.GetComponent<InputField>();
+
+        var descInputTr = overlayRt.Find("Window/Input_NewObjectDescription");
+        if (descInputTr != null) newObjectDescriptionInput = descInputTr.GetComponent<InputField>();
+
+        var applyTr = overlayRt.Find("Window/ButtonsRow/Button_Apply");
+        if (applyTr != null) newObjectApplyButton = applyTr.GetComponent<Button>();
+
+        var cancelTr = overlayRt.Find("Window/ButtonsRow/Button_Cancel");
+        if (cancelTr != null) newObjectCancelButton = cancelTr.GetComponent<Button>();
+
+        var pathTextTr = overlayRt.Find("Window/Text_FilePath");
+        if (pathTextTr != null) newObjectPathText = pathTextTr.GetComponent<Text>();
+    }
+
+    void ApplyNewObjectSettingsDesign(RectTransform overlayRt)
+    {
+        if (overlayRt == null) return;
+
+        ConfigureNewObjectSettingsOverlayRect(overlayRt);
+
+        var windowRt = overlayRt.Find("Window") as RectTransform;
+        if (windowRt == null) return;
+
+        ConfigureNewObjectSettingsWindowRect(windowRt);
+
+        var windowImage = windowRt.GetComponent<Image>();
+        if (windowImage == null) windowImage = windowRt.gameObject.AddComponent<Image>();
+        windowImage.color = DesignTokens.Surface;
+
+        var title = windowRt.Find("Text_Title")?.GetComponent<Text>();
+        if (title != null)
+        {
+            title.text = "\u30AA\u30D6\u30B8\u30A7\u30AF\u30C8\u8A2D\u5B9A";
+            title.fontSize = 16;
+            title.color = DesignTokens.TextPrimary;
+            title.alignment = TextAnchor.MiddleLeft;
+            var rt = title.rectTransform;
+            rt.anchorMin = new Vector2(0f, 1f);
+            rt.anchorMax = new Vector2(1f, 1f);
+            rt.offsetMin = new Vector2(16f, -44f);
+            rt.offsetMax = new Vector2(-16f, -16f);
+        }
+
+        if (newObjectPathText != null)
+        {
+            newObjectPathText.fontSize = 12;
+            newObjectPathText.color = DesignTokens.TextSecondary;
+            newObjectPathText.alignment = TextAnchor.UpperLeft;
+            newObjectPathText.horizontalOverflow = HorizontalWrapMode.Wrap;
+            newObjectPathText.verticalOverflow = VerticalWrapMode.Truncate;
+            var rt = newObjectPathText.rectTransform;
+            rt.anchorMin = new Vector2(0f, 1f);
+            rt.anchorMax = new Vector2(1f, 1f);
+            rt.offsetMin = new Vector2(16f, -84f);
+            rt.offsetMax = new Vector2(-16f, -52f);
+        }
+
+        var nameLabel = windowRt.Find("Text_NameLabel")?.GetComponent<Text>();
+        if (nameLabel != null)
+        {
+            nameLabel.text = "\u30AA\u30D6\u30B8\u30A7\u30AF\u30C8\u540D";
+            nameLabel.fontSize = 13;
+            nameLabel.color = DesignTokens.TextPrimary;
+            var rt = nameLabel.rectTransform;
+            rt.anchorMin = new Vector2(0f, 1f);
+            rt.anchorMax = new Vector2(1f, 1f);
+            rt.offsetMin = new Vector2(16f, -116f);
+            rt.offsetMax = new Vector2(-16f, -92f);
+        }
+
+        if (newObjectNameInput != null)
+        {
+            var rt = newObjectNameInput.GetComponent<RectTransform>();
+            if (rt != null)
+            {
+                rt.anchorMin = new Vector2(0f, 1f);
+                rt.anchorMax = new Vector2(1f, 1f);
+                rt.offsetMin = new Vector2(16f, -160f);
+                rt.offsetMax = new Vector2(-16f, -120f);
+            }
+        }
+
+        var descriptionLabel = windowRt.Find("Text_DescriptionLabel")?.GetComponent<Text>();
+        if (descriptionLabel != null)
+        {
+            descriptionLabel.text = "\u8AAC\u660E";
+            descriptionLabel.fontSize = 13;
+            descriptionLabel.color = DesignTokens.TextPrimary;
+            var rt = descriptionLabel.rectTransform;
+            rt.anchorMin = new Vector2(0f, 1f);
+            rt.anchorMax = new Vector2(1f, 1f);
+            rt.offsetMin = new Vector2(16f, -196f);
+            rt.offsetMax = new Vector2(-16f, -172f);
+        }
+
+        if (newObjectDescriptionInput != null)
+        {
+            newObjectDescriptionInput.lineType = InputField.LineType.MultiLineNewline;
+            var rt = newObjectDescriptionInput.GetComponent<RectTransform>();
+            if (rt != null)
+            {
+                rt.anchorMin = new Vector2(0f, 1f);
+                rt.anchorMax = new Vector2(1f, 1f);
+                rt.offsetMin = new Vector2(16f, -324f);
+                rt.offsetMax = new Vector2(-16f, -208f);
+            }
+        }
+
+        var buttonsRowRt = windowRt.Find("ButtonsRow") as RectTransform;
+        if (buttonsRowRt != null)
+        {
+            buttonsRowRt.anchorMin = new Vector2(0f, 0f);
+            buttonsRowRt.anchorMax = new Vector2(1f, 0f);
+            buttonsRowRt.offsetMin = new Vector2(16f, 16f);
+            buttonsRowRt.offsetMax = new Vector2(-16f, 56f);
+        }
+
+        if (newObjectApplyButton != null)
+        {
+            var image = newObjectApplyButton.GetComponent<Image>();
+            if (image != null) image.color = DesignTokens.Accent;
+            var layout = newObjectApplyButton.GetComponent<LayoutElement>();
+            if (layout == null) layout = newObjectApplyButton.gameObject.AddComponent<LayoutElement>();
+            layout.minHeight = 40f;
+            layout.preferredHeight = 40f;
+            var label = newObjectApplyButton.GetComponentInChildren<Text>(true);
+            if (label != null)
+            {
+                label.text = "\u8FFD\u52A0";
+                label.fontSize = 14;
+                label.color = DesignTokens.Surface;
+                label.alignment = TextAnchor.MiddleCenter;
+            }
+        }
+
+        if (newObjectCancelButton != null)
+        {
+            var image = newObjectCancelButton.GetComponent<Image>();
+            if (image != null) image.color = DesignTokens.BgSecondary;
+            var layout = newObjectCancelButton.GetComponent<LayoutElement>();
+            if (layout == null) layout = newObjectCancelButton.gameObject.AddComponent<LayoutElement>();
+            layout.minHeight = 40f;
+            layout.preferredHeight = 40f;
+            var label = newObjectCancelButton.GetComponentInChildren<Text>(true);
+            if (label != null)
+            {
+                label.text = "\u30AD\u30E3\u30F3\u30BB\u30EB";
+                label.fontSize = 14;
+                label.color = DesignTokens.TextPrimary;
+                label.alignment = TextAnchor.MiddleCenter;
+            }
+        }
+
+        UiRoundedTheme.ApplyToHierarchy(overlayRt, cornerRadius);
     }
 
     void EnsureScrollBottomPadding(float bottomPaddingMin)
@@ -394,7 +779,9 @@ public class CatalogUI : MonoBehaviour
             var matchesType = card.typeId.IndexOf(normalized, StringComparison.OrdinalIgnoreCase) >= 0;
             var matchesLabel = !string.IsNullOrWhiteSpace(card.displayLabel) &&
                                card.displayLabel.IndexOf(normalized, StringComparison.OrdinalIgnoreCase) >= 0;
-            var visible = showAll || matchesType || matchesLabel;
+            var matchesDescription = !string.IsNullOrWhiteSpace(card.displayDescription) &&
+                                     card.displayDescription.IndexOf(normalized, StringComparison.OrdinalIgnoreCase) >= 0;
+            var visible = showAll || matchesType || matchesLabel || matchesDescription;
             card.root.SetActive(visible);
         }
     }
@@ -403,6 +790,8 @@ public class CatalogUI : MonoBehaviour
     {
 #if UNITY_EDITOR
         EnsureRuntimeBindings();
+        EnsureRuntimeCatalogControls();
+        WireUiEvents();
 
         if (placementController == null)
         {
@@ -423,21 +812,117 @@ public class CatalogUI : MonoBehaviour
             return;
         }
 
-        var typeId = BuildImportedTypeId(assetPath);
-        if (!placementController.RegisterRuntimePrefab(typeId, prefab))
+        OpenNewObjectSettings(prefab, assetPath);
+#else
+        SetStatus("FBX import is available in Unity Editor only.");
+#endif
+    }
+
+    void OpenNewObjectSettings(GameObject prefab, string assetPath)
+    {
+        if (prefab == null || string.IsNullOrWhiteSpace(assetPath))
+        {
+            SetStatus("Failed to prepare new object settings.");
+            return;
+        }
+
+        pendingImportedPrefab = prefab;
+        pendingImportedAssetPath = assetPath;
+
+        if (newObjectNameInput != null)
+        {
+            var defaultName = GetDefaultNewObjectNameFromAssetPath(assetPath);
+            if (string.IsNullOrWhiteSpace(defaultName))
+            {
+                defaultName = importedCardLabel;
+            }
+
+            newObjectNameInput.text = defaultName;
+        }
+
+        if (newObjectDescriptionInput != null)
+        {
+            newObjectDescriptionInput.text = string.Empty;
+        }
+
+        if (newObjectPathText != null)
+        {
+            newObjectPathText.text = $"FBX: {assetPath}";
+        }
+
+        if (newObjectSettingsPanel != null)
+        {
+            ApplyNewObjectSettingsDesign(newObjectSettingsPanel);
+            newObjectSettingsPanel.gameObject.SetActive(true);
+        }
+
+        SetStatus("Open object settings.");
+    }
+
+    void OnClickApplyNewObjectSettings()
+    {
+        if (pendingImportedPrefab == null || string.IsNullOrWhiteSpace(pendingImportedAssetPath))
+        {
+            SetStatus("No imported FBX is pending.");
+            CloseNewObjectSettings(clearPending: true);
+            return;
+        }
+
+        if (placementController == null)
+        {
+            SetStatus("PlacementController is not found.");
+            return;
+        }
+
+        var displayLabel = importedCardLabel;
+        if (newObjectNameInput != null)
+        {
+            var typed = newObjectNameInput.text?.Trim();
+            if (!string.IsNullOrWhiteSpace(typed))
+            {
+                displayLabel = typed;
+            }
+        }
+
+        var typeId = BuildImportedTypeId(pendingImportedAssetPath, displayLabel);
+        if (!placementController.RegisterRuntimePrefab(typeId, pendingImportedPrefab))
         {
             SetStatus("Failed to register imported FBX.");
             return;
         }
 
         runtimeImportedTypeId = typeId;
-        runtimeImportedPrefab = prefab;
+        runtimeImportedPrefab = pendingImportedPrefab;
+        runtimeImportedCardLabel = displayLabel;
+        runtimeImportedDescription = newObjectDescriptionInput != null
+            ? (newObjectDescriptionInput.text ?? string.Empty).Trim()
+            : string.Empty;
+
         if (searchInput != null) searchInput.text = string.Empty;
         RebuildCards();
-        SetStatus("New Object card added.");
-#else
-        SetStatus("FBX import is available in Unity Editor only.");
-#endif
+
+        CloseNewObjectSettings(clearPending: true);
+        SetStatus("New object card added.");
+    }
+
+    void OnClickCancelNewObjectSettings()
+    {
+        CloseNewObjectSettings(clearPending: true);
+        SetStatus("Object settings canceled.");
+    }
+
+    void CloseNewObjectSettings(bool clearPending)
+    {
+        if (newObjectSettingsPanel != null)
+        {
+            newObjectSettingsPanel.gameObject.SetActive(false);
+        }
+
+        if (clearPending)
+        {
+            pendingImportedPrefab = null;
+            pendingImportedAssetPath = null;
+        }
     }
     void SetStatus(string message)
     {
@@ -516,6 +1001,32 @@ public class CatalogUI : MonoBehaviour
 
         input.textComponent = text;
         input.placeholder = placeholder;
+        return input;
+    }
+
+    InputField CreateMultilineInputField(Transform parent, string name, string placeholderText)
+    {
+        var input = CreateInputField(parent, name, placeholderText);
+        if (input == null) return null;
+
+        input.lineType = InputField.LineType.MultiLineNewline;
+
+        if (input.textComponent != null)
+        {
+            input.textComponent.alignment = TextAnchor.UpperLeft;
+            var textRt = input.textComponent.rectTransform;
+            textRt.offsetMin = new Vector2(8f, 8f);
+            textRt.offsetMax = new Vector2(-8f, -8f);
+        }
+
+        if (input.placeholder is Text placeholderTextComp)
+        {
+            placeholderTextComp.alignment = TextAnchor.UpperLeft;
+            var placeholderRt = placeholderTextComp.rectTransform;
+            placeholderRt.offsetMin = new Vector2(8f, 8f);
+            placeholderRt.offsetMax = new Vector2(-8f, -8f);
+        }
+
         return input;
     }
 
@@ -612,9 +1123,11 @@ public class CatalogUI : MonoBehaviour
         return path.Replace('\\', '/');
     }
 
-    static string BuildImportedTypeId(string assetPath)
+    static string BuildImportedTypeId(string assetPath, string displayLabel)
     {
-        var stem = Path.GetFileNameWithoutExtension(assetPath);
+        var stem = string.IsNullOrWhiteSpace(displayLabel)
+            ? Path.GetFileNameWithoutExtension(assetPath)
+            : displayLabel;
         var sanitized = SanitizeName(stem);
         if (string.IsNullOrWhiteSpace(sanitized))
         {
@@ -622,6 +1135,16 @@ public class CatalogUI : MonoBehaviour
         }
 
         return $"Imported/{sanitized}_{DateTime.UtcNow.Ticks}";
+    }
+
+    static string GetDefaultNewObjectNameFromAssetPath(string assetPath)
+    {
+        if (string.IsNullOrWhiteSpace(assetPath)) return string.Empty;
+
+        var stem = Path.GetFileNameWithoutExtension(assetPath);
+        if (string.IsNullOrWhiteSpace(stem)) return string.Empty;
+
+        return stem;
     }
 
     static string SanitizeName(string source)

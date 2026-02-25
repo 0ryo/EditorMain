@@ -165,3 +165,33 @@
 - 追加: `Assets/Scripts/PlacedObjectPickability.cs.meta`
 - 変更: `Assets/Scripts/SelectionService.cs`
 - 変更: `Assets/Scripts/PlacementController.cs`
+
+## 9. 追記（2026-02-25 / FBX追加後のオブジェクト設定画面）
+
+### 9.1 追加フロー変更
+- オブジェクト追加フローを `ボタン押下 -> FBX選択 -> オブジェクト設定画面` に変更。
+- FBX選択直後は即カード追加せず、設定画面で確定後に `New Object` カードを追加するようにした。
+
+### 9.2 設定画面の入力項目
+- 設定画面で `オブジェクト名` と `説明` を入力可能にした。
+- `オブジェクト名` はカード表示名に反映。
+- `説明` はランタイム保持され、カタログ検索対象（typeId/表示名/説明）に含めるようにした。
+
+### 9.3 UI自動生成対応
+- `BuildUiPrefabs` で `Panel_NewObjectSettings` を自動生成し、以下を `CatalogUI` に自動割当:
+  - `newObjectSettingsPanel`
+  - `newObjectNameInput`
+  - `newObjectDescriptionInput`
+  - `newObjectApplyButton`
+  - `newObjectCancelButton`
+  - `newObjectPathText`
+- 既存Prefabでも動作するよう、`CatalogUI` 側にランタイム補完生成ロジックを実装。
+
+### 9.4 更新ファイル（今回追記分）
+- 変更: `Assets/Scripts/CatalogUI.cs`
+- 変更: `Assets/Editor/Automation/BuildUiPrefabs.cs`
+
+### 9.5 レイアウト調整（2026-02-25）
+- オブジェクト設定画面を `Panel_Catalog` 内表示から、`UIRoot` 基準の画面中央モーダル表示へ変更。
+- タイトル表記から `(new)` を削除し、`オブジェクト設定` に統一。
+- `Docs/rules/design_rule.md` に合わせ、余白/ボタン高（40）/オーバーレイ色/テキスト階層を調整。

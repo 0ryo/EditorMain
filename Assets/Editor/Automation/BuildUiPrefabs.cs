@@ -119,6 +119,7 @@ public static class BuildUiPrefabs
         SetRect(labelMain.rectTransform, new Vector2(0f, 0f), new Vector2(1f, 1f), new Vector2(64f, 0f), new Vector2(-10f, 0f));
 
         cardTemplate.gameObject.SetActive(false);
+        var settingsPanel = BuildNewObjectSettingsDialog(parent, out var newObjectNameInput, out var newObjectDescriptionInput, out var newObjectApplyButton, out var newObjectCancelButton, out var newObjectPathText);
 
         var catalogUi = panel.gameObject.AddComponent<CatalogUI>();
         var catalogSo = new SerializedObject(catalogUi);
@@ -127,6 +128,18 @@ public static class BuildUiPrefabs
         catalogSo.FindProperty("searchInput").objectReferenceValue = searchInput;
         catalogSo.FindProperty("addButton").objectReferenceValue = addButton;
         catalogSo.FindProperty("statusText").objectReferenceValue = statusText;
+        var settingsPanelProp = catalogSo.FindProperty("newObjectSettingsPanel");
+        if (settingsPanelProp != null) settingsPanelProp.objectReferenceValue = settingsPanel;
+        var settingsNameProp = catalogSo.FindProperty("newObjectNameInput");
+        if (settingsNameProp != null) settingsNameProp.objectReferenceValue = newObjectNameInput;
+        var settingsDescProp = catalogSo.FindProperty("newObjectDescriptionInput");
+        if (settingsDescProp != null) settingsDescProp.objectReferenceValue = newObjectDescriptionInput;
+        var settingsApplyProp = catalogSo.FindProperty("newObjectApplyButton");
+        if (settingsApplyProp != null) settingsApplyProp.objectReferenceValue = newObjectApplyButton;
+        var settingsCancelProp = catalogSo.FindProperty("newObjectCancelButton");
+        if (settingsCancelProp != null) settingsCancelProp.objectReferenceValue = newObjectCancelButton;
+        var settingsPathProp = catalogSo.FindProperty("newObjectPathText");
+        if (settingsPathProp != null) settingsPathProp.objectReferenceValue = newObjectPathText;
         var catalogCornerProp = catalogSo.FindProperty("cornerRadius");
         if (catalogCornerProp != null) catalogCornerProp.floatValue = DesignTokens.CornerRadius;
         catalogSo.ApplyModifiedPropertiesWithoutUndo();
@@ -435,6 +448,86 @@ public static class BuildUiPrefabs
         return input;
     }
 
+    static RectTransform BuildNewObjectSettingsDialog(
+        Transform host,
+        out InputField nameInput,
+        out InputField descriptionInput,
+        out Button applyButton,
+        out Button cancelButton,
+        out Text pathText)
+    {
+        var overlay = CreateUiRect("Panel_NewObjectSettings", host);
+        SetRect(overlay, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+        var overlayImage = overlay.gameObject.AddComponent<Image>();
+        var overlayColor = DesignTokens.TextPrimary;
+        overlayColor.a = 0.32f;
+        overlayImage.color = overlayColor;
+        overlayImage.raycastTarget = true;
+        var window = CreateUiRect("Window", overlay);
+        window.anchorMin = new Vector2(0.5f, 0.5f);
+        window.anchorMax = new Vector2(0.5f, 0.5f);
+        window.pivot = new Vector2(0.5f, 0.5f);
+        window.sizeDelta = new Vector2(560f, 430f);
+        window.anchoredPosition = Vector2.zero;
+        window.gameObject.AddComponent<Image>().color = DesignTokens.Surface;
+        var title = CreateText("Text_Title", window, "\u30AA\u30D6\u30B8\u30A7\u30AF\u30C8\u8A2D\u5B9A");
+        title.fontSize = 16;
+        title.alignment = TextAnchor.MiddleLeft;
+        SetRect(title.rectTransform, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(16f, -44f), new Vector2(-16f, -16f));
+        pathText = CreateText("Text_FilePath", window, "");
+        pathText.fontSize = 12;
+        pathText.color = DesignTokens.TextSecondary;
+        pathText.alignment = TextAnchor.UpperLeft;
+        pathText.horizontalOverflow = HorizontalWrapMode.Wrap;
+        pathText.verticalOverflow = VerticalWrapMode.Truncate;
+        SetRect(pathText.rectTransform, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(16f, -84f), new Vector2(-16f, -52f));
+        var nameLabel = CreateText("Text_NameLabel", window, "\u30AA\u30D6\u30B8\u30A7\u30AF\u30C8\u540D");
+        nameLabel.fontSize = 13;
+        SetRect(nameLabel.rectTransform, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(16f, -116f), new Vector2(-16f, -92f));
+        nameInput = CreateInputField("Input_NewObjectName", window, "New Object");
+        SetRect(nameInput.GetComponent<RectTransform>(), new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(16f, -160f), new Vector2(-16f, -120f));
+        var descriptionLabel = CreateText("Text_DescriptionLabel", window, "\u8AAC\u660E");
+        descriptionLabel.fontSize = 13;
+        SetRect(descriptionLabel.rectTransform, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(16f, -196f), new Vector2(-16f, -172f));
+        descriptionInput = CreateInputField("Input_NewObjectDescription", window, "\u8AAC\u660E\u3092\u5165\u529B...");
+        descriptionInput.lineType = InputField.LineType.MultiLineNewline;
+        if (descriptionInput.textComponent != null)
+        {
+            descriptionInput.textComponent.alignment = TextAnchor.UpperLeft;
+            var descTextRt = descriptionInput.textComponent.rectTransform;
+            descTextRt.offsetMin = new Vector2(8f, 8f);
+            descTextRt.offsetMax = new Vector2(-8f, -8f);
+        }
+        if (descriptionInput.placeholder is Text descPlaceholder)
+        {
+            descPlaceholder.alignment = TextAnchor.UpperLeft;
+            var descPlaceholderRt = descPlaceholder.rectTransform;
+            descPlaceholderRt.offsetMin = new Vector2(8f, 8f);
+            descPlaceholderRt.offsetMax = new Vector2(-8f, -8f);
+        }
+        SetRect(descriptionInput.GetComponent<RectTransform>(), new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(16f, -324f), new Vector2(-16f, -208f));
+        var buttonsRow = CreateUiRect("ButtonsRow", window);
+        SetRect(buttonsRow, new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(16f, 16f), new Vector2(-16f, 56f));
+        var rowLayout = buttonsRow.gameObject.AddComponent<HorizontalLayoutGroup>();
+        rowLayout.spacing = 8f;
+        rowLayout.childControlWidth = true;
+        rowLayout.childControlHeight = true;
+        rowLayout.childForceExpandWidth = true;
+        applyButton = CreateButton("Button_Apply", buttonsRow, "\u8FFD\u52A0");
+        var applyLayout = applyButton.gameObject.AddComponent<LayoutElement>();
+        applyLayout.minHeight = 40f;
+        applyLayout.preferredHeight = 40f;
+        applyButton.GetComponent<Image>().color = DesignTokens.Accent;
+        var applyLabel = applyButton.GetComponentInChildren<Text>(true);
+        if (applyLabel != null) applyLabel.color = DesignTokens.Surface;
+        cancelButton = CreateButton("Button_Cancel", buttonsRow, "\u30AD\u30E3\u30F3\u30BB\u30EB");
+        var cancelLayout = cancelButton.gameObject.AddComponent<LayoutElement>();
+        cancelLayout.minHeight = 40f;
+        cancelLayout.preferredHeight = 40f;
+        cancelButton.GetComponent<Image>().color = DesignTokens.BgSecondary;
+        overlay.gameObject.SetActive(false);
+        return overlay;
+    }
     static Button CreateButton(string name, Transform parent, string label)
     {
         var root = CreateUiRect(name, parent);
