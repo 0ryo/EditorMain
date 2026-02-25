@@ -53,11 +53,7 @@ public static class BuildUiPrefabs
         var title = CreateText("Title", header, "\u30AA\u30D6\u30B8\u30A7\u30AF\u30C8\u4E00\u89A7");
         title.fontSize = 16;
         title.alignment = TextAnchor.MiddleLeft;
-        SetRect(title.rectTransform, new Vector2(0f, 0f), new Vector2(1f, 1f), new Vector2(10f, 0f), new Vector2(-52f, 0f));
-
-        var addButton = CreateButton("Button_AddObject", header, "\uFF0B");
-        SetRect(addButton.GetComponent<RectTransform>(), new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(-38f, -14f), new Vector2(-8f, 14f));
-        addButton.GetComponent<Image>().color = DesignTokens.BgSecondary;
+        SetRect(title.rectTransform, new Vector2(0f, 0f), new Vector2(1f, 1f), new Vector2(10f, 0f), new Vector2(-10f, 0f));
 
         var searchRow = CreateUiRect("SearchRow", panel);
         SetRect(searchRow, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(10f, -44f), new Vector2(-10f, -8f));
@@ -76,8 +72,12 @@ public static class BuildUiPrefabs
         var resize = resizeHandle.gameObject.AddComponent<PanelHorizontalResizeHandle>();
         resize.targetPanel = panel;
 
+        var addButton = CreateButton("Button_AddObjectBottom", panel, "FBX\u3092\u8FFD\u52A0");
+        SetRect(addButton.GetComponent<RectTransform>(), new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(10f, 10f), new Vector2(-10f, 48f));
+        addButton.GetComponent<Image>().color = DesignTokens.BgSecondary;
+
         var scroll = CreateUiRect("Scroll_Catalog", panel);
-        SetRect(scroll, new Vector2(0f, 0f), new Vector2(1f, 1f), new Vector2(8f, 8f), new Vector2(-8f, -72f));
+        SetRect(scroll, new Vector2(0f, 0f), new Vector2(1f, 1f), new Vector2(8f, 56f), new Vector2(-8f, -72f));
         scroll.gameObject.AddComponent<Image>().color = DesignTokens.Surface;
         var scrollRect = scroll.gameObject.AddComponent<ScrollRect>();
 

@@ -9,7 +9,16 @@ public class PlaceObjectCommand : IEditorCommand {
     public PlaceObjectCommand(string typeId, Vector3 pos, Quaternion rot, System.Func<string,GameObject> factory){
         this.typeId=typeId; this.pos=pos; this.rot=rot; this.factory=factory;
     }
-    public void Do()  { instance = factory(typeId); instance.transform.SetPositionAndRotation(pos, rot); }
+    public void Do()  {
+        instance = factory != null ? factory(typeId) : null;
+        if (instance == null)
+        {
+            Debug.LogWarning($"[PlaceObjectCommand] Factory returned null for typeId={typeId}");
+            return;
+        }
+
+        instance.transform.SetPositionAndRotation(pos, rot);
+    }
     public void Undo(){ if (instance!=null) GameObject.Destroy(instance); }
 }
 
@@ -23,5 +32,14 @@ public class DeleteObjectCommand : IEditorCommand {
         if (target!=null){ pos=target.transform.position; rot=target.transform.rotation; }
     }
     public void Do()  { if (target!=null) GameObject.Destroy(target); }
-    public void Undo(){ var go = factory(typeId); go.transform.SetPositionAndRotation(pos, rot); }
+    public void Undo(){
+        var go = factory != null ? factory(typeId) : null;
+        if (go == null)
+        {
+            Debug.LogWarning($"[DeleteObjectCommand] Factory returned null for typeId={typeId}");
+            return;
+        }
+
+        go.transform.SetPositionAndRotation(pos, rot);
+    }
 }

@@ -1,11 +1,15 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using TMPro;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
 
 public class CatalogUI : MonoBehaviour
 {
@@ -18,6 +22,7 @@ public class CatalogUI : MonoBehaviour
     [SerializeField] Text statusText;
     [SerializeField] float statusAutoClearSeconds = 2f;
     [SerializeField] float cornerRadius = DesignTokens.CornerRadius;
+    [SerializeField] string importedCardLabel = "New Object";
 
     [Serializable]
     public class StringEvent : UnityEvent<string> { }
@@ -26,10 +31,13 @@ public class CatalogUI : MonoBehaviour
     bool runtimeListenerBound;
     Coroutine clearStatusCoroutine;
     readonly List<CardState> cards = new();
+    string runtimeImportedTypeId;
+    GameObject runtimeImportedPrefab;
 
     class CardState
     {
         public string typeId;
+        public string displayLabel;
         public GameObject root;
     }
 
@@ -161,13 +169,43 @@ public class CatalogUI : MonoBehaviour
             cards.Add(new CardState
             {
                 typeId = typeId,
+                displayLabel = typeId,
                 root = cardButton.gameObject
             });
         }
 
+        AddRuntimeImportedCardIfNeeded();
+
         ApplyFilter(searchInput != null ? searchInput.text : string.Empty);
         ApplyRoundedTheme();
         DesignTokenApplier.ApplyCatalogPanel(transform);
+    }
+
+    void AddRuntimeImportedCardIfNeeded()
+    {
+        if (string.IsNullOrWhiteSpace(runtimeImportedTypeId) || runtimeImportedPrefab == null) return;
+        if (buttonTemplate == null || content == null) return;
+
+        var cardButton = Instantiate(buttonTemplate, content);
+        cardButton.gameObject.name = "Card_NewObject";
+        cardButton.gameObject.SetActive(true);
+        EnsureCardHeight(cardButton.gameObject);
+        SetCardLabel(cardButton.gameObject, importedCardLabel);
+
+        var importedTypeId = runtimeImportedTypeId;
+        cardButton.onClick.RemoveAllListeners();
+        cardButton.onClick.AddListener(() => OnClickCard(importedTypeId));
+
+        var drag = cardButton.GetComponent<CatalogCardDragHandler>();
+        if (drag == null) drag = cardButton.gameObject.AddComponent<CatalogCardDragHandler>();
+        drag.Initialize(this, importedTypeId);
+
+        cards.Add(new CardState
+        {
+            typeId = importedTypeId,
+            displayLabel = importedCardLabel,
+            root = cardButton.gameObject
+        });
     }
 
     void ApplyRoundedTheme()
@@ -177,10 +215,17 @@ public class CatalogUI : MonoBehaviour
 
     void EnsureRuntimeCatalogControls()
     {
-        if (searchInput != null) return;
-
         var panel = transform as RectTransform;
         if (panel == null) return;
+
+        EnsureRuntimeSearchInput(panel);
+        EnsureRuntimeBottomAddButton(panel);
+        EnsureScrollBottomPadding(56f);
+    }
+
+    void EnsureRuntimeSearchInput(RectTransform panel)
+    {
+        if (searchInput != null) return;
 
         var searchRow = new GameObject("SearchRow_Runtime", typeof(RectTransform), typeof(Image));
         var searchRowRt = searchRow.GetComponent<RectTransform>();
@@ -205,6 +250,70 @@ public class CatalogUI : MonoBehaviour
             {
                 scroll.offsetMax = new Vector2(scroll.offsetMax.x, Mathf.Min(scroll.offsetMax.y, -52f));
             }
+        }
+    }
+
+    void EnsureRuntimeBottomAddButton(RectTransform panel)
+    {
+        if (addButton != null)
+        {
+            var existingRt = addButton.transform as RectTransform;
+            var isBottomAnchored = existingRt != null &&
+                                   Mathf.Approximately(existingRt.anchorMin.y, 0f) &&
+                                   Mathf.Approximately(existingRt.anchorMax.y, 0f);
+
+            if (isBottomAnchored)
+            {
+                EnsureScrollBottomPadding(56f);
+                return;
+            }
+
+            addButton.gameObject.SetActive(false);
+            addButton = null;
+        }
+
+        var buttonRoot = new GameObject("Button_AddObjectBottom_Runtime", typeof(RectTransform), typeof(Image), typeof(Button));
+        var buttonRt = buttonRoot.GetComponent<RectTransform>();
+        buttonRt.SetParent(panel, false);
+        buttonRt.anchorMin = new Vector2(0f, 0f);
+        buttonRt.anchorMax = new Vector2(1f, 0f);
+        buttonRt.offsetMin = new Vector2(10f, 10f);
+        buttonRt.offsetMax = new Vector2(-10f, 48f);
+
+        var image = buttonRoot.GetComponent<Image>();
+        image.color = DesignTokens.BgSecondary;
+        addButton = buttonRoot.GetComponent<Button>();
+
+        var labelGo = new GameObject("Label", typeof(RectTransform), typeof(Text));
+        var labelRt = labelGo.GetComponent<RectTransform>();
+        labelRt.SetParent(buttonRt, false);
+        labelRt.anchorMin = Vector2.zero;
+        labelRt.anchorMax = Vector2.one;
+        labelRt.offsetMin = Vector2.zero;
+        labelRt.offsetMax = Vector2.zero;
+
+        var label = labelGo.GetComponent<Text>();
+        label.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        label.color = DesignTokens.TextPrimary;
+        label.fontSize = 14;
+        label.alignment = TextAnchor.MiddleCenter;
+        label.text = "Import FBX";
+
+        EnsureScrollBottomPadding(56f);
+    }
+
+    void EnsureScrollBottomPadding(float bottomPaddingMin)
+    {
+        if (content == null) return;
+
+        var scroll = content.parent != null ? content.parent.parent as RectTransform : null;
+        if (scroll == null) return;
+
+        var offsetMin = scroll.offsetMin;
+        if (offsetMin.y < bottomPaddingMin)
+        {
+            offsetMin.y = bottomPaddingMin;
+            scroll.offsetMin = offsetMin;
         }
     }
 
@@ -282,14 +391,53 @@ public class CatalogUI : MonoBehaviour
         foreach (var card in cards)
         {
             if (card?.root == null) continue;
-            var visible = showAll || card.typeId.IndexOf(normalized, StringComparison.OrdinalIgnoreCase) >= 0;
+            var matchesType = card.typeId.IndexOf(normalized, StringComparison.OrdinalIgnoreCase) >= 0;
+            var matchesLabel = !string.IsNullOrWhiteSpace(card.displayLabel) &&
+                               card.displayLabel.IndexOf(normalized, StringComparison.OrdinalIgnoreCase) >= 0;
+            var visible = showAll || matchesType || matchesLabel;
             card.root.SetActive(visible);
         }
     }
 
     void OnClickAdd()
     {
-        SetStatus("Add action is not configured.");
+#if UNITY_EDITOR
+        EnsureRuntimeBindings();
+
+        if (placementController == null)
+        {
+            SetStatus("PlacementController is not found.");
+            return;
+        }
+
+        var selectedPath = EditorUtility.OpenFilePanel("Select FBX", GetDefaultFbxDirectory(), "fbx");
+        if (string.IsNullOrWhiteSpace(selectedPath))
+        {
+            SetStatus("FBX selection canceled.");
+            return;
+        }
+
+        if (!TryLoadFbxAsset(selectedPath, out var prefab, out var assetPath, out var errorMessage))
+        {
+            SetStatus(errorMessage);
+            return;
+        }
+
+        var typeId = BuildImportedTypeId(assetPath);
+        if (!placementController.RegisterRuntimePrefab(typeId, prefab))
+        {
+            SetStatus("Failed to register imported FBX.");
+            return;
+        }
+
+        runtimeImportedTypeId = typeId;
+        runtimeImportedPrefab = prefab;
+        if (searchInput != null) searchInput.text = string.Empty;
+        RebuildCards();
+        SetStatus("New Object card added.");
+#else
+        SetStatus("FBX import is available in Unity Editor only.");
+#endif
     }
     void SetStatus(string message)
     {
@@ -370,6 +518,130 @@ public class CatalogUI : MonoBehaviour
         input.placeholder = placeholder;
         return input;
     }
+
+#if UNITY_EDITOR
+    static string GetDefaultFbxDirectory()
+    {
+        var importedRoot = Path.Combine(Application.dataPath, "ImportedFbx");
+        if (!Directory.Exists(importedRoot))
+        {
+            Directory.CreateDirectory(importedRoot);
+        }
+
+        return importedRoot;
+    }
+
+    static bool TryLoadFbxAsset(string absolutePath, out GameObject prefab, out string assetPath, out string errorMessage)
+    {
+        prefab = null;
+        assetPath = null;
+        errorMessage = null;
+
+        if (string.IsNullOrWhiteSpace(absolutePath))
+        {
+            errorMessage = "FBX path is empty.";
+            return false;
+        }
+
+        if (!string.Equals(Path.GetExtension(absolutePath), ".fbx", StringComparison.OrdinalIgnoreCase))
+        {
+            errorMessage = "Please select an .fbx file.";
+            return false;
+        }
+
+        if (!File.Exists(absolutePath))
+        {
+            errorMessage = "Selected FBX file does not exist.";
+            return false;
+        }
+
+        if (!TryToAssetPath(absolutePath, out assetPath))
+        {
+            var targetDir = EnsureImportedAssetFolders();
+            var fileStem = SanitizeName(Path.GetFileNameWithoutExtension(absolutePath));
+            if (string.IsNullOrWhiteSpace(fileStem))
+            {
+                fileStem = "ImportedModel";
+            }
+
+            var uniqueSuffix = DateTime.UtcNow.Ticks.ToString();
+            assetPath = $"{targetDir}/{fileStem}_{uniqueSuffix}.fbx";
+            FileUtil.CopyFileOrDirectory(absolutePath, assetPath);
+        }
+
+        AssetDatabase.ImportAsset(assetPath, ImportAssetOptions.ForceSynchronousImport | ImportAssetOptions.ForceUpdate);
+        prefab = AssetDatabase.LoadAssetAtPath<GameObject>(assetPath);
+        if (prefab == null)
+        {
+            errorMessage = "Failed to import selected FBX.";
+            return false;
+        }
+
+        return true;
+    }
+
+    static string EnsureImportedAssetFolders()
+    {
+        const string rootFolder = "Assets/ImportedFbx";
+        if (!AssetDatabase.IsValidFolder(rootFolder))
+        {
+            AssetDatabase.CreateFolder("Assets", "ImportedFbx");
+        }
+
+        return rootFolder;
+    }
+
+    static bool TryToAssetPath(string absolutePath, out string assetPath)
+    {
+        assetPath = null;
+
+        var normalizedAbsolute = NormalizePath(Path.GetFullPath(absolutePath));
+        var normalizedDataPath = NormalizePath(Application.dataPath);
+        if (!normalizedAbsolute.StartsWith(normalizedDataPath, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var tail = normalizedAbsolute.Substring(normalizedDataPath.Length);
+        assetPath = "Assets" + tail;
+        return true;
+    }
+
+    static string NormalizePath(string path)
+    {
+        return path.Replace('\\', '/');
+    }
+
+    static string BuildImportedTypeId(string assetPath)
+    {
+        var stem = Path.GetFileNameWithoutExtension(assetPath);
+        var sanitized = SanitizeName(stem);
+        if (string.IsNullOrWhiteSpace(sanitized))
+        {
+            sanitized = "Model";
+        }
+
+        return $"Imported/{sanitized}_{DateTime.UtcNow.Ticks}";
+    }
+
+    static string SanitizeName(string source)
+    {
+        if (string.IsNullOrWhiteSpace(source)) return string.Empty;
+
+        var chars = source.ToCharArray();
+        for (int i = 0; i < chars.Length; i++)
+        {
+            var ch = chars[i];
+            var valid = char.IsLetterOrDigit(ch) || ch == '_' || ch == '-';
+            if (!valid)
+            {
+                chars[i] = '_';
+            }
+        }
+
+        return new string(chars).Trim('_');
+    }
+#endif
 }
 
 public class CatalogCardDragHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler
@@ -410,4 +682,3 @@ public class CatalogCardDragHandler : MonoBehaviour, IBeginDragHandler, IDragHan
         isDragging = false;
     }
 }
-

@@ -124,3 +124,26 @@
 - 変更: `Assets/Editor/Automation/BuildUiPrefabs.cs`
 - 変更: `Docs/worklog_UI/全体UI仕様.md`
 - 変更: `Docs/worklog_UI/worklog_ノード追加ウィンドウ.md`
+
+## 7. 追記（2026-02-25 / オブジェクト追加機能）
+
+### 7.1 機能追加
+- オブジェクト一覧ウィンドウ最下部にFBX追加ボタンを配置。
+- ボタン押下でファイルエクスプローラーを開き、`.fbx` を選択可能にした。
+- FBX選択後、一覧最下部に `New Object` カードを追加。
+- `New Object` カードクリック後、ワールドクリックで選択FBXを配置可能にした。
+
+### 7.2 実装ポイント
+- `CatalogUI` にEditor用FBX選択処理（`EditorUtility.OpenFilePanel`）を追加。
+- 選択FBXを `PlacementController.RegisterRuntimePrefab` でランタイム登録し、既存配置フローに接続。
+- `SelectionService` は削除Undo時に `PlacementController.TryGetPrefab` へフォールバックして再生成可能にした。
+- `PlaceObjectCommand` / `DeleteObjectCommand` に null ガードを追加し、未解決typeでの例外化を防止。
+- `BuildUiPrefabs` で `Button_AddObjectBottom` をPrefab自動生成・`CatalogUI.addButton` へ割当。
+
+### 7.3 更新ファイル（今回追記分）
+- 変更: `Assets/Scripts/CatalogUI.cs`
+- 変更: `Assets/Scripts/PlacementController.cs`
+- 変更: `Assets/Scripts/SelectionService.cs`
+- 変更: `Assets/Scripts/PlaceDeleteCommands.cs`
+- 変更: `Assets/Editor/Automation/BuildUiPrefabs.cs`
+- 変更: `Docs/worklog/worklog_UI/worklog_オブジェクト一覧ウィンドウ.md`

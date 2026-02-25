@@ -8,8 +8,14 @@ public class SelectionService : MonoBehaviour {
     public SelectionOutline outline; // ハイライト描画
 
     public PrefabRegistry registry; // Undo時の再生成用
+    public PlacementController placementController; // ランタイム追加型の再生成用
 
     void Update() {
+        if (placementController == null)
+        {
+            placementController = FindFirstObjectByType<PlacementController>();
+        }
+
         // Currentが外部(Undoなど)で削除されていたら選択解除
         if (Current != null && Current.gameObject == null) {
             Select(null);
@@ -32,21 +38,20 @@ public class SelectionService : MonoBehaviour {
         // 削除（Delete）
         if (Input.GetKeyDown(KeyCode.Delete)) {
             System.Func<string, GameObject> factory = (tId) => {
-                if (registry == null) return null;
-
-                var entry = registry.entries.Find(e => e.typeId == tId);
-                if (entry != null && entry.prefab != null) {
-                    var g = Instantiate(entry.prefab);
-
-                    var po = g.GetComponent<PlacedObject>();
-                    if (po == null) po = g.AddComponent<PlacedObject>();
-
-                    // 配置相当：typeIdセット + 新規ID
-                    po.Init(tId);
-
-                    Select(po);
-                    return g;
+                if (registry != null)
+                {
+                    var entry = registry.entries.Find(e => e.typeId == tId);
+                    if (entry != null && entry.prefab != null)
+                    {
+                        return InstantiatePlacedForUndo(entry.prefab, tId);
+                    }
                 }
+
+                if (placementController != null && placementController.TryGetPrefab(tId, out var runtimePrefab))
+                {
+                    return InstantiatePlacedForUndo(runtimePrefab, tId);
+                }
+
                 return null;
             };
 
@@ -87,5 +92,19 @@ public class SelectionService : MonoBehaviour {
     public void Select(PlacedObject po) {
         Current = po;
         if (outline != null) outline.ShowFor(po ? po.gameObject : null);
+    }
+
+    GameObject InstantiatePlacedForUndo(GameObject prefab, string typeId)
+    {
+        if (prefab == null || string.IsNullOrWhiteSpace(typeId)) return null;
+
+        var created = Instantiate(prefab);
+        var placed = created.GetComponent<PlacedObject>();
+        if (placed == null) placed = created.AddComponent<PlacedObject>();
+
+        // 配置相当：typeIdセット + 新規ID
+        placed.Init(typeId);
+        Select(placed);
+        return created;
     }
 }
