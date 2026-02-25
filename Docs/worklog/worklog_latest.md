@@ -147,3 +147,21 @@
 - 変更: `Assets/Scripts/PlaceDeleteCommands.cs`
 - 変更: `Assets/Editor/Automation/BuildUiPrefabs.cs`
 - 変更: `Docs/worklog/worklog_UI/worklog_オブジェクト一覧ウィンドウ.md`
+
+## 8. 追記（2026-02-25 / 追加FBXの選択不能修正）
+
+### 8.1 症状
+- 追加FBXをワールド配置後、クリックしても `SelectionService` で選択できないケースが発生。
+
+### 8.2 修正内容
+- `PlacedObjectPickability` を追加し、`PlacedObject` に有効なColliderが無い場合は `BoxCollider` を自動付与するようにした。
+- `PlacementController` の生成フローで、配置直後に `EnsurePickable` を実行して選択可能状態を保証。
+- `SelectionService` のクリック判定を `Physics.RaycastAll` + 距離順探索に変更し、PlacedObjectを優先して拾うようにした。
+- `SelectionService` に1秒間隔の自動修復を追加し、既に配置済みのCollider無しオブジェクトも選択可能へ補正。
+- `SelectionService` のDelete Undo / 複製時にも `EnsurePickable` を適用。
+
+### 8.3 更新ファイル（今回追記分）
+- 追加: `Assets/Scripts/PlacedObjectPickability.cs`
+- 追加: `Assets/Scripts/PlacedObjectPickability.cs.meta`
+- 変更: `Assets/Scripts/SelectionService.cs`
+- 変更: `Assets/Scripts/PlacementController.cs`

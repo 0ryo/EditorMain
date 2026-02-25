@@ -173,6 +173,7 @@ public class PlacementController : MonoBehaviour
 
             placed.InitType(tId);
             placed.ForceNewId();
+            PlacedObjectPickability.EnsurePickable(placed, true);
 
             if (selection != null)
             {

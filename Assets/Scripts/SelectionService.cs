@@ -9,12 +9,19 @@ public class SelectionService : MonoBehaviour {
 
     public PrefabRegistry registry; // Undo時の再生成用
     public PlacementController placementController; // ランタイム追加型の再生成用
+    public float pickabilityAutoFixInterval = 1f;
+
+    float nextPickabilityFixTime;
+    bool warnedCameraMissing;
+    bool warnedPickMaskExclusion;
 
     void Update() {
         if (placementController == null)
         {
             placementController = FindFirstObjectByType<PlacementController>();
         }
+
+        AutoFixPickabilityIfNeeded();
 
         // Currentが外部(Undoなど)で削除されていたら選択解除
         if (Current != null && Current.gameObject == null) {
@@ -26,10 +33,23 @@ public class SelectionService : MonoBehaviour {
 
         // 左クリック：選択
         if (Input.GetMouseButtonDown(0)) {
+            if (cam == null)
+            {
+                if (!warnedCameraMissing)
+                {
+                    warnedCameraMissing = true;
+                    Debug.LogWarning("[Selection] Camera is not assigned.");
+                }
+                return;
+            }
+
             Ray ray = cam.ScreenPointToRay(Input.mousePosition);
-            if (Physics.Raycast(ray, out var hit, 1000f, pickMask)) {
-                var po = hit.collider.GetComponentInParent<PlacedObject>();
-                Select(po != null ? po : null);
+            if (TryPickPlacedObject(ray, out var picked, out var hitSomething)) {
+                Select(picked);
+            }
+            else if (hitSomething)
+            {
+                Select(null);
             }
         }
 
@@ -83,6 +103,7 @@ public class SelectionService : MonoBehaviour {
 
             // IDは必ず再発行（重複防止）
             po.ForceNewId();
+            PlacedObjectPickability.EnsurePickable(po, true);
 
             Select(po);
             return;
@@ -104,7 +125,78 @@ public class SelectionService : MonoBehaviour {
 
         // 配置相当：typeIdセット + 新規ID
         placed.Init(typeId);
+        PlacedObjectPickability.EnsurePickable(placed, true);
         Select(placed);
         return created;
+    }
+
+    void AutoFixPickabilityIfNeeded()
+    {
+        if (pickabilityAutoFixInterval <= 0f) return;
+        if (Time.unscaledTime < nextPickabilityFixTime) return;
+        nextPickabilityFixTime = Time.unscaledTime + pickabilityAutoFixInterval;
+
+        var allPlaced = FindObjectsByType<PlacedObject>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+        int fixedCount = 0;
+        foreach (var placed in allPlaced)
+        {
+            if (PlacedObjectPickability.EnsurePickable(placed))
+            {
+                fixedCount++;
+            }
+        }
+
+        if (fixedCount > 0)
+        {
+            Debug.Log($"[Selection] Auto-fixed pickability. collidersAdded={fixedCount}");
+        }
+    }
+
+    bool TryPickPlacedObject(Ray ray, out PlacedObject picked, out bool hitSomething)
+    {
+        picked = null;
+        hitSomething = false;
+
+        var hits = Physics.RaycastAll(ray, 1000f, ~0, QueryTriggerInteraction.Collide);
+        if (hits == null || hits.Length == 0) return false;
+        hitSomething = true;
+
+        System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
+
+        PlacedObject fallback = null;
+        foreach (var hit in hits)
+        {
+            var collider = hit.collider;
+            if (collider == null) continue;
+
+            var placed = collider.GetComponentInParent<PlacedObject>();
+            if (placed == null) continue;
+
+            if (fallback == null) fallback = placed;
+
+            if (IsLayerIncluded(collider.gameObject.layer, pickMask) || IsLayerIncluded(placed.gameObject.layer, pickMask))
+            {
+                picked = placed;
+                return true;
+            }
+        }
+
+        if (fallback != null)
+        {
+            picked = fallback;
+            if (!warnedPickMaskExclusion)
+            {
+                warnedPickMaskExclusion = true;
+                Debug.LogWarning($"[Selection] pickMask excluded selected object layer. picked={fallback.name}");
+            }
+            return true;
+        }
+
+        return false;
+    }
+
+    static bool IsLayerIncluded(int layer, LayerMask mask)
+    {
+        return (mask.value & (1 << layer)) != 0;
     }
 }
