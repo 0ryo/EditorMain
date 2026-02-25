@@ -6,8 +6,8 @@ using UnityEngine.UI;
 
 public class ScenarioGraphUI : MonoBehaviour
 {
-    static readonly Color ConnectionLineColor = new Color(1f, 0.92f, 0.2f, 1f);
-    static readonly Color DragPreviewLineColor = new Color(1f, 0.92f, 0.2f, 0.9f);
+    static readonly Color ConnectionLineColor = DesignTokens.Accent;
+    static readonly Color DragPreviewLineColor = new Color(DesignTokens.Accent.r, DesignTokens.Accent.g, DesignTokens.Accent.b, 0.9f);
 
     [Header("Services")]
     [SerializeField] CurriculumGraphService graph;
@@ -33,7 +33,7 @@ public class ScenarioGraphUI : MonoBehaviour
 
     [Header("Layout")]
     [SerializeField] PanelVerticalResizeHandle resizeHandle;
-    [SerializeField] float cornerRadius = 14f;
+    [SerializeField] float cornerRadius = DesignTokens.CornerRadius;
 
     [Header("Condition Embed")]
     [SerializeField] float conditionEmbedSnapDistance = 80f;
@@ -64,6 +64,7 @@ public class ScenarioGraphUI : MonoBehaviour
 
     void Start()
     {
+        cornerRadius = DesignTokens.CornerRadius;
         graph.EnsureGraphInitialized();
         if (graph.GetNodes(ScenarioNodeType.Step).Count == 0)
         {
@@ -76,6 +77,7 @@ public class ScenarioGraphUI : MonoBehaviour
         }
 
         RebuildAll();
+        DesignTokenApplier.ApplyScenarioPanel(panelRoot != null ? panelRoot : transform as RectTransform);
     }
 
     void Update()
@@ -204,7 +206,7 @@ public class ScenarioGraphUI : MonoBehaviour
                 "START",
                 hasInput: false,
                 hasOutput: true,
-                color: new Color(0.93f, 0.98f, 0.90f, 1f));
+                color: DesignTokens.BgSecondary);
         }
 
         if (endNodeTemplate == null)
@@ -214,7 +216,7 @@ public class ScenarioGraphUI : MonoBehaviour
                 "END",
                 hasInput: true,
                 hasOutput: false,
-                color: new Color(0.90f, 0.96f, 0.98f, 1f));
+                color: DesignTokens.BgSecondary);
         }
 
         if (conditionNodeTemplate == null)
@@ -318,7 +320,7 @@ public class ScenarioGraphUI : MonoBehaviour
         var image = clone.GetComponent<Image>();
         if (image != null)
         {
-            image.color = new Color(1f, 0.98f, 0.86f, 1f);
+            image.color = DesignTokens.Surface;
         }
 
         var sourceStepUi = clone.GetComponent<StepNodeUI>();
@@ -467,6 +469,7 @@ public class ScenarioGraphUI : MonoBehaviour
         }
 
         ApplyRoundedTheme();
+        DesignTokenApplier.ApplyNodeColors(GetNodeParent() as Transform);
         RefreshLines();
         RefreshValidationStatus();
         if (!string.IsNullOrEmpty(linkingFromNodeId))

@@ -12,8 +12,8 @@ public class ConditionRowUI : MonoBehaviour
     public Text textAfterA;
     public Text textAfterB;
 
-    static readonly Color DropdownBackground = new Color(0.92f, 0.92f, 0.92f, 1f);
-    static readonly Color DropdownTemplateBackground = new Color(0.97f, 0.97f, 0.97f, 1f);
+    static readonly Color DropdownBackground = DesignTokens.BgSecondary;
+    static readonly Color DropdownTemplateBackground = DesignTokens.Surface;
 
     const string LabelUnset = "\u672A\u8A2D\u5B9A";
     const string LabelParticleA = "\u3092";
@@ -101,7 +101,7 @@ public class ConditionRowUI : MonoBehaviour
         if (dropdown.captionText != null)
         {
             EnsureTextReadable(dropdown.captionText);
-            dropdown.captionText.color = Color.black;
+            dropdown.captionText.color = DesignTokens.TextPrimary;
         }
 
         if (dropdown.template != null)
@@ -144,7 +144,7 @@ public class ConditionRowUI : MonoBehaviour
                 layout.preferredHeight = 24f;
 
                 var itemImage = item.GetComponent<Image>();
-                if (itemImage != null) itemImage.color = new Color(0.93f, 0.93f, 0.93f, 1f);
+                if (itemImage != null) itemImage.color = DesignTokens.BgSecondary;
 
                 var itemLabel = item.Find("Item Label");
                 if (itemLabel != null)
@@ -159,7 +159,7 @@ public class ConditionRowUI : MonoBehaviour
                         txtRt.offsetMax = new Vector2(-8f, 0f);
                         txt.alignment = TextAnchor.MiddleLeft;
                         EnsureTextReadable(txt);
-                        txt.color = Color.black;
+                        txt.color = DesignTokens.TextPrimary;
                     }
                 }
             }
@@ -169,16 +169,16 @@ public class ConditionRowUI : MonoBehaviour
             {
                 if (t == null) continue;
                 EnsureTextReadable(t);
-                t.color = Color.black;
+                t.color = DesignTokens.TextPrimary;
             }
         }
 
         var colors = dropdown.colors;
         colors.colorMultiplier = 1f;
         colors.normalColor = DropdownBackground;
-        colors.highlightedColor = new Color(0.88f, 0.88f, 0.88f, 1f);
-        colors.pressedColor = new Color(0.83f, 0.83f, 0.83f, 1f);
-        colors.selectedColor = new Color(0.88f, 0.88f, 0.88f, 1f);
+        colors.highlightedColor = DesignTokens.BgTertiary;
+        colors.pressedColor = DesignTokens.Divider;
+        colors.selectedColor = DesignTokens.BgTertiary;
         dropdown.colors = colors;
     }
 
@@ -221,13 +221,13 @@ public class ConditionRowUI : MonoBehaviour
         if (dropdown.captionText != null)
         {
             EnsureTextReadable(dropdown.captionText);
-            dropdown.captionText.color = Color.black;
+            dropdown.captionText.color = DesignTokens.TextPrimary;
         }
 
         if (dropdown.itemText != null)
         {
             EnsureTextReadable(dropdown.itemText);
-            dropdown.itemText.color = Color.black;
+            dropdown.itemText.color = DesignTokens.TextPrimary;
             dropdown.itemText.alignment = TextAnchor.MiddleLeft;
             var rt = dropdown.itemText.rectTransform;
             rt.anchorMin = Vector2.zero;
@@ -354,14 +354,14 @@ public class DropdownOpenFixer : MonoBehaviour, IPointerClickHandler
         if (list == null) yield break;
 
         var listImage = list.GetComponent<Image>();
-        if (listImage != null) listImage.color = new Color(0.97f, 0.97f, 0.97f, 1f);
+        if (listImage != null) listImage.color = DesignTokens.Surface;
 
         var texts = list.GetComponentsInChildren<Text>(true);
         foreach (var t in texts)
         {
             if (t == null) continue;
             t.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            t.color = Color.black;
+            t.color = DesignTokens.TextPrimary;
             t.enabled = true;
             t.alignment = TextAnchor.MiddleLeft;
             t.canvasRenderer.SetAlpha(1f);
@@ -391,7 +391,7 @@ public class DropdownOpenFixer : MonoBehaviour, IPointerClickHandler
                 if (txt != null)
                 {
                     txt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-                    txt.color = Color.black;
+                    txt.color = DesignTokens.TextPrimary;
                     txt.enabled = true;
                     txt.canvasRenderer.SetAlpha(1f);
                     txt.text = visibleIndex < dropdown.options.Count
