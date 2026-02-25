@@ -46,9 +46,9 @@ public class EditorCameraController : MonoBehaviour
     {
         if (Mouse.current == null) return;
         bool pointerOverUi = EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
+        if (pointerOverUi) return;
 
         HandleZoom(Mouse.current.scroll.ReadValue().y);
-        if (pointerOverUi) return;
 
         if (!Mouse.current.middleButton.isPressed) return;
 
