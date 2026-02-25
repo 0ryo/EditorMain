@@ -4,17 +4,17 @@
     "objects": [
         {
             "id": "obj-0002",
-            "typeId": "Vehicle/Car_Proxy",
+            "typeId": "Tire/Replacement_Proxy",
             "position": {
-                "x": -2.1000001430511476,
+                "x": -0.4000000059604645,
                 "y": 0.9995200037956238,
-                "z": -8.5
+                "z": 5.0
             },
             "rotation": {
                 "x": 0.0,
-                "y": 0.2588191330432892,
+                "y": 0.0,
                 "z": 0.0,
-                "w": -0.9659258127212524
+                "w": 1.0
             },
             "scale": {
                 "x": 1.0,
@@ -24,11 +24,11 @@
         },
         {
             "id": "obj-0001",
-            "typeId": "Vehicle/Car_Proxy",
+            "typeId": "ToolBox/Basic_Proxy",
             "position": {
-                "x": -4.300000190734863,
+                "x": -4.200000286102295,
                 "y": 0.9995200037956238,
-                "z": -9.0
+                "z": 6.0
             },
             "rotation": {
                 "x": 0.0,

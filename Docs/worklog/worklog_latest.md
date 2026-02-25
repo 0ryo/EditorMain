@@ -1,119 +1,126 @@
-# worklog_latest
+﻿# worklog_latest
 
 ## 0. 対象範囲
 - ブランチ: `codex/ui`
-- 集計範囲: `ff2913b9`（`main` から分岐）以降の `codex/ui` 固有コミット
-- 最終更新: 2026-02-20
+- 作業テーマ: MVP-4「シナリオ作成機能」
+- 参照仕様: `Docs/MVP-4.md`
+- 最終更新: 2026-02-22
 
-## 1. 実装サマリ
-- MVP-3 として、カリキュラムグラフのデータモデル・ノードUI・保存機能を新規実装。
-- シナリオ操作UIを、スクリプト生成方式から **Canvas/Prefab 正式運用** へ移行。
-- 左オブジェクト一覧と下部ノード追加ウィンドウを統合し、密着レイアウト・双方向リサイズを実装。
-- ノード条件UIを2段ドロップダウン化し、ワールド上の `PlacedObject` を `obj-xxxx` で選択可能に改善。
-- ノード接続をクリック/ドラッグ両対応にし、明るい黄色の接続線描画とデバッグログを実装。
-- 運用文書（AGENTS/README/仕様書）を更新し、ローカル生成物の `.gitignore` 整理まで実施。
+## 1. 実装サマリ（今回）
+- シナリオ内部モデルを `Step単体` から `Start/End/Step/Condition` のグラフ構造へ拡張。
+- 接続ルール（StepFlow/ConditionBind）と、MVP-4仕様のバリデーション（E-01〜E-11）を `CurriculumGraphService` に実装。
+- Graphから `requiredActions[].conditions[]` を持つ `version=2` JSONへ変換するエクスポート処理を追加。
+- ノードUIをMVP-4向けに更新し、`+ Condition` 導線、保存可否制御、エラー/警告表示を追加。
+- Editor自動化エントリ `AutomationEntry` を追加（UI適用・移行・検証メソッド）。
+- UI仕様文書をMVP-4実装内容に合わせて更新。
 
 ## 2. 機能別の詳細
 
-### 2.1 MVP-3基盤（カリキュラム編集）
-- `CurriculumModel` / `CurriculumGraphService` を追加。
-- `StepNode` の追加、エッジ接続、参照修復、未設定条件検出を実装。
-- ノードUI部品（`StepNodeUI`, `ConditionRowUI`, `ConnectionLineGraphic`, `ScenarioGraphUI`）を追加。
-- カリキュラム保存を `Assets/Exports/<Project>-curriculum.json` へ出力する処理を追加。
+### 2.1 データモデル拡張
+- `CurriculumModel` を更新し、`nodes[]` / `edges[]` を追加。
+- `ScenarioNodeType`（Start/End/Step/Condition）と `ScenarioEdgeType`（StepFlow/ConditionBind）を定義。
+- Conditionノード用データ（A/B objectId）を保持可能に変更。
 
-### 2.2 ノード操作性改善
-- Stepノードのドラッグ移動を追加（`NodeDragHandler`）。
-- `+ Step` 追加時に既存ノード位置を保持し、新規ノードは中央基準で生成するよう修正。
-- ノードの見た目を薄い黄色基調へ統一。
-- コネクタ位置・余白調整（四角コネクタをノード外側へ、矢印削除）を反映。
+### 2.2 グラフサービス（中核）
+- `CurriculumGraphService` を再設計。
+  - Start/Endノード自動保証
+  - Step/Condition追加
+  - 接続制約チェック（重複・自己接続・分岐・循環・Condition上限）
+  - 参照切れ補正（削除オブジェクト参照をnull化）
+  - E-01〜E-11検証、W-01/W-02警告
+  - 線形Step列確定（Start→...→End）
+  - Graph→`ScenarioExport(version=2)` 変換
 
-### 2.3 条件UI（ドロップダウン）改善
-- 条件行を「未設定 / を / 未設定 / に近づけたら」の2段構成へ変更。
-- `+条件` ボタンを廃止し、1行固定の条件編集に整理。
-- `PlacedObjectOptionProvider` を通じ、現在ワールドに存在するオブジェクトIDを選択肢に反映。
-- ドロップダウン文字不可視問題を修正:
-  - フォントを `LegacyRuntime.ttf` に統一
-  - 文字色黒固定
-  - 背景グレー系固定
-  - 表示位置・レイアウト補正（`DropdownOpenFixer` 追加）
-  - Outline除去（枠なしグレーボタン化）
+### 2.3 エクスポート形式
+- `ScenarioExportModel` を新規追加。
+- 出力JSONに以下を含める構成へ更新。
+  - `version: 2`
+  - `scenarioSettings`（`holdSeconds`, `snapDistance_m`）
+  - `requiredActions[].conditions[]`（`type=SnapHold`, `aObjectId`, `bObjectId`, `holdSeconds`）
+  - `objects[]`
 
-### 2.4 配置UI（オブジェクト一覧）改善
-- 検索バー、ヘッダー、カード一覧を備えたオブジェクト一覧ウィンドウを整備。
-- カード高さを大きくし、上揃えレイアウトへ調整。
-- クリック配置（1回で終了）を維持。
-- カードのドラッグ&ドロップ配置（1回配置で終了）を実装。
-- UIドラッグと3Dクリック入力の干渉を抑制するフラグ制御を追加。
-- EventSystem 重複時の無効化処理を追加。
+### 2.4 UI（ノードエディタ）
+- `ScenarioGraphUI` をMVP-4仕様に合わせて更新。
+  - `+ Step` / `+ Condition`
+  - Start/End/Step/Conditionノード描画
+  - 接続失敗理由の表示
+  - バリデーション結果によるSave可否制御
+  - 保存時に `ScenarioExport` を原子的書き込み
+- `StepNodeUI` をStep表示専用に整理（`STEP n` + 条件数サマリ）。
+- `ConditionNodeUI` を新規追加（A/Bドロップダウン編集）。
+- `TerminalNodeUI` を新規追加（START/END）。
+- `ConnectorDragHandler` をStep前提からノードID前提へ変更。
 
-### 2.5 接続線・接続操作の改善
-- 出力→入力のドラッグ接続を実装（`ConnectorDragHandler`）。
-- 接続線色を明るい黄色に統一。
-- 接続イベント/線生成のログを追加（接続成否、生成本数、座標距離）。
-- 線が描画されない問題を修正:
-  - コールバック配線順を修正（`Bind` 前に設定）
-  - `CanvasRenderer` 欠落をランタイム補完
-  - `ConnectionLineGraphic` に `RequireComponent(CanvasRenderer)` 付与
-  - Prefab生成処理でも `LineTemplate` に `CanvasRenderer` を明示付与
+### 2.5 Editor自動化
+- `BuildUiPrefabs` を更新。
+  - TopBarに `Button_AddCondition` を追加
+  - `ScenarioGraphUI` 新規フィールドの自動割当
+  - Stepテンプレートに `Text_ConditionSummary` を追加
+- `AutomationEntry` を新規追加。
+  - `ApplyUiEdits()`
+  - `MigrateScenarioData()`
+  - `ValidateProject()`
 
-### 2.6 レイアウト・デザイン統一
-- 全体を白基調＋角丸方針に調整。
-- 半透明運用を廃止（UI本体は不透明、必要箇所のみ透明要素）。
-- 左右ウィンドウ間の余白を排除して密着。
-- 左ウィンドウ（横）・下ウィンドウ（縦）のリサイズ対応。
-- ウィンドウが画面上端/下端まで届くようにアンカー・オフセット調整。
-- リサイズハンドル色と操作領域色の整合性を調整。
+### 2.6 ドキュメント更新
+- `Docs/worklog_UI/全体UI仕様.md` をMVP-4仕様へ更新。
+- `Docs/worklog_UI/worklog_ノード追加ウィンドウ.md` をMVP-4仕様へ更新。
 
-### 2.7 Prefab/Scene運用へ移植（重要）
-- `Assets/UI/Prefabs/UIRoot.prefab` を構築し、UI参照を SerializeField 割当中心へ移行。
-- `BuildUiPrefabs` で Prefab を生成/更新する仕組みを整備。
-- `ApplyUiPrefab` で Scene に自動適用する仕組みを実装。
-- `SampleScene` に加え、`EditorMain` へも同様の UI 反映を実施。
-- 旧方式（ランタイム階層組み立て）依存を縮小し、見た目修正を Prefab 側に寄せる運用へ変更。
+## 3. 変更ファイル
+- 変更: `Assets/Scripts/Core/CurriculumModel.cs`
+- 追加: `Assets/Scripts/Core/ScenarioExportModel.cs`
+- 変更: `Assets/Scripts/Services/CurriculumGraphService.cs`
+- 変更: `Assets/Scripts/UI/ScenarioGraphUI.cs`
+- 変更: `Assets/Scripts/UI/StepNodeUI.cs`
+- 変更: `Assets/Scripts/UI/ConnectorDragHandler.cs`
+- 追加: `Assets/Scripts/UI/ConditionNodeUI.cs`
+- 追加: `Assets/Scripts/UI/TerminalNodeUI.cs`
+- 変更: `Assets/Editor/Automation/BuildUiPrefabs.cs`
+- 追加: `Assets/Editor/Automation/AutomationEntry.cs`
+- 変更: `Docs/worklog_UI/全体UI仕様.md`
+- 変更: `Docs/worklog_UI/worklog_ノード追加ウィンドウ.md`
 
-### 2.8 ドキュメント整備
-- 操作ウィンドウ仕様を文書化（当初 `開発計画/仕様` 配下）。
-- `AGENTS.md` に、仕様確認ルールと Canvas 実装方針を追記。
-- `README.md` にディレクトリ構造・機能更新を反映。
+## 4. 検証状況
+- この実行環境では `dotnet` / `msbuild` / `csc` / `Unity` 実行バイナリが見つからず、CLIコンパイル・Unityバッチ実行は未実施。
+- そのため、最終確認はUnity Editor上でのコンパイル・実機動作確認が必要。
 
-### 2.9 リポジトリ運用整備
-- `.gitignore` を更新し、ローカル生成物を除外:
-  - `Assets/Exports/*-curriculum.json`
-  - `Assets/Exports/*-curriculum.json.meta`
-  - `開発計画/UI案.png`（現: `Docs/UI案.png`）
-- `UserSettings` を Git 追跡対象から除外（ローカル保持）。
+## 5. 引き継ぎ注意点
+- 次の作業では、まず `AutomationEntry.ApplyUiEdits` 実行でPrefab参照を最新化する。
+- その後、MVP-4バリデーション（E-01〜E-11）のUI表示とExport結果をEditor上で確認する。
+- 追加でQuest側ランタイム（SnapHold評価）の実装が必要な場合は `Docs/MVP-4.md` の8章契約に合わせる。
 
-## 3. コミット履歴（codex/ui 固有）
-- `b2ef5718` feat(mvp3): add curriculum model and graph service
-- `ed7996c4` feat(mvp3): ノードUI部品と接続線描画を追加
-- `3e0ee3de` feat(mvp3): 下部シナリオグラフUIの統合スクリプトを追加
-- `2df3d626` feat(mvp3): curriculum保存処理と警告表示を追加
-- `f49254a5` feat(mvp3): シナリオUIの自動起動ブートストラップを追加
-- `e6efa875` chore(mvp3): 追加スクリプトのmetaファイルを整備
-- `db5dd972` fix(ui): Unity 6の組み込みフォント参照を修正
-- `24e2e417` fix(ui): 条件行テンプレートを破棄しないよう修正
-- `1137e3e7` feat(ui): Stepノードをドラッグ移動可能にする
-- `1f468a3d` style(ui): シナリオUIを角丸の白基調デザインへ調整
-- `a139cf6f` fix(ui): 角丸スプライトをランタイム生成に変更
-- `c51e7f92` feat(ui): 下部ノードウィンドウの上下リサイズを追加
-- `41d842af` style(ui): ノードUIを薄い黄色基調に調整
-- `d17c63f5` fix(ui): ノード追加時に既存位置を保持し新規を中央生成
-- `159a443d` refactor(ui): 条件入力を2段プルダウンレイアウトへ変更
-- `4439ff2d` fix(ui): リサイズ領域の色を上書きしないよう修正
-- `1075bcad` style(ui): 条件余白拡張とコネクタ表示を調整
-- `9a3653c4` refactor(ui): スクリプト生成UIをPrefab参照前提へ移行
-- `7f4d1296` feat(editor): UIプレハブをSceneへ適用する自動化を追加
-- `aeeb74b9` chore(ui): UIRootプレハブ生成とScene適用結果を反映
-- `95c5bfcc` chore(ui): EditorMainシーンにもUIRootを適用
-- `a622e473` refactor(ui): オブジェクト追加ウィンドウを新UIへ統合
-- `a0993b71` feat(ui): カタログとノードウィンドウの密着レイアウトと双方向リサイズを追加
-- `dc8de0e4` fix(ui): 操作ウィンドウを画面上下端まで拡張
-- `3d78f1c0` docs: 操作ウィンドウ仕様を開発計画/仕様に追加
-- `74b0d2a5` docs: AGENTSとREADMEを最新UI運用に合わせて更新
-- `4826e28c` UI改善の最終反映（接続線表示とドラッグ接続を修正）
-- `407bdcba` chore: UserSettingsとローカル生成物をgit管理対象から除外
+## 6. 追記（2026-02-22 / UI改善・ノード編集導線）
 
-## 4. 今後の引き継ぎ注意点
-- 新規チャット開始時は、まず本ファイルを読み、次に `Docs/worklog_UI/` の個別仕様と全体仕様を確認する。
-- UI改修は Prefab 優先、スクリプトはロジック責務に限定する。
-- 表示不具合調査時は、接続/ドロップダウン/配置ログを先に確認する。
+### 6.1 ノード削除/パス削除UIの調整
+- Step/Conditionノード右上の `X` 削除ボタンをグレー背景に変更。
+- 削除ボタン位置をノードの黄色ヘッダーバー中央高さに調整。
+- パスは「線分近傍のみ」ヒットするようRaycast判定を改善（ノード操作を阻害しない）。
+- パスの `削除` ヒントはホバー時のみ表示し、線の上側に表示するよう調整。
+
+### 6.2 ConditionのStep内格納（近接スナップ）
+- ConditionノードをStepノード近傍でドラッグ終了すると、自動で `ConditionBind` 接続してStepへ格納する挙動を追加。
+- 格納済みConditionは独立ノードとしては非表示にし、Step内に埋め込み表示するよう変更。
+- Step内格納数に応じてStepノードの高さを自動拡張するように変更。
+
+### 6.3 格納後のCondition編集性改善
+- Step内に埋め込まれたConditionでもA/Bドロップダウン編集を継続可能に修正。
+- 選択可能オブジェクト一覧の変化に応じて、埋め込みCondition行の選択肢を再バインドする処理を追加。
+- パス側RaycastがノードUI（ドロップダウン等）の入力を奪わないようにブロッカー判定を追加。
+
+### 6.4 格納Conditionの視認性改善
+- 埋め込みConditionをカード表示に変更し、`Condition1`, `Condition2`, ... のタイトルを表示。
+- カード間の上下余白を拡大。
+- 複数格納時、各Conditionカード下にDividerを表示して境界を明示。
+- Step自動リサイズはカード高さ/カード間隔ベースで再計算するよう変更。
+
+### 6.5 エラー修正
+- `Assets/Scripts/UI/StepNodeUI.cs` のLINQ利用に対して `using System.Linq;` を追加し、CS1061を解消。
+
+### 6.6 主な更新ファイル（今回追記分）
+- 変更: `Assets/Scripts/UI/StepNodeUI.cs`
+- 変更: `Assets/Scripts/UI/ScenarioGraphUI.cs`
+- 変更: `Assets/Scripts/UI/ConnectionLineGraphic.cs`
+- 変更: `Assets/Scripts/UI/NodeDragHandler.cs`
+- 変更: `Assets/Scripts/Services/CurriculumGraphService.cs`
+- 変更: `Assets/Editor/Automation/BuildUiPrefabs.cs`
+- 変更: `Docs/worklog_UI/全体UI仕様.md`
+- 変更: `Docs/worklog_UI/worklog_ノード追加ウィンドウ.md`

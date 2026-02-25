@@ -152,6 +152,9 @@ public static class BuildUiPrefabs
         var addStepButton = CreateButton("Button_AddStep", topBar, "+ Step");
         addStepButton.gameObject.AddComponent<LayoutElement>().minWidth = 120f;
 
+        var addConditionButton = CreateButton("Button_AddCondition", topBar, "+ Condition");
+        addConditionButton.gameObject.AddComponent<LayoutElement>().minWidth = 150f;
+
         var saveButton = CreateButton("Button_SaveCurriculum", topBar, "Save");
         saveButton.gameObject.AddComponent<LayoutElement>().minWidth = 110f;
 
@@ -162,8 +165,19 @@ public static class BuildUiPrefabs
         var nodeArea = CreateUiRect("NodeArea", panel);
         SetRect(nodeArea, new Vector2(0f, 0f), new Vector2(1f, 1f), new Vector2(12f, 8f), new Vector2(-12f, -52f));
         nodeArea.gameObject.AddComponent<Image>().color = Color.white;
+        nodeArea.gameObject.AddComponent<RectMask2D>();
 
-        var lineLayer = CreateUiRect("LineLayer", nodeArea);
+        var graphContent = CreateUiRect("GraphContent", nodeArea);
+        graphContent.anchorMin = new Vector2(0.5f, 0.5f);
+        graphContent.anchorMax = new Vector2(0.5f, 0.5f);
+        graphContent.pivot = new Vector2(0.5f, 0.5f);
+        graphContent.sizeDelta = new Vector2(4200f, 2400f);
+        graphContent.anchoredPosition = Vector2.zero;
+
+        var panZoom = nodeArea.gameObject.AddComponent<NodeAreaPanZoomController>();
+        panZoom.Configure(nodeArea, graphContent);
+
+        var lineLayer = CreateUiRect("LineLayer", graphContent);
         SetRect(lineLayer, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
         var lineLayerImage = lineLayer.gameObject.AddComponent<Image>();
         lineLayerImage.color = new Color(0f, 0f, 0f, 0f);
@@ -176,7 +190,7 @@ public static class BuildUiPrefabs
         lineTemplate.raycastTarget = false;
         lineTemplateRect.gameObject.SetActive(false);
 
-        var nodeTemplate = BuildStepNodeTemplate(nodeArea);
+        var nodeTemplate = BuildStepNodeTemplate(graphContent);
 
         var resizeHandle = CreateUiRect("ResizeHandle", panel);
         SetRect(resizeHandle, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0f, -6f), new Vector2(0f, 6f));
@@ -189,11 +203,18 @@ public static class BuildUiPrefabs
         scenarioSo.FindProperty("panelRoot").objectReferenceValue = panel;
         scenarioSo.FindProperty("projectNameInput").objectReferenceValue = projectInput;
         scenarioSo.FindProperty("addStepButton").objectReferenceValue = addStepButton;
+        var addConditionProp = scenarioSo.FindProperty("addConditionButton");
+        if (addConditionProp != null) addConditionProp.objectReferenceValue = addConditionButton;
         scenarioSo.FindProperty("saveButton").objectReferenceValue = saveButton;
         scenarioSo.FindProperty("statusText").objectReferenceValue = status;
         scenarioSo.FindProperty("nodeArea").objectReferenceValue = nodeArea;
+        var graphContentProp = scenarioSo.FindProperty("graphContent");
+        if (graphContentProp != null) graphContentProp.objectReferenceValue = graphContent;
         scenarioSo.FindProperty("lineLayer").objectReferenceValue = lineLayer;
-        scenarioSo.FindProperty("nodeTemplate").objectReferenceValue = nodeTemplate;
+        var stepTemplateProp = scenarioSo.FindProperty("stepNodeTemplate");
+        if (stepTemplateProp != null) stepTemplateProp.objectReferenceValue = nodeTemplate;
+        var legacyNodeTemplateProp = scenarioSo.FindProperty("nodeTemplate");
+        if (legacyNodeTemplateProp != null) legacyNodeTemplateProp.objectReferenceValue = nodeTemplate;
         scenarioSo.FindProperty("lineTemplate").objectReferenceValue = lineTemplate;
         scenarioSo.FindProperty("resizeHandle").objectReferenceValue = resizeComp;
         scenarioSo.ApplyModifiedPropertiesWithoutUndo();
@@ -219,17 +240,33 @@ public static class BuildUiPrefabs
         var stepId = CreateText("Text_StepId", root, "step-0000");
         SetRect(stepId.rectTransform, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(12f, -24f), new Vector2(-44f, -4f));
 
-        var warning = CreateText("Warning", root, "!");
-        warning.fontSize = 18;
-        warning.color = new Color(1f, 0.82f, 0f, 1f);
-        warning.alignment = TextAnchor.MiddleCenter;
-        SetRect(warning.rectTransform, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-30f, -30f), new Vector2(-10f, -10f));
+        var conditionSummary = CreateText("Text_ConditionSummary", root, "\u6761\u4EF6: 0");
+        conditionSummary.fontSize = 12;
+        conditionSummary.alignment = TextAnchor.MiddleLeft;
+        conditionSummary.color = new Color(0.2f, 0.2f, 0.2f, 1f);
+        SetRect(conditionSummary.rectTransform, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(12f, -42f), new Vector2(-44f, -22f));
 
         var dragHandle = CreateUiRect("DragHandle", root);
         SetRect(dragHandle, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0f, -28f), new Vector2(0f, 0f));
         dragHandle.gameObject.AddComponent<Image>().color = new Color(0.98f, 0.93f, 0.70f, 1f);
         var drag = dragHandle.gameObject.AddComponent<NodeDragHandler>();
         drag.target = root;
+
+        var warning = CreateText("Warning", root, "!");
+        warning.fontSize = 18;
+        warning.color = new Color(1f, 0.82f, 0f, 1f);
+        warning.alignment = TextAnchor.MiddleCenter;
+        SetRect(warning.rectTransform, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-56f, -30f), new Vector2(-36f, -10f));
+
+        var deleteButton = CreateButton("Button_Delete", dragHandle, "X");
+        SetRect(deleteButton.GetComponent<RectTransform>(), new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(-30f, -11f), new Vector2(-8f, 11f));
+        deleteButton.GetComponent<Image>().color = new Color(0.82f, 0.82f, 0.82f, 1f);
+        var deleteLabel = deleteButton.GetComponentInChildren<Text>(true);
+        if (deleteLabel != null)
+        {
+            deleteLabel.color = new Color(0.2f, 0.2f, 0.2f, 1f);
+            deleteLabel.fontSize = 14;
+        }
 
         var title = CreateInputField("Input_Title", root, "\u30BF\u30A4\u30C8\u30EB");
         SetRect(title.GetComponent<RectTransform>(), new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(12f, -60f), new Vector2(-12f, -30f));
@@ -252,10 +289,12 @@ public static class BuildUiPrefabs
         var rowTemplate = BuildConditionRowTemplate(conditionList);
 
         stepNode.stepIdText = stepId;
+        stepNode.conditionSummaryText = conditionSummary;
         stepNode.titleInput = title;
         stepNode.warningIcon = warning.gameObject;
         stepNode.inputConnector = inputConnector;
         stepNode.outputConnector = outputConnector;
+        stepNode.deleteButton = deleteButton;
         stepNode.conditionListRoot = conditionList;
         stepNode.conditionRowTemplate = rowTemplate;
 

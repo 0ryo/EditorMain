@@ -367,7 +367,8 @@ public class DropdownOpenFixer : MonoBehaviour, IPointerClickHandler
             t.canvasRenderer.SetAlpha(1f);
         }
 
-        var toggles = list.GetComponentsInChildren<Toggle>(true);
+        var toggles = list.GetComponentsInChildren<Toggle>(false);
+        int visibleIndex = 0;
         for (int i = 0; i < toggles.Length; i++)
         {
             var toggle = toggles[i];
@@ -393,13 +394,13 @@ public class DropdownOpenFixer : MonoBehaviour, IPointerClickHandler
                     txt.color = Color.black;
                     txt.enabled = true;
                     txt.canvasRenderer.SetAlpha(1f);
-
-                    if (i < dropdown.options.Count)
-                    {
-                        txt.text = dropdown.options[i].text;
-                    }
+                    txt.text = visibleIndex < dropdown.options.Count
+                        ? dropdown.options[visibleIndex].text
+                        : string.Empty;
                 }
             }
+
+            visibleIndex++;
         }
 
         var listRt = list.transform as RectTransform;
