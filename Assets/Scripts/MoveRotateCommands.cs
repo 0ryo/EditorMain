@@ -15,6 +15,14 @@ public class RotateObjectCommand : IEditorCommand {
     public void Undo(){ if(target){ var e=target.transform.eulerAngles; e.y=fromY; target.transform.eulerAngles=e; } }
 }
 
+public class RotateObjectQuaternionCommand : IEditorCommand {
+    GameObject target; Quaternion from, to;
+    public string Label => "Rotate";
+    public RotateObjectQuaternionCommand(GameObject t, Quaternion from, Quaternion to){ target=t; this.from=from; this.to=to; }
+    public void Do()  { if(target) target.transform.rotation = to; }
+    public void Undo(){ if(target) target.transform.rotation = from; }
+}
+
 public class ScaleObjectCommand : IEditorCommand {
     GameObject target; Vector3 from, to;
     public string Label => "Scale";
