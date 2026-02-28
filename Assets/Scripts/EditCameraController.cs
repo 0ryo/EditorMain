@@ -27,6 +27,7 @@ public class EditorCameraController : MonoBehaviour
     Camera cachedCamera;
     float yaw;
     float pitch;
+    bool dragIsPanning;
 
     void Start()
     {
@@ -52,10 +53,13 @@ public class EditorCameraController : MonoBehaviour
 
         if (!Mouse.current.middleButton.isPressed) return;
 
+        if (Mouse.current.middleButton.wasPressedThisFrame)
+            dragIsPanning = IsShiftPressed();
+
         Vector2 delta = Mouse.current.delta.ReadValue();
         if (delta.sqrMagnitude <= 0.0001f) return;
 
-        if (IsShiftPressed())
+        if (dragIsPanning)
         {
             HandleHorizontalPan(delta);
             return;
