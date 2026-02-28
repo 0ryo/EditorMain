@@ -7,7 +7,6 @@ public class MoveTool : MonoBehaviour
     public Camera cam;
     public SelectionService sel;
     public float gridSize = 0.1f;
-    public LayerMask floorMask;
 
     [Header("Transform Gizmo")]
     public float gizmoLineWidth = 0.04f;
@@ -43,9 +42,6 @@ public class MoveTool : MonoBehaviour
         Move = 1,
         Rotate = 2
     }
-
-    bool isDragging;
-    Vector3 startPos;
 
     Transform gizmoRoot;
     readonly LineRenderer[] axisRenderers = new LineRenderer[3];
@@ -125,11 +121,9 @@ public class MoveTool : MonoBehaviour
 
         if (TryBeginGizmoDrag(Input.mousePosition))
         {
-            isDragging = false;
             return;
         }
 
-        HandleFloorDragMove();
         HandleKeyboardNudgeMove();
     }
 
@@ -151,77 +145,6 @@ public class MoveTool : MonoBehaviour
             {
                 Destroy(rotateMarkerMaterials[i]);
                 rotateMarkerMaterials[i] = null;
-            }
-        }
-    }
-
-    void HandleFloorDragMove()
-    {
-        if (cam == null || sel == null) return;
-
-        if (Input.GetMouseButtonDown(0))
-        {
-            Ray ray = cam.ScreenPointToRay(Input.mousePosition);
-            if (Physics.Raycast(ray, out var hit, 1000f))
-            {
-                var po = hit.collider.GetComponentInParent<PlacedObject>();
-                if (po != null)
-                {
-                    if (po == sel.Current)
-                    {
-                        isDragging = true;
-                        startPos = sel.Current.transform.position;
-                    }
-                    else
-                    {
-                        isDragging = false;
-                        return;
-                    }
-                }
-                else
-                {
-                    sel.Select(null);
-                    EditModeService.I.SetMode(EditMode.Browse);
-                    isDragging = false;
-                    return;
-                }
-            }
-            else
-            {
-                sel.Select(null);
-                EditModeService.I.SetMode(EditMode.Browse);
-                isDragging = false;
-                return;
-            }
-        }
-
-        if (Input.GetMouseButtonUp(0))
-        {
-            if (isDragging && sel.Current != null)
-            {
-                var endPos = sel.Current.transform.position;
-                if (Vector3.Distance(startPos, endPos) > 0.001f && CommandService.I != null)
-                {
-                    var cmd = new MoveObjectCommand(sel.Current.gameObject, startPos, endPos);
-                    CommandService.I.Stack.Execute(cmd);
-                }
-            }
-
-            isDragging = false;
-        }
-
-        if (sel.Current == null) return;
-
-        if (isDragging && Input.GetMouseButton(0))
-        {
-            Ray ray = cam.ScreenPointToRay(Input.mousePosition);
-            if (Physics.Raycast(ray, out var hit, 1000f, floorMask))
-            {
-                Vector3 p = hit.point;
-                p.x = Mathf.Round(p.x / gridSize) * gridSize;
-                p.z = Mathf.Round(p.z / gridSize) * gridSize;
-                p.y = sel.Current.transform.position.y;
-                sel.Current.transform.position = p;
             }
         }
     }
@@ -595,7 +518,6 @@ public class MoveTool : MonoBehaviour
 
     void CancelRuntimeDragStates()
     {
-        isDragging = false;
         activeGizmoDragMode = GizmoDragMode.None;
         activeGizmoAxis = GizmoAxis.None;
         gizmoDragStartPosition = Vector3.zero;
