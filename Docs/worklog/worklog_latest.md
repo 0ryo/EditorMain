@@ -1,9 +1,14 @@
 ﻿# worklog_latest
 
 ## 0. 対象範囲
-- ブランチ: `codex/ui`
-- 作業テーマ: 視点移動の刷新（操作体系変更 + 高感度化）
-- 最終更新: 2026-02-25
+- ブランチ: `refactor/editmode`
+- 作業テーマ: 編集モード刷新（閲覧/変形/スケール）とランタイムギズモ操作の導入
+- 最終更新: 2026-02-28
+- 参照コミット:
+  - `548c39cb` 編集モードを改善
+  - `30f7bb9c` 移動モード中にギズモ表示
+  - `1b6e04be` ギズモUI調整
+  - `95ba3868` マウスドラッグ移動の抑止
 
 ## 1. Phase A 現状把握
 ### 1.1 Unityバージョン
@@ -11,68 +16,78 @@
 
 ### 1.2 UI方式
 - `.uxml/.uss` は未使用。
-- `UnityEngine.UI` を利用する `uGUI` 構成（`CatalogUI`, `ScenarioGraphUI` など）を確認。
+- `UnityEngine.UI` ベースの `uGUI` 構成を使用。
 
 ### 1.3 UI構造メモ（主要Scene/Prefab/入口）
 - 主要Scene: `Assets/EditorMain.unity`
-- UIルート: `Assets/UI/Prefabs/UIRoot.prefab` を `EditorMain.unity` にPrefabInstanceとして配置
-- 主要UI: `CatalogUI`（オブジェクト一覧）/ `ScenarioGraphUI`（シナリオ編集）
-- 画面遷移入口: `SceneManager.LoadScene` 呼び出しは見当たらず、単一Scene内でUI更新/モード切替で進行
+- UIルート: `Assets/UI/Prefabs/UIRoot.prefab`
+- 主要UI入口:
+  - `CatalogUI`（オブジェクト一覧 + 編集モードボタン）
+  - `ScenarioGraphUI`（シナリオ編集）
+- モード制御入口: `EditModeService`（`CatalogUI` ボタン + `Tab` キー）
 
 ## 2. 実装サマリ（今回）
-- 視点回転を `マウス中ボタン + ドラッグ` に変更
-- 視点水平移動を `Shift + マウス中ボタン + ドラッグ` に変更（XZ平面移動）
-- 視点ズームを `マウスホイール` に統一
-- 感度を大幅に引き上げるため既定値を更新
-  - `orbitSpeed = 12f`
-  - `panSpeed = 0.04f`
-  - `zoomSpeed = 18f`
-- 既存Sceneの旧値が残っていても高感度を担保するため、`Start()` で感度下限を適用
-- 操作破綻を抑えるため、ピッチ角とズーム距離にクランプを追加
-- UI操作との競合回避として、UI上ポインタ時はカメラ入力を無効化
+- `EditModeService` を再設計し、`Browse / Place / Transform / Scale` モードへ整理。
+- `ModeChanged` イベントを追加し、UI側がモード状態に追従できるようにした。
+- `CatalogUI` と `BuildUiPrefabs` に編集モード行（`閲覧 / 移動 / スケール`）を追加。
+  - 既存Prefabでも動くよう、ランタイム補完生成と再バインド処理を実装。
+  - アクティブモードのボタン色を `DesignTokens` で強調表示。
+- `UiPanelDockSync` を拡張し、編集モード行の位置をカタログ幅変更に追従させた。
+- `MoveTool` をランタイムギズモ方式へ全面更新。
+  - 軸移動ハンドル（X/Y/Z）と回転ハンドルを表示。
+  - ドラッグ中の移動スナップ、回転スナップ、Undo/Redo コマンド化を追加。
+  - クリック選択との競合を回避するため、`SelectionService` へ入力消費フックを追加。
+- `SelectionOutline` を拡張し、`Scale` モードでコーナードラッグによる等比スケールを追加。
+  - 最小スケール軸をクランプし、`ScaleObjectCommand` でUndo/Redo対応。
+- `MoveRotateCommands` に `RotateObjectQuaternionCommand` と `ScaleObjectCommand` を追加。
+- `PlacementController` は `EditModeService.SetMode` 経由に統一。
+- `RotateTool` は `Transform` モード判定に合わせて整合。
+- 実行方針として `AGENTS.md` に Local Execution Policy（Unity起動禁止）を追記。
 
 ## 3. 変更ファイル
-- 変更: `Assets/Scripts/EditCameraController.cs`
+- `AGENTS.md`
+- `Assets/Editor/Automation/BuildUiPrefabs.cs`
+- `Assets/Scripts/CatalogUI.cs`
+- `Assets/Scripts/EditModeService.cs`
+- `Assets/Scripts/MoveRotateCommands.cs`
+- `Assets/Scripts/MoveTool.cs`
+- `Assets/Scripts/PlacementController.cs`
+- `Assets/Scripts/RotateTool.cs`
+- `Assets/Scripts/SelectionOutline.cs`
+- `Assets/Scripts/SelectionService.cs`
+- `Assets/Scripts/UI/UiPanelDockSync.cs`
+- `Assets/_Recovery/0 (1).unity`
+- `Assets/_Recovery/0 (1).unity.meta`
 
-## 4. 操作仕様（完成版）
-- 回転: 中ボタン押下 + ドラッグ
-- 水平移動: Shift + 中ボタン押下 + ドラッグ
-- 拡大縮小: マウスホイール
+## 4. 操作仕様（現行）
+- モード切替:
+  - UI: `閲覧 / 移動 / スケール` ボタン
+  - キー: `Tab` で `Transform` モードへ
+- `Transform` モード:
+  - 左クリックでギズモ軸ドラッグ移動
+  - 回転ハンドルドラッグで軸回転（スナップあり）
+  - `WASD` / 矢印キーでグリッド単位微移動
+- `Scale` モード:
+  - 選択アウトライン角付近をドラッグして等比スケール
 
 ## 5. 検証状況
-- この実行環境では `dotnet` / `Unity` 実行コマンドが見つからず、CLIコンパイル・Unityバッチ実行は未実施
-- 静的確認として、差分確認と参照検索を実施
-- 変更は `EditCameraController.cs` に限定されていることを確認
+- Local Execution Policy（2026-02-28）に従い、Unity Editor の起動・CLIコンパイルは未実施。
+- 静的確認として以下を実施:
+  - `git log` / `git diff` による変更範囲確認
+  - `rg` による UI方式（uGUI）と主要UI参照確認
 
 ## 6. 人間確認チェックリスト
-- [ ] 中ボタンドラッグで視点回転する
-- [ ] Shift+中ボタンドラッグで視点が水平移動する（高さが暴れない）
-- [ ] ホイールで拡大縮小でき、距離上限/下限で破綻しない
-- [ ] Catalog/ScenarioGraph 上で中ボタン操作してもカメラが誤作動しない
-- [ ] 配置/選択/移動ツール（左クリック系）と干渉しない
+- [ ] カタログ上部に `閲覧 / 移動 / スケール` ボタンが表示される
+- [ ] カタログ幅を変更しても編集モード行が追従し、重なりや隙間が出ない
+- [ ] `移動` モードで選択物に X/Y/Z 軸ギズモと回転ハンドルが表示される
+- [ ] ギズモ操作中、オブジェクト選択が意図せず切り替わらない
+- [ ] ギズモ移動/回転後に Undo/Redo が正しく動作する
+- [ ] `スケール` モードで角ドラッグにより等比スケールし、極小値で破綻しない
+- [ ] `Tab` キーで `Transform` モード遷移し、InputField入力中は誤反応しない
 
-## 7. アーカイブ
-- 旧 `Docs/worklog/worklog_latest.md` は `Docs/worklog/worklog_2026-02-25_archive_mvp4_fbx.md` として退避
+## 7. worklog_UI 反映
+- `Docs/worklog/worklog_UI/全体UI仕様.md` に編集モードUIとギズモ運用の追記を追加。
+- `Docs/worklog/worklog_UI/worklog_オブジェクト一覧ウィンドウ.md` に編集モード行仕様を追記。
 
-## 8. 追記（2026-02-25 / 視点ズーム不具合修正）
-### 8.1 症状
-- マウスホイール操作時に、視点の拡大縮小が体感できない。
-
-### 8.2 原因
-- `EditorMain.unity` のメインカメラが `orthographic` 設定で、距離変更ベースのズームでは見た目が変化しない。
-
-### 8.3 修正内容
-- `EditorCameraController` を更新し、正射影カメラ時は `Camera.orthographicSize` をホイールで増減させる方式へ変更。
-- `minOrthographicSize` / `maxOrthographicSize` でズーム範囲を制限。
-- ホイールズームはUI上でも受け付け、ズーム不能状態を回避（中ボタン系操作は従来どおりUI上で抑止）。
-- `orthographicZoomSpeed` を追加し、高感度設定を維持。
-
-## 9. 追記（2026-02-25 / ウィンドウフォーカス別ズーム制御）
-### 9.1 症状
-- ノード編集エリアにカーソルがあるとき、ノードズームとワールドズームが同時に発生する。
-
-### 9.2 修正内容
-- `EditorCameraController.Update()` の入力ゲートを変更し、`EventSystem.IsPointerOverGameObject()` が `true` の間はワールドカメラ側のホイールズームを実行しないようにした。
-- これにより、カーソル位置に応じてズーム対象が分離される。
-  - ノード編集エリア上: ノード側のみズーム
-  - ワールド上: ワールド側のみズーム
+## 8. アーカイブ
+- 旧 `Docs/worklog/worklog_latest.md` は `Docs/worklog/worklog_2026-02-25_refactor_orbit.md` として退避。

@@ -73,3 +73,10 @@
 - 既存Prefabにも追従できるよう、`CatalogUI` にランタイム補完生成を実装。
 - 設定画面は `UIRoot` 基準の画面中央モーダル表示に変更し、タイトルは `オブジェクト設定` に統一（`(new)` を削除）。
 - デザインは `Docs/rules/design_rule.md` に合わせ、余白・ボタン高さ・オーバーレイ色を調整。
+
+## 12. 追記（2026-02-28 / 編集モード行の追加）
+- `Panel_Catalog` 上端付近に `EditModeRow`（`閲覧` / `移動` / `スケール`）を追加。
+- ボタン押下で `EditModeService.SetMode(...)` を呼び、`Browse` / `Transform` / `Scale` を切り替える。
+- 選択中モードのボタンは `DesignTokens.Accent` で強調表示し、非選択は `DesignTokens.BgSecondary` とする。
+- 既存Prefab互換のため、`CatalogUI` は `EditModeRow` と各ボタンが未配置でもランタイム補完生成する。
+- `UiPanelDockSync` の `editModePanel` と連携し、カタログ幅変更時も編集モード行の位置を追従させる。
