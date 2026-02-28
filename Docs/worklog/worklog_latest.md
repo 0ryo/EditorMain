@@ -124,3 +124,74 @@
 - 変更: `Assets/Editor/Automation/BuildUiPrefabs.cs`
 - 変更: `Docs/worklog_UI/全体UI仕様.md`
 - 変更: `Docs/worklog_UI/worklog_ノード追加ウィンドウ.md`
+
+## 7. 追記（2026-02-25 / オブジェクト追加機能）
+
+### 7.1 機能追加
+- オブジェクト一覧ウィンドウ最下部にFBX追加ボタンを配置。
+- ボタン押下でファイルエクスプローラーを開き、`.fbx` を選択可能にした。
+- FBX選択後、一覧最下部に `New Object` カードを追加。
+- `New Object` カードクリック後、ワールドクリックで選択FBXを配置可能にした。
+
+### 7.2 実装ポイント
+- `CatalogUI` にEditor用FBX選択処理（`EditorUtility.OpenFilePanel`）を追加。
+- 選択FBXを `PlacementController.RegisterRuntimePrefab` でランタイム登録し、既存配置フローに接続。
+- `SelectionService` は削除Undo時に `PlacementController.TryGetPrefab` へフォールバックして再生成可能にした。
+- `PlaceObjectCommand` / `DeleteObjectCommand` に null ガードを追加し、未解決typeでの例外化を防止。
+- `BuildUiPrefabs` で `Button_AddObjectBottom` をPrefab自動生成・`CatalogUI.addButton` へ割当。
+
+### 7.3 更新ファイル（今回追記分）
+- 変更: `Assets/Scripts/CatalogUI.cs`
+- 変更: `Assets/Scripts/PlacementController.cs`
+- 変更: `Assets/Scripts/SelectionService.cs`
+- 変更: `Assets/Scripts/PlaceDeleteCommands.cs`
+- 変更: `Assets/Editor/Automation/BuildUiPrefabs.cs`
+- 変更: `Docs/worklog/worklog_UI/worklog_オブジェクト一覧ウィンドウ.md`
+
+## 8. 追記（2026-02-25 / 追加FBXの選択不能修正）
+
+### 8.1 症状
+- 追加FBXをワールド配置後、クリックしても `SelectionService` で選択できないケースが発生。
+
+### 8.2 修正内容
+- `PlacedObjectPickability` を追加し、`PlacedObject` に有効なColliderが無い場合は `BoxCollider` を自動付与するようにした。
+- `PlacementController` の生成フローで、配置直後に `EnsurePickable` を実行して選択可能状態を保証。
+- `SelectionService` のクリック判定を `Physics.RaycastAll` + 距離順探索に変更し、PlacedObjectを優先して拾うようにした。
+- `SelectionService` に1秒間隔の自動修復を追加し、既に配置済みのCollider無しオブジェクトも選択可能へ補正。
+- `SelectionService` のDelete Undo / 複製時にも `EnsurePickable` を適用。
+
+### 8.3 更新ファイル（今回追記分）
+- 追加: `Assets/Scripts/PlacedObjectPickability.cs`
+- 追加: `Assets/Scripts/PlacedObjectPickability.cs.meta`
+- 変更: `Assets/Scripts/SelectionService.cs`
+- 変更: `Assets/Scripts/PlacementController.cs`
+
+## 9. 追記（2026-02-25 / FBX追加後のオブジェクト設定画面）
+
+### 9.1 追加フロー変更
+- オブジェクト追加フローを `ボタン押下 -> FBX選択 -> オブジェクト設定画面` に変更。
+- FBX選択直後は即カード追加せず、設定画面で確定後に `New Object` カードを追加するようにした。
+
+### 9.2 設定画面の入力項目
+- 設定画面で `オブジェクト名` と `説明` を入力可能にした。
+- `オブジェクト名` はカード表示名に反映。
+- `説明` はランタイム保持され、カタログ検索対象（typeId/表示名/説明）に含めるようにした。
+
+### 9.3 UI自動生成対応
+- `BuildUiPrefabs` で `Panel_NewObjectSettings` を自動生成し、以下を `CatalogUI` に自動割当:
+  - `newObjectSettingsPanel`
+  - `newObjectNameInput`
+  - `newObjectDescriptionInput`
+  - `newObjectApplyButton`
+  - `newObjectCancelButton`
+  - `newObjectPathText`
+- 既存Prefabでも動作するよう、`CatalogUI` 側にランタイム補完生成ロジックを実装。
+
+### 9.4 更新ファイル（今回追記分）
+- 変更: `Assets/Scripts/CatalogUI.cs`
+- 変更: `Assets/Editor/Automation/BuildUiPrefabs.cs`
+
+### 9.5 レイアウト調整（2026-02-25）
+- オブジェクト設定画面を `Panel_Catalog` 内表示から、`UIRoot` 基準の画面中央モーダル表示へ変更。
+- タイトル表記から `(new)` を削除し、`オブジェクト設定` に統一。
+- `Docs/rules/design_rule.md` に合わせ、余白/ボタン高（40）/オーバーレイ色/テキスト階層を調整。

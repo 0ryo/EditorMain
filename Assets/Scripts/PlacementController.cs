@@ -21,6 +21,11 @@ public class PlacementController : MonoBehaviour
 
     void Awake()
     {
+        RebuildTypeMapFromRegistry();
+    }
+
+    void RebuildTypeMapFromRegistry()
+    {
         map = new Dictionary<string, GameObject>();
 
         if (registry == null)
@@ -31,13 +36,39 @@ public class PlacementController : MonoBehaviour
 
         foreach (var entry in registry.entries)
         {
-            if (!map.ContainsKey(entry.typeId) && entry.prefab != null)
+            if (entry == null || string.IsNullOrWhiteSpace(entry.typeId) || entry.prefab == null) continue;
+            if (!map.ContainsKey(entry.typeId))
             {
                 map.Add(entry.typeId, entry.prefab);
             }
         }
 
         Debug.Log($"[Placement] Registry loaded. entries={map.Count}");
+    }
+
+    void EnsureTypeMap()
+    {
+        if (map != null) return;
+        map = new Dictionary<string, GameObject>();
+    }
+
+    public bool RegisterRuntimePrefab(string typeId, GameObject prefab)
+    {
+        if (string.IsNullOrWhiteSpace(typeId) || prefab == null) return false;
+
+        EnsureTypeMap();
+        map[typeId] = prefab;
+        Debug.Log($"[Placement] Runtime prefab registered: {typeId}");
+        return true;
+    }
+
+    public bool TryGetPrefab(string typeId, out GameObject prefab)
+    {
+        prefab = null;
+        if (string.IsNullOrWhiteSpace(typeId)) return false;
+
+        EnsureTypeMap();
+        return map.TryGetValue(typeId, out prefab) && prefab != null;
     }
 
     void CancelPlacement()
@@ -59,9 +90,9 @@ public class PlacementController : MonoBehaviour
             return;
         }
 
-        if (!map.ContainsKey(typeId))
+        if (!TryGetPrefab(typeId, out _))
         {
-            Debug.LogWarning($"[Placement] EnterPlacement NG: {typeId} is not in registry");
+            Debug.LogWarning($"[Placement] EnterPlacement NG: {typeId} is not registered");
             return;
         }
 
@@ -121,7 +152,7 @@ public class PlacementController : MonoBehaviour
 
     bool PlaceType(string typeId, Vector3 floorPoint)
     {
-        if (!map.TryGetValue(typeId, out var prefab) || prefab == null)
+        if (!TryGetPrefab(typeId, out var prefab))
         {
             Debug.LogWarning($"[Placement] PlaceType failed. {typeId} is not registered.");
             return false;
@@ -134,7 +165,7 @@ public class PlacementController : MonoBehaviour
 
         System.Func<string, GameObject> factory = (tId) =>
         {
-            if (!map.TryGetValue(tId, out var sourcePrefab) || sourcePrefab == null) return null;
+            if (!TryGetPrefab(tId, out var sourcePrefab)) return null;
 
             var obj = Object.Instantiate(sourcePrefab);
             var placed = obj.GetComponent<PlacedObject>();
@@ -142,6 +173,7 @@ public class PlacementController : MonoBehaviour
 
             placed.InitType(tId);
             placed.ForceNewId();
+            PlacedObjectPickability.EnsurePickable(placed, true);
 
             if (selection != null)
             {
