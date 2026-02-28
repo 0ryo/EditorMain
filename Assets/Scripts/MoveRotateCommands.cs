@@ -14,3 +14,11 @@ public class RotateObjectCommand : IEditorCommand {
     public void Do()  { if(target){ var e=target.transform.eulerAngles; e.y=toY; target.transform.eulerAngles=e; } }
     public void Undo(){ if(target){ var e=target.transform.eulerAngles; e.y=fromY; target.transform.eulerAngles=e; } }
 }
+
+public class ScaleObjectCommand : IEditorCommand {
+    GameObject target; Vector3 from, to;
+    public string Label => "Scale";
+    public ScaleObjectCommand(GameObject t, Vector3 from, Vector3 to){ target=t; this.from=from; this.to=to; }
+    public void Do()  { if(target) target.transform.localScale = to; }
+    public void Undo(){ if(target) target.transform.localScale = from; }
+}

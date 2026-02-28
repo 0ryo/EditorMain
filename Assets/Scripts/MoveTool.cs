@@ -14,7 +14,7 @@ public class MoveTool : MonoBehaviour
     void Update()
     {
         // モードがMoveじゃなければ何もしない
-        if (EditModeService.I == null || EditModeService.I.Mode != EditMode.Move)
+        if (EditModeService.I == null || EditModeService.I.Mode != EditMode.Transform)
         {
             isDragging = false;
             return;
@@ -53,7 +53,7 @@ public class MoveTool : MonoBehaviour
                 {
                     // PlacedObject 以外（床など）をクリック → 選択解除＋モード終了
                     sel.Select(null);
-                    EditModeService.I.Mode = EditMode.None;
+                    EditModeService.I.SetMode(EditMode.Browse);
                     isDragging = false;
                     return;
                 }
@@ -62,7 +62,7 @@ public class MoveTool : MonoBehaviour
             {
                 // 何にも当たらない空間をクリック → 選択解除＋モード終了
                 sel.Select(null);
-                EditModeService.I.Mode = EditMode.None;
+                EditModeService.I.SetMode(EditMode.Browse);
                 isDragging = false;
                 return;
             }
@@ -102,10 +102,26 @@ public class MoveTool : MonoBehaviour
 
         // 矢印キーで微調整（±1グリッド）は今まで通り
         Vector3 nudge = Vector3.zero;
-        if (Input.GetKeyDown(KeyCode.UpArrow))    nudge += new Vector3(0, 0,  gridSize);
-        if (Input.GetKeyDown(KeyCode.DownArrow))  nudge += new Vector3(0, 0, -gridSize);
-        if (Input.GetKeyDown(KeyCode.LeftArrow))  nudge += new Vector3(-gridSize, 0, 0);
-        if (Input.GetKeyDown(KeyCode.RightArrow)) nudge += new Vector3( gridSize, 0, 0);
+        bool modifierPressed =
+            Input.GetKey(KeyCode.LeftControl) ||
+            Input.GetKey(KeyCode.RightControl) ||
+            Input.GetKey(KeyCode.LeftCommand) ||
+            Input.GetKey(KeyCode.RightCommand) ||
+            Input.GetKey(KeyCode.LeftAlt) ||
+            Input.GetKey(KeyCode.RightAlt);
+
+        if (!modifierPressed)
+        {
+            if (Input.GetKeyDown(KeyCode.W)) nudge += new Vector3(0, 0, gridSize);
+            if (Input.GetKeyDown(KeyCode.S)) nudge += new Vector3(0, 0, -gridSize);
+            if (Input.GetKeyDown(KeyCode.A)) nudge += new Vector3(-gridSize, 0, 0);
+            if (Input.GetKeyDown(KeyCode.D)) nudge += new Vector3(gridSize, 0, 0);
+        }
+
+        if (Input.GetKeyDown(KeyCode.UpArrow)) nudge += new Vector3(0, 0, gridSize);
+        if (Input.GetKeyDown(KeyCode.DownArrow)) nudge += new Vector3(0, 0, -gridSize);
+        if (Input.GetKeyDown(KeyCode.LeftArrow)) nudge += new Vector3(-gridSize, 0, 0);
+        if (Input.GetKeyDown(KeyCode.RightArrow)) nudge += new Vector3(gridSize, 0, 0);
 
         if (nudge != Vector3.zero && sel.Current != null)
         {

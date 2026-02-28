@@ -20,6 +20,10 @@ public class CatalogUI : MonoBehaviour
     [SerializeField] InputField searchInput;
     [SerializeField] Button addButton;
     [SerializeField] Text statusText;
+    [SerializeField] RectTransform editModeRow;
+    [SerializeField] Button browseModeButton;
+    [SerializeField] Button transformModeButton;
+    [SerializeField] Button scaleModeButton;
     [SerializeField] RectTransform newObjectSettingsPanel;
     [SerializeField] InputField newObjectNameInput;
     [SerializeField] InputField newObjectDescriptionInput;
@@ -43,6 +47,7 @@ public class CatalogUI : MonoBehaviour
     GameObject runtimeImportedPrefab;
     GameObject pendingImportedPrefab;
     string pendingImportedAssetPath;
+    EditModeService boundEditModeService;
 
     class CardState
     {
@@ -58,16 +63,19 @@ public class CatalogUI : MonoBehaviour
         EnsureSingleEventSystem();
         EnsureRuntimeBindings();
         EnsureRuntimeCatalogControls();
+        EnsureEditModeServiceBinding();
         EnsureContentTopAligned();
         EnsureTemplateCardHeight();
         WireUiEvents();
         RebuildCards();
         ApplyRoundedTheme();
         DesignTokenApplier.ApplyCatalogPanel(transform);
+        RefreshModeButtons();
     }
 
     void OnDestroy()
     {
+        UnbindEditModeService();
         NotifyDragState(false);
     }
 
@@ -134,6 +142,24 @@ public class CatalogUI : MonoBehaviour
             searchInput.onValueChanged.AddListener(OnSearchChanged);
         }
 
+        if (browseModeButton != null)
+        {
+            browseModeButton.onClick.RemoveListener(OnClickModeBrowse);
+            browseModeButton.onClick.AddListener(OnClickModeBrowse);
+        }
+
+        if (transformModeButton != null)
+        {
+            transformModeButton.onClick.RemoveListener(OnClickModeTransform);
+            transformModeButton.onClick.AddListener(OnClickModeTransform);
+        }
+
+        if (scaleModeButton != null)
+        {
+            scaleModeButton.onClick.RemoveListener(OnClickModeScale);
+            scaleModeButton.onClick.AddListener(OnClickModeScale);
+        }
+
         if (addButton != null)
         {
             addButton.onClick.RemoveListener(OnClickAdd);
@@ -151,11 +177,14 @@ public class CatalogUI : MonoBehaviour
             newObjectCancelButton.onClick.RemoveListener(OnClickCancelNewObjectSettings);
             newObjectCancelButton.onClick.AddListener(OnClickCancelNewObjectSettings);
         }
+
+        RefreshModeButtons();
     }
 
     void RebuildCards()
     {
         EnsureRuntimeBindings();
+        EnsureEditModeServiceBinding();
         EnsureContentTopAligned();
 
         if (!registry) { Debug.LogError("CatalogUI: registry not set"); return; }
@@ -203,6 +232,7 @@ public class CatalogUI : MonoBehaviour
         ApplyFilter(searchInput != null ? searchInput.text : string.Empty);
         ApplyRoundedTheme();
         DesignTokenApplier.ApplyCatalogPanel(transform);
+        RefreshModeButtons();
     }
 
     void AddRuntimeImportedCardIfNeeded()
@@ -237,6 +267,10 @@ public class CatalogUI : MonoBehaviour
     void ApplyRoundedTheme()
     {
         UiRoundedTheme.ApplyToHierarchy(transform, cornerRadius);
+        if (editModeRow != null)
+        {
+            UiRoundedTheme.ApplyToHierarchy(editModeRow, cornerRadius);
+        }
     }
 
     void EnsureRuntimeCatalogControls()
@@ -244,10 +278,201 @@ public class CatalogUI : MonoBehaviour
         var panel = transform as RectTransform;
         if (panel == null) return;
 
+        EnsureRuntimeEditModeButtons(panel);
+        EnsureEditModeDockSync(panel);
         EnsureRuntimeSearchInput(panel);
         EnsureRuntimeBottomAddButton(panel);
         EnsureRuntimeNewObjectSettingsDialog(panel);
+        ApplyCatalogTopLayout(panel);
         EnsureScrollBottomPadding(56f);
+        RefreshModeButtons();
+    }
+
+    void EnsureEditModeDockSync(RectTransform panel)
+    {
+        if (panel == null || editModeRow == null) return;
+
+        var root = panel.root;
+        if (root == null) return;
+
+        var dockSync = root.GetComponent<UiPanelDockSync>();
+        if (dockSync == null) return;
+
+        if (dockSync.editModePanel == null)
+        {
+            dockSync.editModePanel = editModeRow;
+        }
+    }
+
+    void EnsureRuntimeEditModeButtons(RectTransform panel)
+    {
+        if (panel == null) return;
+        var host = panel.root as RectTransform;
+        if (host == null) host = panel;
+
+        if (editModeRow == null)
+        {
+            editModeRow = host.Find("EditModeRow") as RectTransform;
+            if (editModeRow == null)
+            {
+                editModeRow = host.Find("EditModeRow_Runtime") as RectTransform;
+            }
+
+            if (editModeRow == null)
+            {
+                var legacyRow = panel.Find("EditModeRow") as RectTransform;
+                if (legacyRow == null) legacyRow = panel.Find("EditModeRow_Runtime") as RectTransform;
+                if (legacyRow != null)
+                {
+                    editModeRow = legacyRow;
+                    if (editModeRow.parent != host)
+                    {
+                        editModeRow.SetParent(host, false);
+                    }
+                }
+            }
+        }
+
+        if (editModeRow == null)
+        {
+            var rowGo = new GameObject("EditModeRow_Runtime", typeof(RectTransform), typeof(HorizontalLayoutGroup));
+            editModeRow = rowGo.GetComponent<RectTransform>();
+            editModeRow.SetParent(host, false);
+        }
+
+        var staleLegacyRow = panel.Find("EditModeRow") as RectTransform;
+        if (staleLegacyRow == null) staleLegacyRow = panel.Find("EditModeRow_Runtime") as RectTransform;
+        if (staleLegacyRow != null && staleLegacyRow != editModeRow)
+        {
+            staleLegacyRow.gameObject.SetActive(false);
+        }
+
+        var layout = editModeRow.GetComponent<HorizontalLayoutGroup>();
+        if (layout == null) layout = editModeRow.gameObject.AddComponent<HorizontalLayoutGroup>();
+        layout.spacing = 8f;
+        layout.childControlWidth = true;
+        layout.childControlHeight = true;
+        layout.childForceExpandWidth = true;
+        layout.childForceExpandHeight = true;
+        layout.padding = new RectOffset(0, 0, 0, 0);
+
+        browseModeButton = FindOrCreateModeButton(editModeRow, browseModeButton, "Button_ModeBrowse", "\u95b2\u89a7");
+        transformModeButton = FindOrCreateModeButton(editModeRow, transformModeButton, "Button_ModeTransform", "\u79fb\u52d5");
+        scaleModeButton = FindOrCreateModeButton(editModeRow, scaleModeButton, "Button_ModeScale", "\u30b9\u30b1\u30fc\u30eb");
+    }
+
+    Button FindOrCreateModeButton(RectTransform row, Button existingButton, string objectName, string labelText)
+    {
+        if (existingButton != null) return existingButton;
+
+        var found = row.Find(objectName);
+        if (found != null)
+        {
+            var foundButton = found.GetComponent<Button>();
+            if (foundButton != null)
+            {
+                EnsureModeButtonAppearance(foundButton, labelText);
+                return foundButton;
+            }
+        }
+
+        var buttonGo = new GameObject(objectName, typeof(RectTransform), typeof(Image), typeof(Button), typeof(LayoutElement));
+        var buttonRt = buttonGo.GetComponent<RectTransform>();
+        buttonRt.SetParent(row, false);
+
+        var layout = buttonGo.GetComponent<LayoutElement>();
+        layout.minHeight = 40f;
+        layout.preferredHeight = 40f;
+        layout.minWidth = 70f;
+        layout.preferredWidth = 70f;
+        layout.flexibleWidth = 1f;
+
+        var button = buttonGo.GetComponent<Button>();
+        EnsureModeButtonAppearance(button, labelText);
+        return button;
+    }
+
+    void EnsureModeButtonAppearance(Button button, string labelText)
+    {
+        if (button == null) return;
+
+        var image = button.GetComponent<Image>();
+        if (image != null) image.color = DesignTokens.BgSecondary;
+
+        var label = button.GetComponentInChildren<Text>(true);
+        if (label == null)
+        {
+            var labelGo = new GameObject("Label", typeof(RectTransform), typeof(Text));
+            var labelRt = labelGo.GetComponent<RectTransform>();
+            labelRt.SetParent(button.transform, false);
+            labelRt.anchorMin = Vector2.zero;
+            labelRt.anchorMax = Vector2.one;
+            labelRt.offsetMin = Vector2.zero;
+            labelRt.offsetMax = Vector2.zero;
+            label = labelGo.GetComponent<Text>();
+        }
+
+        label.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        label.fontSize = 12;
+        label.alignment = TextAnchor.MiddleCenter;
+        label.text = labelText;
+        label.color = DesignTokens.TextPrimary;
+    }
+
+    void ApplyCatalogTopLayout(RectTransform panel)
+    {
+        if (panel == null) return;
+
+        if (editModeRow != null)
+        {
+            float left = panel.offsetMax.x + 12f;
+            float right = left + 236f;
+            editModeRow.anchorMin = new Vector2(0f, 1f);
+            editModeRow.anchorMax = new Vector2(0f, 1f);
+            editModeRow.pivot = new Vector2(0f, 1f);
+            editModeRow.offsetMin = new Vector2(left, -52f);
+            editModeRow.offsetMax = new Vector2(right, -12f);
+        }
+
+        var header = panel.Find("Header") as RectTransform;
+        if (header != null)
+        {
+            header.anchorMin = new Vector2(0f, 1f);
+            header.anchorMax = new Vector2(1f, 1f);
+            header.offsetMin = new Vector2(10f, -48f);
+            header.offsetMax = new Vector2(-10f, -10f);
+        }
+
+        var searchRow = panel.Find("SearchRow") as RectTransform;
+        if (searchRow == null) searchRow = panel.Find("SearchRow_Runtime") as RectTransform;
+        if (searchRow != null)
+        {
+            searchRow.anchorMin = new Vector2(0f, 1f);
+            searchRow.anchorMax = new Vector2(1f, 1f);
+            searchRow.offsetMin = new Vector2(10f, -44f);
+            searchRow.offsetMax = new Vector2(-10f, -8f);
+        }
+
+        if (statusText != null)
+        {
+            var statusRt = statusText.rectTransform;
+            statusRt.anchorMin = new Vector2(0f, 1f);
+            statusRt.anchorMax = new Vector2(1f, 1f);
+            statusRt.offsetMin = new Vector2(14f, -66f);
+            statusRt.offsetMax = new Vector2(-14f, -46f);
+        }
+
+        if (content != null)
+        {
+            var scroll = content.parent != null ? content.parent.parent as RectTransform : null;
+            if (scroll != null)
+            {
+                scroll.anchorMin = new Vector2(0f, 0f);
+                scroll.anchorMax = new Vector2(1f, 1f);
+                scroll.offsetMin = new Vector2(8f, 56f);
+                scroll.offsetMax = new Vector2(-8f, -72f);
+            }
+        }
     }
 
     void EnsureRuntimeSearchInput(RectTransform panel)
@@ -754,6 +979,87 @@ public class CatalogUI : MonoBehaviour
         if (legacy != null) legacy.text = typeId;
         var tmps = root.GetComponentsInChildren<TMP_Text>(true);
         if (tmps.Length > 0) tmps[0].text = typeId;
+    }
+
+    void EnsureEditModeServiceBinding()
+    {
+        var service = EditModeService.I != null ? EditModeService.I : FindFirstObjectByType<EditModeService>();
+        if (service == boundEditModeService) return;
+
+        UnbindEditModeService();
+        boundEditModeService = service;
+        if (boundEditModeService != null)
+        {
+            boundEditModeService.ModeChanged += OnEditModeChanged;
+        }
+    }
+
+    void UnbindEditModeService()
+    {
+        if (boundEditModeService == null) return;
+        boundEditModeService.ModeChanged -= OnEditModeChanged;
+        boundEditModeService = null;
+    }
+
+    void OnEditModeChanged(EditMode _)
+    {
+        RefreshModeButtons();
+    }
+
+    void OnClickModeBrowse()
+    {
+        EnsureEditModeServiceBinding();
+        if (boundEditModeService == null) return;
+        boundEditModeService.SetMode(EditMode.Browse);
+        RefreshModeButtons();
+    }
+
+    void OnClickModeTransform()
+    {
+        EnsureEditModeServiceBinding();
+        if (boundEditModeService == null) return;
+        boundEditModeService.SetMode(EditMode.Transform);
+        RefreshModeButtons();
+    }
+
+    void OnClickModeScale()
+    {
+        EnsureEditModeServiceBinding();
+        if (boundEditModeService == null) return;
+        boundEditModeService.SetMode(EditMode.Scale);
+        RefreshModeButtons();
+    }
+
+    void RefreshModeButtons()
+    {
+        EnsureEditModeServiceBinding();
+
+        var mode = boundEditModeService != null ? boundEditModeService.Mode : EditMode.Browse;
+        if (mode != EditMode.Transform && mode != EditMode.Scale)
+        {
+            mode = EditMode.Browse;
+        }
+
+        ApplyModeButtonVisual(browseModeButton, mode == EditMode.Browse);
+        ApplyModeButtonVisual(transformModeButton, mode == EditMode.Transform);
+        ApplyModeButtonVisual(scaleModeButton, mode == EditMode.Scale);
+    }
+
+    void ApplyModeButtonVisual(Button button, bool isActive)
+    {
+        if (button == null) return;
+
+        var image = button.GetComponent<Image>();
+        if (image != null)
+        {
+            image.color = isActive ? DesignTokens.Accent : DesignTokens.BgSecondary;
+        }
+
+        var label = button.GetComponentInChildren<Text>(true);
+        if (label != null)
+        {
+            label.color = isActive ? DesignTokens.Surface : DesignTokens.TextPrimary;
+        }
     }
 
     void OnClickCard(string typeId)

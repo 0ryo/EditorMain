@@ -99,7 +99,7 @@ public class PlacementController : MonoBehaviour
         currentTypeId = typeId;
         if (EditModeService.I != null)
         {
-            EditModeService.I.Mode = EditMode.Place;
+            EditModeService.I.SetMode(EditMode.Place);
         }
 
         Debug.Log($"[Placement] EnterPlacement OK: {currentTypeId}");

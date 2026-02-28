@@ -5,7 +5,7 @@ public class RotateTool : MonoBehaviour {
     public int stepDeg = 15;
 
     void Update() {
-        if (EditModeService.I==null || EditModeService.I.Mode != EditMode.Rotate) return;
+        if (EditModeService.I==null || EditModeService.I.Mode != EditMode.Transform) return;
         if (sel.Current == null) return;
 
         if (Input.GetKeyDown(KeyCode.Q))  Add(stepDeg);
