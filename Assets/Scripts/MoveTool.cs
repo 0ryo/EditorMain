@@ -12,11 +12,14 @@ public class MoveTool : MonoBehaviour
     [Header("Transform Gizmo")]
     public float gizmoLineWidth = 0.04f;
     public float gizmoMinAxisLength = 0.45f;
-    public float gizmoAxisLengthMultiplier = 0.7f;
+    public float gizmoAxisLengthMultiplier = 0.84f;
     public float moveHandlePickRadiusPixels = 10f;
-    public float rotateHandlePickRadiusPixels = 16f;
     public float rotateHandleScale = 0.16f;
+    [Range(0.2f, 0.9f)]
+    public float rotateHandleDistanceRatio = 0.62f;
+    public float rotateHandleMinDistance = 0.12f;
     public float rotateSnapDegrees = 15f;
+    public Color moveAxisSelectedColor = new Color(0.2f, 1f, 1f, 1f);
 
     static readonly Vector3[] GizmoAxes = { Vector3.right, Vector3.up, Vector3.forward };
     static readonly Color[] GizmoColors =
@@ -47,6 +50,7 @@ public class MoveTool : MonoBehaviour
     Transform gizmoRoot;
     readonly LineRenderer[] axisRenderers = new LineRenderer[3];
     readonly Transform[] rotateMarkers = new Transform[3];
+    readonly Collider[] rotateMarkerColliders = new Collider[3];
     readonly Material[] rotateMarkerMaterials = new Material[3];
     Material gizmoLineMaterial;
     bool gizmoInitialized;
@@ -397,22 +401,11 @@ public class MoveTool : MonoBehaviour
         if (!TryGetSelectionCenterAndAxisLength(out var center, out var axisLength)) return false;
         if (!TryWorldToScreen(center, out var centerScreen)) return false;
 
-        float bestRotateDistance = float.MaxValue;
-        for (int i = 0; i < GizmoAxes.Length; i++)
+        if (TryPickRotateHandleFromRay(pointer, out axis))
         {
-            Vector3 handleWorld = GetRotateHandleWorld(center, GizmoAxes[i], axisLength);
-            if (!TryWorldToScreen(handleWorld, out var handleScreen)) continue;
-
-            float distance = Vector2.Distance(pointer, handleScreen);
-            if (distance <= rotateHandlePickRadiusPixels && distance < bestRotateDistance)
-            {
-                bestRotateDistance = distance;
-                dragMode = GizmoDragMode.Rotate;
-                axis = (GizmoAxis)i;
-            }
+            dragMode = GizmoDragMode.Rotate;
+            return true;
         }
-
-        if (dragMode == GizmoDragMode.Rotate) return true;
 
         float bestMoveDistance = float.MaxValue;
         for (int i = 0; i < GizmoAxes.Length; i++)
@@ -431,6 +424,34 @@ public class MoveTool : MonoBehaviour
         }
 
         return dragMode != GizmoDragMode.None;
+    }
+
+    bool TryPickRotateHandleFromRay(Vector2 pointer, out GizmoAxis axis)
+    {
+        axis = GizmoAxis.None;
+        if (cam == null) return false;
+
+        Ray ray = cam.ScreenPointToRay(pointer);
+        var hits = Physics.RaycastAll(ray, 1000f, ~0, QueryTriggerInteraction.Collide);
+        if (hits == null || hits.Length == 0) return false;
+
+        System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
+        foreach (var hit in hits)
+        {
+            var collider = hit.collider;
+            if (collider == null) continue;
+
+            for (int i = 0; i < rotateMarkerColliders.Length; i++)
+            {
+                if (rotateMarkerColliders[i] == null) continue;
+                if (collider != rotateMarkerColliders[i]) continue;
+
+                axis = (GizmoAxis)i;
+                return true;
+            }
+        }
+
+        return false;
     }
 
     void UpdateGizmoVisual()
@@ -453,7 +474,7 @@ public class MoveTool : MonoBehaviour
 
         float headLength = axisLength * 0.22f;
         float headWidth = headLength * 0.66f;
-        float markerSize = Mathf.Max(0.06f, axisLength * rotateHandleScale);
+        float markerSize = Mathf.Max(0.1f, axisLength * rotateHandleScale);
 
         for (int i = 0; i < GizmoAxes.Length; i++)
         {
@@ -469,6 +490,8 @@ public class MoveTool : MonoBehaviour
 
             Vector3 headA = tip - axis * headLength + side * headWidth;
             Vector3 headB = tip - axis * headLength - side * headWidth;
+            bool isMoveAxisActive = activeGizmoDragMode == GizmoDragMode.Move && activeGizmoAxis == (GizmoAxis)i;
+            Color axisColor = isMoveAxisActive ? moveAxisSelectedColor : GizmoColors[i];
 
             var lr = axisRenderers[i];
             if (lr != null)
@@ -479,6 +502,8 @@ public class MoveTool : MonoBehaviour
                 lr.SetPosition(2, headA);
                 lr.SetPosition(3, tip);
                 lr.SetPosition(4, headB);
+                lr.startColor = axisColor;
+                lr.endColor = axisColor;
             }
 
             var marker = rotateMarkers[i];
@@ -523,7 +548,7 @@ public class MoveTool : MonoBehaviour
             lr.shadowCastingMode = ShadowCastingMode.Off;
             lr.receiveShadows = false;
             lr.textureMode = LineTextureMode.Stretch;
-            lr.numCapVertices = 2;
+            lr.numCapVertices = 0;
             lr.sortingOrder = short.MaxValue;
             lr.startColor = GizmoColors[i];
             lr.endColor = GizmoColors[i];
@@ -537,7 +562,8 @@ public class MoveTool : MonoBehaviour
             var markerCollider = markerGo.GetComponent<Collider>();
             if (markerCollider != null)
             {
-                Destroy(markerCollider);
+                markerCollider.isTrigger = false;
+                rotateMarkerColliders[i] = markerCollider;
             }
 
             var markerRenderer = markerGo.GetComponent<Renderer>();
@@ -663,10 +689,16 @@ public class MoveTool : MonoBehaviour
         };
     }
 
-    static Vector3 GetRotateHandleWorld(Vector3 center, Vector3 axis, float axisLength)
+    Vector3 GetRotateHandleWorld(Vector3 center, Vector3 axis, float axisLength)
     {
-        float headLength = axisLength * 0.22f;
-        return center + axis * (axisLength + headLength * 0.35f);
+        float distanceRatio = Mathf.Clamp01(rotateHandleDistanceRatio);
+        float markerRadius = Mathf.Max(0.03f, axisLength * rotateHandleScale * 0.5f);
+        float rawDistance = axisLength * distanceRatio;
+        float minDistanceFromCenter = markerRadius * 1.05f;
+        float maxDistanceFromCenter = Mathf.Max(minDistanceFromCenter, axisLength - (markerRadius * 0.2f));
+        float desiredDistance = Mathf.Max(rawDistance, rotateHandleMinDistance);
+        float handleDistance = Mathf.Clamp(desiredDistance, minDistanceFromCenter, maxDistanceFromCenter);
+        return center + axis * handleDistance;
     }
 
     static void ConfigureAlwaysOnTopMaterial(Material material)
