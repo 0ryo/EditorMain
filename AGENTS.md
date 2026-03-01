@@ -100,3 +100,11 @@ Codex（CLI / App）に対して、このUnityプロジェクトでの **作業�
 ## 6. MCP/外部連携について（方針）🧰
 - Unity MCP は必須ではない。まずは「ファイル編集 + Unity CLI（-executeMethod）」で完結させる。
 - MCP等の導入が必要になった場合のみ、導入理由・運用コスト・代替案を先に提示すること。
+
+---
+
+## 7. Local Execution Policy (2026-02-28)
+- Codex must not launch the Unity Editor for this project.
+- Codex should only modify files and run static checks available from the shell.
+- Unity compile/runtime verification is executed by the user.
+- If compile/runtime errors occur, the user reports them and Codex fixes them based on the report.

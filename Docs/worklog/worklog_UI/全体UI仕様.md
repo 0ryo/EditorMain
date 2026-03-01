@@ -231,3 +231,10 @@
 - Vertical spacing between embedded condition cards was increased for readability.
 - Divider line is shown under each embedded condition card (between cards when multiple).
 - Step auto-resize logic now uses embedded card height/spacing.
+## 24. 2026-02-28 編集モードUI + ランタイムギズモ
+- `EditModeService` は `Browse / Place / Transform / Scale` を持ち、`ModeChanged` でUI同期する。
+- `CatalogUI` 上部に編集モード行（`閲覧` / `移動` / `スケール`）を配置し、現在モードを色で明示する。
+- `Tab` キーは `Transform` モードへのショートカットとして機能する（InputField入力中は無効）。
+- `Transform` モードでは `MoveTool` が軸移動ハンドルと回転ハンドルを表示し、オブジェクト変形をギズモ経由で行う。
+- `Scale` モードでは `SelectionOutline` がコーナードラッグによる等比スケールを提供する。
+- `UiPanelDockSync` は編集モード行も含めてカタログ幅に追従させ、UIの重なりや隙間を防ぐ。

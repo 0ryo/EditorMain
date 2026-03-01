@@ -1,38 +1,46 @@
 using UnityEngine;
 using UnityEngine.EventSystems;
 
-public class SelectionService : MonoBehaviour {
+public class SelectionService : MonoBehaviour
+{
     public Camera cam;
-    public LayerMask pickMask = ~0; // すべて
+    public LayerMask pickMask = ~0;
     public PlacedObject Current;
-    public SelectionOutline outline; // ハイライト描画
+    public SelectionOutline outline;
 
-    public PrefabRegistry registry; // Undo時の再生成用
-    public PlacementController placementController; // ランタイム追加型の再生成用
+    public PrefabRegistry registry;
+    public PlacementController placementController;
+    public MoveTool moveTool;
     public float pickabilityAutoFixInterval = 1f;
 
     float nextPickabilityFixTime;
     bool warnedCameraMissing;
     bool warnedPickMaskExclusion;
 
-    void Update() {
+    void Update()
+    {
         if (placementController == null)
         {
             placementController = FindFirstObjectByType<PlacementController>();
         }
 
+        if (moveTool == null)
+        {
+            moveTool = FindFirstObjectByType<MoveTool>();
+        }
+
         AutoFixPickabilityIfNeeded();
 
-        // Currentが外部(Undoなど)で削除されていたら選択解除
-        if (Current != null && Current.gameObject == null) {
+        if (Current != null && Current.gameObject == null)
+        {
             Select(null);
         }
 
-        // UI操作中はピッキングしない
         if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject()) return;
+        if (moveTool != null && moveTool.ShouldConsumeSelectionClick()) return;
 
-        // 左クリック：選択
-        if (Input.GetMouseButtonDown(0)) {
+        if (Input.GetMouseButtonDown(0))
+        {
             if (cam == null)
             {
                 if (!warnedCameraMissing)
@@ -44,7 +52,8 @@ public class SelectionService : MonoBehaviour {
             }
 
             Ray ray = cam.ScreenPointToRay(Input.mousePosition);
-            if (TryPickPlacedObject(ray, out var picked, out var hitSomething)) {
+            if (TryPickPlacedObject(ray, out var picked, out var hitSomething))
+            {
                 Select(picked);
             }
             else if (hitSomething)
@@ -55,9 +64,10 @@ public class SelectionService : MonoBehaviour {
 
         if (Current == null) return;
 
-        // 削除（Delete）
-        if (Input.GetKeyDown(KeyCode.Delete)) {
-            System.Func<string, GameObject> factory = (tId) => {
+        if (Input.GetKeyDown(KeyCode.Delete))
+        {
+            System.Func<string, GameObject> factory = (tId) =>
+            {
                 if (registry != null)
                 {
                     var entry = registry.entries.Find(e => e.typeId == tId);
@@ -82,11 +92,11 @@ public class SelectionService : MonoBehaviour {
             return;
         }
 
-        // 複製（Ctrl/Cmd + D）
         bool controlKey = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl);
         bool commandKey = Input.GetKey(KeyCode.LeftCommand) || Input.GetKey(KeyCode.RightCommand);
 
-        if ((controlKey || commandKey) && Input.GetKeyDown(KeyCode.D)) {
+        if ((controlKey || commandKey) && Input.GetKeyDown(KeyCode.D))
+        {
             var dup = Instantiate(
                 Current.gameObject,
                 Current.transform.position + new Vector3(0.2f, 0f, 0.2f),
@@ -96,12 +106,11 @@ public class SelectionService : MonoBehaviour {
             var po = dup.GetComponent<PlacedObject>();
             if (po == null) po = dup.AddComponent<PlacedObject>();
 
-            // typeIdは通常複製でコピーされるが、念のため補完
-            if (string.IsNullOrEmpty(po.typeId)) {
+            if (string.IsNullOrEmpty(po.typeId))
+            {
                 po.typeId = Current.typeId;
             }
 
-            // IDは必ず再発行（重複防止）
             po.ForceNewId();
             PlacedObjectPickability.EnsurePickable(po, true);
 
@@ -110,7 +119,8 @@ public class SelectionService : MonoBehaviour {
         }
     }
 
-    public void Select(PlacedObject po) {
+    public void Select(PlacedObject po)
+    {
         Current = po;
         if (outline != null) outline.ShowFor(po ? po.gameObject : null);
     }
@@ -123,7 +133,6 @@ public class SelectionService : MonoBehaviour {
         var placed = created.GetComponent<PlacedObject>();
         if (placed == null) placed = created.AddComponent<PlacedObject>();
 
-        // 配置相当：typeIdセット + 新規ID
         placed.Init(typeId);
         PlacedObjectPickability.EnsurePickable(placed, true);
         Select(placed);

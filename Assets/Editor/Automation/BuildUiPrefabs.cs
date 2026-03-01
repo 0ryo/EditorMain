@@ -24,7 +24,8 @@ public static class BuildUiPrefabs
 
         var catalogPanel = BuildCatalogPanel(root.transform);
         var scenarioPanel = BuildScenarioPanel(root.transform);
-        BuildDockSync(root, catalogPanel, scenarioPanel);
+        var editModeRow = root.transform.Find("EditModeRow") as RectTransform;
+        BuildDockSync(root, catalogPanel, scenarioPanel, editModeRow);
         BuildEventSystem(root.transform);
 
         PrefabUtility.SaveAsPrefabAsset(root, UiRootPrefabPath);
@@ -45,6 +46,41 @@ public static class BuildUiPrefabs
         var panel = CreateUiRect("Panel_Catalog", parent);
         SetRect(panel, new Vector2(0f, 0f), new Vector2(0f, 1f), new Vector2(0f, 0f), new Vector2(288f, 0f));
         panel.gameObject.AddComponent<Image>().color = DesignTokens.BgPrimary;
+
+        var editModeRow = CreateUiRect("EditModeRow", parent);
+        SetRect(editModeRow, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(300f, -52f), new Vector2(536f, -12f));
+        editModeRow.pivot = new Vector2(0f, 1f);
+        var editModeLayout = editModeRow.gameObject.AddComponent<HorizontalLayoutGroup>();
+        editModeLayout.spacing = 8f;
+        editModeLayout.childControlWidth = true;
+        editModeLayout.childControlHeight = true;
+        editModeLayout.childForceExpandWidth = true;
+        editModeLayout.childForceExpandHeight = true;
+        editModeLayout.padding = new RectOffset(0, 0, 0, 0);
+
+        var browseModeButton = CreateButton("Button_ModeBrowse", editModeRow, "\u95b2\u89a7");
+        var browseModeLayout = browseModeButton.gameObject.AddComponent<LayoutElement>();
+        browseModeLayout.minHeight = 40f;
+        browseModeLayout.preferredHeight = 40f;
+        browseModeLayout.minWidth = 70f;
+        browseModeLayout.preferredWidth = 70f;
+        browseModeLayout.flexibleWidth = 1f;
+
+        var transformModeButton = CreateButton("Button_ModeTransform", editModeRow, "\u79fb\u52d5");
+        var transformModeLayout = transformModeButton.gameObject.AddComponent<LayoutElement>();
+        transformModeLayout.minHeight = 40f;
+        transformModeLayout.preferredHeight = 40f;
+        transformModeLayout.minWidth = 70f;
+        transformModeLayout.preferredWidth = 70f;
+        transformModeLayout.flexibleWidth = 1f;
+
+        var scaleModeButton = CreateButton("Button_ModeScale", editModeRow, "\u30b9\u30b1\u30fc\u30eb");
+        var scaleModeLayout = scaleModeButton.gameObject.AddComponent<LayoutElement>();
+        scaleModeLayout.minHeight = 40f;
+        scaleModeLayout.preferredHeight = 40f;
+        scaleModeLayout.minWidth = 70f;
+        scaleModeLayout.preferredWidth = 70f;
+        scaleModeLayout.flexibleWidth = 1f;
 
         var header = CreateUiRect("Header", panel);
         SetRect(header, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(10f, -48f), new Vector2(-10f, -10f));
@@ -128,6 +164,14 @@ public static class BuildUiPrefabs
         catalogSo.FindProperty("searchInput").objectReferenceValue = searchInput;
         catalogSo.FindProperty("addButton").objectReferenceValue = addButton;
         catalogSo.FindProperty("statusText").objectReferenceValue = statusText;
+        var modeRowProp = catalogSo.FindProperty("editModeRow");
+        if (modeRowProp != null) modeRowProp.objectReferenceValue = editModeRow;
+        var browseModeProp = catalogSo.FindProperty("browseModeButton");
+        if (browseModeProp != null) browseModeProp.objectReferenceValue = browseModeButton;
+        var transformModeProp = catalogSo.FindProperty("transformModeButton");
+        if (transformModeProp != null) transformModeProp.objectReferenceValue = transformModeButton;
+        var scaleModeProp = catalogSo.FindProperty("scaleModeButton");
+        if (scaleModeProp != null) scaleModeProp.objectReferenceValue = scaleModeButton;
         var settingsPanelProp = catalogSo.FindProperty("newObjectSettingsPanel");
         if (settingsPanelProp != null) settingsPanelProp.objectReferenceValue = settingsPanel;
         var settingsNameProp = catalogSo.FindProperty("newObjectNameInput");
@@ -239,11 +283,12 @@ public static class BuildUiPrefabs
         return panel;
     }
 
-    static void BuildDockSync(GameObject root, RectTransform catalogPanel, RectTransform scenarioPanel)
+    static void BuildDockSync(GameObject root, RectTransform catalogPanel, RectTransform scenarioPanel, RectTransform editModeRow)
     {
         var sync = root.AddComponent<UiPanelDockSync>();
         sync.catalogPanel = catalogPanel;
         sync.scenarioPanel = scenarioPanel;
+        sync.editModePanel = editModeRow;
         sync.gap = 0f;
     }
 
