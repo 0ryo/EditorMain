@@ -196,6 +196,8 @@ MonoBehaviour:
   Current: {fileID: 0}
   outline: {fileID: 1070853161}
   registry: {fileID: 0}
+  placementController: {fileID: 0}
+  pickabilityAutoFixInterval: 1
 --- !u!114 &284849286
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -644,7 +646,7 @@ Transform:
   m_GameObject: {fileID: 519420028}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 21.3, z: -10}
+  m_LocalPosition: {x: 0, y: 89.2, z: -10}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -665,7 +667,15 @@ MonoBehaviour:
   orbitSpeed: 3
   panSpeed: 0.01
   zoomSpeed: 10
+  orthographicZoomSpeed: 1.6
+  minDistance: 1.2
+  maxDistance: 120
+  minOrthographicSize: 0.4
+  maxOrthographicSize: 80
+  minPitch: -80
+  maxPitch: 80
   pivot: {fileID: 0}
+  enforceHighSensitivity: 1
 --- !u!1 &599817269
 GameObject:
   m_ObjectHideFlags: 0
