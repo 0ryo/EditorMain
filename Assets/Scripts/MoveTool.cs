@@ -13,12 +13,18 @@ public class MoveTool : MonoBehaviour
     public float gizmoMinAxisLength = 0.45f;
     public float gizmoAxisLengthMultiplier = 0.84f;
     public float moveHandlePickRadiusPixels = 10f;
-    public float rotateHandleScale = 0.16f;
     [Range(0.2f, 0.9f)]
-    public float rotateHandleDistanceRatio = 0.62f;
-    public float rotateHandleMinDistance = 0.12f;
+    public float rotateArcRadiusRatio = 0.62f;
+    public float rotateArcMinRadius = 0.12f;
+    public float rotateArcLineWidthMultiplier = 1.1f;
+    public float rotateArcColliderThicknessMultiplier = 3f;
+    [Min(6)]
+    public int rotateArcLineSegments = 20;
+    [Min(2)]
+    public int rotateArcColliderSegments = 8;
     public float rotateSnapDegrees = 15f;
     public Color moveAxisSelectedColor = new Color(0.2f, 1f, 1f, 1f);
+    public Color rotateArcSelectedColor = new Color(1f, 0.92f, 0.35f, 1f);
 
     static readonly Vector3[] GizmoAxes = { Vector3.right, Vector3.up, Vector3.forward };
     static readonly Color[] GizmoColors =
@@ -45,9 +51,8 @@ public class MoveTool : MonoBehaviour
 
     Transform gizmoRoot;
     readonly LineRenderer[] axisRenderers = new LineRenderer[3];
-    readonly Transform[] rotateMarkers = new Transform[3];
-    readonly Collider[] rotateMarkerColliders = new Collider[3];
-    readonly Material[] rotateMarkerMaterials = new Material[3];
+    readonly LineRenderer[] rotateArcRenderers = new LineRenderer[3];
+    readonly Collider[][] rotateArcColliders = new Collider[3][];
     Material gizmoLineMaterial;
     bool gizmoInitialized;
 
@@ -60,6 +65,7 @@ public class MoveTool : MonoBehaviour
     Vector2 gizmoDragAxisScreenDir;
     float gizmoDragStartPointerProjection;
     float gizmoDragWorldPerPixel;
+    Vector3 gizmoDragAxisWorldDir;
     Plane gizmoRotationPlane;
     Vector3 gizmoRotationStartVector;
 
@@ -138,15 +144,6 @@ public class MoveTool : MonoBehaviour
         {
             Destroy(gizmoLineMaterial);
         }
-
-        for (int i = 0; i < rotateMarkerMaterials.Length; i++)
-        {
-            if (rotateMarkerMaterials[i] != null)
-            {
-                Destroy(rotateMarkerMaterials[i]);
-                rotateMarkerMaterials[i] = null;
-            }
-        }
     }
 
     void HandleKeyboardNudgeMove()
@@ -195,7 +192,8 @@ public class MoveTool : MonoBehaviour
         gizmoDragStartCenter = center;
         gizmoDragStartCenterScreen = centerScreen;
 
-        Vector3 axisDir = AxisFromEnum(axis);
+        Vector3 axisDir = AxisFromEnum(axis, gizmoDragStartRotation);
+        gizmoDragAxisWorldDir = axisDir;
 
         if (dragMode == GizmoDragMode.Move)
         {
@@ -255,8 +253,7 @@ public class MoveTool : MonoBehaviour
                 deltaWorld = Mathf.Round(deltaWorld / gridSize) * gridSize;
             }
 
-            Vector3 axisDir = AxisFromEnum(activeGizmoAxis);
-            sel.Current.transform.position = gizmoDragStartPosition + axisDir * deltaWorld;
+            sel.Current.transform.position = gizmoDragStartPosition + gizmoDragAxisWorldDir * deltaWorld;
             return;
         }
 
@@ -264,7 +261,7 @@ public class MoveTool : MonoBehaviour
         {
             if (!TryRaycastPlane(Input.mousePosition, gizmoRotationPlane, out var point)) return;
 
-            Vector3 axisDir = AxisFromEnum(activeGizmoAxis);
+            Vector3 axisDir = AxisFromEnum(activeGizmoAxis, gizmoDragStartRotation);
             Vector3 currentVector = Vector3.ProjectOnPlane(point - gizmoDragStartCenter, axisDir);
             if (currentVector.sqrMagnitude < 0.00001f) return;
 
@@ -333,7 +330,8 @@ public class MoveTool : MonoBehaviour
         float bestMoveDistance = float.MaxValue;
         for (int i = 0; i < GizmoAxes.Length; i++)
         {
-            if (!TryWorldToScreen(center + GizmoAxes[i] * axisLength, out var tipScreen)) continue;
+            Vector3 axisDir = AxisFromEnum((GizmoAxis)i, sel.Current.transform.rotation);
+            if (!TryWorldToScreen(center + axisDir * axisLength, out var tipScreen)) continue;
 
             float distance = DistanceToSegment(pointer, centerScreen, tipScreen, out float t);
             bool isInsideSegment = t > 0.12f && t < 0.9f;
@@ -364,13 +362,19 @@ public class MoveTool : MonoBehaviour
             var collider = hit.collider;
             if (collider == null) continue;
 
-            for (int i = 0; i < rotateMarkerColliders.Length; i++)
+            for (int i = 0; i < rotateArcColliders.Length; i++)
             {
-                if (rotateMarkerColliders[i] == null) continue;
-                if (collider != rotateMarkerColliders[i]) continue;
+                var colliders = rotateArcColliders[i];
+                if (colliders == null) continue;
 
-                axis = (GizmoAxis)i;
-                return true;
+                for (int j = 0; j < colliders.Length; j++)
+                {
+                    if (colliders[j] == null) continue;
+                    if (collider != colliders[j]) continue;
+
+                    axis = GetRotateArcRotationAxis(i);
+                    return true;
+                }
             }
         }
 
@@ -395,13 +399,17 @@ public class MoveTool : MonoBehaviour
         gizmoRoot.position = center;
         SetGizmoVisible(true);
 
+        float lineWidth = GetScaledGizmoLineWidth(axisLength);
+        float arcLineWidth = lineWidth * Mathf.Max(0.1f, rotateArcLineWidthMultiplier);
+        float arcRadius = GetRotateArcRadius(axisLength);
+        float arcColliderThickness = arcLineWidth * Mathf.Max(1f, rotateArcColliderThicknessMultiplier);
         float headLength = axisLength * 0.22f;
         float headWidth = headLength * 0.66f;
-        float markerSize = Mathf.Max(0.1f, axisLength * rotateHandleScale);
+        Quaternion objectRotation = sel.Current.transform.rotation;
 
         for (int i = 0; i < GizmoAxes.Length; i++)
         {
-            Vector3 axis = GizmoAxes[i];
+            Vector3 axis = AxisFromEnum((GizmoAxis)i, objectRotation);
             Vector3 tip = center + axis * axisLength;
             Vector3 viewDir = cam != null ? (cam.transform.position - tip).normalized : Vector3.up;
             Vector3 side = Vector3.Cross(axis, viewDir);
@@ -419,6 +427,7 @@ public class MoveTool : MonoBehaviour
             var lr = axisRenderers[i];
             if (lr != null)
             {
+                lr.widthMultiplier = lineWidth;
                 lr.positionCount = 5;
                 lr.SetPosition(0, center);
                 lr.SetPosition(1, tip);
@@ -428,14 +437,11 @@ public class MoveTool : MonoBehaviour
                 lr.startColor = axisColor;
                 lr.endColor = axisColor;
             }
+        }
 
-            var marker = rotateMarkers[i];
-            if (marker != null)
-            {
-                marker.position = GetRotateHandleWorld(center, axis, axisLength);
-                marker.localScale = Vector3.one * markerSize;
-                marker.gameObject.SetActive(true);
-            }
+        for (int i = 0; i < rotateArcRenderers.Length; i++)
+        {
+            UpdateRotateArcVisual(i, center, objectRotation, arcRadius, arcLineWidth, arcColliderThickness);
         }
     }
 
@@ -476,31 +482,42 @@ public class MoveTool : MonoBehaviour
             lr.startColor = GizmoColors[i];
             lr.endColor = GizmoColors[i];
             axisRenderers[i] = lr;
+        }
 
-            var markerGo = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            markerGo.name = $"RotateHandle_{(GizmoAxis)i}";
-            markerGo.hideFlags = HideFlags.DontSave;
-            markerGo.transform.SetParent(gizmoRoot, true);
+        int colliderSegments = Mathf.Max(2, rotateArcColliderSegments);
+        for (int i = 0; i < rotateArcRenderers.Length; i++)
+        {
+            var arcGo = new GameObject($"RotateArc_{GetRotateArcLabel(i)}");
+            arcGo.hideFlags = HideFlags.DontSave;
+            arcGo.transform.SetParent(gizmoRoot, false);
 
-            var markerCollider = markerGo.GetComponent<Collider>();
-            if (markerCollider != null)
+            var arcRenderer = arcGo.AddComponent<LineRenderer>();
+            arcRenderer.material = gizmoLineMaterial;
+            arcRenderer.useWorldSpace = true;
+            arcRenderer.widthMultiplier = gizmoLineWidth;
+            arcRenderer.alignment = LineAlignment.View;
+            arcRenderer.shadowCastingMode = ShadowCastingMode.Off;
+            arcRenderer.receiveShadows = false;
+            arcRenderer.textureMode = LineTextureMode.Stretch;
+            arcRenderer.numCapVertices = 0;
+            arcRenderer.sortingOrder = short.MaxValue;
+            arcRenderer.startColor = GizmoColors[(int)GetRotateArcRotationAxis(i)];
+            arcRenderer.endColor = arcRenderer.startColor;
+            rotateArcRenderers[i] = arcRenderer;
+
+            var colliders = new Collider[colliderSegments];
+            for (int j = 0; j < colliderSegments; j++)
             {
-                markerCollider.isTrigger = false;
-                rotateMarkerColliders[i] = markerCollider;
+                var segmentGo = new GameObject($"Collider_{j}");
+                segmentGo.hideFlags = HideFlags.DontSave;
+                segmentGo.transform.SetParent(arcGo.transform, false);
+
+                var boxCollider = segmentGo.AddComponent<BoxCollider>();
+                boxCollider.isTrigger = false;
+                colliders[j] = boxCollider;
             }
 
-            var markerRenderer = markerGo.GetComponent<Renderer>();
-            if (markerRenderer != null)
-            {
-                var markerMaterial = new Material(gizmoLineMaterial);
-                markerMaterial.hideFlags = HideFlags.DontSave;
-                ConfigureAlwaysOnTopMaterial(markerMaterial);
-                SetMaterialColor(markerMaterial, GizmoColors[i]);
-                markerRenderer.material = markerMaterial;
-                rotateMarkerMaterials[i] = markerMaterial;
-            }
-
-            rotateMarkers[i] = markerGo.transform;
+            rotateArcColliders[i] = colliders;
         }
 
         SetGizmoVisible(false);
@@ -527,6 +544,7 @@ public class MoveTool : MonoBehaviour
         gizmoDragAxisScreenDir = Vector2.zero;
         gizmoDragStartPointerProjection = 0f;
         gizmoDragWorldPerPixel = 0f;
+        gizmoDragAxisWorldDir = Vector3.zero;
         gizmoRotationPlane = default;
         gizmoRotationStartVector = Vector3.zero;
     }
@@ -600,27 +618,137 @@ public class MoveTool : MonoBehaviour
         return Vector2.Distance(point, projection);
     }
 
-    static Vector3 AxisFromEnum(GizmoAxis axis)
+    static Vector3 AxisFromEnum(GizmoAxis axis, Quaternion rotation)
     {
-        return axis switch
+        Vector3 localAxis = axis switch
         {
             GizmoAxis.X => Vector3.right,
             GizmoAxis.Y => Vector3.up,
             GizmoAxis.Z => Vector3.forward,
             _ => Vector3.right
         };
+
+        return (rotation * localAxis).normalized;
     }
 
-    Vector3 GetRotateHandleWorld(Vector3 center, Vector3 axis, float axisLength)
+    float GetScaledGizmoLineWidth(float axisLength)
     {
-        float distanceRatio = Mathf.Clamp01(rotateHandleDistanceRatio);
-        float markerRadius = Mathf.Max(0.03f, axisLength * rotateHandleScale * 0.5f);
-        float rawDistance = axisLength * distanceRatio;
-        float minDistanceFromCenter = markerRadius * 1.05f;
-        float maxDistanceFromCenter = Mathf.Max(minDistanceFromCenter, axisLength - (markerRadius * 0.2f));
-        float desiredDistance = Mathf.Max(rawDistance, rotateHandleMinDistance);
-        float handleDistance = Mathf.Clamp(desiredDistance, minDistanceFromCenter, maxDistanceFromCenter);
-        return center + axis * handleDistance;
+        if (gizmoMinAxisLength <= 0.0001f) return gizmoLineWidth;
+        return gizmoLineWidth * (axisLength / gizmoMinAxisLength);
+    }
+
+    void UpdateRotateArcVisual(int arcIndex, Vector3 center, Quaternion objectRotation, float arcRadius, float arcLineWidth, float arcColliderThickness)
+    {
+        var lr = rotateArcRenderers[arcIndex];
+        if (lr == null) return;
+
+        GizmoAxis axisA = GetRotateArcStartAxis(arcIndex);
+        GizmoAxis axisB = GetRotateArcEndAxis(arcIndex);
+        GizmoAxis rotateAxis = GetRotateArcRotationAxis(arcIndex);
+        Vector3 dirA = AxisFromEnum(axisA, objectRotation);
+        Vector3 dirB = AxisFromEnum(axisB, objectRotation);
+        Vector3 normal = AxisFromEnum(rotateAxis, objectRotation);
+
+        int segmentCount = Mathf.Max(6, rotateArcLineSegments);
+        lr.widthMultiplier = arcLineWidth;
+        lr.positionCount = segmentCount + 1;
+        for (int i = 0; i <= segmentCount; i++)
+        {
+            float t = i / (float)segmentCount;
+            lr.SetPosition(i, EvaluateArcPoint(center, dirA, dirB, arcRadius, t));
+        }
+
+        bool isActive = activeGizmoDragMode == GizmoDragMode.Rotate && activeGizmoAxis == rotateAxis;
+        Color arcColor = isActive ? rotateArcSelectedColor : GizmoColors[(int)rotateAxis];
+        lr.startColor = arcColor;
+        lr.endColor = arcColor;
+
+        var colliders = rotateArcColliders[arcIndex];
+        if (colliders == null || colliders.Length == 0) return;
+
+        for (int i = 0; i < colliders.Length; i++)
+        {
+            var box = colliders[i] as BoxCollider;
+            if (box == null) continue;
+
+            float t0 = i / (float)colliders.Length;
+            float t1 = (i + 1) / (float)colliders.Length;
+            Vector3 p0 = EvaluateArcPoint(center, dirA, dirB, arcRadius, t0);
+            Vector3 p1 = EvaluateArcPoint(center, dirA, dirB, arcRadius, t1);
+            Vector3 segment = p1 - p0;
+            float segmentLength = segment.magnitude;
+            if (segmentLength < 0.0001f)
+            {
+                box.enabled = false;
+                continue;
+            }
+
+            box.enabled = true;
+            Transform boxTransform = box.transform;
+            boxTransform.position = (p0 + p1) * 0.5f;
+            boxTransform.rotation = Quaternion.LookRotation(segment.normalized, normal);
+            box.center = Vector3.zero;
+            box.size = new Vector3(arcColliderThickness, arcColliderThickness, segmentLength + (arcColliderThickness * 0.2f));
+        }
+    }
+
+    float GetRotateArcRadius(float axisLength)
+    {
+        float rawRadius = axisLength * Mathf.Clamp01(rotateArcRadiusRatio);
+        float minRadius = Mathf.Max(rotateArcMinRadius, GetScaledGizmoLineWidth(axisLength) * 2f);
+        float maxRadius = Mathf.Max(minRadius, axisLength * 0.98f);
+        return Mathf.Clamp(rawRadius, minRadius, maxRadius);
+    }
+
+    static Vector3 EvaluateArcPoint(Vector3 center, Vector3 axisA, Vector3 axisB, float radius, float t)
+    {
+        float radians = Mathf.Clamp01(t) * Mathf.PI * 0.5f;
+        Vector3 radial = (axisA * Mathf.Cos(radians)) + (axisB * Mathf.Sin(radians));
+        return center + radial.normalized * radius;
+    }
+
+    static GizmoAxis GetRotateArcStartAxis(int arcIndex)
+    {
+        return arcIndex switch
+        {
+            0 => GizmoAxis.X, // XY arc
+            1 => GizmoAxis.Y, // YZ arc
+            2 => GizmoAxis.Z, // ZX arc
+            _ => GizmoAxis.X
+        };
+    }
+
+    static GizmoAxis GetRotateArcEndAxis(int arcIndex)
+    {
+        return arcIndex switch
+        {
+            0 => GizmoAxis.Y, // XY arc
+            1 => GizmoAxis.Z, // YZ arc
+            2 => GizmoAxis.X, // ZX arc
+            _ => GizmoAxis.Y
+        };
+    }
+
+    static GizmoAxis GetRotateArcRotationAxis(int arcIndex)
+    {
+        return arcIndex switch
+        {
+            0 => GizmoAxis.Z, // XY arc -> rotate around Z
+            1 => GizmoAxis.X, // YZ arc -> rotate around X
+            2 => GizmoAxis.Y, // ZX arc -> rotate around Y
+            _ => GizmoAxis.None
+        };
+    }
+
+    static string GetRotateArcLabel(int arcIndex)
+    {
+        return arcIndex switch
+        {
+            0 => "XY",
+            1 => "YZ",
+            2 => "ZX",
+            _ => "Unknown"
+        };
     }
 
     static void ConfigureAlwaysOnTopMaterial(Material material)
@@ -639,21 +767,6 @@ public class MoveTool : MonoBehaviour
     {
         if (material == null || !material.HasProperty(propertyName)) return;
         material.SetInt(propertyName, value);
-    }
-
-    static void SetMaterialColor(Material material, Color color)
-    {
-        if (material == null) return;
-
-        if (material.HasProperty("_Color"))
-        {
-            material.SetColor("_Color", color);
-        }
-
-        if (material.HasProperty("_BaseColor"))
-        {
-            material.SetColor("_BaseColor", color);
-        }
     }
 
     bool IsTransformMode()
