@@ -4,6 +4,9 @@ using UnityEngine.Rendering;
 
 public class MoveTool : MonoBehaviour
 {
+    const float GizmoWidthScale = 0.9f;
+    const float GizmoAlphaScale = 0.9f;
+
     public Camera cam;
     public SelectionService sel;
     public float gridSize = 0.1f;
@@ -51,9 +54,12 @@ public class MoveTool : MonoBehaviour
 
     Transform gizmoRoot;
     readonly LineRenderer[] axisRenderers = new LineRenderer[3];
+    readonly Transform[] axisConeTransforms = new Transform[3];
+    readonly Material[] axisConeMaterials = new Material[3];
     readonly LineRenderer[] rotateArcRenderers = new LineRenderer[3];
     readonly Collider[][] rotateArcColliders = new Collider[3][];
     Material gizmoLineMaterial;
+    Mesh gizmoConeMesh;
     bool gizmoInitialized;
 
     GizmoDragMode activeGizmoDragMode;
@@ -143,6 +149,18 @@ public class MoveTool : MonoBehaviour
         if (gizmoLineMaterial != null)
         {
             Destroy(gizmoLineMaterial);
+        }
+
+        if (gizmoConeMesh != null)
+        {
+            Destroy(gizmoConeMesh);
+        }
+
+        for (int i = 0; i < axisConeMaterials.Length; i++)
+        {
+            if (axisConeMaterials[i] == null) continue;
+            Destroy(axisConeMaterials[i]);
+            axisConeMaterials[i] = null;
         }
     }
 
@@ -399,43 +417,45 @@ public class MoveTool : MonoBehaviour
         gizmoRoot.position = center;
         SetGizmoVisible(true);
 
-        float lineWidth = GetScaledGizmoLineWidth(axisLength);
+        float lineWidth = GetScaledGizmoLineWidth(axisLength) * GizmoWidthScale;
         float arcLineWidth = lineWidth * Mathf.Max(0.1f, rotateArcLineWidthMultiplier);
         float arcRadius = GetRotateArcRadius(axisLength);
         float arcColliderThickness = arcLineWidth * Mathf.Max(1f, rotateArcColliderThicknessMultiplier);
         float headLength = axisLength * 0.22f;
-        float headWidth = headLength * 0.66f;
+        float headWidth = headLength * 0.66f * GizmoWidthScale;
         Quaternion objectRotation = sel.Current.transform.rotation;
 
         for (int i = 0; i < GizmoAxes.Length; i++)
         {
             Vector3 axis = AxisFromEnum((GizmoAxis)i, objectRotation);
             Vector3 tip = center + axis * axisLength;
-            Vector3 viewDir = cam != null ? (cam.transform.position - tip).normalized : Vector3.up;
-            Vector3 side = Vector3.Cross(axis, viewDir);
-            if (side.sqrMagnitude < 0.0001f)
-            {
-                side = Vector3.Cross(axis, Vector3.up);
-            }
-            side.Normalize();
-
-            Vector3 headA = tip - axis * headLength + side * headWidth;
-            Vector3 headB = tip - axis * headLength - side * headWidth;
+            Vector3 shaftEnd = tip - axis * headLength;
             bool isMoveAxisActive = activeGizmoDragMode == GizmoDragMode.Move && activeGizmoAxis == (GizmoAxis)i;
-            Color axisColor = isMoveAxisActive ? moveAxisSelectedColor : GizmoColors[i];
+            Color axisColor = ApplyGizmoOpacity(isMoveAxisActive ? moveAxisSelectedColor : GizmoColors[i]);
 
             var lr = axisRenderers[i];
             if (lr != null)
             {
                 lr.widthMultiplier = lineWidth;
-                lr.positionCount = 5;
+                lr.positionCount = 2;
                 lr.SetPosition(0, center);
-                lr.SetPosition(1, tip);
-                lr.SetPosition(2, headA);
-                lr.SetPosition(3, tip);
-                lr.SetPosition(4, headB);
+                lr.SetPosition(1, shaftEnd);
                 lr.startColor = axisColor;
                 lr.endColor = axisColor;
+            }
+
+            var cone = axisConeTransforms[i];
+            if (cone != null)
+            {
+                cone.position = shaftEnd;
+                cone.rotation = Quaternion.LookRotation(axis);
+                cone.localScale = new Vector3(headWidth, headWidth, headLength);
+            }
+
+            var coneMaterial = axisConeMaterials[i];
+            if (coneMaterial != null)
+            {
+                SetMaterialColor(coneMaterial, axisColor);
             }
         }
 
@@ -457,6 +477,7 @@ public class MoveTool : MonoBehaviour
         gizmoLineMaterial = new Material(shader);
         gizmoLineMaterial.hideFlags = HideFlags.DontSave;
         ConfigureAlwaysOnTopMaterial(gizmoLineMaterial);
+        gizmoConeMesh = CreateConeMesh(10);
 
         var root = new GameObject("RuntimeTransformGizmo");
         root.hideFlags = HideFlags.DontSave;
@@ -482,6 +503,23 @@ public class MoveTool : MonoBehaviour
             lr.startColor = GizmoColors[i];
             lr.endColor = GizmoColors[i];
             axisRenderers[i] = lr;
+
+            var coneGo = new GameObject($"AxisCone_{(GizmoAxis)i}");
+            coneGo.hideFlags = HideFlags.DontSave;
+            coneGo.transform.SetParent(gizmoRoot, false);
+
+            var meshFilter = coneGo.AddComponent<MeshFilter>();
+            meshFilter.sharedMesh = gizmoConeMesh;
+
+            var meshRenderer = coneGo.AddComponent<MeshRenderer>();
+            var coneMaterial = new Material(gizmoLineMaterial);
+            coneMaterial.hideFlags = HideFlags.DontSave;
+            ConfigureAlwaysOnTopMaterial(coneMaterial);
+            SetMaterialColor(coneMaterial, GizmoColors[i]);
+            meshRenderer.sharedMaterial = coneMaterial;
+
+            axisConeTransforms[i] = coneGo.transform;
+            axisConeMaterials[i] = coneMaterial;
         }
 
         int colliderSegments = Mathf.Max(2, rotateArcColliderSegments);
@@ -659,7 +697,8 @@ public class MoveTool : MonoBehaviour
         }
 
         bool isActive = activeGizmoDragMode == GizmoDragMode.Rotate && activeGizmoAxis == rotateAxis;
-        Color arcColor = isActive ? rotateArcSelectedColor : GizmoColors[(int)rotateAxis];
+        Color arcColor = isActive ? DesignTokens.TextSecondary : DesignTokens.Divider;
+        arcColor = ApplyGizmoOpacity(arcColor);
         lr.startColor = arcColor;
         lr.endColor = arcColor;
 
@@ -751,6 +790,65 @@ public class MoveTool : MonoBehaviour
         };
     }
 
+    static Mesh CreateConeMesh(int segmentCount)
+    {
+        int segments = Mathf.Max(8, segmentCount);
+        int vertexCount = segments + 2;
+        var vertices = new Vector3[vertexCount];
+        var normals = new Vector3[vertexCount];
+        var uvs = new Vector2[vertexCount];
+        int triangleCount = segments * 2;
+        var triangles = new int[triangleCount * 3];
+
+        vertices[0] = new Vector3(0f, 0f, 1f); // tip (+Z)
+        normals[0] = Vector3.forward;
+        uvs[0] = new Vector2(0.5f, 1f);
+
+        vertices[1] = Vector3.zero; // base center
+        normals[1] = Vector3.back;
+        uvs[1] = new Vector2(0.5f, 0.5f);
+
+        for (int i = 0; i < segments; i++)
+        {
+            float t = i / (float)segments;
+            float angle = t * Mathf.PI * 2f;
+            float x = Mathf.Cos(angle);
+            float y = Mathf.Sin(angle);
+            int v = i + 2;
+            vertices[v] = new Vector3(x, y, 0f);
+            normals[v] = new Vector3(x, y, 0.35f).normalized;
+            uvs[v] = new Vector2((x + 1f) * 0.5f, (y + 1f) * 0.5f);
+        }
+
+        int tri = 0;
+        for (int i = 0; i < segments; i++)
+        {
+            int current = i + 2;
+            int next = ((i + 1) % segments) + 2;
+
+            // Side triangle
+            triangles[tri++] = 0;
+            triangles[tri++] = current;
+            triangles[tri++] = next;
+
+            // Base triangle (facing -Z)
+            triangles[tri++] = 1;
+            triangles[tri++] = next;
+            triangles[tri++] = current;
+        }
+
+        var mesh = new Mesh
+        {
+            name = "RuntimeGizmoCone"
+        };
+        mesh.vertices = vertices;
+        mesh.normals = normals;
+        mesh.uv = uvs;
+        mesh.triangles = triangles;
+        mesh.RecalculateBounds();
+        return mesh;
+    }
+
     static void ConfigureAlwaysOnTopMaterial(Material material)
     {
         if (material == null) return;
@@ -767,6 +865,27 @@ public class MoveTool : MonoBehaviour
     {
         if (material == null || !material.HasProperty(propertyName)) return;
         material.SetInt(propertyName, value);
+    }
+
+    static void SetMaterialColor(Material material, Color color)
+    {
+        if (material == null) return;
+
+        if (material.HasProperty("_Color"))
+        {
+            material.SetColor("_Color", color);
+        }
+
+        if (material.HasProperty("_BaseColor"))
+        {
+            material.SetColor("_BaseColor", color);
+        }
+    }
+
+    static Color ApplyGizmoOpacity(Color color)
+    {
+        color.a *= GizmoAlphaScale;
+        return color;
     }
 
     bool IsTransformMode()
