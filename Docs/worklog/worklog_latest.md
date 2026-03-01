@@ -3,7 +3,7 @@
 ## 0. 対象範囲
 - ブランチ: `refactor/editmode`
 - 作業テーマ: 編集モード刷新（閲覧/変形/スケール）とランタイムギズモ操作の導入
-- 最終更新: 2026-02-28
+- 最終更新: 2026-03-01
 - 参照コミット:
   - `548c39cb` 編集モードを改善
   - `30f7bb9c` 移動モード中にギズモ表示
@@ -91,3 +91,25 @@
 
 ## 8. アーカイブ
 - 旧 `Docs/worklog/worklog_latest.md` は `Docs/worklog/worklog_2026-02-25_refactor_orbit.md` として退避。
+
+## 9. 追記（2026-03-01: 回転ハンドルロジック変更）
+- 対象: `Assets/Scripts/MoveTool.cs`
+- 回転ハンドルUIを「軸先端の点ハンドル」から「1/4アーク（XY / YZ / ZX）」へ変更。
+  - `LineRenderer` でアークを描画し、複数 `BoxCollider` で当たり判定を構成。
+  - 回転軸マッピングを以下に固定:
+    - XYアーク -> Z軸回転
+    - YZアーク -> X軸回転
+    - ZXアーク -> Y軸回転
+- 回転計算は、ドラッグ開始姿勢基準で毎フレーム再計算する方式を維持。
+  - `Plane(axisDir, center)` へのレイ投影
+  - `Vector3.SignedAngle` による角度差分算出
+  - `Quaternion.AngleAxis` で `startRotation` に反映
+- Undo/Redo設計を維持。
+  - マウス離し時のみ `RotateObjectQuaternionCommand` を積む。
+- 移動矢印の描画方式を「1本の折れ線」から「シャフト + 3Dコーン先端」へ変更し、先端破綻を抑制。
+  - シャフト: `LineRenderer` 2点（`center` -> `tip - axis * headLength`）
+  - 先端: 動的生成したコーンメッシュを `Quaternion.LookRotation(axis)` で配置
+- 見た目調整:
+  - 矢印/弧の太さを従来比 10% 減
+  - 透明度係数を `0.9` に統一
+  - 弧色をテーマグレー（通常: `DesignTokens.Divider` / アクティブ: `DesignTokens.TextSecondary`）に変更
