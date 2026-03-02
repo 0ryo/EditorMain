@@ -1,9 +1,9 @@
-# Worklog運用ルール 🗂️
+# Worklog Operating Rules 🗂️
 
-- 作業開始時（新規チャット）は、必ず `Docs/worklog/worklog_latest.md` を先に読む。
-- ユーザーの明示的な指示がない限り、`Docs/worklog/worklog_latest.md` を書き換えてはならない。
-- ユーザーからworklog更新の指示がある作業完了時は、以下を実施する。
-1) その時点の `Docs/worklog/worklog_latest.md` を、内容に合わせた名前でアーカイブする  
-   例: `Docs/worklog/worklog_ui_prefab移植.md`
-2) 新しい `Docs/worklog/worklog_latest.md` を作成し、今回作業の最新内容を記載する
-3) UI関連の変更がある場合は、`Docs/worklog_UI/` 側の仕様文書も更新する
+- At the start of each work session (new chat), always read `Docs/worklog/worklog_latest.md` first.
+- **Update the worklog whenever the git branch changes.** Specifically:
+  1) Archive the current `Docs/worklog/worklog_latest.md` by renaming it to reflect its contents  
+     Example: `Docs/worklog/worklog_ui_prefab_migration.md`
+  2) Create a new `Docs/worklog/worklog_latest.md` summarizing the work being done on the new branch
+  3) If there are any UI-related changes, also update the specification documents under `Docs/worklog_UI/`
+- Within the same branch, keep updating `Docs/worklog/worklog_latest.md` as work progresses — do not wait for explicit instructions to update it.

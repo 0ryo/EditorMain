@@ -25,7 +25,8 @@ public static class BuildUiPrefabs
         var catalogPanel = BuildCatalogPanel(root.transform);
         var scenarioPanel = BuildScenarioPanel(root.transform);
         var editModeRow = root.transform.Find("EditModeRow") as RectTransform;
-        BuildDockSync(root, catalogPanel, scenarioPanel, editModeRow);
+        var settingsButton = root.transform.Find("Button_Settings") as RectTransform;
+        BuildDockSync(root, catalogPanel, scenarioPanel, editModeRow, settingsButton);
         BuildEventSystem(root.transform);
 
         PrefabUtility.SaveAsPrefabAsset(root, UiRootPrefabPath);
@@ -81,6 +82,15 @@ public static class BuildUiPrefabs
         scaleModeLayout.minWidth = 70f;
         scaleModeLayout.preferredWidth = 70f;
         scaleModeLayout.flexibleWidth = 1f;
+
+        var settingsButton = CreateButton("Button_Settings", parent, "\u2699");
+        SetRect(settingsButton.GetComponent<RectTransform>(), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-82f, -52f), new Vector2(-12f, -12f));
+        var settingsLabel = settingsButton.GetComponentInChildren<Text>(true);
+        if (settingsLabel != null)
+        {
+            settingsLabel.fontSize = 22;
+            settingsLabel.alignment = TextAnchor.MiddleCenter;
+        }
 
         var header = CreateUiRect("Header", panel);
         SetRect(header, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(10f, -48f), new Vector2(-10f, -10f));
@@ -155,7 +165,22 @@ public static class BuildUiPrefabs
         SetRect(labelMain.rectTransform, new Vector2(0f, 0f), new Vector2(1f, 1f), new Vector2(64f, 0f), new Vector2(-10f, 0f));
 
         cardTemplate.gameObject.SetActive(false);
-        var settingsPanel = BuildNewObjectSettingsDialog(parent, out var newObjectNameInput, out var newObjectDescriptionInput, out var newObjectApplyButton, out var newObjectCancelButton, out var newObjectPathText);
+        var settingsPanel = BuildSettingsDialog(
+            parent,
+            out var settingsTabGeneralButton,
+            out var settingsTabIntegrationButton,
+            out var settingsTabAccountButton,
+            out var settingsGeneralContent,
+            out var settingsIntegrationContent,
+            out var settingsAccountContent,
+            out var settingsSensitivitySlider,
+            out var settingsSensitivityValueText,
+            out var settingsIntegrationLinkButton,
+            out var settingsRevertButton,
+            out var settingsApplyButton,
+            out var settingsAccountUserNameText,
+            out var settingsAccountEmailText);
+        var newObjectSettingsPanel = BuildNewObjectSettingsDialog(parent, out var newObjectNameInput, out var newObjectDescriptionInput, out var newObjectApplyButton, out var newObjectCancelButton, out var newObjectPathText);
 
         var catalogUi = panel.gameObject.AddComponent<CatalogUI>();
         var catalogSo = new SerializedObject(catalogUi);
@@ -172,8 +197,38 @@ public static class BuildUiPrefabs
         if (transformModeProp != null) transformModeProp.objectReferenceValue = transformModeButton;
         var scaleModeProp = catalogSo.FindProperty("scaleModeButton");
         if (scaleModeProp != null) scaleModeProp.objectReferenceValue = scaleModeButton;
-        var settingsPanelProp = catalogSo.FindProperty("newObjectSettingsPanel");
+        var settingsButtonProp = catalogSo.FindProperty("settingsButton");
+        if (settingsButtonProp != null) settingsButtonProp.objectReferenceValue = settingsButton;
+        var settingsPanelProp = catalogSo.FindProperty("settingsPanel");
         if (settingsPanelProp != null) settingsPanelProp.objectReferenceValue = settingsPanel;
+        var settingsTabGeneralProp = catalogSo.FindProperty("settingsTabGeneralButton");
+        if (settingsTabGeneralProp != null) settingsTabGeneralProp.objectReferenceValue = settingsTabGeneralButton;
+        var settingsTabIntegrationProp = catalogSo.FindProperty("settingsTabIntegrationButton");
+        if (settingsTabIntegrationProp != null) settingsTabIntegrationProp.objectReferenceValue = settingsTabIntegrationButton;
+        var settingsTabAccountProp = catalogSo.FindProperty("settingsTabAccountButton");
+        if (settingsTabAccountProp != null) settingsTabAccountProp.objectReferenceValue = settingsTabAccountButton;
+        var settingsGeneralContentProp = catalogSo.FindProperty("settingsGeneralContent");
+        if (settingsGeneralContentProp != null) settingsGeneralContentProp.objectReferenceValue = settingsGeneralContent;
+        var settingsIntegrationContentProp = catalogSo.FindProperty("settingsIntegrationContent");
+        if (settingsIntegrationContentProp != null) settingsIntegrationContentProp.objectReferenceValue = settingsIntegrationContent;
+        var settingsAccountContentProp = catalogSo.FindProperty("settingsAccountContent");
+        if (settingsAccountContentProp != null) settingsAccountContentProp.objectReferenceValue = settingsAccountContent;
+        var settingsSensitivitySliderProp = catalogSo.FindProperty("settingsSensitivitySlider");
+        if (settingsSensitivitySliderProp != null) settingsSensitivitySliderProp.objectReferenceValue = settingsSensitivitySlider;
+        var settingsSensitivityValueTextProp = catalogSo.FindProperty("settingsSensitivityValueText");
+        if (settingsSensitivityValueTextProp != null) settingsSensitivityValueTextProp.objectReferenceValue = settingsSensitivityValueText;
+        var settingsIntegrationLinkButtonProp = catalogSo.FindProperty("settingsIntegrationLinkButton");
+        if (settingsIntegrationLinkButtonProp != null) settingsIntegrationLinkButtonProp.objectReferenceValue = settingsIntegrationLinkButton;
+        var settingsRevertButtonProp = catalogSo.FindProperty("settingsRevertButton");
+        if (settingsRevertButtonProp != null) settingsRevertButtonProp.objectReferenceValue = settingsRevertButton;
+        var settingsApplyButtonProp = catalogSo.FindProperty("settingsApplyButton");
+        if (settingsApplyButtonProp != null) settingsApplyButtonProp.objectReferenceValue = settingsApplyButton;
+        var settingsAccountUserNameTextProp = catalogSo.FindProperty("settingsAccountUserNameText");
+        if (settingsAccountUserNameTextProp != null) settingsAccountUserNameTextProp.objectReferenceValue = settingsAccountUserNameText;
+        var settingsAccountEmailTextProp = catalogSo.FindProperty("settingsAccountEmailText");
+        if (settingsAccountEmailTextProp != null) settingsAccountEmailTextProp.objectReferenceValue = settingsAccountEmailText;
+        var newObjectSettingsPanelProp = catalogSo.FindProperty("newObjectSettingsPanel");
+        if (newObjectSettingsPanelProp != null) newObjectSettingsPanelProp.objectReferenceValue = newObjectSettingsPanel;
         var settingsNameProp = catalogSo.FindProperty("newObjectNameInput");
         if (settingsNameProp != null) settingsNameProp.objectReferenceValue = newObjectNameInput;
         var settingsDescProp = catalogSo.FindProperty("newObjectDescriptionInput");
@@ -283,12 +338,13 @@ public static class BuildUiPrefabs
         return panel;
     }
 
-    static void BuildDockSync(GameObject root, RectTransform catalogPanel, RectTransform scenarioPanel, RectTransform editModeRow)
+    static void BuildDockSync(GameObject root, RectTransform catalogPanel, RectTransform scenarioPanel, RectTransform editModeRow, RectTransform settingsButton)
     {
         var sync = root.AddComponent<UiPanelDockSync>();
         sync.catalogPanel = catalogPanel;
         sync.scenarioPanel = scenarioPanel;
         sync.editModePanel = editModeRow;
+        sync.settingsButtonPanel = settingsButton;
         sync.gap = 0f;
     }
 
@@ -572,6 +628,199 @@ public static class BuildUiPrefabs
         cancelButton.GetComponent<Image>().color = DesignTokens.BgSecondary;
         overlay.gameObject.SetActive(false);
         return overlay;
+    }
+
+    static RectTransform BuildSettingsDialog(
+        Transform host,
+        out Button tabGeneralButton,
+        out Button tabIntegrationButton,
+        out Button tabAccountButton,
+        out RectTransform generalContent,
+        out RectTransform integrationContent,
+        out RectTransform accountContent,
+        out Slider sensitivitySlider,
+        out Text sensitivityValueText,
+        out Button integrationLinkButton,
+        out Button revertButton,
+        out Button applyButton,
+        out Text accountUserNameText,
+        out Text accountEmailText)
+    {
+        var overlay = CreateUiRect("Panel_Settings", host);
+        SetRect(overlay, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+        var overlayImage = overlay.gameObject.AddComponent<Image>();
+        var overlayColor = DesignTokens.TextPrimary;
+        overlayColor.a = 0.32f;
+        overlayImage.color = overlayColor;
+        overlayImage.raycastTarget = true;
+
+        var window = CreateUiRect("Window", overlay);
+        window.anchorMin = new Vector2(0.5f, 0.5f);
+        window.anchorMax = new Vector2(0.5f, 0.5f);
+        window.pivot = new Vector2(0.5f, 0.5f);
+        window.sizeDelta = new Vector2(760f, 460f);
+        window.anchoredPosition = Vector2.zero;
+        window.gameObject.AddComponent<Image>().color = DesignTokens.Surface;
+
+        var tabs = CreateUiRect("Tabs", window);
+        SetRect(tabs, new Vector2(0f, 0f), new Vector2(0f, 1f), new Vector2(16f, 16f), new Vector2(172f, -16f));
+        tabs.gameObject.AddComponent<Image>().color = DesignTokens.BgPrimary;
+        var tabsLayout = tabs.gameObject.AddComponent<VerticalLayoutGroup>();
+        tabsLayout.spacing = 8f;
+        tabsLayout.padding = new RectOffset(8, 8, 8, 8);
+        tabsLayout.childControlWidth = true;
+        tabsLayout.childControlHeight = false;
+        tabsLayout.childForceExpandWidth = true;
+        tabsLayout.childForceExpandHeight = false;
+
+        tabGeneralButton = CreateButton("Tab_General", tabs, "\u4e00\u822c");
+        var tabGeneralLayout = tabGeneralButton.gameObject.AddComponent<LayoutElement>();
+        tabGeneralLayout.minHeight = 40f;
+        tabGeneralLayout.preferredHeight = 40f;
+
+        tabIntegrationButton = CreateButton("Tab_Integration", tabs, "\u9023\u643a");
+        var tabIntegrationLayout = tabIntegrationButton.gameObject.AddComponent<LayoutElement>();
+        tabIntegrationLayout.minHeight = 40f;
+        tabIntegrationLayout.preferredHeight = 40f;
+
+        tabAccountButton = CreateButton("Tab_Account", tabs, "\u30a2\u30ab\u30a6\u30f3\u30c8");
+        var tabAccountLayout = tabAccountButton.gameObject.AddComponent<LayoutElement>();
+        tabAccountLayout.minHeight = 40f;
+        tabAccountLayout.preferredHeight = 40f;
+
+        var content = CreateUiRect("Content", window);
+        SetRect(content, Vector2.zero, Vector2.one, new Vector2(188f, 16f), new Vector2(-16f, -16f));
+        content.gameObject.AddComponent<Image>().color = DesignTokens.BgPrimary;
+
+        generalContent = CreateUiRect("Content_General", content);
+        SetRect(generalContent, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+        var sensitivityTitle = CreateText("Text_Title", generalContent, "\u8996\u70b9\u64cd\u4f5c\u611f\u5ea6");
+        sensitivityTitle.fontSize = 16;
+        SetRect(sensitivityTitle.rectTransform, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(24f, -56f), new Vector2(-24f, -24f));
+
+        var sliderRow = CreateUiRect("SliderRow", generalContent);
+        SetRect(sliderRow, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(24f, -116f), new Vector2(-24f, -76f));
+        sensitivitySlider = CreateSlider("Slider_Sensitivity", sliderRow);
+        SetRect(sensitivitySlider.GetComponent<RectTransform>(), Vector2.zero, Vector2.one, new Vector2(0f, 0f), new Vector2(-90f, 0f));
+        sensitivitySlider.minValue = 0.2f;
+        sensitivitySlider.maxValue = 2.5f;
+        sensitivitySlider.value = 1f;
+        sensitivityValueText = CreateText("Text_SensitivityValue", sliderRow, "1.00x");
+        sensitivityValueText.fontSize = 14;
+        sensitivityValueText.color = DesignTokens.TextSecondary;
+        sensitivityValueText.alignment = TextAnchor.MiddleRight;
+        SetRect(sensitivityValueText.rectTransform, new Vector2(1f, 0f), new Vector2(1f, 1f), new Vector2(-84f, 0f), new Vector2(0f, 0f));
+
+        integrationContent = CreateUiRect("Content_Integration", content);
+        SetRect(integrationContent, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+        integrationLinkButton = CreateButton("Button_WebLink", integrationContent, "\u3053\u3053\u304b\u3089\u30a6\u30a7\u30d6\u30b5\u30a4\u30c8\u3078\u9077\u79fb");
+        SetRect(integrationLinkButton.GetComponent<RectTransform>(), new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(24f, -80f), new Vector2(-24f, -32f));
+        integrationLinkButton.GetComponent<Image>().color = DesignTokens.BgSecondary;
+        var linkLabel = integrationLinkButton.GetComponentInChildren<Text>(true);
+        if (linkLabel != null)
+        {
+            linkLabel.color = DesignTokens.Accent;
+            linkLabel.fontSize = 16;
+            linkLabel.alignment = TextAnchor.MiddleCenter;
+        }
+
+        revertButton = CreateButton("Button_RevertSettings", window, "\u5143\u306b\u623b\u3059");
+        var revertButtonRt = revertButton.GetComponent<RectTransform>();
+        revertButtonRt.anchorMin = new Vector2(1f, 0f);
+        revertButtonRt.anchorMax = new Vector2(1f, 0f);
+        revertButtonRt.pivot = new Vector2(1f, 0f);
+        revertButtonRt.sizeDelta = new Vector2(136f, 40f);
+        revertButtonRt.anchoredPosition = new Vector2(-160f, 16f);
+        revertButton.GetComponent<Image>().color = DesignTokens.BgSecondary;
+        var revertLabel = revertButton.GetComponentInChildren<Text>(true);
+        if (revertLabel != null)
+        {
+            revertLabel.color = DesignTokens.TextPrimary;
+            revertLabel.fontSize = 14;
+            revertLabel.alignment = TextAnchor.MiddleCenter;
+        }
+
+        applyButton = CreateButton("Button_ApplySettings", window, "\u9069\u7528");
+        var applyButtonRt = applyButton.GetComponent<RectTransform>();
+        applyButtonRt.anchorMin = new Vector2(1f, 0f);
+        applyButtonRt.anchorMax = new Vector2(1f, 0f);
+        applyButtonRt.pivot = new Vector2(1f, 0f);
+        applyButtonRt.sizeDelta = new Vector2(136f, 40f);
+        applyButtonRt.anchoredPosition = new Vector2(-16f, 16f);
+        applyButton.GetComponent<Image>().color = DesignTokens.Accent;
+        var applyLabel = applyButton.GetComponentInChildren<Text>(true);
+        if (applyLabel != null)
+        {
+            applyLabel.color = DesignTokens.Surface;
+            applyLabel.fontSize = 14;
+            applyLabel.alignment = TextAnchor.MiddleCenter;
+        }
+
+        accountContent = CreateUiRect("Content_Account", content);
+        SetRect(accountContent, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+        var accountIcon = CreateText("Text_AvatarIcon", accountContent, "\u25CF");
+        accountIcon.fontSize = 72;
+        accountIcon.alignment = TextAnchor.MiddleCenter;
+        accountIcon.color = DesignTokens.Accent;
+        accountIcon.rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
+        accountIcon.rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
+        accountIcon.rectTransform.pivot = new Vector2(0.5f, 0.5f);
+        accountIcon.rectTransform.sizeDelta = new Vector2(120f, 120f);
+        accountIcon.rectTransform.anchoredPosition = new Vector2(0f, 80f);
+
+        accountUserNameText = CreateText("Text_UserName", accountContent, "User Name");
+        accountUserNameText.fontSize = 28;
+        accountUserNameText.alignment = TextAnchor.MiddleCenter;
+        accountUserNameText.rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
+        accountUserNameText.rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
+        accountUserNameText.rectTransform.pivot = new Vector2(0.5f, 0.5f);
+        accountUserNameText.rectTransform.sizeDelta = new Vector2(360f, 44f);
+        accountUserNameText.rectTransform.anchoredPosition = new Vector2(0f, -6f);
+
+        accountEmailText = CreateText("Text_Email", accountContent, "user@example.com");
+        accountEmailText.fontSize = 14;
+        accountEmailText.color = DesignTokens.TextSecondary;
+        accountEmailText.alignment = TextAnchor.MiddleCenter;
+        accountEmailText.rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
+        accountEmailText.rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
+        accountEmailText.rectTransform.pivot = new Vector2(0.5f, 0.5f);
+        accountEmailText.rectTransform.sizeDelta = new Vector2(360f, 32f);
+        accountEmailText.rectTransform.anchoredPosition = new Vector2(0f, -42f);
+
+        integrationContent.gameObject.SetActive(false);
+        accountContent.gameObject.SetActive(false);
+        revertButton.gameObject.SetActive(false);
+        applyButton.gameObject.SetActive(false);
+        overlay.gameObject.SetActive(false);
+        return overlay;
+    }
+
+    static Slider CreateSlider(string name, Transform parent)
+    {
+        var root = CreateUiRect(name, parent);
+        root.gameObject.AddComponent<Image>().color = DesignTokens.BgSecondary;
+        var slider = root.gameObject.AddComponent<Slider>();
+
+        var fillArea = CreateUiRect("Fill Area", root);
+        SetRect(fillArea, Vector2.zero, Vector2.one, new Vector2(8f, 10f), new Vector2(-24f, -10f));
+        var fill = CreateUiRect("Fill", fillArea);
+        SetRect(fill, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+        fill.gameObject.AddComponent<Image>().color = DesignTokens.Accent;
+
+        var handleArea = CreateUiRect("Handle Slide Area", root);
+        SetRect(handleArea, Vector2.zero, Vector2.one, new Vector2(8f, 0f), new Vector2(-8f, 0f));
+        var handle = CreateUiRect("Handle", handleArea);
+        handle.anchorMin = new Vector2(0.5f, 0.5f);
+        handle.anchorMax = new Vector2(0.5f, 0.5f);
+        handle.sizeDelta = new Vector2(18f, 30f);
+        var handleImage = handle.gameObject.AddComponent<Image>();
+        handleImage.color = DesignTokens.Surface;
+
+        slider.fillRect = fill;
+        slider.handleRect = handle;
+        slider.targetGraphic = handleImage;
+        slider.direction = Slider.Direction.LeftToRight;
+        return slider;
     }
     static Button CreateButton(string name, Transform parent, string label)
     {

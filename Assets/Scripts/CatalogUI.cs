@@ -24,6 +24,22 @@ public class CatalogUI : MonoBehaviour
     [SerializeField] Button browseModeButton;
     [SerializeField] Button transformModeButton;
     [SerializeField] Button scaleModeButton;
+    [SerializeField] Button settingsButton;
+    [SerializeField] RectTransform settingsPanel;
+    [SerializeField] Button settingsTabGeneralButton;
+    [SerializeField] Button settingsTabIntegrationButton;
+    [SerializeField] Button settingsTabAccountButton;
+    [SerializeField] RectTransform settingsWindow;
+    [SerializeField] RectTransform settingsGeneralContent;
+    [SerializeField] RectTransform settingsIntegrationContent;
+    [SerializeField] RectTransform settingsAccountContent;
+    [SerializeField] Slider settingsSensitivitySlider;
+    [SerializeField] Text settingsSensitivityValueText;
+    [SerializeField] Button settingsIntegrationLinkButton;
+    [SerializeField] Button settingsRevertButton;
+    [SerializeField] Button settingsApplyButton;
+    [SerializeField] Text settingsAccountUserNameText;
+    [SerializeField] Text settingsAccountEmailText;
     [SerializeField] RectTransform newObjectSettingsPanel;
     [SerializeField] InputField newObjectNameInput;
     [SerializeField] InputField newObjectDescriptionInput;
@@ -48,6 +64,23 @@ public class CatalogUI : MonoBehaviour
     GameObject pendingImportedPrefab;
     string pendingImportedAssetPath;
     EditModeService boundEditModeService;
+    EditorCameraController settingsCameraController;
+    float settingsBaseOrbitSpeed = -1f;
+    float settingsBasePanSpeed = -1f;
+    float settingsBaseZoomSpeed = -1f;
+    float settingsBaseOrthographicZoomSpeed = -1f;
+    float settingsCommittedSensitivityScale = 1f;
+    float settingsPendingSensitivityScale = 1f;
+    bool settingsHasPendingChanges;
+    bool settingsInitializingUi;
+    SettingsTab activeSettingsTab = SettingsTab.General;
+
+    enum SettingsTab
+    {
+        General,
+        Integration,
+        Account
+    }
 
     class CardState
     {
@@ -160,6 +193,54 @@ public class CatalogUI : MonoBehaviour
             scaleModeButton.onClick.AddListener(OnClickModeScale);
         }
 
+        if (settingsButton != null)
+        {
+            settingsButton.onClick.RemoveListener(OnClickSettings);
+            settingsButton.onClick.AddListener(OnClickSettings);
+        }
+
+        if (settingsTabGeneralButton != null)
+        {
+            settingsTabGeneralButton.onClick.RemoveListener(OnClickSettingsTabGeneral);
+            settingsTabGeneralButton.onClick.AddListener(OnClickSettingsTabGeneral);
+        }
+
+        if (settingsTabIntegrationButton != null)
+        {
+            settingsTabIntegrationButton.onClick.RemoveListener(OnClickSettingsTabIntegration);
+            settingsTabIntegrationButton.onClick.AddListener(OnClickSettingsTabIntegration);
+        }
+
+        if (settingsTabAccountButton != null)
+        {
+            settingsTabAccountButton.onClick.RemoveListener(OnClickSettingsTabAccount);
+            settingsTabAccountButton.onClick.AddListener(OnClickSettingsTabAccount);
+        }
+
+        if (settingsSensitivitySlider != null)
+        {
+            settingsSensitivitySlider.onValueChanged.RemoveListener(OnSettingsSensitivityChanged);
+            settingsSensitivitySlider.onValueChanged.AddListener(OnSettingsSensitivityChanged);
+        }
+
+        if (settingsIntegrationLinkButton != null)
+        {
+            settingsIntegrationLinkButton.onClick.RemoveListener(OnClickSettingsIntegrationLink);
+            settingsIntegrationLinkButton.onClick.AddListener(OnClickSettingsIntegrationLink);
+        }
+
+        if (settingsRevertButton != null)
+        {
+            settingsRevertButton.onClick.RemoveListener(OnClickSettingsRevert);
+            settingsRevertButton.onClick.AddListener(OnClickSettingsRevert);
+        }
+
+        if (settingsApplyButton != null)
+        {
+            settingsApplyButton.onClick.RemoveListener(OnClickSettingsApply);
+            settingsApplyButton.onClick.AddListener(OnClickSettingsApply);
+        }
+
         if (addButton != null)
         {
             addButton.onClick.RemoveListener(OnClickAdd);
@@ -179,6 +260,8 @@ public class CatalogUI : MonoBehaviour
         }
 
         RefreshModeButtons();
+        RefreshSettingsTabs();
+        UpdateSettingsActionButtonsVisibility();
     }
 
     void RebuildCards()
@@ -271,6 +354,14 @@ public class CatalogUI : MonoBehaviour
         {
             UiRoundedTheme.ApplyToHierarchy(editModeRow, cornerRadius);
         }
+        if (settingsButton != null)
+        {
+            UiRoundedTheme.ApplyToHierarchy(settingsButton.transform, cornerRadius);
+        }
+        if (settingsPanel != null)
+        {
+            UiRoundedTheme.ApplyToHierarchy(settingsPanel, cornerRadius);
+        }
     }
 
     void EnsureRuntimeCatalogControls()
@@ -279,6 +370,8 @@ public class CatalogUI : MonoBehaviour
         if (panel == null) return;
 
         EnsureRuntimeEditModeButtons(panel);
+        EnsureRuntimeSettingsButton(panel);
+        EnsureRuntimeSettingsDialog(panel);
         EnsureEditModeDockSync(panel);
         EnsureRuntimeSearchInput(panel);
         EnsureRuntimeBottomAddButton(panel);
@@ -301,6 +394,11 @@ public class CatalogUI : MonoBehaviour
         if (dockSync.editModePanel == null)
         {
             dockSync.editModePanel = editModeRow;
+        }
+
+        if (settingsButton != null && dockSync.settingsButtonPanel == null)
+        {
+            dockSync.settingsButtonPanel = settingsButton.transform as RectTransform;
         }
     }
 
@@ -417,6 +515,639 @@ public class CatalogUI : MonoBehaviour
         label.alignment = TextAnchor.MiddleCenter;
         label.text = labelText;
         label.color = DesignTokens.TextPrimary;
+    }
+
+    void EnsureRuntimeSettingsButton(RectTransform panel)
+    {
+        if (panel == null) return;
+        var host = panel.root as RectTransform;
+        if (host == null) host = panel;
+
+        if (settingsButton == null)
+        {
+            var found = host.Find("Button_Settings") as RectTransform;
+            if (found == null) found = host.Find("Button_Settings_Runtime") as RectTransform;
+            if (found == null && panel != host)
+            {
+                found = panel.Find("Button_Settings") as RectTransform;
+                if (found == null) found = panel.Find("Button_Settings_Runtime") as RectTransform;
+            }
+
+            if (found != null)
+            {
+                settingsButton = found.GetComponent<Button>();
+                if (settingsButton != null && found.parent != host)
+                {
+                    found.SetParent(host, false);
+                }
+            }
+        }
+
+        if (settingsButton == null)
+        {
+            var go = new GameObject("Button_Settings_Runtime", typeof(RectTransform), typeof(Image), typeof(Button));
+            var rt = go.GetComponent<RectTransform>();
+            rt.SetParent(host, false);
+            settingsButton = go.GetComponent<Button>();
+        }
+
+        var buttonRt = settingsButton.transform as RectTransform;
+        if (buttonRt != null)
+        {
+            buttonRt.anchorMin = new Vector2(1f, 1f);
+            buttonRt.anchorMax = new Vector2(1f, 1f);
+            buttonRt.pivot = new Vector2(1f, 1f);
+            buttonRt.offsetMin = new Vector2(-82f, -52f);
+            buttonRt.offsetMax = new Vector2(-12f, -12f);
+        }
+
+        EnsureSettingsButtonAppearance(settingsButton);
+    }
+
+    void EnsureSettingsButtonAppearance(Button button)
+    {
+        if (button == null) return;
+
+        var image = button.GetComponent<Image>();
+        if (image != null)
+        {
+            image.color = DesignTokens.BgSecondary;
+            button.targetGraphic = image;
+        }
+
+        var label = button.GetComponentInChildren<Text>(true);
+        if (label == null)
+        {
+            var labelGo = new GameObject("Label", typeof(RectTransform), typeof(Text));
+            var labelRt = labelGo.GetComponent<RectTransform>();
+            labelRt.SetParent(button.transform, false);
+            labelRt.anchorMin = Vector2.zero;
+            labelRt.anchorMax = Vector2.one;
+            labelRt.offsetMin = Vector2.zero;
+            labelRt.offsetMax = Vector2.zero;
+            label = labelGo.GetComponent<Text>();
+        }
+
+        label.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        label.fontSize = 22;
+        label.alignment = TextAnchor.MiddleCenter;
+        label.text = "\u2699";
+        label.color = DesignTokens.TextPrimary;
+    }
+
+    void EnsureRuntimeSettingsDialog(RectTransform panel)
+    {
+        var host = ResolveSettingsHost(panel);
+        if (host == null) return;
+
+        var existing = FindExistingSettingsPanel(panel, host);
+        RectTransform overlayRt = existing;
+        if (overlayRt == null)
+        {
+            var overlayRoot = new GameObject("Panel_Settings", typeof(RectTransform), typeof(Image));
+            overlayRt = overlayRoot.GetComponent<RectTransform>();
+            overlayRt.SetParent(host, false);
+        }
+        else if (overlayRt.parent != host)
+        {
+            overlayRt.SetParent(host, false);
+        }
+
+        settingsPanel = overlayRt;
+        ApplySettingsPanelDesign(settingsPanel);
+        BindSettingsReferences(settingsPanel);
+        settingsPanel.gameObject.SetActive(false);
+    }
+
+    RectTransform ResolveSettingsHost(RectTransform panel)
+    {
+        if (panel == null) return null;
+        var root = panel.root as RectTransform;
+        return root != null ? root : panel;
+    }
+
+    RectTransform FindExistingSettingsPanel(RectTransform panel, RectTransform host)
+    {
+        if (settingsPanel != null) return settingsPanel;
+
+        if (host != null)
+        {
+            var inHost = host.Find("Panel_Settings") as RectTransform;
+            if (inHost == null) inHost = host.Find("Panel_Settings_Runtime") as RectTransform;
+            if (inHost != null) return inHost;
+        }
+
+        if (panel != null && panel != host)
+        {
+            var inPanel = panel.Find("Panel_Settings") as RectTransform;
+            if (inPanel == null) inPanel = panel.Find("Panel_Settings_Runtime") as RectTransform;
+            if (inPanel != null) return inPanel;
+        }
+
+        return null;
+    }
+
+    void BindSettingsReferences(RectTransform overlayRt)
+    {
+        if (overlayRt == null) return;
+
+        var generalTabTr = overlayRt.Find("Window/Tabs/Tab_General");
+        if (generalTabTr != null) settingsTabGeneralButton = generalTabTr.GetComponent<Button>();
+
+        var integrationTabTr = overlayRt.Find("Window/Tabs/Tab_Integration");
+        if (integrationTabTr != null) settingsTabIntegrationButton = integrationTabTr.GetComponent<Button>();
+
+        var accountTabTr = overlayRt.Find("Window/Tabs/Tab_Account");
+        if (accountTabTr != null) settingsTabAccountButton = accountTabTr.GetComponent<Button>();
+
+        settingsGeneralContent = overlayRt.Find("Window/Content/Content_General") as RectTransform;
+        settingsIntegrationContent = overlayRt.Find("Window/Content/Content_Integration") as RectTransform;
+        settingsAccountContent = overlayRt.Find("Window/Content/Content_Account") as RectTransform;
+        settingsWindow = overlayRt.Find("Window") as RectTransform;
+
+        var sliderTr = overlayRt.Find("Window/Content/Content_General/SliderRow/Slider_Sensitivity");
+        if (sliderTr != null) settingsSensitivitySlider = sliderTr.GetComponent<Slider>();
+
+        var sliderValueTr = overlayRt.Find("Window/Content/Content_General/SliderRow/Text_SensitivityValue");
+        if (sliderValueTr != null) settingsSensitivityValueText = sliderValueTr.GetComponent<Text>();
+
+        var linkTr = overlayRt.Find("Window/Content/Content_Integration/Button_WebLink");
+        if (linkTr != null) settingsIntegrationLinkButton = linkTr.GetComponent<Button>();
+
+        var revertTr = overlayRt.Find("Window/Button_RevertSettings");
+        if (revertTr != null) settingsRevertButton = revertTr.GetComponent<Button>();
+
+        var applyTr = overlayRt.Find("Window/Button_ApplySettings");
+        if (applyTr != null) settingsApplyButton = applyTr.GetComponent<Button>();
+
+        var userNameTr = overlayRt.Find("Window/Content/Content_Account/Text_UserName");
+        if (userNameTr != null) settingsAccountUserNameText = userNameTr.GetComponent<Text>();
+
+        var emailTr = overlayRt.Find("Window/Content/Content_Account/Text_Email");
+        if (emailTr != null) settingsAccountEmailText = emailTr.GetComponent<Text>();
+    }
+
+    void ApplySettingsPanelDesign(RectTransform overlayRt)
+    {
+        if (overlayRt == null) return;
+
+        overlayRt.anchorMin = Vector2.zero;
+        overlayRt.anchorMax = Vector2.one;
+        overlayRt.pivot = new Vector2(0.5f, 0.5f);
+        overlayRt.offsetMin = Vector2.zero;
+        overlayRt.offsetMax = Vector2.zero;
+
+        var overlayImage = overlayRt.GetComponent<Image>();
+        if (overlayImage == null) overlayImage = overlayRt.gameObject.AddComponent<Image>();
+        var overlayColor = DesignTokens.TextPrimary;
+        overlayColor.a = 0.32f;
+        overlayImage.color = overlayColor;
+        overlayImage.raycastTarget = true;
+
+        var windowRt = FindOrCreateSettingsRect(overlayRt, "Window");
+        settingsWindow = windowRt;
+        windowRt.anchorMin = new Vector2(0.5f, 0.5f);
+        windowRt.anchorMax = new Vector2(0.5f, 0.5f);
+        windowRt.pivot = new Vector2(0.5f, 0.5f);
+        windowRt.sizeDelta = new Vector2(760f, 460f);
+        windowRt.anchoredPosition = Vector2.zero;
+
+        var windowImage = windowRt.GetComponent<Image>();
+        if (windowImage == null) windowImage = windowRt.gameObject.AddComponent<Image>();
+        windowImage.color = DesignTokens.Surface;
+
+        var tabsRt = FindOrCreateSettingsRect(windowRt, "Tabs");
+        tabsRt.anchorMin = new Vector2(0f, 0f);
+        tabsRt.anchorMax = new Vector2(0f, 1f);
+        tabsRt.pivot = new Vector2(0f, 1f);
+        tabsRt.offsetMin = new Vector2(16f, 16f);
+        tabsRt.offsetMax = new Vector2(172f, -16f);
+        var tabsImage = tabsRt.GetComponent<Image>();
+        if (tabsImage == null) tabsImage = tabsRt.gameObject.AddComponent<Image>();
+        tabsImage.color = DesignTokens.BgPrimary;
+        var tabsLayout = tabsRt.GetComponent<VerticalLayoutGroup>();
+        if (tabsLayout == null) tabsLayout = tabsRt.gameObject.AddComponent<VerticalLayoutGroup>();
+        tabsLayout.spacing = 8f;
+        tabsLayout.padding = new RectOffset(8, 8, 8, 8);
+        tabsLayout.childControlWidth = true;
+        tabsLayout.childControlHeight = false;
+        tabsLayout.childForceExpandWidth = true;
+        tabsLayout.childForceExpandHeight = false;
+
+        settingsTabGeneralButton = EnsureSettingsTabButton(tabsRt, settingsTabGeneralButton, "Tab_General", "一般");
+        settingsTabIntegrationButton = EnsureSettingsTabButton(tabsRt, settingsTabIntegrationButton, "Tab_Integration", "連携");
+        settingsTabAccountButton = EnsureSettingsTabButton(tabsRt, settingsTabAccountButton, "Tab_Account", "アカウント");
+
+        var contentRt = FindOrCreateSettingsRect(windowRt, "Content");
+        contentRt.anchorMin = new Vector2(0f, 0f);
+        contentRt.anchorMax = new Vector2(1f, 1f);
+        contentRt.pivot = new Vector2(0f, 1f);
+        contentRt.offsetMin = new Vector2(188f, 16f);
+        contentRt.offsetMax = new Vector2(-16f, -16f);
+        var contentImage = contentRt.GetComponent<Image>();
+        if (contentImage == null) contentImage = contentRt.gameObject.AddComponent<Image>();
+        contentImage.color = DesignTokens.BgPrimary;
+
+        settingsGeneralContent = FindOrCreateSettingsRect(contentRt, "Content_General");
+        settingsIntegrationContent = FindOrCreateSettingsRect(contentRt, "Content_Integration");
+        settingsAccountContent = FindOrCreateSettingsRect(contentRt, "Content_Account");
+
+        EnsureGeneralSettingsContent(settingsGeneralContent);
+        EnsureIntegrationSettingsContent(settingsIntegrationContent);
+        EnsureAccountSettingsContent(settingsAccountContent);
+        settingsRevertButton = FindOrCreateSettingsButton(windowRt, settingsRevertButton, "Button_RevertSettings", "\u5143\u306b\u623b\u3059");
+        if (settingsRevertButton != null)
+        {
+            var revertRt = settingsRevertButton.transform as RectTransform;
+            if (revertRt != null)
+            {
+                revertRt.anchorMin = new Vector2(1f, 0f);
+                revertRt.anchorMax = new Vector2(1f, 0f);
+                revertRt.pivot = new Vector2(1f, 0f);
+                revertRt.sizeDelta = new Vector2(136f, 40f);
+                revertRt.anchoredPosition = new Vector2(-160f, 16f);
+            }
+
+            var revertImage = settingsRevertButton.GetComponent<Image>();
+            if (revertImage != null) revertImage.color = DesignTokens.BgSecondary;
+
+            var revertLabel = settingsRevertButton.GetComponentInChildren<Text>(true);
+            if (revertLabel != null)
+            {
+                revertLabel.fontSize = 14;
+                revertLabel.alignment = TextAnchor.MiddleCenter;
+                revertLabel.color = DesignTokens.TextPrimary;
+                revertLabel.text = "\u5143\u306b\u623b\u3059";
+            }
+        }
+        settingsApplyButton = FindOrCreateSettingsButton(windowRt, settingsApplyButton, "Button_ApplySettings", "\u9069\u7528");
+        if (settingsApplyButton != null)
+        {
+            var applyRt = settingsApplyButton.transform as RectTransform;
+            if (applyRt != null)
+            {
+                applyRt.anchorMin = new Vector2(1f, 0f);
+                applyRt.anchorMax = new Vector2(1f, 0f);
+                applyRt.pivot = new Vector2(1f, 0f);
+                applyRt.sizeDelta = new Vector2(136f, 40f);
+                applyRt.anchoredPosition = new Vector2(-16f, 16f);
+            }
+
+            var applyImage = settingsApplyButton.GetComponent<Image>();
+            if (applyImage != null) applyImage.color = DesignTokens.Accent;
+
+            var applyLabel = settingsApplyButton.GetComponentInChildren<Text>(true);
+            if (applyLabel != null)
+            {
+                applyLabel.fontSize = 14;
+                applyLabel.alignment = TextAnchor.MiddleCenter;
+                applyLabel.color = DesignTokens.Surface;
+                applyLabel.text = "\u9069\u7528";
+            }
+        }
+        BindSettingsReferences(overlayRt);
+
+        EnsureSettingsCameraBinding();
+        settingsPendingSensitivityScale = Mathf.Clamp(settingsPendingSensitivityScale, 0.2f, 2.5f);
+
+        if (settingsSensitivitySlider != null)
+        {
+            settingsSensitivitySlider.minValue = 0.2f;
+            settingsSensitivitySlider.maxValue = 2.5f;
+        }
+
+        if (settingsAccountUserNameText != null)
+        {
+            settingsAccountUserNameText.text = "User Name";
+            settingsAccountUserNameText.fontSize = 28;
+            settingsAccountUserNameText.color = DesignTokens.TextPrimary;
+            settingsAccountUserNameText.alignment = TextAnchor.MiddleCenter;
+        }
+
+        if (settingsAccountEmailText != null)
+        {
+            settingsAccountEmailText.text = "user@example.com";
+            settingsAccountEmailText.fontSize = 14;
+            settingsAccountEmailText.color = DesignTokens.TextSecondary;
+            settingsAccountEmailText.alignment = TextAnchor.MiddleCenter;
+        }
+
+        settingsInitializingUi = true;
+        RefreshSettingsTabs();
+        if (settingsSensitivitySlider != null)
+        {
+            settingsSensitivitySlider.SetValueWithoutNotify(settingsPendingSensitivityScale);
+        }
+        UpdateSensitivityValueText(settingsPendingSensitivityScale);
+        settingsInitializingUi = false;
+        SetSettingsDirty(!Mathf.Approximately(settingsPendingSensitivityScale, settingsCommittedSensitivityScale));
+
+        EnsureSettingsOverlayCloseHandler(overlayRt, windowRt);
+
+        UiRoundedTheme.ApplyToHierarchy(overlayRt, cornerRadius);
+    }
+
+    void EnsureSettingsOverlayCloseHandler(RectTransform overlayRt, RectTransform windowRt)
+    {
+        if (overlayRt == null || windowRt == null) return;
+
+        var closer = overlayRt.GetComponent<SettingsOverlayClickCatcher>();
+        if (closer == null) closer = overlayRt.gameObject.AddComponent<SettingsOverlayClickCatcher>();
+        closer.Configure(this, windowRt);
+    }
+
+    RectTransform FindOrCreateSettingsRect(Transform parent, string name)
+    {
+        if (parent == null) return null;
+
+        var found = parent.Find(name) as RectTransform;
+        if (found != null) return found;
+
+        var go = new GameObject(name, typeof(RectTransform));
+        var rt = go.GetComponent<RectTransform>();
+        rt.SetParent(parent, false);
+        return rt;
+    }
+
+    Button EnsureSettingsTabButton(RectTransform parent, Button button, string objectName, string labelText)
+    {
+        if (parent == null) return button;
+
+        if (button == null)
+        {
+            var found = parent.Find(objectName);
+            if (found != null) button = found.GetComponent<Button>();
+        }
+
+        if (button == null)
+        {
+            var go = new GameObject(objectName, typeof(RectTransform), typeof(Image), typeof(Button), typeof(LayoutElement));
+            var rt = go.GetComponent<RectTransform>();
+            rt.SetParent(parent, false);
+            button = go.GetComponent<Button>();
+        }
+
+        var layout = button.GetComponent<LayoutElement>();
+        if (layout == null) layout = button.gameObject.AddComponent<LayoutElement>();
+        layout.minHeight = 40f;
+        layout.preferredHeight = 40f;
+        layout.flexibleHeight = 0f;
+
+        var image = button.GetComponent<Image>();
+        if (image == null) image = button.gameObject.AddComponent<Image>();
+        image.color = DesignTokens.BgSecondary;
+
+        var label = button.GetComponentInChildren<Text>(true);
+        if (label == null)
+        {
+            var labelGo = new GameObject("Label", typeof(RectTransform), typeof(Text));
+            var labelRt = labelGo.GetComponent<RectTransform>();
+            labelRt.SetParent(button.transform, false);
+            labelRt.anchorMin = Vector2.zero;
+            labelRt.anchorMax = Vector2.one;
+            labelRt.offsetMin = Vector2.zero;
+            labelRt.offsetMax = Vector2.zero;
+            label = labelGo.GetComponent<Text>();
+        }
+
+        label.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        label.text = labelText;
+        label.fontSize = 14;
+        label.alignment = TextAnchor.MiddleCenter;
+        label.color = DesignTokens.TextPrimary;
+        return button;
+    }
+
+    void EnsureGeneralSettingsContent(RectTransform contentRt)
+    {
+        if (contentRt == null) return;
+        contentRt.anchorMin = Vector2.zero;
+        contentRt.anchorMax = Vector2.one;
+        contentRt.offsetMin = Vector2.zero;
+        contentRt.offsetMax = Vector2.zero;
+
+        var title = FindOrCreateSettingsText(contentRt, "Text_Title", "視点操作感度");
+        title.fontSize = 16;
+        title.alignment = TextAnchor.MiddleLeft;
+        title.color = DesignTokens.TextPrimary;
+        var titleRt = title.rectTransform;
+        titleRt.anchorMin = new Vector2(0f, 1f);
+        titleRt.anchorMax = new Vector2(1f, 1f);
+        titleRt.offsetMin = new Vector2(24f, -56f);
+        titleRt.offsetMax = new Vector2(-24f, -24f);
+
+        var sliderRow = FindOrCreateSettingsRect(contentRt, "SliderRow");
+        sliderRow.anchorMin = new Vector2(0f, 1f);
+        sliderRow.anchorMax = new Vector2(1f, 1f);
+        sliderRow.offsetMin = new Vector2(24f, -116f);
+        sliderRow.offsetMax = new Vector2(-24f, -76f);
+
+        settingsSensitivitySlider = EnsureSettingsSlider(sliderRow, settingsSensitivitySlider, "Slider_Sensitivity");
+        if (settingsSensitivitySlider != null)
+        {
+            var sliderRt = settingsSensitivitySlider.transform as RectTransform;
+            if (sliderRt != null)
+            {
+                sliderRt.anchorMin = new Vector2(0f, 0f);
+                sliderRt.anchorMax = new Vector2(1f, 1f);
+                sliderRt.offsetMin = new Vector2(0f, 0f);
+                sliderRt.offsetMax = new Vector2(-90f, 0f);
+            }
+        }
+
+        settingsSensitivityValueText = FindOrCreateSettingsText(sliderRow, "Text_SensitivityValue", "1.00x");
+        settingsSensitivityValueText.fontSize = 14;
+        settingsSensitivityValueText.alignment = TextAnchor.MiddleRight;
+        settingsSensitivityValueText.color = DesignTokens.TextSecondary;
+        var valueRt = settingsSensitivityValueText.rectTransform;
+        valueRt.anchorMin = new Vector2(1f, 0f);
+        valueRt.anchorMax = new Vector2(1f, 1f);
+        valueRt.offsetMin = new Vector2(-84f, 0f);
+        valueRt.offsetMax = new Vector2(0f, 0f);
+    }
+
+    void EnsureIntegrationSettingsContent(RectTransform contentRt)
+    {
+        if (contentRt == null) return;
+        contentRt.anchorMin = Vector2.zero;
+        contentRt.anchorMax = Vector2.one;
+        contentRt.offsetMin = Vector2.zero;
+        contentRt.offsetMax = Vector2.zero;
+
+        settingsIntegrationLinkButton = FindOrCreateSettingsButton(contentRt, settingsIntegrationLinkButton, "Button_WebLink", "ここからウェブサイトへ遷移");
+        if (settingsIntegrationLinkButton != null)
+        {
+            var rt = settingsIntegrationLinkButton.transform as RectTransform;
+            if (rt != null)
+            {
+                rt.anchorMin = new Vector2(0f, 1f);
+                rt.anchorMax = new Vector2(1f, 1f);
+                rt.offsetMin = new Vector2(24f, -80f);
+                rt.offsetMax = new Vector2(-24f, -32f);
+            }
+
+            var image = settingsIntegrationLinkButton.GetComponent<Image>();
+            if (image != null) image.color = DesignTokens.BgSecondary;
+
+            var label = settingsIntegrationLinkButton.GetComponentInChildren<Text>(true);
+            if (label != null)
+            {
+                label.text = "ここからウェブサイトへ遷移";
+                label.fontSize = 16;
+                label.color = DesignTokens.Accent;
+                label.alignment = TextAnchor.MiddleCenter;
+            }
+        }
+    }
+
+    void EnsureAccountSettingsContent(RectTransform contentRt)
+    {
+        if (contentRt == null) return;
+        contentRt.anchorMin = Vector2.zero;
+        contentRt.anchorMax = Vector2.one;
+        contentRt.offsetMin = Vector2.zero;
+        contentRt.offsetMax = Vector2.zero;
+
+        var icon = FindOrCreateSettingsText(contentRt, "Text_AvatarIcon", "\u25CF");
+        icon.fontSize = 72;
+        icon.alignment = TextAnchor.MiddleCenter;
+        icon.color = DesignTokens.Accent;
+        var iconRt = icon.rectTransform;
+        iconRt.anchorMin = new Vector2(0.5f, 0.5f);
+        iconRt.anchorMax = new Vector2(0.5f, 0.5f);
+        iconRt.pivot = new Vector2(0.5f, 0.5f);
+        iconRt.sizeDelta = new Vector2(120f, 120f);
+        iconRt.anchoredPosition = new Vector2(0f, 80f);
+
+        settingsAccountUserNameText = FindOrCreateSettingsText(contentRt, "Text_UserName", "User Name");
+        var nameRt = settingsAccountUserNameText.rectTransform;
+        nameRt.anchorMin = new Vector2(0.5f, 0.5f);
+        nameRt.anchorMax = new Vector2(0.5f, 0.5f);
+        nameRt.pivot = new Vector2(0.5f, 0.5f);
+        nameRt.sizeDelta = new Vector2(360f, 44f);
+        nameRt.anchoredPosition = new Vector2(0f, -6f);
+
+        settingsAccountEmailText = FindOrCreateSettingsText(contentRt, "Text_Email", "user@example.com");
+        var emailRt = settingsAccountEmailText.rectTransform;
+        emailRt.anchorMin = new Vector2(0.5f, 0.5f);
+        emailRt.anchorMax = new Vector2(0.5f, 0.5f);
+        emailRt.pivot = new Vector2(0.5f, 0.5f);
+        emailRt.sizeDelta = new Vector2(360f, 32f);
+        emailRt.anchoredPosition = new Vector2(0f, -42f);
+    }
+
+    Slider EnsureSettingsSlider(RectTransform parent, Slider slider, string objectName)
+    {
+        if (parent == null) return slider;
+
+        if (slider == null)
+        {
+            var found = parent.Find(objectName);
+            if (found != null) slider = found.GetComponent<Slider>();
+        }
+
+        if (slider == null)
+        {
+            var root = new GameObject(objectName, typeof(RectTransform), typeof(Image), typeof(Slider));
+            var rootRt = root.GetComponent<RectTransform>();
+            rootRt.SetParent(parent, false);
+            slider = root.GetComponent<Slider>();
+        }
+
+        var backgroundImage = slider.GetComponent<Image>();
+        if (backgroundImage == null) backgroundImage = slider.gameObject.AddComponent<Image>();
+        backgroundImage.color = DesignTokens.BgSecondary;
+
+        var fillArea = FindOrCreateSettingsRect(slider.transform, "Fill Area");
+        fillArea.anchorMin = new Vector2(0f, 0f);
+        fillArea.anchorMax = new Vector2(1f, 1f);
+        fillArea.offsetMin = new Vector2(8f, 10f);
+        fillArea.offsetMax = new Vector2(-24f, -10f);
+
+        var fill = FindOrCreateSettingsRect(fillArea, "Fill");
+        fill.anchorMin = new Vector2(0f, 0f);
+        fill.anchorMax = new Vector2(1f, 1f);
+        fill.offsetMin = Vector2.zero;
+        fill.offsetMax = Vector2.zero;
+        var fillImage = fill.GetComponent<Image>();
+        if (fillImage == null) fillImage = fill.gameObject.AddComponent<Image>();
+        fillImage.color = DesignTokens.Accent;
+
+        var handleSlideArea = FindOrCreateSettingsRect(slider.transform, "Handle Slide Area");
+        handleSlideArea.anchorMin = new Vector2(0f, 0f);
+        handleSlideArea.anchorMax = new Vector2(1f, 1f);
+        handleSlideArea.offsetMin = new Vector2(8f, 0f);
+        handleSlideArea.offsetMax = new Vector2(-8f, 0f);
+
+        var handle = FindOrCreateSettingsRect(handleSlideArea, "Handle");
+        handle.anchorMin = new Vector2(0.5f, 0.5f);
+        handle.anchorMax = new Vector2(0.5f, 0.5f);
+        handle.sizeDelta = new Vector2(18f, 30f);
+        var handleImage = handle.GetComponent<Image>();
+        if (handleImage == null) handleImage = handle.gameObject.AddComponent<Image>();
+        handleImage.color = DesignTokens.Surface;
+
+        slider.fillRect = fill;
+        slider.handleRect = handle;
+        slider.targetGraphic = handleImage;
+        slider.direction = Slider.Direction.LeftToRight;
+        return slider;
+    }
+
+    Text FindOrCreateSettingsText(Transform parent, string objectName, string defaultText)
+    {
+        if (parent == null) return null;
+
+        var found = parent.Find(objectName);
+        Text text = null;
+        if (found != null) text = found.GetComponent<Text>();
+        if (text == null)
+        {
+            var go = new GameObject(objectName, typeof(RectTransform), typeof(Text));
+            var rt = go.GetComponent<RectTransform>();
+            rt.SetParent(parent, false);
+            text = go.GetComponent<Text>();
+        }
+
+        text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        text.text = defaultText;
+        return text;
+    }
+
+    Button FindOrCreateSettingsButton(Transform parent, Button button, string objectName, string labelText)
+    {
+        if (parent == null) return button;
+
+        if (button == null)
+        {
+            var found = parent.Find(objectName);
+            if (found != null) button = found.GetComponent<Button>();
+        }
+
+        if (button == null)
+        {
+            var go = new GameObject(objectName, typeof(RectTransform), typeof(Image), typeof(Button));
+            var rt = go.GetComponent<RectTransform>();
+            rt.SetParent(parent, false);
+            button = go.GetComponent<Button>();
+        }
+
+        var label = button.GetComponentInChildren<Text>(true);
+        if (label == null)
+        {
+            var labelGo = new GameObject("Label", typeof(RectTransform), typeof(Text));
+            var labelRt = labelGo.GetComponent<RectTransform>();
+            labelRt.SetParent(button.transform, false);
+            labelRt.anchorMin = Vector2.zero;
+            labelRt.anchorMax = Vector2.one;
+            labelRt.offsetMin = Vector2.zero;
+            labelRt.offsetMax = Vector2.zero;
+            label = labelGo.GetComponent<Text>();
+        }
+
+        label.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        label.text = labelText;
+        return button;
     }
 
     void ApplyCatalogTopLayout(RectTransform panel)
@@ -1030,6 +1761,178 @@ public class CatalogUI : MonoBehaviour
         RefreshModeButtons();
     }
 
+    void OnClickSettings()
+    {
+        EnsureRuntimeCatalogControls();
+        if (settingsPanel == null) return;
+
+        ApplySettingsPanelDesign(settingsPanel);
+        RefreshSettingsTabs();
+        settingsPanel.gameObject.SetActive(true);
+    }
+
+    void CloseSettingsPanel()
+    {
+        if (settingsPanel == null) return;
+        settingsPanel.gameObject.SetActive(false);
+    }
+
+    public void CloseSettingsPanelFromOverlayClick()
+    {
+        DiscardPendingSettingsChanges();
+        CloseSettingsPanel();
+    }
+
+    void OnClickSettingsTabGeneral()
+    {
+        activeSettingsTab = SettingsTab.General;
+        RefreshSettingsTabs();
+    }
+
+    void OnClickSettingsTabIntegration()
+    {
+        activeSettingsTab = SettingsTab.Integration;
+        RefreshSettingsTabs();
+    }
+
+    void OnClickSettingsTabAccount()
+    {
+        activeSettingsTab = SettingsTab.Account;
+        RefreshSettingsTabs();
+    }
+
+    void RefreshSettingsTabs()
+    {
+        if (settingsGeneralContent != null)
+        {
+            settingsGeneralContent.gameObject.SetActive(activeSettingsTab == SettingsTab.General);
+        }
+
+        if (settingsIntegrationContent != null)
+        {
+            settingsIntegrationContent.gameObject.SetActive(activeSettingsTab == SettingsTab.Integration);
+        }
+
+        if (settingsAccountContent != null)
+        {
+            settingsAccountContent.gameObject.SetActive(activeSettingsTab == SettingsTab.Account);
+        }
+
+        ApplySettingsTabVisual(settingsTabGeneralButton, activeSettingsTab == SettingsTab.General);
+        ApplySettingsTabVisual(settingsTabIntegrationButton, activeSettingsTab == SettingsTab.Integration);
+        ApplySettingsTabVisual(settingsTabAccountButton, activeSettingsTab == SettingsTab.Account);
+    }
+
+    void ApplySettingsTabVisual(Button button, bool isActive)
+    {
+        if (button == null) return;
+
+        var image = button.GetComponent<Image>();
+        if (image != null)
+        {
+            image.color = isActive ? DesignTokens.Accent : DesignTokens.BgSecondary;
+        }
+
+        var label = button.GetComponentInChildren<Text>(true);
+        if (label != null)
+        {
+            label.color = isActive ? DesignTokens.Surface : DesignTokens.TextPrimary;
+        }
+    }
+
+    void EnsureSettingsCameraBinding()
+    {
+        if (settingsCameraController == null)
+        {
+            settingsCameraController = FindFirstObjectByType<EditorCameraController>();
+        }
+
+        if (settingsCameraController == null) return;
+        if (settingsBaseOrbitSpeed >= 0f) return;
+
+        settingsBaseOrbitSpeed = settingsCameraController.orbitSpeed;
+        settingsBasePanSpeed = settingsCameraController.panSpeed;
+        settingsBaseZoomSpeed = settingsCameraController.zoomSpeed;
+        settingsBaseOrthographicZoomSpeed = settingsCameraController.orthographicZoomSpeed;
+    }
+
+    void OnSettingsSensitivityChanged(float sliderValue)
+    {
+        float clamped = Mathf.Clamp(sliderValue, 0.2f, 2.5f);
+        settingsPendingSensitivityScale = clamped;
+        UpdateSensitivityValueText(clamped);
+
+        if (settingsInitializingUi) return;
+        SetSettingsDirty(!Mathf.Approximately(settingsPendingSensitivityScale, settingsCommittedSensitivityScale));
+    }
+
+    void UpdateSensitivityValueText(float scale)
+    {
+        if (settingsSensitivityValueText == null) return;
+        settingsSensitivityValueText.text = $"{scale:0.00}x";
+    }
+
+    void ApplySensitivityScaleToCamera(float scale)
+    {
+        EnsureSettingsCameraBinding();
+        if (settingsCameraController == null || settingsBaseOrbitSpeed < 0f) return;
+
+        settingsCameraController.orbitSpeed = settingsBaseOrbitSpeed * scale;
+        settingsCameraController.panSpeed = settingsBasePanSpeed * scale;
+        settingsCameraController.zoomSpeed = settingsBaseZoomSpeed * scale;
+        settingsCameraController.orthographicZoomSpeed = settingsBaseOrthographicZoomSpeed * scale;
+    }
+
+    void SetSettingsDirty(bool dirty)
+    {
+        settingsHasPendingChanges = dirty;
+        UpdateSettingsActionButtonsVisibility();
+    }
+
+    void UpdateSettingsActionButtonsVisibility()
+    {
+        if (settingsApplyButton != null)
+        {
+            settingsApplyButton.gameObject.SetActive(settingsHasPendingChanges);
+        }
+
+        if (settingsRevertButton != null)
+        {
+            settingsRevertButton.gameObject.SetActive(settingsHasPendingChanges);
+        }
+    }
+
+    void DiscardPendingSettingsChanges()
+    {
+        settingsPendingSensitivityScale = settingsCommittedSensitivityScale;
+        settingsInitializingUi = true;
+        if (settingsSensitivitySlider != null)
+        {
+            settingsSensitivitySlider.SetValueWithoutNotify(settingsCommittedSensitivityScale);
+        }
+        UpdateSensitivityValueText(settingsCommittedSensitivityScale);
+        settingsInitializingUi = false;
+        SetSettingsDirty(false);
+    }
+
+    void OnClickSettingsApply()
+    {
+        settingsCommittedSensitivityScale = settingsPendingSensitivityScale;
+        ApplySensitivityScaleToCamera(settingsCommittedSensitivityScale);
+        SetSettingsDirty(false);
+        CloseSettingsPanel();
+    }
+
+    void OnClickSettingsRevert()
+    {
+        DiscardPendingSettingsChanges();
+    }
+
+    void OnClickSettingsIntegrationLink()
+    {
+        Application.OpenURL("https://unity.com/");
+    }
+
     void RefreshModeButtons()
     {
         EnsureEditModeServiceBinding();
@@ -1471,6 +2374,31 @@ public class CatalogUI : MonoBehaviour
         return new string(chars).Trim('_');
     }
 #endif
+}
+
+public class SettingsOverlayClickCatcher : MonoBehaviour, IPointerClickHandler
+{
+    CatalogUI owner;
+    RectTransform window;
+
+    public void Configure(CatalogUI ownerUi, RectTransform windowRect)
+    {
+        owner = ownerUi;
+        window = windowRect;
+    }
+
+    public void OnPointerClick(PointerEventData eventData)
+    {
+        if (owner == null || window == null) return;
+
+        bool clickedInsideWindow = RectTransformUtility.RectangleContainsScreenPoint(
+            window,
+            eventData.position,
+            eventData.pressEventCamera);
+
+        if (clickedInsideWindow) return;
+        owner.CloseSettingsPanelFromOverlayClick();
+    }
 }
 
 public class CatalogCardDragHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler

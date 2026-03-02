@@ -1,14 +1,14 @@
 ﻿# worklog_latest
 
 ## 0. 対象範囲
-- ブランチ: `refactor/editmode`
-- 作業テーマ: 編集モード刷新（閲覧/変形/スケール）とランタイムギズモ操作の導入
-- 最終更新: 2026-02-28
+- ブランチ: `view/settings`
+- 作業テーマ: Shift+中ボタンドラッグ感度調整と設定画面（タブ/適用/破棄フロー）の実装
+- 最終更新: 2026-03-02
 - 参照コミット:
-  - `548c39cb` 編集モードを改善
-  - `30f7bb9c` 移動モード中にギズモ表示
-  - `1b6e04be` ギズモUI調整
-  - `95ba3868` マウスドラッグ移動の抑止
+  - `1a01cb5c` worklogを更新。
+  - `0cf32ed5` 視点平行移動時の感度を調整。
+  - `7ba8599e` 設定画面を追加、最低限機能するものを作った。
+  - `433b8389` 設定画面の機能を微調整。
 
 ## 1. Phase A 現状把握
 ### 1.1 Unityバージョン
@@ -22,72 +22,63 @@
 - 主要Scene: `Assets/EditorMain.unity`
 - UIルート: `Assets/UI/Prefabs/UIRoot.prefab`
 - 主要UI入口:
-  - `CatalogUI`（オブジェクト一覧 + 編集モードボタン）
-  - `ScenarioGraphUI`（シナリオ編集）
-- モード制御入口: `EditModeService`（`CatalogUI` ボタン + `Tab` キー）
+  - `CatalogUI`（オブジェクト一覧 + 編集モード行 + 設定ボタン/設定画面）
+  - `UiPanelDockSync`（右上UI要素の位置同期）
+  - `EditorCameraController`（視点操作感度）
 
-## 2. 実装サマリ（今回）
-- `EditModeService` を再設計し、`Browse / Place / Transform / Scale` モードへ整理。
-- `ModeChanged` イベントを追加し、UI側がモード状態に追従できるようにした。
-- `CatalogUI` と `BuildUiPrefabs` に編集モード行（`閲覧 / 移動 / スケール`）を追加。
-  - 既存Prefabでも動くよう、ランタイム補完生成と再バインド処理を実装。
-  - アクティブモードのボタン色を `DesignTokens` で強調表示。
-- `UiPanelDockSync` を拡張し、編集モード行の位置をカタログ幅変更に追従させた。
-- `MoveTool` をランタイムギズモ方式へ全面更新。
-  - 軸移動ハンドル（X/Y/Z）と回転ハンドルを表示。
-  - ドラッグ中の移動スナップ、回転スナップ、Undo/Redo コマンド化を追加。
-  - クリック選択との競合を回避するため、`SelectionService` へ入力消費フックを追加。
-- `SelectionOutline` を拡張し、`Scale` モードでコーナードラッグによる等比スケールを追加。
-  - 最小スケール軸をクランプし、`ScaleObjectCommand` でUndo/Redo対応。
-- `MoveRotateCommands` に `RotateObjectQuaternionCommand` と `ScaleObjectCommand` を追加。
-- `PlacementController` は `EditModeService.SetMode` 経由に統一。
-- `RotateTool` は `Transform` モード判定に合わせて整合。
-- 実行方針として `AGENTS.md` に Local Execution Policy（Unity起動禁止）を追記。
+## 2. 実装サマリ（このブランチ）
+- Shift+中ボタンドラッグ時のパン感度を簡素化。
+  - `shiftPanSensitivityMultiplier` 相当の分岐は使わず、`panSpeed` を直接反映。
+  - `panSpeed` の強制下限（floor）を廃止し、Scene設定値がそのまま効くように変更。
+  - 既定値を `panSpeed = 0.01f` に調整。
+- 右上に歯車ボタン（設定ボタン）を追加。
+  - 編集モードボタン行と高さを揃え、右端に余白を確保。
+  - `UiPanelDockSync` でレイアウト追従。
+- 設定ウィンドウ（中央モーダル）を追加。
+  - 左側に縦タブ `一般 / 連携 / アカウント` を常時表示。
+  - タブクリック時は右側コンテンツ領域のみ切り替え。
+- 各タブ内容を実装。
+  - `一般`: 視点操作感度スライダー（倍率）
+  - `連携`: `ここからウェブサイトへ遷移` ボタンから `https://unity.com/` へ遷移
+  - `アカウント`: 中央丸アイコン + ユーザー名 + メール（モック）
+- 変更検知時のアクションボタンを実装。
+  - 何か1つでも設定変更で、右下に `適用` と `元に戻す` を表示。
+  - `元に戻す` はシステムグレー系。
+- 設定の確定/破棄フローを実装。
+  - `適用`: 設定を確定して設定ウィンドウを閉じる。
+  - `元に戻す`: 未適用変更を破棄して確定値に戻す。
+  - オーバーレイクリック（ウィンドウ外）: 未適用変更を破棄して閉じる。
+- 既存Prefab未更新環境向けに、`CatalogUI` 側ランタイム補完と `BuildUiPrefabs` の生成内容を同期。
 
 ## 3. 変更ファイル
-- `AGENTS.md`
-- `Assets/Editor/Automation/BuildUiPrefabs.cs`
+- `Assets/Scripts/EditCameraController.cs`
 - `Assets/Scripts/CatalogUI.cs`
-- `Assets/Scripts/EditModeService.cs`
-- `Assets/Scripts/MoveRotateCommands.cs`
-- `Assets/Scripts/MoveTool.cs`
-- `Assets/Scripts/PlacementController.cs`
-- `Assets/Scripts/RotateTool.cs`
-- `Assets/Scripts/SelectionOutline.cs`
-- `Assets/Scripts/SelectionService.cs`
 - `Assets/Scripts/UI/UiPanelDockSync.cs`
-- `Assets/_Recovery/0 (1).unity`
-- `Assets/_Recovery/0 (1).unity.meta`
+- `Assets/Editor/Automation/BuildUiPrefabs.cs`
+- `Docs/worklog/worklog_latest.md`
 
 ## 4. 操作仕様（現行）
-- モード切替:
-  - UI: `閲覧 / 移動 / スケール` ボタン
-  - キー: `Tab` で `Transform` モードへ
-- `Transform` モード:
-  - 左クリックでギズモ軸ドラッグ移動
-  - 回転ハンドルドラッグで軸回転（スナップあり）
-  - `WASD` / 矢印キーでグリッド単位微移動
-- `Scale` モード:
-  - 選択アウトライン角付近をドラッグして等比スケール
+- 右上の歯車ボタン押下で設定ウィンドウを開く。
+- 左タブは常時表示され、右側のみ内容を切り替える。
+- `一般` タブで感度スライダーを動かすと変更状態になる。
+- 変更状態では `適用` / `元に戻す` が表示される。
+- `適用` 押下で確定して閉じる。
+- `適用` せずにウィンドウ外をクリックして閉じた場合、未適用変更は反映しない。
 
 ## 5. 検証状況
-- Local Execution Policy（2026-02-28）に従い、Unity Editor の起動・CLIコンパイルは未実施。
-- 静的確認として以下を実施:
-  - `git log` / `git diff` による変更範囲確認
-  - `rg` による UI方式（uGUI）と主要UI参照確認
+- AGENTS.md の Local Execution Policy に従い、Unity Editor 起動・CLIコンパイルは未実施。
+- 静的確認として、ブランチ差分・コミット・該当スクリプト実装を確認。
 
 ## 6. 人間確認チェックリスト
-- [ ] カタログ上部に `閲覧 / 移動 / スケール` ボタンが表示される
-- [ ] カタログ幅を変更しても編集モード行が追従し、重なりや隙間が出ない
-- [ ] `移動` モードで選択物に X/Y/Z 軸ギズモと回転ハンドルが表示される
-- [ ] ギズモ操作中、オブジェクト選択が意図せず切り替わらない
-- [ ] ギズモ移動/回転後に Undo/Redo が正しく動作する
-- [ ] `スケール` モードで角ドラッグにより等比スケールし、極小値で破綻しない
-- [ ] `Tab` キーで `Transform` モード遷移し、InputField入力中は誤反応しない
+- [ ] 右上に歯車ボタンが表示され、編集モード行と高さが揃っている。
+- [ ] 歯車ボタン押下で中央に設定ウィンドウが表示される。
+- [ ] 左タブ `一般 / 連携 / アカウント` が常時表示され、右側のみ切替表示される。
+- [ ] `一般` タブの感度スライダー操作で `適用` と `元に戻す` が表示される。
+- [ ] `適用` 押下で設定が確定し、設定ウィンドウが閉じる。
+- [ ] `元に戻す` 押下で未適用変更が破棄される。
+- [ ] `適用` せずにオーバーレイクリックで閉じた場合、変更が反映されない。
+- [ ] `連携` タブのリンクボタンで Unity 公式ページへ遷移できる。
 
-## 7. worklog_UI 反映
-- `Docs/worklog/worklog_UI/全体UI仕様.md` に編集モードUIとギズモ運用の追記を追加。
-- `Docs/worklog/worklog_UI/worklog_オブジェクト一覧ウィンドウ.md` に編集モード行仕様を追記。
-
-## 8. アーカイブ
-- 旧 `Docs/worklog/worklog_latest.md` は `Docs/worklog/worklog_2026-02-25_refactor_orbit.md` として退避。
+## 7. アーカイブ
+- 旧 `Docs/worklog/worklog_latest.md`（`refactor/editmode` 内容）は以下へ archive 済み:
+  - `Docs/worklog/worklog_2026-03-02_archive_refactor_editmode.md`

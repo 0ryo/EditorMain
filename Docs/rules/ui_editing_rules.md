@@ -1,32 +1,32 @@
-# UI編集ルール
+# UI Editing Rules
 
-## 1. UI共通の設計規約
-- UIは「見た目」と「状態/ロジック」を分離する。
-  - View（表示）: `UI/*` 名前空間 or `UI/Views/*`
-  - State/Logic: `UI/State/*` or `UI/Controllers/*`
-- "UIから直接データを書き換える"は禁止。必ずService/UseCase層（またはそれに相当）を経由する。
-- UI調整は「既存のPrefab/Scene構造を維持」し、必要最小限の追加に留める。
+## 1. General UI Design Conventions
+- Separate "presentation" from "state / logic" in all UI work.
+  - View (display): `UI/*` namespace or `UI/Views/*`
+  - State / Logic: `UI/State/*` or `UI/Controllers/*`
+- Directly mutating data from UI code is prohibited. Always go through the Service / UseCase layer (or its equivalent).
+- UI adjustments must preserve existing Prefab / Scene structure and be kept to the minimum necessary additions.
 
-## 2. UI Toolkitの場合（UXML/USS）
-- 追加/変更は原則として：
-  - レイアウト：`.uxml`
-  - 見た目：`.uss`
-  - つなぎ込み：`.cs`（Viewの初期化、イベント購読、バインド）
-- USSは「局所化」する。グローバルに効くセレクタは極力避ける。
-- 既存のクラス命名規約があるならそれに合わせる（例：BEM風、kebab-case等）。
+## 2. When Using UI Toolkit (UXML / USS)
+- Additions and modifications must follow this separation:
+  - Layout: `.uxml`
+  - Appearance: `.uss`
+  - Wiring: `.cs` (View initialization, event subscriptions, bindings)
+- Keep USS scoped locally. Avoid globally-affecting selectors as much as possible.
+- If an existing class naming convention exists, follow it (e.g., BEM-style, kebab-case, etc.).
 
-## 3. uGUIの場合（Canvas/Prefab）
-- **新規UI作成はCanvas（uGUI）で実装すること**（コードでのUI階層動的生成を正としない）。
-- "Scene直置き"を増やさない。可能ならUIはPrefab化して参照で差し込む。
-- RectTransform/アンカー/スケールは既存規約を維持。
-- ボタン/入力/リストなどは共通コンポーネント化を優先（同じ見た目・同じ挙動を量産しない）。
-- UIを実装/調整する前に `Docs/worklog_UI/` を確認し、実装後に仕様差分が出た場合は同ディレクトリの文書を更新する。
+## 3. When Using uGUI (Canvas / Prefab)
+- **New UI must be implemented using Canvas (uGUI)** (do not treat code-driven dynamic UI hierarchy generation as the standard approach).
+- Do not increase the number of objects placed directly in Scenes. Where possible, turn UI into Prefabs and inject them via references.
+- Preserve existing RectTransform / anchor / scale conventions.
+- Prioritize creating shared components for buttons, inputs, lists, etc. (do not duplicate the same appearance and behavior).
+- Before implementing or adjusting UI, check `Docs/worklog_UI/`. If the implementation results in any spec differences, update the documents in that directory.
 
-## 4. Scene/Prefabを更新する必要がある場合（重要）
-- 直接YAML編集は禁止（最終手段）。
-- 代わりに `Assets/Editor/Automation/` に **Editorスクリプト**を作り、
-  - 対象Scene/Prefabを `AssetDatabase` 経由でロード
-  - 必要なGameObject/Componentを追加・参照をセット
-  - `PrefabUtility.SaveAsPrefabAsset` もしくはScene保存
-  - 変更点をログ出力
-  という形で "Unityに正しい参照を書かせる"。
+## 4. When Scene / Prefab Updates Are Needed (Important)
+- Direct YAML editing is prohibited (last resort only).
+- Instead, create an **Editor script** under `Assets/Editor/Automation/` that:
+  - Loads the target Scene / Prefab via `AssetDatabase`
+  - Adds the necessary GameObjects / Components and sets references
+  - Saves using `PrefabUtility.SaveAsPrefabAsset` or Scene save
+  - Logs the changes made
+  — This approach lets Unity write the correct references.
