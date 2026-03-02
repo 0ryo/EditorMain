@@ -6,7 +6,7 @@ public class EditorCameraController : MonoBehaviour
 {
     [Header("Sensitivity")]
     public float orbitSpeed = 12f;
-    public float panSpeed = 0.04f;
+    public float panSpeed = 0.01f;
     public float zoomSpeed = 18f;
     public float orthographicZoomSpeed = 1.6f;
 
@@ -94,7 +94,6 @@ public class EditorCameraController : MonoBehaviour
         if (!enforceHighSensitivity) return;
 
         orbitSpeed = Mathf.Max(orbitSpeed, 12f);
-        panSpeed = Mathf.Max(panSpeed, 0.04f);
         zoomSpeed = Mathf.Max(zoomSpeed, 18f);
         orthographicZoomSpeed = Mathf.Max(orthographicZoomSpeed, 1.6f);
     }

@@ -113,3 +113,10 @@
   - 矢印/弧の太さを従来比 10% 減
   - 透明度係数を `0.9` に統一
   - 弧色をテーマグレー（通常: `DesignTokens.Divider` / アクティブ: `DesignTokens.TextSecondary`）に変更
+
+## 10. 追記（2026-03-02: Shift+中ボタンドラッグ感度の再調整）
+- 対象: `Assets/Scripts/EditCameraController.cs`
+- 変更方針をシンプル化し、`Shift` パン用の追加倍率は使わず、既存 `panSpeed` を直接有効化。
+- `ApplySensitivityFloor()` で `panSpeed` を `0.04f` 以上へ強制する処理を削除。
+- 既定値を `panSpeed = 0.01f` に変更。
+- これにより、Sceneに保存されている `panSpeed` がそのまま反映され、過剰な移動量を抑制できるようにした。
