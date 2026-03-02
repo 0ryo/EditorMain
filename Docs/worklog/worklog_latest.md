@@ -120,3 +120,57 @@
 - `ApplySensitivityFloor()` で `panSpeed` を `0.04f` 以上へ強制する処理を削除。
 - 既定値を `panSpeed = 0.01f` に変更。
 - これにより、Sceneに保存されている `panSpeed` がそのまま反映され、過剰な移動量を抑制できるようにした。
+
+## 11. 追記（2026-03-02: 設定ボタンと設定ウィンドウの追加）
+- 対象:
+  - `Assets/Scripts/CatalogUI.cs`
+  - `Assets/Scripts/UI/UiPanelDockSync.cs`
+  - `Assets/Editor/Automation/BuildUiPrefabs.cs`
+- 右上UIとして、編集モード行と同じ高さ（40px）の歯車ボタン（`Button_Settings`）を追加。
+  - 右端から余白を確保するため、`UiPanelDockSync` に `settingsButtonPanel` / `settingsButtonRightMargin` / `settingsButtonWidth` を追加。
+  - 実座標は `LateUpdate()` で右上基準に再配置し、編集モード行と高さを揃える。
+- 歯車ボタン押下で中央オーバーレイ `Panel_Settings` を表示する処理を `CatalogUI` に追加。
+  - 中央に空の `Window` のみを表示（テキストなし）。
+- 既存Prefabでも反映できるよう、`CatalogUI` のランタイム補完で以下を自動生成/再バインドするようにした。
+  - `Button_Settings`
+  - `Panel_Settings`
+- `BuildUiPrefabs` も同構成を生成するよう更新し、新規再生成時にも同じUI構造になるよう統一した。
+
+## 12. 追記（2026-03-02: 設定画面タブ構成の実装）
+- 対象:
+  - `Assets/Scripts/CatalogUI.cs`
+  - `Assets/Editor/Automation/BuildUiPrefabs.cs`
+- 設定画面の左側に縦タブを追加し、`一般 / 連携 / アカウント` を常時表示する構成へ変更。
+  - タブ押下時は右側コンテンツのみ切り替え、左タブ領域は固定表示。
+- `一般` タブ:
+  - 視点操作感度のスライダー（`0.2x - 2.5x`）を追加。
+  - 値表示テキスト（`x` 倍率）を追加。
+  - `EditorCameraController` の `orbitSpeed / panSpeed / zoomSpeed / orthographicZoomSpeed` に倍率を反映。
+- `連携` タブ:
+  - `ここからウェブサイトへ遷移` ボタンを配置し、クリックで `https://unity.com/` を開くようにした。
+- `アカウント` タブ:
+  - 中央の丸アイコン（`●`）
+  - 大きめのユーザー名 (`User Name`)
+  - 小さめのメール (`user@example.com`)
+  をモックとして追加。
+- 既存Prefab・ランタイム補完の両方で同じ階層名/参照が揃うように、`BuildUiPrefabs` と `CatalogUI` の生成・バインドを同期した。
+
+## 13. 追記（2026-03-02: 設定変更時の適用ボタン表示）
+- 対象:
+  - `Assets/Scripts/CatalogUI.cs`
+  - `Assets/Editor/Automation/BuildUiPrefabs.cs`
+- 設定ウィンドウ右下に `適用` ボタン（`Button_ApplySettings`）を追加。
+  - 位置: ウィンドウ右下固定（右16px / 下16px）
+  - 初期状態: 非表示
+- 設定値が1つでも変更されたタイミングで `CatalogUI` が dirty 状態を立て、`適用` ボタンを表示するようにした。
+  - 現在は `一般` タブの感度スライダー操作を変更トリガーとして実装。
+- `適用` ボタン押下で dirty 状態を解除し、ボタンを再び非表示に戻す。
+
+## 14. 追記（2026-03-02: 設定画面クローズ挙動）
+- 対象:
+  - `Assets/Scripts/CatalogUI.cs`
+- 設定画面を閉じる共通処理 `CloseSettingsPanel()` を追加。
+- `適用` ボタン押下時は、dirty解除後に設定画面を閉じるよう変更。
+- 設定ウィンドウ外側クリックで閉じるため、`SettingsOverlayClickCatcher` を追加。
+  - オーバーレイに `IPointerClickHandler` を付与し、クリック位置が `Window` の外側なら `CloseSettingsPanel()` を実行。
+  - ウィンドウ内クリック時は閉じない。
