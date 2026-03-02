@@ -35,6 +35,7 @@
 ## 6. 挙動
 - `CatalogUI` が `PrefabRegistry.entries` を列挙し、`Btn_Template` を `Content` に生成。
 - ボタン押下で `onSelectType(string typeId)` を発火。
+- カード押下後、ワールドクリック待ちの配置モード中は該当カードをテーマ青（`DesignTokens.Accent`）の枠線で強調表示する。
 - 実行時の機能接続:
   - `PlacementController` が見つかる場合、`CatalogUI` は `registry` を自動バインド。
   - 永続イベント未設定時は `PlacementController.EnterPlacement` をランタイム接続。
@@ -80,3 +81,13 @@
 - 選択中モードのボタンは `DesignTokens.Accent` で強調表示し、非選択は `DesignTokens.BgSecondary` とする。
 - 既存Prefab互換のため、`CatalogUI` は `EditModeRow` と各ボタンが未配置でもランタイム補完生成する。
 - `UiPanelDockSync` の `editModePanel` と連携し、カタログ幅変更時も編集モード行の位置を追従させる。
+
+## 13. 追記（2026-03-02 / カード削除ボタン）
+- 各オブジェクトカードに小型の `×` ボタン（`Button_RemoveCard`）を追加。
+- `×` はカードホバー時のみ表示する。
+- `×` はカード右上角の外側にはみ出す配置とし、丸の中心がカード角に重なる。
+- `×` ボタン背景は完全な丸形とする。
+- `×` 押下時、該当 `typeId` のカードをオブジェクト一覧から除去する。
+- 本挙動は「一覧からの除去」のみを対象とし、ワールド内に既に配置済みのオブジェクトには影響しない。
+- 除去済みカードは、検索フィルタ変更や `RebuildCards()` 実行後も同一セッション内では復活しない。
+- `BuildUiPrefabs` の `Card_Template` に同ボタンを追加し、既存Prefab向けには `CatalogUI` がランタイム補完する。

@@ -164,6 +164,25 @@ public static class BuildUiPrefabs
         labelMain.alignment = TextAnchor.MiddleLeft;
         SetRect(labelMain.rectTransform, new Vector2(0f, 0f), new Vector2(1f, 1f), new Vector2(64f, 0f), new Vector2(-10f, 0f));
 
+        var removeCardButton = CreateButton("Button_RemoveCard", cardTemplate, "X");
+        SetRect(
+            removeCardButton.GetComponent<RectTransform>(),
+            new Vector2(1f, 1f),
+            new Vector2(1f, 1f),
+            new Vector2(-DesignTokens.DeleteButtonSize * 0.5f, -DesignTokens.DeleteButtonSize * 0.5f),
+            new Vector2(DesignTokens.DeleteButtonSize * 0.5f, DesignTokens.DeleteButtonSize * 0.5f));
+        var removeCardRt = removeCardButton.GetComponent<RectTransform>();
+        removeCardRt.pivot = new Vector2(0.5f, 0.5f);
+        removeCardButton.GetComponent<Image>().color = DesignTokens.BgTertiary;
+        UiRoundedTheme.ApplyCircleToElement(removeCardButton.GetComponent<Image>());
+        var removeCardLabel = removeCardButton.GetComponentInChildren<Text>(true);
+        if (removeCardLabel != null)
+        {
+            removeCardLabel.color = DesignTokens.TextPrimary;
+            removeCardLabel.fontSize = 12;
+            removeCardLabel.alignment = TextAnchor.MiddleCenter;
+        }
+
         cardTemplate.gameObject.SetActive(false);
         var settingsPanel = BuildSettingsDialog(
             parent,
