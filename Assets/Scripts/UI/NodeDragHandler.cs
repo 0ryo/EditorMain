@@ -1,27 +1,34 @@
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.UI;
 
 public class NodeDragHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler
 {
     public RectTransform target;
     public bool clampToParentBounds = true;
+    public bool blockWhenPointerStartsOnSelectable;
     public System.Action onBeginDrag;
     public System.Action onDrag;
     public System.Action onEndDrag;
 
     RectTransform dragSurface;
+    bool draggingActive;
 
     public void OnBeginDrag(PointerEventData eventData)
     {
+        draggingActive = false;
         if (target == null) return;
+        if (blockWhenPointerStartsOnSelectable && PointerStartsOnSelectable(eventData)) return;
 
         dragSurface = target.parent as RectTransform;
+        if (dragSurface == null) return;
+        draggingActive = true;
         onBeginDrag?.Invoke();
     }
 
     public void OnDrag(PointerEventData eventData)
     {
-        if (target == null || dragSurface == null) return;
+        if (!draggingActive || target == null || dragSurface == null) return;
 
         var eventCamera = eventData.pressEventCamera != null ? eventData.pressEventCamera : eventData.enterEventCamera;
         if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(
@@ -45,7 +52,20 @@ public class NodeDragHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, I
 
     public void OnEndDrag(PointerEventData eventData)
     {
+        if (!draggingActive) return;
+        draggingActive = false;
         onEndDrag?.Invoke();
+    }
+
+    static bool PointerStartsOnSelectable(PointerEventData eventData)
+    {
+        if (eventData == null) return false;
+
+        var go = eventData.pointerPressRaycast.gameObject;
+        if (go == null) go = eventData.pointerCurrentRaycast.gameObject;
+        if (go == null) return false;
+
+        return go.GetComponentInParent<Selectable>() != null;
     }
 
     Vector2 ClampToSurface(Vector2 anchoredPosition)

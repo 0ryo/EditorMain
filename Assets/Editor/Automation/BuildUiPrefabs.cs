@@ -1,7 +1,6 @@
 using System.IO;
 using UnityEditor;
 using UnityEngine;
-using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 public static class BuildUiPrefabs
@@ -27,19 +26,12 @@ public static class BuildUiPrefabs
         var editModeRow = root.transform.Find("EditModeRow") as RectTransform;
         var settingsButton = root.transform.Find("Button_Settings") as RectTransform;
         BuildDockSync(root, catalogPanel, scenarioPanel, editModeRow, settingsButton);
-        BuildEventSystem(root.transform);
 
         PrefabUtility.SaveAsPrefabAsset(root, UiRootPrefabPath);
         Object.DestroyImmediate(root);
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
         Debug.Log("[BuildUiPrefabs] Saved: " + UiRootPrefabPath);
-    }
-
-    static void BuildEventSystem(Transform parent)
-    {
-        var eventGo = new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
-        eventGo.transform.SetParent(parent, false);
     }
 
     static RectTransform BuildCatalogPanel(Transform parent)
@@ -372,20 +364,23 @@ public static class BuildUiPrefabs
         var root = CreateUiRect("StepNodeTemplate", parent);
         root.sizeDelta = new Vector2(390f, 180f);
         root.gameObject.AddComponent<Image>().color = DesignTokens.Surface;
+        EnsureThinOutline(root.gameObject, DesignTokens.Divider);
         var stepNode = root.gameObject.AddComponent<StepNodeUI>();
 
-        var stepId = CreateText("Text_StepId", root, "step-0000");
-        SetRect(stepId.rectTransform, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(12f, -24f), new Vector2(-44f, -4f));
+        var stepId = CreateText("Text_StepId", root, "STEP 1");
+        stepId.fontStyle = FontStyle.Bold;
+        SetRect(stepId.rectTransform, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(12f, -28f), new Vector2(-44f, -8f));
 
         var conditionSummary = CreateText("Text_ConditionSummary", root, "\u6761\u4EF6: 0");
         conditionSummary.fontSize = 12;
         conditionSummary.alignment = TextAnchor.MiddleLeft;
         conditionSummary.color = DesignTokens.TextSecondary;
-        SetRect(conditionSummary.rectTransform, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(12f, -42f), new Vector2(-44f, -22f));
+        SetRect(conditionSummary.rectTransform, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(12f, -92f), new Vector2(-44f, -72f));
 
         var dragHandle = CreateUiRect("DragHandle", root);
-        SetRect(dragHandle, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0f, -28f), new Vector2(0f, 0f));
-        dragHandle.gameObject.AddComponent<Image>().color = DesignTokens.BgSecondary;
+        SetRect(dragHandle, new Vector2(0f, 0f), new Vector2(1f, 1f), new Vector2(12f, 16f), new Vector2(-12f, -34f));
+        dragHandle.gameObject.AddComponent<Image>().color = DesignTokens.Surface;
+        EnsureThinOutline(dragHandle.gameObject, DesignTokens.Divider);
         var drag = dragHandle.gameObject.AddComponent<NodeDragHandler>();
         drag.target = root;
 
@@ -395,9 +390,10 @@ public static class BuildUiPrefabs
         warning.alignment = TextAnchor.MiddleCenter;
         SetRect(warning.rectTransform, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-56f, -30f), new Vector2(-36f, -10f));
 
-        var deleteButton = CreateButton("Button_Delete", dragHandle, "X");
-        SetRect(deleteButton.GetComponent<RectTransform>(), new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(-30f, -11f), new Vector2(-8f, 11f));
-        deleteButton.GetComponent<Image>().color = DesignTokens.BgTertiary;
+        var deleteButton = CreateButton("Button_Delete", root, "X");
+        SetRect(deleteButton.GetComponent<RectTransform>(), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-34f, -30f), new Vector2(-12f, -8f));
+        deleteButton.GetComponent<Image>().color = DesignTokens.Surface;
+        EnsureThinOutline(deleteButton.gameObject, DesignTokens.Divider);
         var deleteLabel = deleteButton.GetComponentInChildren<Text>(true);
         if (deleteLabel != null)
         {
@@ -444,7 +440,7 @@ public static class BuildUiPrefabs
     {
         var row = CreateUiRect("ConditionRowTemplate", parent);
         row.sizeDelta = new Vector2(0f, 76f);
-        row.gameObject.AddComponent<Image>().color = DesignTokens.BgPrimary;
+        row.gameObject.AddComponent<Image>().color = new Color(1f, 1f, 1f, 0f);
         row.gameObject.AddComponent<LayoutElement>().minHeight = 76f;
 
         var rowLayout = row.gameObject.AddComponent<VerticalLayoutGroup>();
@@ -465,17 +461,19 @@ public static class BuildUiPrefabs
         lineBLayout.childControlWidth = true;
 
         var dropdownA = CreateDropdown("DropdownA", lineA);
-        dropdownA.GetComponent<Image>().color = DesignTokens.BgSecondary;
+        dropdownA.GetComponent<Image>().color = DesignTokens.Surface;
         StyleConditionDropdown(dropdownA);
         dropdownA.gameObject.AddComponent<LayoutElement>().flexibleWidth = 1f;
         var textA = CreateText("Text_AfterA", lineA, "\u3092");
+        textA.fontStyle = FontStyle.Bold;
         textA.gameObject.AddComponent<LayoutElement>().minWidth = 24f;
 
         var dropdownB = CreateDropdown("DropdownB", lineB);
-        dropdownB.GetComponent<Image>().color = DesignTokens.BgSecondary;
+        dropdownB.GetComponent<Image>().color = DesignTokens.Surface;
         StyleConditionDropdown(dropdownB);
         dropdownB.gameObject.AddComponent<LayoutElement>().flexibleWidth = 1f;
-        var textB = CreateText("Text_AfterB", lineB, "\u306B\u8FD1\u3065\u3051\u305F\u3089");
+        var textB = CreateText("Text_AfterB", lineB, "\u306B\u8FD1\u3065\u3051\u308B");
+        textB.fontStyle = FontStyle.Bold;
         textB.gameObject.AddComponent<LayoutElement>().minWidth = 96f;
 
         var ui = row.gameObject.AddComponent<ConditionRowUI>();
@@ -489,7 +487,8 @@ public static class BuildUiPrefabs
     static Dropdown CreateDropdown(string name, Transform parent)
     {
         var root = CreateUiRect(name, parent);
-        root.gameObject.AddComponent<Image>().color = DesignTokens.BgSecondary;
+        root.gameObject.AddComponent<Image>().color = DesignTokens.Surface;
+        EnsureThinOutline(root.gameObject, DesignTokens.Divider);
         var dropdown = root.gameObject.AddComponent<Dropdown>();
 
         var caption = CreateText("Caption", root, "\u672A\u8A2D\u5B9A");
@@ -500,12 +499,14 @@ public static class BuildUiPrefabs
         template.pivot = new Vector2(0.5f, 1f);
         template.anchoredPosition = Vector2.zero;
         template.gameObject.AddComponent<Image>().color = DesignTokens.Surface;
+        EnsureThinOutline(template.gameObject, DesignTokens.Divider);
         var scroll = template.gameObject.AddComponent<ScrollRect>();
         template.gameObject.SetActive(false);
 
         var viewport = CreateUiRect("Viewport", template);
         SetRect(viewport, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
         viewport.gameObject.AddComponent<Image>().color = DesignTokens.Surface;
+        EnsureThinOutline(viewport.gameObject, DesignTokens.Divider);
         viewport.gameObject.AddComponent<Mask>().showMaskGraphic = false;
 
         var content = CreateUiRect("Content", viewport);
@@ -517,7 +518,8 @@ public static class BuildUiPrefabs
 
         var item = CreateUiRect("Item", content);
         item.sizeDelta = new Vector2(0f, 24f);
-        item.gameObject.AddComponent<Image>().color = DesignTokens.BgSecondary;
+        item.gameObject.AddComponent<Image>().color = DesignTokens.Surface;
+        EnsureThinOutline(item.gameObject, DesignTokens.Divider);
         item.gameObject.AddComponent<Toggle>();
         var itemLayout = item.gameObject.AddComponent<LayoutElement>();
         itemLayout.minHeight = 24f;
@@ -538,6 +540,18 @@ public static class BuildUiPrefabs
             new Dropdown.OptionData("\u672A\u8A2D\u5B9A")
         };
         return dropdown;
+    }
+
+    static void EnsureThinOutline(GameObject target, Color color)
+    {
+        if (target == null) return;
+        if (target.GetComponent<Graphic>() == null) return;
+
+        var outline = target.GetComponent<Outline>();
+        if (outline == null) outline = target.AddComponent<Outline>();
+        outline.effectColor = color;
+        outline.effectDistance = new Vector2(0.5f, -0.5f);
+        outline.useGraphicAlpha = false;
     }
 
     static void StyleConditionDropdown(Dropdown dropdown)

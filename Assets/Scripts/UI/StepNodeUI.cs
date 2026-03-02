@@ -15,6 +15,10 @@ public class StepNodeUI : MonoBehaviour
     const float EmbeddedVisibleSlotHeight = 76f;
     const float EmbeddedFallbackHeight = 180f;
     const float EmbeddedFallbackWidth = 390f;
+    const float HeaderLeft = 12f;
+    const float HeaderRight = -44f;
+    const float DragAreaRight = -12f;
+    const float DragAreaBottom = 16f;
 
     [Header("Basic")]
     public Text stepIdText;
@@ -63,6 +67,7 @@ public class StepNodeUI : MonoBehaviour
         if (stepIdText != null)
         {
             stepIdText.text = stepName;
+            stepIdText.fontStyle = FontStyle.Bold;
         }
 
         if (titleInput != null)
@@ -71,8 +76,10 @@ public class StepNodeUI : MonoBehaviour
             titleInput.SetTextWithoutNotify(stepName);
             titleInput.readOnly = true;
             titleInput.interactable = false;
+            titleInput.gameObject.SetActive(false);
         }
 
+        ApplyTask1VisualLayout();
         CacheBaseNodeWidth();
         ConfigureConnectorDragHandlers();
         ConfigureDeleteButton();
@@ -355,7 +362,7 @@ public class StepNodeUI : MonoBehaviour
 
     void EnsureDeleteButton()
     {
-        var dragHandle = transform.Find("DragHandle") as RectTransform;
+        var nodeRoot = transform as RectTransform;
 
         if (deleteButton == null)
         {
@@ -371,7 +378,7 @@ public class StepNodeUI : MonoBehaviour
         {
             var buttonGo = new GameObject("Button_Delete", typeof(RectTransform), typeof(Image), typeof(Button));
             var rt = buttonGo.GetComponent<RectTransform>();
-            rt.SetParent(dragHandle != null ? dragHandle : transform, false);
+            rt.SetParent(nodeRoot != null ? nodeRoot : transform, false);
 
             deleteButton = buttonGo.GetComponent<Button>();
 
@@ -395,8 +402,9 @@ public class StepNodeUI : MonoBehaviour
         var image = deleteButton.GetComponent<Image>();
         if (image != null)
         {
-            image.color = DesignTokens.BgTertiary;
+            image.color = DesignTokens.Surface;
         }
+        EnsureThinOutline(deleteButton.transform);
 
         var labelTextCurrent = deleteButton.GetComponentInChildren<Text>(true);
         if (labelTextCurrent != null)
@@ -407,16 +415,78 @@ public class StepNodeUI : MonoBehaviour
         var deleteRt = deleteButton.GetComponent<RectTransform>();
         if (deleteRt != null)
         {
-            if (dragHandle != null && deleteRt.parent != dragHandle)
+            if (nodeRoot != null && deleteRt.parent != nodeRoot)
             {
-                deleteRt.SetParent(dragHandle, false);
+                deleteRt.SetParent(nodeRoot, false);
             }
 
-            deleteRt.anchorMin = new Vector2(1f, 0.5f);
-            deleteRt.anchorMax = new Vector2(1f, 0.5f);
+            deleteRt.anchorMin = new Vector2(1f, 1f);
+            deleteRt.anchorMax = new Vector2(1f, 1f);
             deleteRt.pivot = new Vector2(1f, 0.5f);
             deleteRt.sizeDelta = new Vector2(22f, 22f);
-            deleteRt.anchoredPosition = new Vector2(-8f, 0f);
+            deleteRt.anchoredPosition = new Vector2(-12f, -19f);
         }
+    }
+
+    void ApplyTask1VisualLayout()
+    {
+        EnsureThinOutline(transform);
+
+        if (stepIdText != null)
+        {
+            var stepRt = stepIdText.rectTransform;
+            if (stepRt != null)
+            {
+                SetTopStretchRect(stepRt, HeaderLeft, HeaderRight, -28f, -8f);
+            }
+        }
+
+        var dragHandle = transform.Find("DragHandle") as RectTransform;
+        if (dragHandle != null)
+        {
+            SetStretchRect(dragHandle, HeaderLeft, DragAreaRight, DragAreaBottom, -34f);
+            var dragImage = dragHandle.GetComponent<Image>();
+            if (dragImage != null) dragImage.color = DesignTokens.Surface;
+            EnsureThinOutline(dragHandle);
+        }
+
+        if (conditionSummaryText != null)
+        {
+            var summaryRt = conditionSummaryText.rectTransform;
+            if (summaryRt != null)
+            {
+                SetTopStretchRect(summaryRt, HeaderLeft, HeaderRight, -92f, -72f);
+            }
+        }
+    }
+
+    static void SetTopStretchRect(RectTransform rt, float left, float right, float bottom, float top)
+    {
+        if (rt == null) return;
+        rt.anchorMin = new Vector2(0f, 1f);
+        rt.anchorMax = new Vector2(1f, 1f);
+        rt.offsetMin = new Vector2(left, bottom);
+        rt.offsetMax = new Vector2(right, top);
+    }
+
+    static void SetStretchRect(RectTransform rt, float left, float right, float bottom, float top)
+    {
+        if (rt == null) return;
+        rt.anchorMin = new Vector2(0f, 0f);
+        rt.anchorMax = new Vector2(1f, 1f);
+        rt.offsetMin = new Vector2(left, bottom);
+        rt.offsetMax = new Vector2(right, top);
+    }
+
+    static void EnsureThinOutline(Transform target)
+    {
+        if (target == null) return;
+        if (target.GetComponent<Graphic>() == null) return;
+
+        var outline = target.GetComponent<Outline>();
+        if (outline == null) outline = target.gameObject.AddComponent<Outline>();
+        outline.effectColor = DesignTokens.Divider;
+        outline.effectDistance = new Vector2(0.5f, -0.5f);
+        outline.useGraphicAlpha = false;
     }
 }

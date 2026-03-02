@@ -12,12 +12,12 @@ public class ConditionRowUI : MonoBehaviour
     public Text textAfterA;
     public Text textAfterB;
 
-    static readonly Color DropdownBackground = DesignTokens.BgSecondary;
+    static readonly Color DropdownBackground = DesignTokens.Surface;
     static readonly Color DropdownTemplateBackground = DesignTokens.Surface;
 
     const string LabelUnset = "\u672A\u8A2D\u5B9A";
     const string LabelParticleA = "\u3092";
-    const string LabelParticleB = "\u306B\u8FD1\u3065\u3051\u305F\u3089";
+    const string LabelParticleB = "\u306B\u8FD1\u3065\u3051\u308B";
 
     public void Bind(
         List<PlacedObjectOptionProvider.Option> options,
@@ -55,6 +55,8 @@ public class ConditionRowUI : MonoBehaviour
 
         if (textAfterA != null) textAfterA.text = LabelParticleA;
         if (textAfterB != null) textAfterB.text = LabelParticleB;
+        if (textAfterA != null) textAfterA.fontStyle = FontStyle.Bold;
+        if (textAfterB != null) textAfterB.fontStyle = FontStyle.Bold;
     }
 
     static void RebindDropdown(Dropdown dropdown, List<string> labels, int value, Action<int> onChanged)
@@ -90,13 +92,7 @@ public class ConditionRowUI : MonoBehaviour
 
         var rootImage = dropdown.GetComponent<Image>();
         if (rootImage != null) rootImage.color = DropdownBackground;
-
-        // Remove border effect if it exists.
-        var outline = dropdown.GetComponent<Outline>();
-        if (outline != null)
-        {
-            UnityEngine.Object.Destroy(outline);
-        }
+        EnsureThinOutline(dropdown.transform);
 
         if (dropdown.captionText != null)
         {
@@ -117,12 +113,14 @@ public class ConditionRowUI : MonoBehaviour
 
             var templateImage = templateRt.GetComponent<Image>();
             if (templateImage != null) templateImage.color = DropdownTemplateBackground;
+            EnsureThinOutline(templateRt);
 
             var viewport = templateRt.Find("Viewport");
             if (viewport != null)
             {
                 var viewportImage = viewport.GetComponent<Image>();
                 if (viewportImage != null) viewportImage.color = DropdownTemplateBackground;
+                EnsureThinOutline(viewport);
             }
 
             var item = templateRt.Find("Viewport/Content/Item");
@@ -144,7 +142,8 @@ public class ConditionRowUI : MonoBehaviour
                 layout.preferredHeight = 24f;
 
                 var itemImage = item.GetComponent<Image>();
-                if (itemImage != null) itemImage.color = DesignTokens.BgSecondary;
+                if (itemImage != null) itemImage.color = DesignTokens.Surface;
+                EnsureThinOutline(item);
 
                 var itemLabel = item.Find("Item Label");
                 if (itemLabel != null)
@@ -176,10 +175,22 @@ public class ConditionRowUI : MonoBehaviour
         var colors = dropdown.colors;
         colors.colorMultiplier = 1f;
         colors.normalColor = DropdownBackground;
-        colors.highlightedColor = DesignTokens.BgTertiary;
-        colors.pressedColor = DesignTokens.Divider;
-        colors.selectedColor = DesignTokens.BgTertiary;
+        colors.highlightedColor = DropdownBackground;
+        colors.pressedColor = DropdownBackground;
+        colors.selectedColor = DropdownBackground;
         dropdown.colors = colors;
+    }
+
+    static void EnsureThinOutline(Transform target)
+    {
+        if (target == null) return;
+        if (target.GetComponent<Graphic>() == null) return;
+
+        var outline = target.GetComponent<Outline>();
+        if (outline == null) outline = target.gameObject.AddComponent<Outline>();
+        outline.effectColor = DesignTokens.Divider;
+        outline.effectDistance = new Vector2(0.5f, -0.5f);
+        outline.useGraphicAlpha = false;
     }
 
     static void EnsureTextReadable(Text text)

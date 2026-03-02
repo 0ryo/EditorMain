@@ -342,8 +342,10 @@ public class ScenarioGraphUI : MonoBehaviour
             row.gameObject.SetActive(true);
             sourceStepUi.conditionRowTemplate.gameObject.SetActive(false);
             sourceStepUi.conditionListRoot.gameObject.SetActive(true);
-            sourceStepUi.conditionListRoot.offsetMin = new Vector2(16f, 18f);
-            sourceStepUi.conditionListRoot.offsetMax = new Vector2(-16f, 108f);
+            sourceStepUi.conditionListRoot.anchorMin = new Vector2(0f, 0f);
+            sourceStepUi.conditionListRoot.anchorMax = new Vector2(1f, 1f);
+            sourceStepUi.conditionListRoot.offsetMin = new Vector2(12f, 16f);
+            sourceStepUi.conditionListRoot.offsetMax = new Vector2(-12f, -34f);
         }
 
         var conditionUi = clone.GetComponent<ConditionNodeUI>();
@@ -675,23 +677,39 @@ public class ScenarioGraphUI : MonoBehaviour
     {
         if (string.IsNullOrWhiteSpace(nodeId) || root == null) return;
 
+        void ConfigureDragHandler(NodeDragHandler drag, bool blockSelectableAtStart)
+        {
+            if (drag == null) return;
+            drag.target = root;
+            drag.blockWhenPointerStartsOnSelectable = blockSelectableAtStart;
+            drag.onDrag = () =>
+            {
+                nodePositions[nodeId] = root.anchoredPosition;
+            };
+            drag.onEndDrag = () =>
+            {
+                nodePositions[nodeId] = root.anchoredPosition;
+                if (nodeType != ScenarioNodeType.Condition) return;
+                TryStoreConditionIntoNearbyStep(nodeId);
+            };
+        }
+
+        if (nodeType == ScenarioNodeType.Step || nodeType == ScenarioNodeType.Condition)
+        {
+            var rootDrag = root.GetComponent<NodeDragHandler>();
+            if (rootDrag == null) rootDrag = root.gameObject.AddComponent<NodeDragHandler>();
+            ConfigureDragHandler(rootDrag, blockSelectableAtStart: true);
+
+            var dragHandleRt = root.Find("DragHandle");
+            var handleDrag = dragHandleRt != null ? dragHandleRt.GetComponent<NodeDragHandler>() : null;
+            ConfigureDragHandler(handleDrag, blockSelectableAtStart: false);
+            return;
+        }
+
         var dragHandle = root.Find("DragHandle");
         if (dragHandle == null) return;
-
         var drag = dragHandle.GetComponent<NodeDragHandler>();
-        if (drag == null) return;
-
-        drag.target = root;
-        drag.onDrag = () =>
-        {
-            nodePositions[nodeId] = root.anchoredPosition;
-        };
-        drag.onEndDrag = () =>
-        {
-            nodePositions[nodeId] = root.anchoredPosition;
-            if (nodeType != ScenarioNodeType.Condition) return;
-            TryStoreConditionIntoNearbyStep(nodeId);
-        };
+        ConfigureDragHandler(drag, blockSelectableAtStart: false);
     }
 
     void TryStoreConditionIntoNearbyStep(string conditionNodeId)

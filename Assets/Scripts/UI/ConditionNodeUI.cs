@@ -4,7 +4,18 @@ using UnityEngine.UI;
 
 public class ConditionNodeUI : MonoBehaviour
 {
-    const string LabelUnset = "\u672A\u8A2D\u5B9A";
+    const float HeaderLeft = 12f;
+    const float HeaderRight = -44f;
+    const float HeaderBottom = -28f;
+    const float HeaderTop = -8f;
+    const float AreaLeft = 12f;
+    const float AreaRight = -12f;
+    const float AreaBottom = 16f;
+    const float AreaTop = -34f;
+    const float RowInset = 16f;
+    const float RowGap = 8f;
+    const float DropdownInsetY = 4f;
+    const float RowVerticalInset = 6f;
 
     [Header("Basic")]
     public Text nodeIdText;
@@ -52,7 +63,9 @@ public class ConditionNodeUI : MonoBehaviour
         ConfigureTitleInput();
         ConfigureConnectorDragHandlers();
         ConfigureDeleteButton();
+        ApplyTask2VisualLayout();
         RefreshConditionOptionsIfNeeded(force: true);
+        ApplyTask2VisualLayout();
         RefreshWarning();
     }
 
@@ -135,7 +148,7 @@ public class ConditionNodeUI : MonoBehaviour
 
     void EnsureDeleteButton()
     {
-        var dragHandle = transform.Find("DragHandle") as RectTransform;
+        var nodeRoot = transform as RectTransform;
 
         if (deleteButton == null)
         {
@@ -151,7 +164,7 @@ public class ConditionNodeUI : MonoBehaviour
         {
             var buttonGo = new GameObject("Button_Delete", typeof(RectTransform), typeof(Image), typeof(Button));
             var rt = buttonGo.GetComponent<RectTransform>();
-            rt.SetParent(dragHandle != null ? dragHandle : transform, false);
+            rt.SetParent(nodeRoot != null ? nodeRoot : transform, false);
 
             deleteButton = buttonGo.GetComponent<Button>();
 
@@ -175,8 +188,9 @@ public class ConditionNodeUI : MonoBehaviour
         var image = deleteButton.GetComponent<Image>();
         if (image != null)
         {
-            image.color = DesignTokens.BgTertiary;
+            image.color = DesignTokens.Surface;
         }
+        EnsureThinOutline(deleteButton.transform);
 
         var labelTextCurrent = deleteButton.GetComponentInChildren<Text>(true);
         if (labelTextCurrent != null)
@@ -187,26 +201,195 @@ public class ConditionNodeUI : MonoBehaviour
         var deleteRt = deleteButton.GetComponent<RectTransform>();
         if (deleteRt != null)
         {
-            if (dragHandle != null && deleteRt.parent != dragHandle)
+            if (nodeRoot != null && deleteRt.parent != nodeRoot)
             {
-                deleteRt.SetParent(dragHandle, false);
+                deleteRt.SetParent(nodeRoot, false);
             }
 
-            deleteRt.anchorMin = new Vector2(1f, 0.5f);
-            deleteRt.anchorMax = new Vector2(1f, 0.5f);
+            deleteRt.anchorMin = new Vector2(1f, 1f);
+            deleteRt.anchorMax = new Vector2(1f, 1f);
             deleteRt.pivot = new Vector2(1f, 0.5f);
             deleteRt.sizeDelta = new Vector2(22f, 22f);
-            deleteRt.anchoredPosition = new Vector2(-8f, 0f);
+            deleteRt.anchoredPosition = new Vector2(-12f, -19f);
         }
+    }
+
+    static void EnsureThinOutline(Transform target)
+    {
+        if (target == null) return;
+        if (target.GetComponent<Graphic>() == null) return;
+
+        var outline = target.GetComponent<Outline>();
+        if (outline == null) outline = target.gameObject.AddComponent<Outline>();
+        outline.effectColor = DesignTokens.Divider;
+        outline.effectDistance = new Vector2(0.5f, -0.5f);
+        outline.useGraphicAlpha = false;
     }
 
     void UpdateNodeLabel()
     {
-        if (nodeIdText == null || conditionNode == null) return;
+        if (nodeIdText == null) return;
+        nodeIdText.text = BuildHeaderLabel();
+    }
 
-        string a = string.IsNullOrWhiteSpace(conditionNode.condition.objectAId) ? LabelUnset : conditionNode.condition.objectAId;
-        string b = string.IsNullOrWhiteSpace(conditionNode.condition.objectBId) ? LabelUnset : conditionNode.condition.objectBId;
-        nodeIdText.text = $"\"{a}\" \u3092 \"{b}\" \u306B\u8FD1\u3065\u3051\u308B";
+    void ApplyTask2VisualLayout()
+    {
+        if (titleInput != null)
+        {
+            titleInput.gameObject.SetActive(false);
+        }
+
+        if (nodeIdText != null)
+        {
+            nodeIdText.fontStyle = FontStyle.Bold;
+            nodeIdText.fontSize = DesignTokens.FontSizeBody;
+            nodeIdText.alignment = TextAnchor.MiddleLeft;
+            nodeIdText.text = BuildHeaderLabel();
+            SetTopStretchRect(nodeIdText.rectTransform, HeaderLeft, HeaderRight, HeaderBottom, HeaderTop);
+        }
+
+        var dragHandle = transform.Find("DragHandle") as RectTransform;
+        if (dragHandle != null)
+        {
+            SetStretchRect(dragHandle, AreaLeft, AreaRight, AreaBottom, AreaTop);
+            var image = dragHandle.GetComponent<Image>();
+            if (image != null) image.color = DesignTokens.Surface;
+            EnsureThinOutline(dragHandle);
+        }
+
+        if (conditionRow == null) return;
+        var conditionArea = conditionRow.transform.parent as RectTransform;
+        if (conditionArea == null) return;
+
+        var areaLayout = conditionArea.GetComponent<VerticalLayoutGroup>();
+        if (areaLayout != null) areaLayout.enabled = false;
+        var areaFitter = conditionArea.GetComponent<ContentSizeFitter>();
+        if (areaFitter != null) areaFitter.enabled = false;
+
+        SetStretchRect(conditionArea, AreaLeft, AreaRight, AreaBottom, AreaTop);
+        ClearContainerVisual(conditionArea);
+        LayoutConditionRow(conditionRow);
+    }
+
+    static void LayoutConditionRow(ConditionRowUI row)
+    {
+        if (row == null) return;
+
+        var rowRt = row.transform as RectTransform;
+        if (rowRt == null) return;
+
+        var rowLayout = rowRt.GetComponent<VerticalLayoutGroup>();
+        if (rowLayout != null) rowLayout.enabled = false;
+
+        SetStretchRect(rowRt, RowInset, -RowInset, RowInset, -RowInset);
+        ClearContainerVisual(rowRt);
+
+        var lineA = rowRt.Find("LineA") as RectTransform;
+        var lineB = rowRt.Find("LineB") as RectTransform;
+        if (lineA == null || lineB == null) return;
+        ClearContainerVisual(lineA);
+        ClearContainerVisual(lineB);
+
+        float rowHeight = rowRt.rect.height > 1f ? rowRt.rect.height : 100f;
+        float availableHeight = Mathf.Max(48f, rowHeight - (RowVerticalInset * 2f) - RowGap);
+        float lineHeight = Mathf.Max(24f, availableHeight * 0.5f);
+        float lineATop = -RowVerticalInset;
+        float lineABottom = -(RowVerticalInset + lineHeight);
+        float lineBTop = -(RowVerticalInset + lineHeight + RowGap);
+        float lineBBottom = -(RowVerticalInset + lineHeight + RowGap + lineHeight);
+        SetTopStretchRect(lineA, 0f, 0f, lineABottom, lineATop);
+        SetTopStretchRect(lineB, 0f, 0f, lineBBottom, lineBTop);
+
+        float rowWidth = rowRt.rect.width > 1f ? rowRt.rect.width : 300f;
+        float suffixLeft = Mathf.Clamp(rowWidth * 0.66f, 170f, rowWidth - 96f);
+
+        LayoutConditionLine(lineA, row.dropdownA, row.textAfterA, suffixLeft, "\u3092");
+        LayoutConditionLine(lineB, row.dropdownB, row.textAfterB, suffixLeft, "\u306B\u8FD1\u3065\u3051\u308B");
+    }
+
+    static void ClearContainerVisual(RectTransform target)
+    {
+        if (target == null) return;
+
+        var image = target.GetComponent<Image>();
+        if (image != null)
+        {
+            // Keep container neutral so only dropdowns render visible frames.
+            image.color = new Color(1f, 1f, 1f, 0f);
+            image.raycastTarget = false;
+        }
+
+        var outline = target.GetComponent<Outline>();
+        if (outline != null) outline.enabled = false;
+    }
+
+    static void LayoutConditionLine(RectTransform lineRt, Dropdown dropdown, Text suffix, float suffixLeft, string suffixText)
+    {
+        if (lineRt == null) return;
+
+        var horizontal = lineRt.GetComponent<HorizontalLayoutGroup>();
+        if (horizontal != null) horizontal.enabled = false;
+
+        var dropdownRt = dropdown != null ? dropdown.GetComponent<RectTransform>() : null;
+        if (dropdownRt != null)
+        {
+            dropdownRt.anchorMin = new Vector2(0f, 0f);
+            dropdownRt.anchorMax = new Vector2(0f, 1f);
+            dropdownRt.offsetMin = new Vector2(0f, DropdownInsetY);
+            dropdownRt.offsetMax = new Vector2(suffixLeft - 8f, -DropdownInsetY);
+        }
+
+        if (suffix != null)
+        {
+            var suffixRt = suffix.rectTransform;
+            suffixRt.anchorMin = new Vector2(0f, 0f);
+            suffixRt.anchorMax = new Vector2(1f, 1f);
+            suffixRt.offsetMin = new Vector2(suffixLeft, 0f);
+            suffixRt.offsetMax = new Vector2(0f, 0f);
+            suffix.text = suffixText;
+            suffix.fontStyle = FontStyle.Bold;
+            suffix.alignment = TextAnchor.MiddleLeft;
+        }
+    }
+
+    string BuildHeaderLabel()
+    {
+        int index = ExtractTrailingNumber(conditionNode != null ? conditionNode.nodeId : null);
+        if (index <= 0) index = 1;
+        return $"\u624B\u9806 {index}";
+    }
+
+    static int ExtractTrailingNumber(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return 1;
+
+        int end = value.Length - 1;
+        while (end >= 0 && !char.IsDigit(value[end])) end--;
+        if (end < 0) return 1;
+
+        int start = end;
+        while (start >= 0 && char.IsDigit(value[start])) start--;
+
+        var digits = value.Substring(start + 1, end - start);
+        return int.TryParse(digits, out var number) && number > 0 ? number : 1;
+    }
+
+    static void SetTopStretchRect(RectTransform rt, float left, float right, float bottom, float top)
+    {
+        if (rt == null) return;
+        rt.anchorMin = new Vector2(0f, 1f);
+        rt.anchorMax = new Vector2(1f, 1f);
+        rt.offsetMin = new Vector2(left, bottom);
+        rt.offsetMax = new Vector2(right, top);
+    }
+
+    static void SetStretchRect(RectTransform rt, float left, float right, float bottom, float top)
+    {
+        if (rt == null) return;
+        rt.anchorMin = new Vector2(0f, 0f);
+        rt.anchorMax = new Vector2(1f, 1f);
+        rt.offsetMin = new Vector2(left, bottom);
+        rt.offsetMax = new Vector2(right, top);
     }
 
     void EnsureTitleInputReference()

@@ -167,7 +167,8 @@ public static class DesignTokenApplier
         if (deleteBtn == null) deleteBtn = FindDeep(nodeRoot, "Button_Delete_Runtime");
         if (deleteBtn != null)
         {
-            SetImageColor(deleteBtn, DesignTokens.BgTertiary);
+            SetImageColor(deleteBtn, DesignTokens.Surface);
+            EnsureThinOutline(deleteBtn, DesignTokens.Divider);
             var label = deleteBtn.GetComponentInChildren<Text>(true);
             if (label != null) label.color = DesignTokens.TextPrimary;
         }
@@ -191,7 +192,6 @@ public static class DesignTokenApplier
         // ConditionRow 背景
         foreach (var row in nodeRoot.GetComponentsInChildren<ConditionRowUI>(true))
         {
-            SetImageColor(row.transform, DesignTokens.BgPrimary);
             ApplyDropdownColors(row.transform);
         }
     }
@@ -201,7 +201,8 @@ public static class DesignTokenApplier
         var dragHandle = nodeRoot.Find("DragHandle");
         if (dragHandle != null)
         {
-            SetImageColor(dragHandle, DesignTokens.BgSecondary);
+            SetImageColor(dragHandle, DesignTokens.Surface);
+            EnsureThinOutline(dragHandle, DesignTokens.Divider);
         }
     }
 
@@ -288,7 +289,8 @@ public static class DesignTokenApplier
             if (dropdown == null) continue;
 
             var bg = dropdown.GetComponent<Image>();
-            if (bg != null) bg.color = DesignTokens.BgSecondary;
+            if (bg != null) bg.color = DesignTokens.Surface;
+            EnsureThinOutline(dropdown.transform, DesignTokens.Divider);
 
             if (dropdown.captionText != null)
                 dropdown.captionText.color = DesignTokens.TextPrimary;
@@ -297,6 +299,21 @@ public static class DesignTokenApplier
             {
                 var templateImage = dropdown.template.GetComponent<Image>();
                 if (templateImage != null) templateImage.color = DesignTokens.Surface;
+                EnsureThinOutline(dropdown.template, DesignTokens.Divider);
+
+                var viewport = dropdown.template.Find("Viewport");
+                if (viewport != null)
+                {
+                    SetImageColor(viewport, DesignTokens.Surface);
+                    EnsureThinOutline(viewport, DesignTokens.Divider);
+                }
+
+                var item = dropdown.template.Find("Viewport/Content/Item");
+                if (item != null)
+                {
+                    SetImageColor(item, DesignTokens.Surface);
+                    EnsureThinOutline(item, DesignTokens.Divider);
+                }
             }
         }
     }
@@ -368,14 +385,18 @@ public static class DesignTokenApplier
 
     static void EnsureNodeOutline(Transform nodeRoot)
     {
-        if (nodeRoot == null) return;
-        var image = nodeRoot.GetComponent<Image>();
-        if (image == null) return;
+        EnsureThinOutline(nodeRoot, DesignTokens.Divider);
+    }
 
-        var outline = nodeRoot.GetComponent<Outline>();
-        if (outline == null) outline = nodeRoot.gameObject.AddComponent<Outline>();
-        outline.effectColor = DesignTokens.Divider;
-        outline.effectDistance = new Vector2(1f, -1f);
+    static void EnsureThinOutline(Transform target, Color color)
+    {
+        if (target == null) return;
+        if (target.GetComponent<Graphic>() == null) return;
+
+        var outline = target.GetComponent<Outline>();
+        if (outline == null) outline = target.gameObject.AddComponent<Outline>();
+        outline.effectColor = color;
+        outline.effectDistance = new Vector2(0.5f, -0.5f);
         outline.useGraphicAlpha = false;
     }
 

@@ -182,8 +182,15 @@ public class CatalogUI : MonoBehaviour
 
     void EnsureSingleEventSystem()
     {
-        var all = FindObjectsByType<EventSystem>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
-        if (all == null || all.Length <= 1) return;
+        var all = FindObjectsByType<EventSystem>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        if (all == null || all.Length == 0)
+        {
+            var eventGo = new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
+            Debug.Log("[CatalogUI] Created EventSystem at runtime.");
+            all = new[] { eventGo.GetComponent<EventSystem>() };
+        }
+
+        if (all.Length <= 1) return;
 
         EventSystem keep = EventSystem.current != null ? EventSystem.current : all[0];
         foreach (var es in all)
