@@ -174,3 +174,15 @@
 - 設定ウィンドウ外側クリックで閉じるため、`SettingsOverlayClickCatcher` を追加。
   - オーバーレイに `IPointerClickHandler` を付与し、クリック位置が `Window` の外側なら `CloseSettingsPanel()` を実行。
   - ウィンドウ内クリック時は閉じない。
+
+## 15. 追記（2026-03-02: 元に戻すボタン + 未適用破棄）
+- 対象:
+  - `Assets/Scripts/CatalogUI.cs`
+  - `Assets/Editor/Automation/BuildUiPrefabs.cs`
+- 設定変更（現在は感度スライダー）が1つでもある場合に、右下へ `適用` と `元に戻す` を同時表示するように変更。
+  - `元に戻す` は `Button_RevertSettings` として追加し、色はシステムグレー系（`DesignTokens.BgSecondary`）を使用。
+  - 配置は `適用` の左隣（同サイズ 136x40）。
+- 設定値の状態管理を `committed`（確定値）と `pending`（未適用値）に分離。
+  - `適用` 押下時のみ `pending` をカメラ設定へ反映し、`committed` として確定。
+  - `元に戻す` 押下時は `pending` を `committed` へ戻す（未適用変更を取り消し）。
+- オーバーレイクリックで閉じる場合（`適用` 未押下）は、`pending` を破棄してから閉じる仕様へ変更（未適用変更は反映しない）。

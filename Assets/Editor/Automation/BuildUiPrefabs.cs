@@ -176,6 +176,7 @@ public static class BuildUiPrefabs
             out var settingsSensitivitySlider,
             out var settingsSensitivityValueText,
             out var settingsIntegrationLinkButton,
+            out var settingsRevertButton,
             out var settingsApplyButton,
             out var settingsAccountUserNameText,
             out var settingsAccountEmailText);
@@ -218,6 +219,8 @@ public static class BuildUiPrefabs
         if (settingsSensitivityValueTextProp != null) settingsSensitivityValueTextProp.objectReferenceValue = settingsSensitivityValueText;
         var settingsIntegrationLinkButtonProp = catalogSo.FindProperty("settingsIntegrationLinkButton");
         if (settingsIntegrationLinkButtonProp != null) settingsIntegrationLinkButtonProp.objectReferenceValue = settingsIntegrationLinkButton;
+        var settingsRevertButtonProp = catalogSo.FindProperty("settingsRevertButton");
+        if (settingsRevertButtonProp != null) settingsRevertButtonProp.objectReferenceValue = settingsRevertButton;
         var settingsApplyButtonProp = catalogSo.FindProperty("settingsApplyButton");
         if (settingsApplyButtonProp != null) settingsApplyButtonProp.objectReferenceValue = settingsApplyButton;
         var settingsAccountUserNameTextProp = catalogSo.FindProperty("settingsAccountUserNameText");
@@ -638,6 +641,7 @@ public static class BuildUiPrefabs
         out Slider sensitivitySlider,
         out Text sensitivityValueText,
         out Button integrationLinkButton,
+        out Button revertButton,
         out Button applyButton,
         out Text accountUserNameText,
         out Text accountEmailText)
@@ -720,6 +724,22 @@ public static class BuildUiPrefabs
             linkLabel.alignment = TextAnchor.MiddleCenter;
         }
 
+        revertButton = CreateButton("Button_RevertSettings", window, "\u5143\u306b\u623b\u3059");
+        var revertButtonRt = revertButton.GetComponent<RectTransform>();
+        revertButtonRt.anchorMin = new Vector2(1f, 0f);
+        revertButtonRt.anchorMax = new Vector2(1f, 0f);
+        revertButtonRt.pivot = new Vector2(1f, 0f);
+        revertButtonRt.sizeDelta = new Vector2(136f, 40f);
+        revertButtonRt.anchoredPosition = new Vector2(-160f, 16f);
+        revertButton.GetComponent<Image>().color = DesignTokens.BgSecondary;
+        var revertLabel = revertButton.GetComponentInChildren<Text>(true);
+        if (revertLabel != null)
+        {
+            revertLabel.color = DesignTokens.TextPrimary;
+            revertLabel.fontSize = 14;
+            revertLabel.alignment = TextAnchor.MiddleCenter;
+        }
+
         applyButton = CreateButton("Button_ApplySettings", window, "\u9069\u7528");
         var applyButtonRt = applyButton.GetComponent<RectTransform>();
         applyButtonRt.anchorMin = new Vector2(1f, 0f);
@@ -769,6 +789,7 @@ public static class BuildUiPrefabs
 
         integrationContent.gameObject.SetActive(false);
         accountContent.gameObject.SetActive(false);
+        revertButton.gameObject.SetActive(false);
         applyButton.gameObject.SetActive(false);
         overlay.gameObject.SetActive(false);
         return overlay;

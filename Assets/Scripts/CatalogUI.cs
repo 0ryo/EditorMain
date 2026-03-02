@@ -36,6 +36,7 @@ public class CatalogUI : MonoBehaviour
     [SerializeField] Slider settingsSensitivitySlider;
     [SerializeField] Text settingsSensitivityValueText;
     [SerializeField] Button settingsIntegrationLinkButton;
+    [SerializeField] Button settingsRevertButton;
     [SerializeField] Button settingsApplyButton;
     [SerializeField] Text settingsAccountUserNameText;
     [SerializeField] Text settingsAccountEmailText;
@@ -68,6 +69,8 @@ public class CatalogUI : MonoBehaviour
     float settingsBasePanSpeed = -1f;
     float settingsBaseZoomSpeed = -1f;
     float settingsBaseOrthographicZoomSpeed = -1f;
+    float settingsCommittedSensitivityScale = 1f;
+    float settingsPendingSensitivityScale = 1f;
     bool settingsHasPendingChanges;
     bool settingsInitializingUi;
     SettingsTab activeSettingsTab = SettingsTab.General;
@@ -226,6 +229,12 @@ public class CatalogUI : MonoBehaviour
             settingsIntegrationLinkButton.onClick.AddListener(OnClickSettingsIntegrationLink);
         }
 
+        if (settingsRevertButton != null)
+        {
+            settingsRevertButton.onClick.RemoveListener(OnClickSettingsRevert);
+            settingsRevertButton.onClick.AddListener(OnClickSettingsRevert);
+        }
+
         if (settingsApplyButton != null)
         {
             settingsApplyButton.onClick.RemoveListener(OnClickSettingsApply);
@@ -252,7 +261,7 @@ public class CatalogUI : MonoBehaviour
 
         RefreshModeButtons();
         RefreshSettingsTabs();
-        UpdateSettingsApplyButtonVisibility();
+        UpdateSettingsActionButtonsVisibility();
     }
 
     void RebuildCards()
@@ -665,6 +674,9 @@ public class CatalogUI : MonoBehaviour
         var linkTr = overlayRt.Find("Window/Content/Content_Integration/Button_WebLink");
         if (linkTr != null) settingsIntegrationLinkButton = linkTr.GetComponent<Button>();
 
+        var revertTr = overlayRt.Find("Window/Button_RevertSettings");
+        if (revertTr != null) settingsRevertButton = revertTr.GetComponent<Button>();
+
         var applyTr = overlayRt.Find("Window/Button_ApplySettings");
         if (applyTr != null) settingsApplyButton = applyTr.GetComponent<Button>();
 
@@ -743,7 +755,32 @@ public class CatalogUI : MonoBehaviour
         EnsureGeneralSettingsContent(settingsGeneralContent);
         EnsureIntegrationSettingsContent(settingsIntegrationContent);
         EnsureAccountSettingsContent(settingsAccountContent);
-        settingsApplyButton = FindOrCreateSettingsButton(windowRt, settingsApplyButton, "Button_ApplySettings", "適用");
+        settingsRevertButton = FindOrCreateSettingsButton(windowRt, settingsRevertButton, "Button_RevertSettings", "\u5143\u306b\u623b\u3059");
+        if (settingsRevertButton != null)
+        {
+            var revertRt = settingsRevertButton.transform as RectTransform;
+            if (revertRt != null)
+            {
+                revertRt.anchorMin = new Vector2(1f, 0f);
+                revertRt.anchorMax = new Vector2(1f, 0f);
+                revertRt.pivot = new Vector2(1f, 0f);
+                revertRt.sizeDelta = new Vector2(136f, 40f);
+                revertRt.anchoredPosition = new Vector2(-160f, 16f);
+            }
+
+            var revertImage = settingsRevertButton.GetComponent<Image>();
+            if (revertImage != null) revertImage.color = DesignTokens.BgSecondary;
+
+            var revertLabel = settingsRevertButton.GetComponentInChildren<Text>(true);
+            if (revertLabel != null)
+            {
+                revertLabel.fontSize = 14;
+                revertLabel.alignment = TextAnchor.MiddleCenter;
+                revertLabel.color = DesignTokens.TextPrimary;
+                revertLabel.text = "\u5143\u306b\u623b\u3059";
+            }
+        }
+        settingsApplyButton = FindOrCreateSettingsButton(windowRt, settingsApplyButton, "Button_ApplySettings", "\u9069\u7528");
         if (settingsApplyButton != null)
         {
             var applyRt = settingsApplyButton.transform as RectTransform;
@@ -765,20 +802,18 @@ public class CatalogUI : MonoBehaviour
                 applyLabel.fontSize = 14;
                 applyLabel.alignment = TextAnchor.MiddleCenter;
                 applyLabel.color = DesignTokens.Surface;
-                applyLabel.text = "適用";
+                applyLabel.text = "\u9069\u7528";
             }
         }
         BindSettingsReferences(overlayRt);
+
+        EnsureSettingsCameraBinding();
+        settingsPendingSensitivityScale = Mathf.Clamp(settingsPendingSensitivityScale, 0.2f, 2.5f);
 
         if (settingsSensitivitySlider != null)
         {
             settingsSensitivitySlider.minValue = 0.2f;
             settingsSensitivitySlider.maxValue = 2.5f;
-            if (settingsSensitivitySlider.value < settingsSensitivitySlider.minValue ||
-                settingsSensitivitySlider.value > settingsSensitivitySlider.maxValue)
-            {
-                settingsSensitivitySlider.SetValueWithoutNotify(1f);
-            }
         }
 
         if (settingsAccountUserNameText != null)
@@ -797,15 +832,15 @@ public class CatalogUI : MonoBehaviour
             settingsAccountEmailText.alignment = TextAnchor.MiddleCenter;
         }
 
-        EnsureSettingsCameraBinding();
         settingsInitializingUi = true;
         RefreshSettingsTabs();
         if (settingsSensitivitySlider != null)
         {
-            OnSettingsSensitivityChanged(settingsSensitivitySlider.value);
+            settingsSensitivitySlider.SetValueWithoutNotify(settingsPendingSensitivityScale);
         }
+        UpdateSensitivityValueText(settingsPendingSensitivityScale);
         settingsInitializingUi = false;
-        UpdateSettingsApplyButtonVisibility();
+        SetSettingsDirty(!Mathf.Approximately(settingsPendingSensitivityScale, settingsCommittedSensitivityScale));
 
         EnsureSettingsOverlayCloseHandler(overlayRt, windowRt);
 
@@ -1744,6 +1779,7 @@ public class CatalogUI : MonoBehaviour
 
     public void CloseSettingsPanelFromOverlayClick()
     {
+        DiscardPendingSettingsChanges();
         CloseSettingsPanel();
     }
 
@@ -1823,42 +1859,73 @@ public class CatalogUI : MonoBehaviour
     void OnSettingsSensitivityChanged(float sliderValue)
     {
         float clamped = Mathf.Clamp(sliderValue, 0.2f, 2.5f);
+        settingsPendingSensitivityScale = clamped;
+        UpdateSensitivityValueText(clamped);
 
-        if (settingsSensitivityValueText != null)
-        {
-            settingsSensitivityValueText.text = $"{clamped:0.00}x";
-        }
+        if (settingsInitializingUi) return;
+        SetSettingsDirty(!Mathf.Approximately(settingsPendingSensitivityScale, settingsCommittedSensitivityScale));
+    }
 
-        if (!settingsInitializingUi)
-        {
-            SetSettingsDirty(true);
-        }
+    void UpdateSensitivityValueText(float scale)
+    {
+        if (settingsSensitivityValueText == null) return;
+        settingsSensitivityValueText.text = $"{scale:0.00}x";
+    }
 
+    void ApplySensitivityScaleToCamera(float scale)
+    {
         EnsureSettingsCameraBinding();
         if (settingsCameraController == null || settingsBaseOrbitSpeed < 0f) return;
 
-        settingsCameraController.orbitSpeed = settingsBaseOrbitSpeed * clamped;
-        settingsCameraController.panSpeed = settingsBasePanSpeed * clamped;
-        settingsCameraController.zoomSpeed = settingsBaseZoomSpeed * clamped;
-        settingsCameraController.orthographicZoomSpeed = settingsBaseOrthographicZoomSpeed * clamped;
+        settingsCameraController.orbitSpeed = settingsBaseOrbitSpeed * scale;
+        settingsCameraController.panSpeed = settingsBasePanSpeed * scale;
+        settingsCameraController.zoomSpeed = settingsBaseZoomSpeed * scale;
+        settingsCameraController.orthographicZoomSpeed = settingsBaseOrthographicZoomSpeed * scale;
     }
 
     void SetSettingsDirty(bool dirty)
     {
         settingsHasPendingChanges = dirty;
-        UpdateSettingsApplyButtonVisibility();
+        UpdateSettingsActionButtonsVisibility();
     }
 
-    void UpdateSettingsApplyButtonVisibility()
+    void UpdateSettingsActionButtonsVisibility()
     {
-        if (settingsApplyButton == null) return;
-        settingsApplyButton.gameObject.SetActive(settingsHasPendingChanges);
+        if (settingsApplyButton != null)
+        {
+            settingsApplyButton.gameObject.SetActive(settingsHasPendingChanges);
+        }
+
+        if (settingsRevertButton != null)
+        {
+            settingsRevertButton.gameObject.SetActive(settingsHasPendingChanges);
+        }
+    }
+
+    void DiscardPendingSettingsChanges()
+    {
+        settingsPendingSensitivityScale = settingsCommittedSensitivityScale;
+        settingsInitializingUi = true;
+        if (settingsSensitivitySlider != null)
+        {
+            settingsSensitivitySlider.SetValueWithoutNotify(settingsCommittedSensitivityScale);
+        }
+        UpdateSensitivityValueText(settingsCommittedSensitivityScale);
+        settingsInitializingUi = false;
+        SetSettingsDirty(false);
     }
 
     void OnClickSettingsApply()
     {
+        settingsCommittedSensitivityScale = settingsPendingSensitivityScale;
+        ApplySensitivityScaleToCamera(settingsCommittedSensitivityScale);
         SetSettingsDirty(false);
         CloseSettingsPanel();
+    }
+
+    void OnClickSettingsRevert()
+    {
+        DiscardPendingSettingsChanges();
     }
 
     void OnClickSettingsIntegrationLink()
