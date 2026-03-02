@@ -57,6 +57,8 @@ public class CatalogUI : MonoBehaviour
     bool runtimeListenerBound;
     Coroutine clearStatusCoroutine;
     readonly List<CardState> cards = new();
+    readonly HashSet<string> removedTypeIds = new(StringComparer.OrdinalIgnoreCase);
+    const string CardRemoveButtonName = "Button_RemoveCard";
     string runtimeImportedTypeId;
     string runtimeImportedCardLabel;
     string runtimeImportedDescription;
@@ -64,6 +66,7 @@ public class CatalogUI : MonoBehaviour
     GameObject pendingImportedPrefab;
     string pendingImportedAssetPath;
     EditModeService boundEditModeService;
+    PlacementController boundPlacementController;
     EditorCameraController settingsCameraController;
     float settingsBaseOrbitSpeed = -1f;
     float settingsBasePanSpeed = -1f;
@@ -109,6 +112,7 @@ public class CatalogUI : MonoBehaviour
     void OnDestroy()
     {
         UnbindEditModeService();
+        UnbindPlacementController();
         NotifyDragState(false);
     }
 
@@ -146,11 +150,34 @@ public class CatalogUI : MonoBehaviour
             registry = placementController.registry;
         }
 
+        EnsurePlacementControllerBinding();
+
         if (!runtimeListenerBound && onSelectType.GetPersistentEventCount() == 0 && placementController != null)
         {
             onSelectType.AddListener(placementController.EnterPlacement);
             runtimeListenerBound = true;
         }
+    }
+
+    void EnsurePlacementControllerBinding()
+    {
+        if (boundPlacementController == placementController) return;
+
+        UnbindPlacementController();
+        boundPlacementController = placementController;
+        if (boundPlacementController != null)
+        {
+            boundPlacementController.PlacementTypeChanged += OnPlacementTypeChanged;
+        }
+
+        RefreshPlacementCardHighlight(boundPlacementController != null ? boundPlacementController.CurrentTypeId : null);
+    }
+
+    void UnbindPlacementController()
+    {
+        if (boundPlacementController == null) return;
+        boundPlacementController.PlacementTypeChanged -= OnPlacementTypeChanged;
+        boundPlacementController = null;
     }
 
     void EnsureSingleEventSystem()
@@ -285,6 +312,7 @@ public class CatalogUI : MonoBehaviour
         foreach (var entry in registry.entries)
         {
             if (entry == null || string.IsNullOrWhiteSpace(entry.typeId)) continue;
+            if (removedTypeIds.Contains(entry.typeId)) continue;
 
             var cardButton = Instantiate(buttonTemplate, content);
             cardButton.gameObject.name = $"Card_{entry.typeId}";
@@ -293,13 +321,7 @@ public class CatalogUI : MonoBehaviour
 
             var typeId = entry.typeId;
             SetCardLabel(cardButton.gameObject, typeId);
-
-            cardButton.onClick.RemoveAllListeners();
-            cardButton.onClick.AddListener(() => OnClickCard(typeId));
-
-            var drag = cardButton.GetComponent<CatalogCardDragHandler>();
-            if (drag == null) drag = cardButton.gameObject.AddComponent<CatalogCardDragHandler>();
-            drag.Initialize(this, typeId);
+            SetupCardInteractions(cardButton, typeId);
 
             cards.Add(new CardState
             {
@@ -316,12 +338,14 @@ public class CatalogUI : MonoBehaviour
         ApplyRoundedTheme();
         DesignTokenApplier.ApplyCatalogPanel(transform);
         RefreshModeButtons();
+        RefreshPlacementCardHighlight(boundPlacementController != null ? boundPlacementController.CurrentTypeId : null);
     }
 
     void AddRuntimeImportedCardIfNeeded()
     {
         if (string.IsNullOrWhiteSpace(runtimeImportedTypeId) || runtimeImportedPrefab == null) return;
         if (buttonTemplate == null || content == null) return;
+        if (removedTypeIds.Contains(runtimeImportedTypeId)) return;
 
         var cardButton = Instantiate(buttonTemplate, content);
         cardButton.gameObject.name = "Card_NewObject";
@@ -331,12 +355,7 @@ public class CatalogUI : MonoBehaviour
         SetCardLabel(cardButton.gameObject, cardLabel);
 
         var importedTypeId = runtimeImportedTypeId;
-        cardButton.onClick.RemoveAllListeners();
-        cardButton.onClick.AddListener(() => OnClickCard(importedTypeId));
-
-        var drag = cardButton.GetComponent<CatalogCardDragHandler>();
-        if (drag == null) drag = cardButton.gameObject.AddComponent<CatalogCardDragHandler>();
-        drag.Initialize(this, importedTypeId);
+        SetupCardInteractions(cardButton, importedTypeId);
 
         cards.Add(new CardState
         {
@@ -345,6 +364,78 @@ public class CatalogUI : MonoBehaviour
             displayDescription = runtimeImportedDescription,
             root = cardButton.gameObject
         });
+    }
+
+    void SetupCardInteractions(Button cardButton, string typeId)
+    {
+        if (cardButton == null || string.IsNullOrWhiteSpace(typeId)) return;
+
+        cardButton.onClick.RemoveAllListeners();
+        cardButton.onClick.AddListener(() => OnClickCard(typeId));
+
+        var drag = cardButton.GetComponent<CatalogCardDragHandler>();
+        if (drag == null) drag = cardButton.gameObject.AddComponent<CatalogCardDragHandler>();
+        drag.Initialize(this, typeId);
+
+        var removeButton = EnsureCardRemoveButton(cardButton, typeId);
+        var hover = cardButton.GetComponent<CatalogCardRemoveHoverHandler>();
+        if (hover == null) hover = cardButton.gameObject.AddComponent<CatalogCardRemoveHoverHandler>();
+        hover.Initialize(removeButton);
+    }
+
+    Button EnsureCardRemoveButton(Button cardButton, string typeId)
+    {
+        if (cardButton == null || string.IsNullOrWhiteSpace(typeId)) return null;
+
+        var cardRoot = cardButton.transform as RectTransform;
+        if (cardRoot == null) return null;
+
+        var removeTr = cardRoot.Find(CardRemoveButtonName) as RectTransform;
+        Button removeButton = removeTr != null ? removeTr.GetComponent<Button>() : null;
+        if (removeButton == null)
+        {
+            var removeGo = new GameObject(CardRemoveButtonName, typeof(RectTransform), typeof(Image), typeof(Button));
+            removeTr = removeGo.GetComponent<RectTransform>();
+            removeTr.SetParent(cardRoot, false);
+            removeButton = removeGo.GetComponent<Button>();
+        }
+
+        removeTr.anchorMin = new Vector2(1f, 1f);
+        removeTr.anchorMax = new Vector2(1f, 1f);
+        removeTr.pivot = new Vector2(0.5f, 0.5f);
+        removeTr.sizeDelta = new Vector2(DesignTokens.DeleteButtonSize, DesignTokens.DeleteButtonSize);
+        removeTr.anchoredPosition = Vector2.zero;
+        removeTr.SetAsLastSibling();
+
+        var removeImage = removeButton.GetComponent<Image>();
+        if (removeImage == null) removeImage = removeButton.gameObject.AddComponent<Image>();
+        removeImage.color = DesignTokens.BgTertiary;
+        UiRoundedTheme.ApplyCircleToElement(removeImage);
+        removeButton.targetGraphic = removeImage;
+
+        var removeLabel = removeButton.GetComponentInChildren<Text>(true);
+        if (removeLabel == null)
+        {
+            var labelGo = new GameObject("Label", typeof(RectTransform), typeof(Text));
+            var labelRt = labelGo.GetComponent<RectTransform>();
+            labelRt.SetParent(removeTr, false);
+            labelRt.anchorMin = Vector2.zero;
+            labelRt.anchorMax = Vector2.one;
+            labelRt.offsetMin = Vector2.zero;
+            labelRt.offsetMax = Vector2.zero;
+            removeLabel = labelGo.GetComponent<Text>();
+        }
+
+        removeLabel.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        removeLabel.fontSize = 12;
+        removeLabel.color = DesignTokens.TextPrimary;
+        removeLabel.alignment = TextAnchor.MiddleCenter;
+        removeLabel.text = "X";
+        removeLabel.raycastTarget = false;
+
+        removeButton.onClick.RemoveAllListeners();
+        removeButton.onClick.AddListener(() => OnClickRemoveCard(typeId));
+        return removeButton;
     }
 
     void ApplyRoundedTheme()
@@ -1706,10 +1797,35 @@ public class CatalogUI : MonoBehaviour
             return;
         }
 
-        var legacy = root.GetComponentInChildren<Text>(true);
-        if (legacy != null) legacy.text = typeId;
+        var legacyTexts = root.GetComponentsInChildren<Text>(true);
+        foreach (var legacyText in legacyTexts)
+        {
+            if (legacyText == null) continue;
+            if (IsUnderCardRemoveButton(legacyText.transform)) continue;
+            legacyText.text = typeId;
+            break;
+        }
+
         var tmps = root.GetComponentsInChildren<TMP_Text>(true);
-        if (tmps.Length > 0) tmps[0].text = typeId;
+        foreach (var tmp in tmps)
+        {
+            if (tmp == null) continue;
+            if (IsUnderCardRemoveButton(tmp.transform)) continue;
+            tmp.text = typeId;
+            break;
+        }
+    }
+
+    static bool IsUnderCardRemoveButton(Transform target)
+    {
+        var cursor = target;
+        while (cursor != null)
+        {
+            if (cursor.name == CardRemoveButtonName) return true;
+            cursor = cursor.parent;
+        }
+
+        return false;
     }
 
     void EnsureEditModeServiceBinding()
@@ -1968,8 +2084,45 @@ public class CatalogUI : MonoBehaviour
     void OnClickCard(string typeId)
     {
         if (string.IsNullOrWhiteSpace(typeId)) return;
+        if (removedTypeIds.Contains(typeId)) return;
         onSelectType?.Invoke(typeId);
         ClearStatus();
+    }
+
+    void OnClickRemoveCard(string typeId)
+    {
+        if (string.IsNullOrWhiteSpace(typeId)) return;
+        removedTypeIds.Add(typeId);
+
+        for (int i = cards.Count - 1; i >= 0; i--)
+        {
+            var card = cards[i];
+            if (card == null || string.IsNullOrWhiteSpace(card.typeId))
+            {
+                cards.RemoveAt(i);
+                continue;
+            }
+
+            if (!string.Equals(card.typeId, typeId, StringComparison.OrdinalIgnoreCase)) continue;
+
+            if (card.root != null)
+            {
+                Destroy(card.root);
+            }
+            cards.RemoveAt(i);
+        }
+
+        if (string.Equals(runtimeImportedTypeId, typeId, StringComparison.OrdinalIgnoreCase))
+        {
+            runtimeImportedTypeId = null;
+            runtimeImportedCardLabel = null;
+            runtimeImportedDescription = null;
+            runtimeImportedPrefab = null;
+        }
+
+        ApplyFilter(searchInput != null ? searchInput.text : string.Empty);
+        RefreshPlacementCardHighlight(boundPlacementController != null ? boundPlacementController.CurrentTypeId : null);
+        SetStatus($"Removed card: {typeId}");
     }
 
     void OnSearchChanged(string text)
@@ -1993,6 +2146,41 @@ public class CatalogUI : MonoBehaviour
             var visible = showAll || matchesType || matchesLabel || matchesDescription;
             card.root.SetActive(visible);
         }
+    }
+
+    void OnPlacementTypeChanged(string typeId)
+    {
+        RefreshPlacementCardHighlight(typeId);
+    }
+
+    void RefreshPlacementCardHighlight(string activeTypeId)
+    {
+        foreach (var card in cards)
+        {
+            if (card?.root == null) continue;
+
+            bool shouldHighlight = !string.IsNullOrWhiteSpace(activeTypeId) &&
+                                   string.Equals(card.typeId, activeTypeId, StringComparison.OrdinalIgnoreCase);
+            ApplyCardPlacementHighlight(card.root, shouldHighlight);
+        }
+    }
+
+    void ApplyCardPlacementHighlight(GameObject cardRoot, bool highlight)
+    {
+        if (cardRoot == null) return;
+
+        var outline = cardRoot.GetComponent<Outline>();
+        if (!highlight)
+        {
+            if (outline != null) outline.enabled = false;
+            return;
+        }
+
+        if (outline == null) outline = cardRoot.AddComponent<Outline>();
+        outline.effectColor = DesignTokens.Accent;
+        outline.effectDistance = new Vector2(2f, -2f);
+        outline.useGraphicAlpha = false;
+        outline.enabled = true;
     }
 
     void OnClickAdd()
@@ -2398,6 +2586,41 @@ public class SettingsOverlayClickCatcher : MonoBehaviour, IPointerClickHandler
 
         if (clickedInsideWindow) return;
         owner.CloseSettingsPanelFromOverlayClick();
+    }
+}
+
+public class CatalogCardRemoveHoverHandler : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
+{
+    Button removeButton;
+    int hoverDepth;
+
+    public void Initialize(Button button)
+    {
+        removeButton = button;
+        hoverDepth = 0;
+        SetRemoveVisible(false);
+    }
+
+    public void OnPointerEnter(PointerEventData eventData)
+    {
+        hoverDepth++;
+        SetRemoveVisible(true);
+    }
+
+    public void OnPointerExit(PointerEventData eventData)
+    {
+        hoverDepth = Mathf.Max(0, hoverDepth - 1);
+        if (hoverDepth == 0)
+        {
+            SetRemoveVisible(false);
+        }
+    }
+
+    void SetRemoveVisible(bool visible)
+    {
+        if (removeButton == null) return;
+        if (removeButton.gameObject.activeSelf == visible) return;
+        removeButton.gameObject.SetActive(visible);
     }
 }
 

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System;
 using UnityEngine;
 using UnityEngine.EventSystems;
 
@@ -13,6 +14,8 @@ public class PlacementController : MonoBehaviour
     string currentTypeId;
     Dictionary<string, GameObject> map;
     static bool uiDragInProgress;
+    public event Action<string> PlacementTypeChanged;
+    public string CurrentTypeId => currentTypeId;
 
     public static void SetUiDragInProgress(bool isDragging)
     {
@@ -77,7 +80,7 @@ public class PlacementController : MonoBehaviour
         {
             Debug.Log($"[Placement] CancelPlacement: {currentTypeId}");
         }
-        currentTypeId = null;
+        SetCurrentTypeId(null);
     }
 
     public void EnterPlacement(string typeId)
@@ -96,13 +99,20 @@ public class PlacementController : MonoBehaviour
             return;
         }
 
-        currentTypeId = typeId;
+        SetCurrentTypeId(typeId);
         if (EditModeService.I != null)
         {
             EditModeService.I.SetMode(EditMode.Place);
         }
 
         Debug.Log($"[Placement] EnterPlacement OK: {currentTypeId}");
+    }
+
+    void SetCurrentTypeId(string typeId)
+    {
+        if (string.Equals(currentTypeId, typeId, StringComparison.Ordinal)) return;
+        currentTypeId = typeId;
+        PlacementTypeChanged?.Invoke(currentTypeId);
     }
 
     public bool PlaceOnceAtScreenPoint(string typeId, Vector2 screenPosition)
@@ -167,7 +177,7 @@ public class PlacementController : MonoBehaviour
         {
             if (!TryGetPrefab(tId, out var sourcePrefab)) return null;
 
-            var obj = Object.Instantiate(sourcePrefab);
+            var obj = UnityEngine.Object.Instantiate(sourcePrefab);
             var placed = obj.GetComponent<PlacedObject>();
             if (placed == null) placed = obj.AddComponent<PlacedObject>();
 

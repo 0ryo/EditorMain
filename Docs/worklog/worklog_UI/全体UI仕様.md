@@ -61,12 +61,16 @@
   - `typeId` を表示
   - カード高は `84` 固定
   - 上詰め配置（`VerticalLayoutGroup.childAlignment = UpperLeft`）
+  - 小型 `×` ボタンはカードホバー時のみ表示
+  - `×` ボタンはカード右上角の外側にはみ出し、丸の中心がカード角に重なる
+  - `×` 押下で一覧から当該カードを除去
 - 検索
   - `typeId` の部分一致
   - 大文字/小文字を区別しない
 - クリック配置
   - カードクリックで `PlacementController.EnterPlacement(typeId)`
   - 3Dビュー次クリックで 1 回配置し配置モード解除
+  - 配置待ち中の `typeId` に対応するカードへ `DesignTokens.Accent`（青）の枠線強調を表示
 - ドラッグ&ドロップ配置
   - カードドラッグ終了時、UI外ドロップなら即時 1 回配置
   - 配置モードは残さない
@@ -209,7 +213,7 @@
 
 ## 19. 2026-02-22 Node/Path Deletion UX
 - `StepNodeUI` and `ConditionNodeUI` now include a top-right `X` delete button.
-- Path (`ConnectionLineGraphic`) supports hover/click events; hover shows `�폜`, click deletes that edge.
+- Path (`ConnectionLineGraphic`) supports hover/click events; hover shows `�폜`, click deletes that edge.
 - `Start` and `End` terminal nodes keep delete disabled.
 
 ## 20. 2026-02-22 Path Hover Hit-Test + Delete Button Visual Tuning
@@ -238,3 +242,14 @@
 - `Transform` モードでは `MoveTool` が軸移動ハンドルと回転ハンドルを表示し、オブジェクト変形をギズモ経由で行う。
 - `Scale` モードでは `SelectionOutline` がコーナードラッグによる等比スケールを提供する。
 - `UiPanelDockSync` は編集モード行も含めてカタログ幅に追従させ、UIの重なりや隙間を防ぐ。
+## 25. 2026-03-02 Catalog Card Remove Button
+- `CatalogUI` の各オブジェクトカードに右上 `×` ボタン（`Button_RemoveCard`）を追加。
+- `×` はカードホバー時のみ表示する。
+- `×` ボタンは真円で、丸の中心をカード右上角に一致させる。
+- `×` 押下で、その `typeId` カードをオブジェクト一覧から除去する。
+- この除去は一覧表示のみを対象とし、既にワールドにあるオブジェクトには影響しない。
+- 除去状態は同一セッション内で維持され、検索変更やカード再構築でも除去済みカードは再表示しない。
+
+## 26. 2026-03-02 Placement Waiting Card Highlight
+- カードクリック後、ワールドクリック待ちの配置モード中は該当 `typeId` カードに青枠（`DesignTokens.Accent`）を表示する。
+- 配置完了または配置モード終了で青枠を解除する。

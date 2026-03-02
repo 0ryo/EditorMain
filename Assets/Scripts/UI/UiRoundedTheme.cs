@@ -56,6 +56,7 @@ public static class UiRoundedTheme
         var name = image.gameObject.name;
         if (name == "InputConnector" || name == "OutputConnector") return false;
         if (name == "Button_Delete" || name == "Button_Delete_Runtime") return false;
+        if (name == "Button_RemoveCard" || name == "Button_RemoveCard_Runtime") return false;
 
         return true;
     }
