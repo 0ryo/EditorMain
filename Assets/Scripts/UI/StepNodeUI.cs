@@ -9,12 +9,16 @@ public class StepNodeUI : MonoBehaviour
     const float BaseHeight = 180f;
     const float EmbeddedWidthScale = 1.2f;
     const float FallbackNodeWidth = 390f;
-    const float EmbeddedSpacing = 16f;
+    const float EmbeddedSpacing = 8f; // カード間のVLGスペーシング（区切り線の前後各8px）
     const float EmbeddedListBottom = 18f;
     const float EmbeddedListSide = 0f;
     const float EmbeddedVisibleSlotHeight = 76f;
     const float EmbeddedFallbackHeight = 180f;
     const float EmbeddedFallbackWidth = 390f;
+    const float HeaderLeft = 12f;
+    const float HeaderRight = -44f;
+    const float DragAreaRight = -12f;
+    const float DragAreaBottom = 16f;
 
     [Header("Basic")]
     public Text stepIdText;
@@ -63,6 +67,7 @@ public class StepNodeUI : MonoBehaviour
         if (stepIdText != null)
         {
             stepIdText.text = stepName;
+            stepIdText.fontStyle = FontStyle.Bold;
         }
 
         if (titleInput != null)
@@ -71,8 +76,10 @@ public class StepNodeUI : MonoBehaviour
             titleInput.SetTextWithoutNotify(stepName);
             titleInput.readOnly = true;
             titleInput.interactable = false;
+            titleInput.gameObject.SetActive(false);
         }
 
+        ApplyTask1VisualLayout();
         CacheBaseNodeWidth();
         ConfigureConnectorDragHandlers();
         ConfigureDeleteButton();
@@ -146,10 +153,15 @@ public class StepNodeUI : MonoBehaviour
 
         float embeddedNodeHeight = GetEmbeddedNodeHeight();
         float embeddedNodeWidth = GetEmbeddedNodeWidth();
-        for (int i = 0; i < conditions.Count; i++)
+
+        // null/未設定条件を除外してから順番にインデックスを付ける
+        var validConditions = conditions
+            .Where(c => c != null && c.condition != null)
+            .ToList();
+
+        for (int displayIdx = 0; displayIdx < validConditions.Count; displayIdx++)
         {
-            var condition = conditions[i];
-            if (condition == null || condition.condition == null) continue;
+            var condition = validConditions[displayIdx];
 
             var conditionUi = Instantiate(embeddedConditionTemplate, conditionListRoot);
             conditionUi.gameObject.name = $"EmbeddedCondition_{condition.nodeId}";
@@ -188,7 +200,14 @@ public class StepNodeUI : MonoBehaviour
                 onChanged?.Invoke();
             };
             conditionUi.Bind(graphService, condition);
+            conditionUi.EnterEmbeddedMode(displayIdx + 1); // 連番ラベル + 出力コネクタ非表示
             runtimeEmbeddedConditions.Add(conditionUi);
+
+            // カード間の区切り線（最後のカードの後は追加しない）
+            if (displayIdx < validConditions.Count - 1)
+            {
+                AddEmbeddedDivider(conditionListRoot);
+            }
         }
 
         ResizeForEmbeddedCount(runtimeEmbeddedConditions.Count, embeddedNodeHeight);
@@ -232,7 +251,14 @@ public class StepNodeUI : MonoBehaviour
         float embeddedHeight = 0f;
         if (embeddedCount > 0)
         {
-            embeddedHeight = (embeddedCount * embeddedNodeHeight) + ((embeddedCount - 1) * EmbeddedSpacing);
+            // VLG内の並び: [C, D, C, D, ..., C] (Condition + Divider交互、最後はC)
+            // totalItems = N_conditions + (N_conditions - 1) dividers = 2N - 1
+            int numDividers = embeddedCount - 1;
+            int totalItems = embeddedCount + numDividers;
+            float totalSpacing = totalItems > 1 ? (totalItems - 1) * EmbeddedSpacing : 0f;
+            embeddedHeight = (embeddedCount * embeddedNodeHeight)
+                           + (numDividers * DesignTokens.DividerHeight)
+                           + totalSpacing;
         }
 
         var root = transform as RectTransform;
@@ -299,6 +325,22 @@ public class StepNodeUI : MonoBehaviour
             .Select(c => c.nodeId));
     }
 
+    static void AddEmbeddedDivider(RectTransform parent)
+    {
+        var divGo = new GameObject("Divider", typeof(RectTransform), typeof(Image));
+        var divRt = divGo.GetComponent<RectTransform>();
+        divRt.SetParent(parent, false);
+
+        var divImage = divGo.GetComponent<Image>();
+        divImage.color = DesignTokens.Divider;
+        divImage.raycastTarget = false;
+
+        var divLayout = divGo.AddComponent<LayoutElement>();
+        divLayout.minHeight = DesignTokens.DividerHeight;
+        divLayout.preferredHeight = DesignTokens.DividerHeight;
+        divLayout.flexibleWidth = 1f;
+    }
+
     static void DisableEmbeddedNodeDrag(ConditionNodeUI conditionUi)
     {
         if (conditionUi == null) return;
@@ -355,7 +397,7 @@ public class StepNodeUI : MonoBehaviour
 
     void EnsureDeleteButton()
     {
-        var dragHandle = transform.Find("DragHandle") as RectTransform;
+        var nodeRoot = transform as RectTransform;
 
         if (deleteButton == null)
         {
@@ -371,7 +413,7 @@ public class StepNodeUI : MonoBehaviour
         {
             var buttonGo = new GameObject("Button_Delete", typeof(RectTransform), typeof(Image), typeof(Button));
             var rt = buttonGo.GetComponent<RectTransform>();
-            rt.SetParent(dragHandle != null ? dragHandle : transform, false);
+            rt.SetParent(nodeRoot != null ? nodeRoot : transform, false);
 
             deleteButton = buttonGo.GetComponent<Button>();
 
@@ -395,8 +437,9 @@ public class StepNodeUI : MonoBehaviour
         var image = deleteButton.GetComponent<Image>();
         if (image != null)
         {
-            image.color = DesignTokens.BgTertiary;
+            image.color = DesignTokens.Surface;
         }
+        EnsureThinOutline(deleteButton.transform);
 
         var labelTextCurrent = deleteButton.GetComponentInChildren<Text>(true);
         if (labelTextCurrent != null)
@@ -407,16 +450,78 @@ public class StepNodeUI : MonoBehaviour
         var deleteRt = deleteButton.GetComponent<RectTransform>();
         if (deleteRt != null)
         {
-            if (dragHandle != null && deleteRt.parent != dragHandle)
+            if (nodeRoot != null && deleteRt.parent != nodeRoot)
             {
-                deleteRt.SetParent(dragHandle, false);
+                deleteRt.SetParent(nodeRoot, false);
             }
 
-            deleteRt.anchorMin = new Vector2(1f, 0.5f);
-            deleteRt.anchorMax = new Vector2(1f, 0.5f);
+            deleteRt.anchorMin = new Vector2(1f, 1f);
+            deleteRt.anchorMax = new Vector2(1f, 1f);
             deleteRt.pivot = new Vector2(1f, 0.5f);
             deleteRt.sizeDelta = new Vector2(22f, 22f);
-            deleteRt.anchoredPosition = new Vector2(-8f, 0f);
+            deleteRt.anchoredPosition = new Vector2(-12f, -19f);
         }
+    }
+
+    void ApplyTask1VisualLayout()
+    {
+        EnsureThinOutline(transform);
+
+        if (stepIdText != null)
+        {
+            var stepRt = stepIdText.rectTransform;
+            if (stepRt != null)
+            {
+                SetTopStretchRect(stepRt, HeaderLeft, HeaderRight, -28f, -8f);
+            }
+        }
+
+        var dragHandle = transform.Find("DragHandle") as RectTransform;
+        if (dragHandle != null)
+        {
+            SetStretchRect(dragHandle, HeaderLeft, DragAreaRight, DragAreaBottom, -34f);
+            var dragImage = dragHandle.GetComponent<Image>();
+            if (dragImage != null) dragImage.color = DesignTokens.Surface;
+            EnsureThinOutline(dragHandle);
+        }
+
+        if (conditionSummaryText != null)
+        {
+            var summaryRt = conditionSummaryText.rectTransform;
+            if (summaryRt != null)
+            {
+                SetTopStretchRect(summaryRt, HeaderLeft, HeaderRight, -92f, -72f);
+            }
+        }
+    }
+
+    static void SetTopStretchRect(RectTransform rt, float left, float right, float bottom, float top)
+    {
+        if (rt == null) return;
+        rt.anchorMin = new Vector2(0f, 1f);
+        rt.anchorMax = new Vector2(1f, 1f);
+        rt.offsetMin = new Vector2(left, bottom);
+        rt.offsetMax = new Vector2(right, top);
+    }
+
+    static void SetStretchRect(RectTransform rt, float left, float right, float bottom, float top)
+    {
+        if (rt == null) return;
+        rt.anchorMin = new Vector2(0f, 0f);
+        rt.anchorMax = new Vector2(1f, 1f);
+        rt.offsetMin = new Vector2(left, bottom);
+        rt.offsetMax = new Vector2(right, top);
+    }
+
+    static void EnsureThinOutline(Transform target)
+    {
+        if (target == null) return;
+        if (target.GetComponent<Graphic>() == null) return;
+
+        var outline = target.GetComponent<Outline>();
+        if (outline == null) outline = target.gameObject.AddComponent<Outline>();
+        outline.effectColor = DesignTokens.Divider;
+        outline.effectDistance = new Vector2(0.5f, -0.5f);
+        outline.useGraphicAlpha = false;
     }
 }

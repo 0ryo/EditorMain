@@ -33,6 +33,10 @@ public static class DesignTokens
     // 区切り線
     public static readonly Color Divider         = new Color(0.820f, 0.820f, 0.839f, 1f); // #D1D1D6
 
+    // ターミナルノード
+    public static readonly Color NodeStart       = new Color(0.537f, 0.765f, 1.000f, 1f); // #89C3FF
+    public static readonly Color NodeEnd         = new Color(1.000f, 0.537f, 0.545f, 1f); // #FF898B
+
     // ボタン テキスト (Primary / Danger 用)
     public static readonly Color ButtonTextLight = new Color(1f, 1f, 1f, 1f);             // White on accent
 
