@@ -15,7 +15,7 @@ Strictly follow the rules below.
 
 1. Use only the values defined in this specification. Do not change colors, sizes, or spacing at your own discretion
 2. Do not make unsolicited "improvements" that you think might be better. Do not add anything not in the spec
-3. More whitespace is always correct. When in doubt, go wider
+3. **CRITICAL: AI consistently fails to add enough spacing (余白). YOU MUST explicitly set generous padding, margins, and layout gaps for EVERY element.** Never leave elements cramped. Always apply spacing from Section 4, heavily prioritizing `space-md` (16) and `space-lg` (24). Zero-padding or insufficient spacing is a critical failure.
 4. Before adding any element, ask yourself "Is this truly necessary?" — if not, do not add it
 5. Only two font weights are allowed (Regular / SemiBold). Do not use Bold, Light, etc.
 6. Decorative shadows, gloss, textures, and gradients are prohibited
@@ -127,7 +127,7 @@ All margins, padding, and gaps must be **multiples of 4**.
 
 ### 4.2 Spacing Rules
 
-- **When in doubt, choose the wider option.** More whitespace = correct
+- **When in doubt, choose the wider option.** More whitespace = correct. **AI tends to ignore spacing, so deliberately apply generous margins and padding.**
 - **Gestalt's Law of Proximity:** Related items are closer; unrelated items are farther apart
 - Between elements in the same group: `space-sm` (8)
 - Between different groups: `space-lg` (24) or more
@@ -323,6 +323,7 @@ After implementing UI, verify all of the following. If even one item applies, fi
 - [ ] Are two or more accent colors used?
 - [ ] Does corner radius vary between elements?
 - [ ] Are any spacing values not multiples of 4?
+- [ ] **CRITICAL:** Is the UI cramped? Did you explicitly specify wide margins and padding (余白) for all containers?
 - [ ] Are there any purely decorative elements with no functional purpose?
 - [ ] Are there two or more primary action buttons on a single screen?
 - [ ] Is there center-aligned long-form text?
