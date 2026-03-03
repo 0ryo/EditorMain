@@ -132,3 +132,73 @@
 - [ ] START / END ノードが指定の単色（青 / 赤）で表示される。
 - [ ] 2色の境界線（以前の DragHandle アウトライン）が消えている。
 - [ ] START / END ノードのどこを掴んでもドラッグで移動できる。
+
+## 11. セッション進捗メモ（2026-03-03）— オブジェクト詳細パネル
+
+### Task 1 完了: SelectionService 選択変更イベント追加
+- `SelectionService` に `public event System.Action<PlacedObject> OnSelectionChanged` を追加。
+- `Select(PlacedObject po)` 内で `Current` 更新・アウトライン更新の直後に `OnSelectionChanged?.Invoke(po)` を発火。
+- `null`（選択解除）もそのまま渡すため、購読側で表示/非表示を一元管理できる。
+
+### 変更ファイル（Task 1）
+- `Assets/Scripts/SelectionService.cs`
+
+### Task 2 完了: CatalogUI メタデータ公開 API 追加
+- `CatalogUI` に `public bool TryGetTypeInfo(string typeId, out string label, out string description)` を追加。
+- `cards` リストを OrdinalIgnoreCase で線形検索し、一致すれば `displayLabel` / `displayDescription` を返す。
+- 見つからない場合は `label = typeId`、`description = empty` にフォールバックして `false` を返す。
+
+### 変更ファイル（Task 2）
+- `Assets/Scripts/CatalogUI.cs`
+
+### Task 3 完了: ObjectDetailPanel スクリプト作成
+- `Assets/Scripts/UI/ObjectDetailPanel.cs` を新規作成。
+- `Start()` で `SelectionService` / `CatalogUI` を `FindFirstObjectByType` で自動取得。
+- `SelectionService.OnSelectionChanged` を購読し、`OnDestroy()` で購読解除。
+- 選択解除 (`null`) → `gameObject.SetActive(false)`。
+- 選択時 → `Populate()` でテキスト設定後に `SetActive(true)`。
+  - `textPrefabLabel`: `CatalogUI.TryGetTypeInfo` の label
+  - `textObjectName`: `po.gameObject.name`
+  - `textDescription` / `rowDescription`: description が空なら行ごと非表示
+- `DesignTokenApplier.ApplyDetailPanel` の空スタブを `DesignTokenApplier.cs` に追加（Task 5 で実装）。
+
+### 変更ファイル（Task 3）
+- `Assets/Scripts/UI/ObjectDetailPanel.cs`（新規）
+- `Assets/Scripts/UI/DesignTokenApplier.cs`（ApplyDetailPanel スタブ追加）
+
+### Task 4 完了: BuildUiPrefabs 詳細パネル生成処理追加
+- `Build()` に `BuildDetailPanel(root.transform)` 呼び出しを追加。
+- `BuildDetailPanel()`: `Panel_Detail` を右アンカー（anchorMin.x=1）・幅288px・全高さで生成。
+  - ヘッダー（"オブジェクト詳細"、Surface 背景）
+  - `Scroll_Detail`（ScrollRect）→ Viewport → Content（VerticalLayoutGroup + ContentSizeFitter）
+  - `Row_PrefabLabel` / Divider / `Row_ObjectName` / Divider / `Row_Description` を Content に追加
+  - `ObjectDetailPanel` を AddComponent し SerializedObject で各 Text・rowDescription を配線
+  - 初期 `SetActive(false)`
+- `BuildDetailRow()`: 見出し Label（caption/TextSecondary）+ 値テキスト（body/TextPrimary、WordWrap）の行を生成。ContentSizeFitter で高さ自動拡張。
+- `BuildDetailDivider()`: 1px Divider Image を LayoutElement で管理。
+
+### 変更ファイル（Task 4）
+- `Assets/Editor/Automation/BuildUiPrefabs.cs`
+
+### Task 5 完了: DesignTokenApplier.ApplyDetailPanel 実装
+- スタブを完全実装に置き換え。
+- 適用順序:
+  1. `ApplyCanvasResolution` — QHD 強制
+  2. パネル背景 → `BgPrimary`
+  3. `Header` → `Surface`、内包 Title テキスト → `TextPrimary`
+  4. `Viewport` → `Surface`
+  5. `Content` 直下を走査:
+     - `Row_*` → `Surface`、`Label` 子 → `TextSecondary`、`Text_*` 子 → `TextPrimary`
+     - `Divider` → `DesignTokens.Divider`
+
+### 変更ファイル（Task 5）
+- `Assets/Scripts/UI/DesignTokenApplier.cs`
+
+### 人間確認チェックリスト（オブジェクト詳細パネル）
+- [ ] `Tools > Automation > Build UI Prefabs` を実行すると `UIRoot.prefab` に `Panel_Detail` が追加される。
+- [ ] ワールド上のオブジェクトをクリックすると画面右側にパネルが表示される。
+- [ ] パネルに「プレファブ名」「オブジェクト名」が正しく表示される。
+- [ ] 説明文があるオブジェクトでは「説明」行も表示される。
+- [ ] 説明文がないオブジェクト（レジストリ由来）では「説明」行が非表示になる。
+- [ ] オブジェクトの選択を解除するとパネルが非表示になる。
+- [ ] パネルの色がデザイントークン準拠（背景 BgPrimary、ヘッダー Surface、見出し TextSecondary、値 TextPrimary）になっている。

@@ -23,6 +23,7 @@ public static class BuildUiPrefabs
 
         var catalogPanel = BuildCatalogPanel(root.transform);
         var scenarioPanel = BuildScenarioPanel(root.transform);
+        BuildDetailPanel(root.transform);
         var editModeRow = root.transform.Find("EditModeRow") as RectTransform;
         var settingsButton = root.transform.Find("Button_Settings") as RectTransform;
         BuildDockSync(root, catalogPanel, scenarioPanel, editModeRow, settingsButton);
@@ -357,6 +358,166 @@ public static class BuildUiPrefabs
         sync.editModePanel = editModeRow;
         sync.settingsButtonPanel = settingsButton;
         sync.gap = 0f;
+    }
+
+    // ────────────────────────────────────────────────────────────────────────────
+    // オブジェクト詳細パネル
+    // ────────────────────────────────────────────────────────────────────────────
+
+    static RectTransform BuildDetailPanel(Transform parent)
+    {
+        // Panel_Detail: 右固定アンカー、カタログと同幅 (288px)、全高さ
+        var panel = CreateUiRect("Panel_Detail", parent);
+        SetRect(panel, new Vector2(1f, 0f), new Vector2(1f, 1f), new Vector2(-288f, 0f), new Vector2(0f, 0f));
+        panel.gameObject.AddComponent<Image>().color = DesignTokens.BgPrimary;
+
+        // ヘッダー
+        var header = CreateUiRect("Header", panel);
+        SetRect(header, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(10f, -48f), new Vector2(-10f, -10f));
+        header.gameObject.AddComponent<Image>().color = DesignTokens.Surface;
+        var title = CreateText("Title", header, "\u30aa\u30d6\u30b8\u30a7\u30af\u30c8\u8a73\u7d30"); // オブジェクト詳細
+        title.fontSize = DesignTokens.FontSizeSubheading;
+        title.alignment = TextAnchor.MiddleLeft;
+        SetRect(title.rectTransform, Vector2.zero, Vector2.one, new Vector2(10f, 0f), new Vector2(-10f, 0f));
+
+        // スクロールエリア（ヘッダー下）
+        var scroll = CreateUiRect("Scroll_Detail", panel);
+        SetRect(scroll, new Vector2(0f, 0f), new Vector2(1f, 1f), new Vector2(0f, 0f), new Vector2(0f, -68f));
+        var scrollRect = scroll.gameObject.AddComponent<ScrollRect>();
+
+        var viewport = CreateUiRect("Viewport", scroll);
+        SetRect(viewport, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+        viewport.gameObject.AddComponent<Image>().color = DesignTokens.Surface;
+        viewport.gameObject.AddComponent<Mask>().showMaskGraphic = false;
+
+        var content = CreateUiRect("Content", viewport);
+        SetRect(content, new Vector2(0f, 1f), new Vector2(1f, 1f), Vector2.zero, Vector2.zero);
+        content.pivot = new Vector2(0f, 1f); // 上端固定: ContentSizeFitter が下方向にのみ展開する
+        var vLayout = content.gameObject.AddComponent<VerticalLayoutGroup>();
+        vLayout.childControlWidth = true;
+        vLayout.childControlHeight = true;
+        vLayout.childForceExpandWidth = true;
+        vLayout.childForceExpandHeight = false;
+        vLayout.spacing = 0f;
+        content.gameObject.AddComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+        scrollRect.viewport = viewport;
+        scrollRect.content = content;
+        scrollRect.horizontal = false;
+
+        // 行: プレファブ名
+        var textPrefabLabel = BuildDetailRow(content, "Row_PrefabLabel", "\u30d7\u30ec\u30d5\u30a1\u30d6\u540d", "Text_PrefabLabel", out _); // プレファブ名
+        BuildDetailDivider(content);
+
+        // 行: オブジェクト名（編集可能 InputField）
+        var inputObjectName = BuildDetailNameRow(content, "Row_ObjectName", "\u30aa\u30d6\u30b8\u30a7\u30af\u30c8\u540d"); // オブジェクト名
+        BuildDetailDivider(content);
+
+        // 行: 説明（説明文が空のときは非表示）
+        var textDescription = BuildDetailRow(content, "Row_Description", "\u8aac\u660e", "Text_Description", out var rowDescriptionGo); // 説明
+
+        // ObjectDetailPanel コンポーネントを追加して配線
+        var detailPanel = panel.gameObject.AddComponent<ObjectDetailPanel>();
+        var detailSo = new SerializedObject(detailPanel);
+        detailSo.FindProperty("textPrefabLabel").objectReferenceValue  = textPrefabLabel;
+        detailSo.FindProperty("inputObjectName").objectReferenceValue  = inputObjectName;
+        detailSo.FindProperty("textDescription").objectReferenceValue  = textDescription;
+        detailSo.FindProperty("rowDescription").objectReferenceValue   = rowDescriptionGo;
+        detailSo.ApplyModifiedPropertiesWithoutUndo();
+
+        // 初期非表示は ObjectDetailPanel.Start() が担う（Prefab では active のまま保存）
+        return panel;
+    }
+
+    /// <summary>
+    /// 見出しラベル + 編集可能 InputField で構成される詳細行（オブジェクト名用）を作成する。
+    /// </summary>
+    static InputField BuildDetailNameRow(Transform parent, string rowName, string labelText)
+    {
+        var row = CreateUiRect(rowName, parent);
+        row.gameObject.AddComponent<Image>().color = DesignTokens.Surface;
+        var rowLayout = row.gameObject.AddComponent<VerticalLayoutGroup>();
+        rowLayout.childControlWidth = true;
+        rowLayout.childControlHeight = true;
+        rowLayout.childForceExpandWidth = true;
+        rowLayout.childForceExpandHeight = false;
+        rowLayout.padding = new RectOffset(
+            (int)DesignTokens.SpaceMd,
+            (int)DesignTokens.SpaceMd,
+            (int)DesignTokens.SpaceSm,
+            (int)DesignTokens.SpaceSm);
+        rowLayout.spacing = DesignTokens.SpaceXs;
+        row.gameObject.AddComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+        // 見出しラベル
+        var label = CreateText("Label", row, labelText);
+        label.fontSize = DesignTokens.FontSizeCaption;
+        label.color = DesignTokens.TextSecondary;
+        var labelLayout = label.gameObject.AddComponent<LayoutElement>();
+        labelLayout.minHeight = DesignTokens.FontSizeCaption + 4f;
+        labelLayout.preferredHeight = DesignTokens.FontSizeCaption + 4f;
+
+        // 編集可能 InputField
+        var input = CreateInputField("Input_ObjectName", row, "名前を入力...");
+        var inputLayout = input.gameObject.AddComponent<LayoutElement>();
+        inputLayout.minHeight = DesignTokens.InputHeight;
+        inputLayout.preferredHeight = DesignTokens.InputHeight;
+
+        return input;
+    }
+
+    /// <summary>
+    /// 見出しラベル + 値テキストで構成される詳細行を作成する。
+    /// </summary>
+    /// <returns>値テキスト (Text_* という名前の Text コンポーネント)</returns>
+    static Text BuildDetailRow(Transform parent, string rowName, string labelText, string valueTextName, out GameObject rowGo)
+    {
+        var row = CreateUiRect(rowName, parent);
+        row.gameObject.AddComponent<Image>().color = DesignTokens.Surface;
+        var rowLayout = row.gameObject.AddComponent<VerticalLayoutGroup>();
+        rowLayout.childControlWidth = true;
+        rowLayout.childControlHeight = true;
+        rowLayout.childForceExpandWidth = true;
+        rowLayout.childForceExpandHeight = false;
+        rowLayout.padding = new RectOffset(
+            (int)DesignTokens.SpaceMd,
+            (int)DesignTokens.SpaceMd,
+            (int)DesignTokens.SpaceSm,
+            (int)DesignTokens.SpaceSm);
+        rowLayout.spacing = DesignTokens.SpaceXs;
+        row.gameObject.AddComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+        // 見出し
+        var label = CreateText("Label", row, labelText);
+        label.fontSize = DesignTokens.FontSizeCaption;
+        label.color = DesignTokens.TextSecondary;
+        var labelLayout = label.gameObject.AddComponent<LayoutElement>();
+        labelLayout.minHeight = DesignTokens.FontSizeCaption + 4f;
+        labelLayout.preferredHeight = DesignTokens.FontSizeCaption + 4f;
+
+        // 値
+        var valueText = CreateText(valueTextName, row, "");
+        valueText.fontSize = DesignTokens.FontSizeBody;
+        valueText.color = DesignTokens.TextPrimary;
+        valueText.horizontalOverflow = HorizontalWrapMode.Wrap;
+        valueText.verticalOverflow = VerticalWrapMode.Overflow;
+        var valueLayout = valueText.gameObject.AddComponent<LayoutElement>();
+        valueLayout.minHeight = DesignTokens.FontSizeBody + 4f;
+
+        rowGo = row.gameObject;
+        return valueText;
+    }
+
+    static void BuildDetailDivider(Transform parent)
+    {
+        var divGo = new GameObject("Divider", typeof(RectTransform), typeof(Image));
+        divGo.transform.SetParent(parent, false);
+        divGo.GetComponent<Image>().color = DesignTokens.Divider;
+        divGo.GetComponent<Image>().raycastTarget = false;
+        var divLayout = divGo.AddComponent<LayoutElement>();
+        divLayout.minHeight = DesignTokens.DividerHeight;
+        divLayout.preferredHeight = DesignTokens.DividerHeight;
+        divLayout.flexibleWidth = 1f;
     }
 
     static StepNodeUI BuildStepNodeTemplate(Transform parent)

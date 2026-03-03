@@ -136,6 +136,31 @@ public class CatalogUI : MonoBehaviour
             SetStatus("Placement failed.");
         }
     }
+
+    /// <summary>
+    /// typeId に対応する表示名と説明文を返す。
+    /// 一致するカードが存在しない場合は label=typeId, description=empty にフォールバックする。
+    /// </summary>
+    public bool TryGetTypeInfo(string typeId, out string label, out string description)
+    {
+        if (!string.IsNullOrEmpty(typeId))
+        {
+            foreach (var card in cards)
+            {
+                if (string.Equals(card.typeId, typeId, System.StringComparison.OrdinalIgnoreCase))
+                {
+                    label       = card.displayLabel;
+                    description = card.displayDescription ?? string.Empty;
+                    return true;
+                }
+            }
+        }
+
+        label       = typeId ?? string.Empty;
+        description = string.Empty;
+        return false;
+    }
+
     void EnsureRuntimeBindings()
     {
         if (onSelectType == null) onSelectType = new StringEvent();

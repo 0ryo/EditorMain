@@ -19,6 +19,33 @@ public class ConditionRowUI : MonoBehaviour
     const string LabelParticleA = "\u3092";
     const string LabelParticleB = "\u306B\u8FD1\u3065\u3051\u308B";
 
+    // 再描画のために保持する最後の Bind 引数
+    List<PlacedObjectOptionProvider.Option> lastOptions;
+    System.Action<string> lastOnAChanged;
+    System.Action<string> lastOnBChanged;
+    bool subscribed;
+
+    void OnDestroy()
+    {
+        if (subscribed)
+        {
+            PlacedObject.OnDisplayNameChanged -= HandleDisplayNameChanged;
+            subscribed = false;
+        }
+    }
+
+    /// <summary>
+    /// 表示名変更イベントを受け取り、現在の選択 ID を保ちながらドロップダウンを再描画する。
+    /// </summary>
+    void HandleDisplayNameChanged(PlacedObject _)
+    {
+        if (dropdownA == null || dropdownB == null) return;
+        string aId = IndexToId(lastOptions, dropdownA.value);
+        string bId = IndexToId(lastOptions, dropdownB.value);
+        var freshOptions = PlacedObjectOptionProvider.GetOptions();
+        Bind(freshOptions, aId, bId, lastOnAChanged, lastOnBChanged);
+    }
+
     public void Bind(
         List<PlacedObjectOptionProvider.Option> options,
         string currentAId,
@@ -28,6 +55,18 @@ public class ConditionRowUI : MonoBehaviour
     )
     {
         if (dropdownA == null || dropdownB == null) return;
+
+        // 再描画用に引数を保持
+        lastOptions    = options;
+        lastOnAChanged = onAChanged;
+        lastOnBChanged = onBChanged;
+
+        // 表示名変更イベントを初回のみ購読
+        if (!subscribed)
+        {
+            PlacedObject.OnDisplayNameChanged += HandleDisplayNameChanged;
+            subscribed = true;
+        }
 
         EnsureDropdownReferences(dropdownA);
         EnsureDropdownReferences(dropdownB);

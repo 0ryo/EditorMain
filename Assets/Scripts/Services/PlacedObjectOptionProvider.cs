@@ -26,8 +26,8 @@ public static class PlacedObjectOptionProvider
 
             var option = new Option
             {
-                id = placed.id,
-                label = placed.id
+                id    = placed.id,
+                label = placed.GetDisplayName()
             };
 
             byId[option.id] = option;
