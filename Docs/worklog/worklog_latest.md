@@ -246,3 +246,50 @@
 - [ ] 「説明」欄に空のテキストエリアが表示され、クリックして入力できる。
 - [ ] 既存説明があるオブジェクトで、同じテキストエリアから内容を編集できる。
 - [ ] 編集後に別オブジェクトを選択して戻っても、編集した説明が保持される。
+
+## 14. セッション進捗メモ（2026-03-03）— オブジェクト詳細の使用中ノード表示
+
+### 実装サマリ
+- `ObjectDetailPanel` の表記を `使用中ノード` に変更。
+- 選択中 `PlacedObject.id` を `ConditionNodeData.objectAId/objectBId` と照合し、使用している Condition ノードごとに四角いブロックを生成する。
+- 各ブロックは 2 行表示で、`〇〇を` / `〇〇に近づける` の形式（実データでは `objectA名を` / `objectB名に近づける`）に統一。
+- ブロックは `Outline` で枠を付け、件数分だけ縦に並べる。
+- 該当 Condition がない場合は `未使用` を表示する。
+- 既存Prefab互換のため、`ObjectDetailPanel` は `Row_ConditionUsage` / `UsageNodeList` / `UsageNodeBlock_Template` が未配置でもランタイム補完生成する。
+- `BuildUiPrefabs` 側でも `Row_ConditionUsage` を「ラベル + 空状態テキスト + ブロックテンプレート付きリスト」構成で生成し、参照を `ObjectDetailPanel` に配線する。
+
+### 変更ファイル
+- `Assets/Scripts/UI/ObjectDetailPanel.cs`
+- `Assets/Editor/Automation/BuildUiPrefabs.cs`
+- `Docs/worklog/worklog_UI/全体UI仕様.md`
+- `Docs/worklog/worklog_latest.md`
+
+### 人間確認チェックリスト（使用中ノード表示）
+- [ ] オブジェクト詳細パネルに `使用中ノード` 行が表示される。
+- [ ] 条件に使われていないオブジェクトでは `未使用` と表示される。
+- [ ] 条件に使われている場合、件数分の四角いブロックが表示される。
+- [ ] 各ブロックの本文が 2 行（`〇〇を` / `〇〇に近づける`）で表示される。
+
+## 15. セッション進捗メモ（2026-03-03）— 使用中ノードを実ConditionノードUIへ移植
+
+### 実装サマリ
+- `ObjectDetailPanel` の使用中ノード表示を、簡易テキストブロックから `ConditionNodeUI` 実体の複製表示へ変更。
+- 各使用ノードは `ConditionNodeUI.Bind(...)` で実データに接続し、`EnterEmbeddedMode(index)` を適用して `手順 1` 形式のヘッダーを表示。
+- ドロップダウン編集（A/B）を有効化し、詳細パネル上で変更した値が `ConditionNodeData` に反映されるようにした。
+- 編集/削除が詳細側から行われた場合に `ScenarioGraphUI.RebuildFromExternalChange()` を呼び、グラフ表示を再同期するようにした。
+- 頻繁な再生成で入力操作が壊れないよう、使用中ノード一覧はシグネチャ比較で差分更新に変更。
+- 将来「詳細ウィンドウだけ」デザイン変更できるよう、`ObjectDetailConditionNodeStyler` を追加し、詳細パネルでのみ適用する拡張ポイントを分離。
+
+### 変更ファイル
+- `Assets/Scripts/UI/ObjectDetailPanel.cs`
+- `Assets/Scripts/UI/ObjectDetailConditionNodeStyler.cs`（新規）
+- `Assets/Scripts/UI/ScenarioGraphUI.cs`
+- `Assets/Editor/Automation/BuildUiPrefabs.cs`
+- `Docs/worklog/worklog_latest.md`
+
+### 人間確認チェックリスト（実Conditionノード移植）
+- [ ] 使用中ノードが簡易テキストではなく、Conditionノードと同じ見た目で表示される。
+- [ ] 各ノードに `手順 1` 形式のヘッダーが表示される。
+- [ ] 詳細パネル内ノードの A/B ドロップダウンを編集でき、値変更が反映される。
+- [ ] 詳細パネル側で変更後、シナリオグラフ側表示も同期される。
+- [ ] 詳細パネル側の見た目調整は `ObjectDetailConditionNodeStyler` だけを変更して行える。

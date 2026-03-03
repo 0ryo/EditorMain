@@ -266,3 +266,25 @@
 - 既存の説明文がある場合も、同じ `InputField` をクリックして編集できる。
 - 説明文は `PlacedObject` 側でオブジェクト単位に保持し、同一オブジェクト再選択時に編集内容を再表示する。
 - 既存Prefab互換のため、`ObjectDetailPanel` で説明入力欄が未配置でもランタイム補完生成する。
+
+## 29. 2026-03-03 Object Detail Condition Usage
+- オブジェクト詳細パネルに `使用Condition` 行を追加し、選択中オブジェクトを参照している Condition ノードを表示する。
+- 参照判定は `ConditionNodeData.objectAId/objectBId` と `PlacedObject.id` の一致で行う。
+- 表示形式は `cond-xxxx [A]` / `cond-xxxx [B]` / `cond-xxxx [A/B]`。Stepバインドがある場合は `-> step-xxxx` を付与する。
+- 該当なしの場合は `未使用` を表示する。
+- 既存Prefab互換のため、`ObjectDetailPanel` は `Row_ConditionUsage` 未配置時にランタイム補完生成する。
+
+## 30. 2026-03-03 Object Detail In-Use Nodes (Latest)
+- �I�u�W�F�N�g�ڍ׃p�l���̕\�L�� `�g�p���m�[�h` �ɕύX�B
+- �I�� `PlacedObject.id` �� `ConditionNodeData.objectAId/objectBId` �Əƍ����A�g�p���� Condition �m�[�h�𒊏o�B
+- �g�p���m�[�h�͌����������l�p���u���b�N��c�z�u�ŕ\���B
+- �e�u���b�N�{���� 2 �s�� `objectA����` / `objectB���ɋ߂Â���` �̌`���B
+- �u���b�N�͘g���iOutline�j�t���B�Y���m�[�h�Ȃ��̂Ƃ��� `���g�p` ��\���B
+- ����Prefab�݊��̂��߁A`ObjectDetailPanel` �� `Row_ConditionUsage` / `UsageNodeList` / `UsageNodeBlock_Template` ���Ȃ��ꍇ�Ƀ����^�C���⊮��������B
+
+## 31. 2026-03-03 Object Detail Uses Real ConditionNode UI (Latest)
+- `�g�p���m�[�h` �͊ȈՃe�L�X�g�ł͂Ȃ� `ConditionNodeUI` ���̂𕡐����ĕ\������B
+- �e�m�[�h�� `EnterEmbeddedMode(index)` ��K�p���A�w�b�_�[�� `�菇 n` �\���ɓ��ꂷ��B
+- A/B �� Dropdown �͕ҏW�\�ŁA�ύX�� `ConditionNodeData.objectAId/objectBId` �ɔ��f�����B
+- �ڍב��̕ҏW�E�폜��� `ScenarioGraphUI.RebuildFromExternalChange()` �ŃO���t�\����ē�������B
+- �ڍא�p�̃f�U�C���ύX�|�C���g�Ƃ��� `ObjectDetailConditionNodeStyler` �𓱓����A�ڍ׃E�B���h�E�������̌����ڒ�����\�ɂ���B

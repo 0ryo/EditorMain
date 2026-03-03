@@ -387,16 +387,96 @@ public static class BuildUiPrefabs
         BuildDetailDivider(content);
 
         var inputDescription = BuildDetailDescriptionRow(content, "Row_Description", "\u8aac\u660e", out var rowDescriptionGo);
+        BuildDetailDivider(content);
 
+        var textConditionUsage = BuildDetailConditionUsageRow(
+            content,
+            out var usageNodeLabelText,
+            out var usageNodeListRoot,
+            out var usageNodeBlockTemplate);
+
+        var usageStyler = panel.gameObject.AddComponent<ObjectDetailConditionNodeStyler>();
         var detailPanel = panel.gameObject.AddComponent<ObjectDetailPanel>();
         var detailSo = new SerializedObject(detailPanel);
         detailSo.FindProperty("textPrefabLabel").objectReferenceValue = textPrefabLabel;
         detailSo.FindProperty("inputObjectName").objectReferenceValue = inputObjectName;
         detailSo.FindProperty("inputDescription").objectReferenceValue = inputDescription;
+        detailSo.FindProperty("usageNodeLabelText").objectReferenceValue = usageNodeLabelText;
+        detailSo.FindProperty("textConditionUsage").objectReferenceValue = textConditionUsage;
+        detailSo.FindProperty("usageNodeListRoot").objectReferenceValue = usageNodeListRoot;
+        detailSo.FindProperty("usageNodeBlockTemplate").objectReferenceValue = usageNodeBlockTemplate;
+        detailSo.FindProperty("usageNodeStyler").objectReferenceValue = usageStyler;
         detailSo.FindProperty("rowDescription").objectReferenceValue = rowDescriptionGo;
         detailSo.ApplyModifiedPropertiesWithoutUndo();
 
         return panel;
+    }
+
+    static Text BuildDetailConditionUsageRow(
+        Transform parent,
+        out Text labelText,
+        out RectTransform usageNodeListRoot,
+        out GameObject usageNodeBlockTemplate)
+    {
+        var row = CreateUiRect("Row_ConditionUsage", parent);
+        row.gameObject.AddComponent<Image>().color = DesignTokens.Surface;
+        var rowLayout = row.gameObject.AddComponent<VerticalLayoutGroup>();
+        rowLayout.childControlWidth = true;
+        rowLayout.childControlHeight = true;
+        rowLayout.childForceExpandWidth = true;
+        rowLayout.childForceExpandHeight = false;
+        rowLayout.padding = new RectOffset(
+            (int)DesignTokens.SpaceMd,
+            (int)DesignTokens.SpaceMd,
+            (int)DesignTokens.SpaceSm,
+            (int)DesignTokens.SpaceSm);
+        rowLayout.spacing = DesignTokens.SpaceXs;
+        row.gameObject.AddComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+        labelText = CreateText("Label", row, "\u4F7F\u7528\u4E2D\u30CE\u30FC\u30C9");
+        labelText.fontSize = DesignTokens.FontSizeCaption;
+        labelText.color = DesignTokens.TextSecondary;
+        var labelLayout = labelText.gameObject.AddComponent<LayoutElement>();
+        labelLayout.minHeight = DesignTokens.FontSizeCaption + 4f;
+        labelLayout.preferredHeight = DesignTokens.FontSizeCaption + 4f;
+
+        var emptyText = CreateText("Text_ConditionUsage", row, "\u672A\u4F7F\u7528");
+        emptyText.fontSize = DesignTokens.FontSizeBody;
+        emptyText.color = DesignTokens.TextPrimary;
+        emptyText.alignment = TextAnchor.UpperLeft;
+        emptyText.horizontalOverflow = HorizontalWrapMode.Wrap;
+        emptyText.verticalOverflow = VerticalWrapMode.Overflow;
+        var emptyLayout = emptyText.gameObject.AddComponent<LayoutElement>();
+        emptyLayout.minHeight = DesignTokens.FontSizeBody + 4f;
+
+        usageNodeListRoot = CreateUiRect("UsageNodeList", row);
+        var listLayout = usageNodeListRoot.gameObject.AddComponent<VerticalLayoutGroup>();
+        listLayout.childControlWidth = true;
+        listLayout.childControlHeight = true;
+        listLayout.childForceExpandWidth = true;
+        listLayout.childForceExpandHeight = false;
+        listLayout.spacing = 8f;
+        listLayout.padding = new RectOffset(0, 0, 0, 0);
+        usageNodeListRoot.gameObject.AddComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+        var blockTemplate = CreateUiRect("UsageNodeBlock_Template", usageNodeListRoot);
+        blockTemplate.gameObject.AddComponent<Image>().color = DesignTokens.Surface;
+        EnsureThinOutline(blockTemplate.gameObject, DesignTokens.Divider);
+        var blockLayout = blockTemplate.gameObject.AddComponent<LayoutElement>();
+        blockLayout.minHeight = 64f;
+        blockLayout.preferredHeight = 64f;
+
+        var body = CreateText("Text_UsageNodeBody", blockTemplate, "\u672A\u4F7F\u7528");
+        body.fontSize = DesignTokens.FontSizeBody;
+        body.color = DesignTokens.TextPrimary;
+        body.alignment = TextAnchor.UpperLeft;
+        body.horizontalOverflow = HorizontalWrapMode.Wrap;
+        body.verticalOverflow = VerticalWrapMode.Overflow;
+        SetRect(body.rectTransform, Vector2.zero, Vector2.one, new Vector2(10f, 8f), new Vector2(-10f, -8f));
+
+        usageNodeBlockTemplate = blockTemplate.gameObject;
+        usageNodeBlockTemplate.SetActive(false);
+        return emptyText;
     }
 
     static InputField BuildDetailNameRow(Transform parent, string rowName, string labelText)
