@@ -80,3 +80,55 @@
   - CS0136ホットフィックス
   - 条件設定領域の黄色背景解消
 - タスク3（内包状態の階層構造と動的サイズ変更）は未着手。
+
+## 9. セッション進捗メモ（2026-03-03）— Task3
+
+### 実装サマリ
+- `ConditionNodeUI` に `EnterEmbeddedMode(int sequentialIndex)` を追加。
+  - 出力コネクタを非表示化（埋め込み時は不要）。
+  - ヘッダーラベルを nodeId ベースの番号から **ステップ内連番**（手順 1, 手順 2 …）に切り替え。
+- `StepNodeUI` の埋め込み条件ループを改修。
+  - `validConditions` で null/未設定を除外し、連番 `displayIdx + 1` を `EnterEmbeddedMode` に渡す。
+  - 各カードの後（最後を除く）に `AddEmbeddedDivider` を呼び、`DesignTokens.Divider` 色の 1px 水平線を `conditionListRoot` に追加。
+  - `EmbeddedSpacing` を 16 → 8 に変更（区切り線の前後 8px ずつで計 17px の視覚的なギャップ）。
+- `ResizeForEmbeddedCount` のリサイズ計算式を更新。
+  - VLG 内の配置: `[C, D, C, D, ..., C]` (Condition + Divider 交互)
+  - `embeddedHeight = N*condH + (N-1)*DivH + (2*(N-1))*spacing`
+- `UiRoundedTheme.ShouldApply` に `"Divider"` 除外を追加（1px 画像への角丸スプライト誤適用を防止）。
+
+### 変更ファイル
+- `Assets/Scripts/UI/ConditionNodeUI.cs`
+- `Assets/Scripts/UI/StepNodeUI.cs`
+- `Assets/Scripts/UI/UiRoundedTheme.cs`
+
+### 人間確認チェックリスト（Task3）
+- [ ] Condition ノードを Step ノード付近にドラッグ＆ドロップすると自動バインド・埋め込み表示になる。
+- [ ] 埋め込み条件カードのヘッダーが「手順 1」「手順 2」… と連番で表示される（nodeId の番号ではない）。
+- [ ] 埋め込み条件カードに出力コネクタ（黄丸）が表示されない。
+- [ ] 埋め込み条件が 2 枚以上あるとき、カード間に 1px のグレー区切り線が表示される。
+- [ ] Step カードが埋め込み条件数に合わせて縦に拡張される（1 枚: ~284px / 2 枚: ~481px / 3 枚: ~678px）。
+- [ ] 埋め込み条件内のドロップダウン（A/B）が選択・編集できる。
+- [ ] 埋め込み条件カードの削除ボタン（X）が機能し、条件ノードをグラフから除去できる。
+- [ ] 接続線を埋め込みドロップダウン上でクリックしても、ドロップダウンが優先して反応する。
+
+## 10. セッション進捗メモ（2026-03-03）— ターミナルノード色・ドラッグ修正
+
+### 実装サマリ
+- `DesignTokens` に `NodeStart` (#89C3FF) / `NodeEnd` (#FF898B) を追加。
+- `DesignTokenApplier.ApplyNodeColors` のターミナルノードループを改修。
+  - `GetTerminalColor()` で labelText を見て START/END を判別し、単色を返す。
+  - `HideTerminalDragHandle()` で DragHandle の `Image.enabled = false` / `Outline.enabled = false`。
+    - 以前の `ApplyTerminalDragHandleColor()` が呼んでいた `EnsureThinOutline` が境界線の原因だったため削除。
+- `ScenarioGraphUI.ConfigureNodeDragCallbacks()` に Start/End 専用ブランチを追加。
+  - ルートに `NodeDragHandler` を AddComponent し、ノード全体をドラッグ可能にした。
+  - 以前のコードは DragHandle 子から `NodeDragHandler` を取得しようとして常に null → ドラッグ不能だった。
+
+### 変更ファイル
+- `Assets/Scripts/UI/DesignTokens.cs`
+- `Assets/Scripts/UI/DesignTokenApplier.cs`
+- `Assets/Scripts/UI/ScenarioGraphUI.cs`
+
+### 人間確認チェックリスト（ターミナルノード）
+- [ ] START / END ノードが指定の単色（青 / 赤）で表示される。
+- [ ] 2色の境界線（以前の DragHandle アウトライン）が消えている。
+- [ ] START / END ノードのどこを掴んでもドラッグで移動できる。

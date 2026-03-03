@@ -706,6 +706,15 @@ public class ScenarioGraphUI : MonoBehaviour
             return;
         }
 
+        // Start / End ノードはルート全体をドラッグ対象にする
+        if (nodeType == ScenarioNodeType.Start || nodeType == ScenarioNodeType.End)
+        {
+            var rootDrag = root.GetComponent<NodeDragHandler>();
+            if (rootDrag == null) rootDrag = root.gameObject.AddComponent<NodeDragHandler>();
+            ConfigureDragHandler(rootDrag, blockSelectableAtStart: true);
+            return;
+        }
+
         var dragHandle = root.Find("DragHandle");
         if (dragHandle == null) return;
         var drag = dragHandle.GetComponent<NodeDragHandler>();

@@ -392,6 +392,18 @@ public class ConditionNodeUI : MonoBehaviour
         rt.offsetMax = new Vector2(right, top);
     }
 
+    /// <summary>
+    /// 埋め込みモードに切り替える。出力コネクタを非表示にし、連番ラベルを設定する。
+    /// </summary>
+    public void EnterEmbeddedMode(int sequentialIndex)
+    {
+        if (outputConnector != null)
+            outputConnector.gameObject.SetActive(false);
+
+        if (nodeIdText != null)
+            nodeIdText.text = $"\u624B\u9806 {sequentialIndex}";
+    }
+
     void EnsureTitleInputReference()
     {
         if (titleInput != null) return;

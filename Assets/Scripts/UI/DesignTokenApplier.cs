@@ -138,8 +138,9 @@ public static class DesignTokenApplier
         // TerminalNodeUI
         foreach (var term in root.GetComponentsInChildren<TerminalNodeUI>(true))
         {
-            SetImageColor(term.transform, DesignTokens.BgSecondary);
-            ApplyNodeDragHandle(term.transform);
+            Color termColor = GetTerminalColor(term);
+            SetImageColor(term.transform, termColor);
+            HideTerminalDragHandle(term.transform);
             ApplyNodeConnectors(term.transform);
             ApplyCirclesToNode(term.transform);
             ApplyTerminalNodeLayout(term);
@@ -398,6 +399,30 @@ public static class DesignTokenApplier
         outline.effectColor = color;
         outline.effectDistance = new Vector2(0.5f, -0.5f);
         outline.useGraphicAlpha = false;
+    }
+
+    // ── ターミナルノード色 ──
+
+    static Color GetTerminalColor(TerminalNodeUI term)
+    {
+        if (term != null && term.labelText != null)
+        {
+            string label = term.labelText.text;
+            if (label == "START") return DesignTokens.NodeStart;
+            if (label == "END")   return DesignTokens.NodeEnd;
+        }
+        return DesignTokens.BgSecondary;
+    }
+
+    /// <summary>ターミナルノードの DragHandle の Image / Outline を無効化して境界線を消す。</summary>
+    static void HideTerminalDragHandle(Transform nodeRoot)
+    {
+        var dragHandle = nodeRoot.Find("DragHandle");
+        if (dragHandle == null) return;
+        var image = dragHandle.GetComponent<Image>();
+        if (image != null) image.enabled = false;
+        var outline = dragHandle.GetComponent<Outline>();
+        if (outline != null) outline.enabled = false;
     }
 
     // ── ターミナルノードレイアウト ──

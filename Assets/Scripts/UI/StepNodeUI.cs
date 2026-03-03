@@ -9,7 +9,7 @@ public class StepNodeUI : MonoBehaviour
     const float BaseHeight = 180f;
     const float EmbeddedWidthScale = 1.2f;
     const float FallbackNodeWidth = 390f;
-    const float EmbeddedSpacing = 16f;
+    const float EmbeddedSpacing = 8f; // カード間のVLGスペーシング（区切り線の前後各8px）
     const float EmbeddedListBottom = 18f;
     const float EmbeddedListSide = 0f;
     const float EmbeddedVisibleSlotHeight = 76f;
@@ -153,10 +153,15 @@ public class StepNodeUI : MonoBehaviour
 
         float embeddedNodeHeight = GetEmbeddedNodeHeight();
         float embeddedNodeWidth = GetEmbeddedNodeWidth();
-        for (int i = 0; i < conditions.Count; i++)
+
+        // null/未設定条件を除外してから順番にインデックスを付ける
+        var validConditions = conditions
+            .Where(c => c != null && c.condition != null)
+            .ToList();
+
+        for (int displayIdx = 0; displayIdx < validConditions.Count; displayIdx++)
         {
-            var condition = conditions[i];
-            if (condition == null || condition.condition == null) continue;
+            var condition = validConditions[displayIdx];
 
             var conditionUi = Instantiate(embeddedConditionTemplate, conditionListRoot);
             conditionUi.gameObject.name = $"EmbeddedCondition_{condition.nodeId}";
@@ -195,7 +200,14 @@ public class StepNodeUI : MonoBehaviour
                 onChanged?.Invoke();
             };
             conditionUi.Bind(graphService, condition);
+            conditionUi.EnterEmbeddedMode(displayIdx + 1); // 連番ラベル + 出力コネクタ非表示
             runtimeEmbeddedConditions.Add(conditionUi);
+
+            // カード間の区切り線（最後のカードの後は追加しない）
+            if (displayIdx < validConditions.Count - 1)
+            {
+                AddEmbeddedDivider(conditionListRoot);
+            }
         }
 
         ResizeForEmbeddedCount(runtimeEmbeddedConditions.Count, embeddedNodeHeight);
@@ -239,7 +251,14 @@ public class StepNodeUI : MonoBehaviour
         float embeddedHeight = 0f;
         if (embeddedCount > 0)
         {
-            embeddedHeight = (embeddedCount * embeddedNodeHeight) + ((embeddedCount - 1) * EmbeddedSpacing);
+            // VLG内の並び: [C, D, C, D, ..., C] (Condition + Divider交互、最後はC)
+            // totalItems = N_conditions + (N_conditions - 1) dividers = 2N - 1
+            int numDividers = embeddedCount - 1;
+            int totalItems = embeddedCount + numDividers;
+            float totalSpacing = totalItems > 1 ? (totalItems - 1) * EmbeddedSpacing : 0f;
+            embeddedHeight = (embeddedCount * embeddedNodeHeight)
+                           + (numDividers * DesignTokens.DividerHeight)
+                           + totalSpacing;
         }
 
         var root = transform as RectTransform;
@@ -304,6 +323,22 @@ public class StepNodeUI : MonoBehaviour
         return string.Join("|", conditions
             .Where(c => c != null && !string.IsNullOrWhiteSpace(c.nodeId))
             .Select(c => c.nodeId));
+    }
+
+    static void AddEmbeddedDivider(RectTransform parent)
+    {
+        var divGo = new GameObject("Divider", typeof(RectTransform), typeof(Image));
+        var divRt = divGo.GetComponent<RectTransform>();
+        divRt.SetParent(parent, false);
+
+        var divImage = divGo.GetComponent<Image>();
+        divImage.color = DesignTokens.Divider;
+        divImage.raycastTarget = false;
+
+        var divLayout = divGo.AddComponent<LayoutElement>();
+        divLayout.minHeight = DesignTokens.DividerHeight;
+        divLayout.preferredHeight = DesignTokens.DividerHeight;
+        divLayout.flexibleWidth = 1f;
     }
 
     static void DisableEmbeddedNodeDrag(ConditionNodeUI conditionUi)
