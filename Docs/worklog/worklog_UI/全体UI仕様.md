@@ -253,3 +253,16 @@
 ## 26. 2026-03-02 Placement Waiting Card Highlight
 - カードクリック後、ワールドクリック待ちの配置モード中は該当 `typeId` カードに青枠（`DesignTokens.Accent`）を表示する。
 - 配置完了または配置モード終了で青枠を解除する。
+
+## 27. 2026-03-03 Catalog Card Name-Only Layout
+- オブジェクト一覧カードの表示を「オブジェクト名のみ」に統一した。
+- `Thumbnail` と `Button_RemoveCard` はカード上で非表示とし、余計な四角領域を出さない。
+- `LabelMain` はカード全幅で `MiddleCenter` 表示にし、文字を中央揃えにした。
+- 既存Prefabにも反映されるよう `CatalogUI` / `DesignTokenApplier` でランタイム補正を入れた。
+
+## 28. 2026-03-03 Object Detail Description Editing
+- オブジェクト詳細パネルの `説明` 行は、説明文が空でも常時表示する。
+- `説明` の値表示は `InputField`（マルチライン）とし、空欄からの新規入力を可能にした。
+- 既存の説明文がある場合も、同じ `InputField` をクリックして編集できる。
+- 説明文は `PlacedObject` 側でオブジェクト単位に保持し、同一オブジェクト再選択時に編集内容を再表示する。
+- 既存Prefab互換のため、`ObjectDetailPanel` で説明入力欄が未配置でもランタイム補完生成する。

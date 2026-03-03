@@ -2,8 +2,8 @@
 
 ## 0. 対象範囲
 - ブランチ: `improve/objectlist`
-- 作業テーマ: オブジェクト一覧カードの削除導線追加（右上 `x`）
-- 最終更新: 2026-03-02
+- 作業テーマ: オブジェクト一覧カード表示の簡素化（オブジェクト名のみ中央表示）
+- 最終更新: 2026-03-03
 - 参照コミット:
   - `eb3fc47c` rulesを更新
 
@@ -36,6 +36,7 @@
 - 既存Prefab互換のため、`CatalogUI` は削除ボタン未配置カードにもランタイム補完で `x` を生成。
 - `BuildUiPrefabs` の `Card_Template` にも `Button_RemoveCard` を追加し、Prefab自動生成経路を同期。
 - UI仕様ドキュメント（オブジェクト一覧 / 全体UI仕様）へ今回挙動を追記。
+- 最新調整として、カードから `Thumbnail`（四角領域）と `Button_RemoveCard` を非表示化し、オブジェクト名のみの中央表示へ統一。
 
 ## 3. 変更ファイル
 - `Assets/Scripts/CatalogUI.cs`
@@ -45,11 +46,9 @@
 - `Docs/worklog/worklog_latest.md`
 
 ## 4. 操作仕様（現行）
-- オブジェクト一覧の各カードに、ホバー時のみ `×` ボタンを表示。
-- `×` はカード右上角の外側にはみ出し、丸の中心がカード角に重なる。
+- オブジェクト一覧カードはオブジェクト名のみを表示し、文字は中央に配置する。
+- カード内の `Thumbnail`（四角領域）と `Button_RemoveCard` は表示しない。
 - カードクリック後、ワールドクリック待ちの配置モード中は該当カードを青枠で強調表示する。
-- `×` 押下で該当カードをオブジェクト一覧から除去。
-- この除去は一覧表示のみで、ワールド内の既存オブジェクトには影響しない。
 
 ## 5. 検証状況
 - AGENTS.md の Local Execution Policy に従い、Unity Editor 起動・CLIコンパイルは未実施。
@@ -59,12 +58,11 @@
   - ドキュメント更新差分を確認
 
 ## 6. 人間確認チェックリスト
-- [ ] オブジェクト一覧カードにホバーしたときのみ小型 `×` が表示される。
-- [ ] `×` がカード右上角に対して半分はみ出し、丸の中心が角に重なっている。
+- [ ] オブジェクト一覧カードに四角い `Thumbnail` 領域が表示されない。
+- [ ] オブジェクト一覧カードに `×` ボタンが表示されない。
+- [ ] カードのオブジェクト名テキストが中央表示される。
 - [ ] カードクリック直後、配置待ち中のカードだけ青枠で強調表示される。
 - [ ] ワールド配置完了後（または配置モード解除後）に青枠が消える。
-- [ ] `×` 押下で該当カードが一覧から消える。
-- [ ] 検索ワード変更後も除去したカードが再表示されない。
 - [ ] 設定画面や他UI操作に副作用がない（カードクリック配置・ドラッグ配置が従来どおり動く）。
 
 ## 7. アーカイブ
@@ -202,3 +200,49 @@
 - [ ] 説明文がないオブジェクト（レジストリ由来）では「説明」行が非表示になる。
 - [ ] オブジェクトの選択を解除するとパネルが非表示になる。
 - [ ] パネルの色がデザイントークン準拠（背景 BgPrimary、ヘッダー Surface、見出し TextSecondary、値 TextPrimary）になっている。
+
+## 12. セッション進捗メモ（2026-03-03）— オブジェクト一覧カード簡素化
+
+### 実装サマリ
+- `CatalogUI` のカード補正処理を追加し、`Thumbnail` / `Button_RemoveCard` を非表示化。
+- `LabelMain` の Rect をカード全幅へ再配置し、テキストを中央揃えに統一。
+- `SetupCardInteractions` から削除ボタン関連のホバー表示制御を外し、カード操作を「選択 + ドラッグ配置」に限定。
+- `BuildUiPrefabs` の `Card_Template` を更新し、生成時点で「オブジェクト名のみ中央表示」の構造にした。
+- `DesignTokenApplier` 側にも同等のランタイム補正を追加し、既存Prefabでも表示を揃えるようにした。
+
+### 変更ファイル
+- `Assets/Scripts/CatalogUI.cs`
+- `Assets/Editor/Automation/BuildUiPrefabs.cs`
+- `Assets/Scripts/UI/DesignTokenApplier.cs`
+- `Docs/worklog/worklog_UI/worklog_オブジェクト一覧ウィンドウ.md`
+- `Docs/worklog/worklog_UI/全体UI仕様.md`
+- `Docs/worklog/worklog_latest.md`
+
+### 人間確認チェックリスト（カード簡素化）
+- [ ] オブジェクト一覧カードに四角領域（旧 `Thumbnail`）が表示されない。
+- [ ] カード内に `×` ボタンが表示されない。
+- [ ] カードのオブジェクト名が中央表示される。
+- [ ] カードクリックで配置モードに入り、配置待ちカードの青枠強調が維持される。
+- [ ] カードのドラッグ配置が従来どおり動作する。
+
+## 13. セッション進捗メモ（2026-03-03）— オブジェクト詳細の説明編集
+
+### 実装サマリ
+- `ObjectDetailPanel` を更新し、説明行を常時表示（空でも表示）に変更。
+- 説明表示を `Text` から `InputField`（マルチライン）中心へ切り替え、空欄からの入力と既存文の編集を両対応。
+- 既存Prefab互換のため、説明入力欄が未配置の詳細パネルでは `ObjectDetailPanel` がランタイムで `Input_Description` を補完生成。
+- `PlacedObject` に説明文保持 (`description`) と上書きフラグ (`hasDescriptionOverride`) を追加し、オブジェクト単位で編集内容を保持。
+- `BuildUiPrefabs` の詳細パネル生成を更新し、`Row_Description` を編集可能な `InputField` として生成・配線。
+
+### 変更ファイル
+- `Assets/Scripts/UI/ObjectDetailPanel.cs`
+- `Assets/Scripts/PlacementController.cs` (`PlacedObject` 内)
+- `Assets/Editor/Automation/BuildUiPrefabs.cs`
+- `Docs/worklog/worklog_UI/全体UI仕様.md`
+- `Docs/worklog/worklog_latest.md`
+
+### 人間確認チェックリスト（説明編集）
+- [ ] 説明が空のオブジェクトでも詳細パネルの「説明」行が表示される。
+- [ ] 「説明」欄に空のテキストエリアが表示され、クリックして入力できる。
+- [ ] 既存説明があるオブジェクトで、同じテキストエリアから内容を編集できる。
+- [ ] 編集後に別オブジェクトを選択して戻っても、編集した説明が保持される。

@@ -59,6 +59,8 @@ public class CatalogUI : MonoBehaviour
     readonly List<CardState> cards = new();
     readonly HashSet<string> removedTypeIds = new(StringComparer.OrdinalIgnoreCase);
     const string CardRemoveButtonName = "Button_RemoveCard";
+    const string CardThumbnailName = "Thumbnail";
+    const string CardMainLabelName = "LabelMain";
     string runtimeImportedTypeId;
     string runtimeImportedCardLabel;
     string runtimeImportedDescription;
@@ -401,6 +403,7 @@ public class CatalogUI : MonoBehaviour
     void SetupCardInteractions(Button cardButton, string typeId)
     {
         if (cardButton == null || string.IsNullOrWhiteSpace(typeId)) return;
+        NormalizeCardVisuals(cardButton.gameObject);
 
         cardButton.onClick.RemoveAllListeners();
         cardButton.onClick.AddListener(() => OnClickCard(typeId));
@@ -408,66 +411,6 @@ public class CatalogUI : MonoBehaviour
         var drag = cardButton.GetComponent<CatalogCardDragHandler>();
         if (drag == null) drag = cardButton.gameObject.AddComponent<CatalogCardDragHandler>();
         drag.Initialize(this, typeId);
-
-        var removeButton = EnsureCardRemoveButton(cardButton, typeId);
-        var hover = cardButton.GetComponent<CatalogCardRemoveHoverHandler>();
-        if (hover == null) hover = cardButton.gameObject.AddComponent<CatalogCardRemoveHoverHandler>();
-        hover.Initialize(removeButton);
-    }
-
-    Button EnsureCardRemoveButton(Button cardButton, string typeId)
-    {
-        if (cardButton == null || string.IsNullOrWhiteSpace(typeId)) return null;
-
-        var cardRoot = cardButton.transform as RectTransform;
-        if (cardRoot == null) return null;
-
-        var removeTr = cardRoot.Find(CardRemoveButtonName) as RectTransform;
-        Button removeButton = removeTr != null ? removeTr.GetComponent<Button>() : null;
-        if (removeButton == null)
-        {
-            var removeGo = new GameObject(CardRemoveButtonName, typeof(RectTransform), typeof(Image), typeof(Button));
-            removeTr = removeGo.GetComponent<RectTransform>();
-            removeTr.SetParent(cardRoot, false);
-            removeButton = removeGo.GetComponent<Button>();
-        }
-
-        removeTr.anchorMin = new Vector2(1f, 1f);
-        removeTr.anchorMax = new Vector2(1f, 1f);
-        removeTr.pivot = new Vector2(0.5f, 0.5f);
-        removeTr.sizeDelta = new Vector2(DesignTokens.DeleteButtonSize, DesignTokens.DeleteButtonSize);
-        removeTr.anchoredPosition = Vector2.zero;
-        removeTr.SetAsLastSibling();
-
-        var removeImage = removeButton.GetComponent<Image>();
-        if (removeImage == null) removeImage = removeButton.gameObject.AddComponent<Image>();
-        removeImage.color = DesignTokens.BgTertiary;
-        UiRoundedTheme.ApplyCircleToElement(removeImage);
-        removeButton.targetGraphic = removeImage;
-
-        var removeLabel = removeButton.GetComponentInChildren<Text>(true);
-        if (removeLabel == null)
-        {
-            var labelGo = new GameObject("Label", typeof(RectTransform), typeof(Text));
-            var labelRt = labelGo.GetComponent<RectTransform>();
-            labelRt.SetParent(removeTr, false);
-            labelRt.anchorMin = Vector2.zero;
-            labelRt.anchorMax = Vector2.one;
-            labelRt.offsetMin = Vector2.zero;
-            labelRt.offsetMax = Vector2.zero;
-            removeLabel = labelGo.GetComponent<Text>();
-        }
-
-        removeLabel.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-        removeLabel.fontSize = 12;
-        removeLabel.color = DesignTokens.TextPrimary;
-        removeLabel.alignment = TextAnchor.MiddleCenter;
-        removeLabel.text = "X";
-        removeLabel.raycastTarget = false;
-
-        removeButton.onClick.RemoveAllListeners();
-        removeButton.onClick.AddListener(() => OnClickRemoveCard(typeId));
-        return removeButton;
     }
 
     void ApplyRoundedTheme()
@@ -1814,18 +1757,67 @@ public class CatalogUI : MonoBehaviour
         if (layout == null) layout = cardObject.AddComponent<LayoutElement>();
         layout.minHeight = 84f;
         layout.preferredHeight = 84f;
+        NormalizeCardVisuals(cardObject);
+    }
+
+    void NormalizeCardVisuals(GameObject cardObject)
+    {
+        if (cardObject == null) return;
+
+        var root = cardObject.transform;
+
+        var thumbnail = root.Find(CardThumbnailName);
+        if (thumbnail != null) thumbnail.gameObject.SetActive(false);
+
+        var remove = root.Find(CardRemoveButtonName);
+        if (remove != null) remove.gameObject.SetActive(false);
+
+        var hover = cardObject.GetComponent<CatalogCardRemoveHoverHandler>();
+        if (hover != null) Destroy(hover);
+
+        var explicitMain = root.Find(CardMainLabelName) as RectTransform;
+        if (explicitMain != null)
+        {
+            StretchCardLabel(explicitMain);
+
+            var text = explicitMain.GetComponent<Text>();
+            if (text != null) text.alignment = TextAnchor.MiddleCenter;
+
+            var tmp = explicitMain.GetComponent<TMP_Text>();
+            if (tmp != null) tmp.alignment = TextAlignmentOptions.Center;
+        }
+    }
+
+    static void StretchCardLabel(RectTransform labelRect)
+    {
+        if (labelRect == null) return;
+        labelRect.anchorMin = Vector2.zero;
+        labelRect.anchorMax = Vector2.one;
+        labelRect.pivot = new Vector2(0.5f, 0.5f);
+        labelRect.offsetMin = new Vector2(10f, 0f);
+        labelRect.offsetMax = new Vector2(-10f, 0f);
     }
 
     void SetCardLabel(GameObject root, string typeId)
     {
-        var explicitMain = root.transform.Find("LabelMain");
+        NormalizeCardVisuals(root);
+
+        var explicitMain = root.transform.Find(CardMainLabelName);
         if (explicitMain != null)
         {
             var txt = explicitMain.GetComponent<Text>();
-            if (txt != null) txt.text = typeId;
+            if (txt != null)
+            {
+                txt.text = typeId;
+                txt.alignment = TextAnchor.MiddleCenter;
+            }
 
             var tmp = explicitMain.GetComponent<TMP_Text>();
-            if (tmp != null) tmp.text = typeId;
+            if (tmp != null)
+            {
+                tmp.text = typeId;
+                tmp.alignment = TextAlignmentOptions.Center;
+            }
             return;
         }
 
@@ -1835,6 +1827,11 @@ public class CatalogUI : MonoBehaviour
             if (legacyText == null) continue;
             if (IsUnderCardRemoveButton(legacyText.transform)) continue;
             legacyText.text = typeId;
+            legacyText.alignment = TextAnchor.MiddleCenter;
+            if (legacyText.rectTransform != null && legacyText.rectTransform.parent == root.transform)
+            {
+                StretchCardLabel(legacyText.rectTransform);
+            }
             break;
         }
 
@@ -1844,6 +1841,11 @@ public class CatalogUI : MonoBehaviour
             if (tmp == null) continue;
             if (IsUnderCardRemoveButton(tmp.transform)) continue;
             tmp.text = typeId;
+            tmp.alignment = TextAlignmentOptions.Center;
+            if (tmp.rectTransform != null && tmp.rectTransform.parent == root.transform)
+            {
+                StretchCardLabel(tmp.rectTransform);
+            }
             break;
         }
     }

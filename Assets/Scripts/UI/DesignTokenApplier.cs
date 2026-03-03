@@ -232,9 +232,11 @@ public static class DesignTokenApplier
             {
                 image.color = DesignTokens.BgSecondary;
 
-                // サムネイル
                 var thumb = child.Find("Thumbnail");
-                SetImageColor(thumb, DesignTokens.BgSecondary);
+                if (thumb != null) thumb.gameObject.SetActive(false);
+
+                var removeButton = child.Find("Button_RemoveCard");
+                if (removeButton != null) removeButton.gameObject.SetActive(false);
             }
         }
     }
@@ -492,6 +494,16 @@ public static class DesignTokenApplier
                 {
                     text.alignment = TextAnchor.MiddleCenter;
                 }
+
+                var labelRect = labelMain as RectTransform;
+                if (labelRect != null)
+                {
+                    labelRect.anchorMin = Vector2.zero;
+                    labelRect.anchorMax = Vector2.one;
+                    labelRect.pivot = new Vector2(0.5f, 0.5f);
+                    labelRect.offsetMin = new Vector2(10f, 0f);
+                    labelRect.offsetMax = new Vector2(-10f, 0f);
+                }
             }
 
             // フォールバック: 最初の Text を中央配置
@@ -501,8 +513,23 @@ public static class DesignTokenApplier
                 if (text != null)
                 {
                     text.alignment = TextAnchor.MiddleCenter;
+                    var textRect = text.rectTransform;
+                    if (textRect != null && textRect.parent == child)
+                    {
+                        textRect.anchorMin = Vector2.zero;
+                        textRect.anchorMax = Vector2.one;
+                        textRect.pivot = new Vector2(0.5f, 0.5f);
+                        textRect.offsetMin = new Vector2(10f, 0f);
+                        textRect.offsetMax = new Vector2(-10f, 0f);
+                    }
                 }
             }
+
+            var thumb = child.Find("Thumbnail");
+            if (thumb != null) thumb.gameObject.SetActive(false);
+
+            var removeButton = child.Find("Button_RemoveCard");
+            if (removeButton != null) removeButton.gameObject.SetActive(false);
         }
     }
 

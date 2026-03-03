@@ -229,6 +229,25 @@ public class PlacedObject : MonoBehaviour
         OnDisplayNameChanged?.Invoke(this);
     }
 
+    public string description;
+    public bool hasDescriptionOverride;
+
+    public string GetDescription() =>
+        description ?? string.Empty;
+
+    public string GetDisplayDescription(string fallback)
+    {
+        if (hasDescriptionOverride) return GetDescription();
+        if (!string.IsNullOrWhiteSpace(description)) return description;
+        return fallback ?? string.Empty;
+    }
+
+    public void SetDescription(string value)
+    {
+        description = value?.Trim() ?? string.Empty;
+        hasDescriptionOverride = true;
+    }
+
     public void InitType(string t)
     {
         typeId = t;

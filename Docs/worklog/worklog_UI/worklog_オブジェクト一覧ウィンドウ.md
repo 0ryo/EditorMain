@@ -34,6 +34,7 @@
 
 ## 6. 挙動
 - `CatalogUI` が `PrefabRegistry.entries` を列挙し、`Btn_Template` を `Content` に生成。
+- 各カードはオブジェクト名のみを表示し、文字を中央配置する。
 - ボタン押下で `onSelectType(string typeId)` を発火。
 - カード押下後、ワールドクリック待ちの配置モード中は該当カードをテーマ青（`DesignTokens.Accent`）の枠線で強調表示する。
 - 実行時の機能接続:
@@ -91,3 +92,9 @@
 - 本挙動は「一覧からの除去」のみを対象とし、ワールド内に既に配置済みのオブジェクトには影響しない。
 - 除去済みカードは、検索フィルタ変更や `RebuildCards()` 実行後も同一セッション内では復活しない。
 - `BuildUiPrefabs` の `Card_Template` に同ボタンを追加し、既存Prefab向けには `CatalogUI` がランタイム補完する。
+
+## 14. 追記（2026-03-03 / カード表示の簡素化）
+- オブジェクトカードから `Thumbnail`（四角領域）を非表示化し、一覧表示をテキスト中心に統一。
+- オブジェクトカードから `Button_RemoveCard` を非表示化し、カード表示要素をオブジェクト名のみに整理。
+- `LabelMain` はカード全幅にストレッチし、`MiddleCenter` で中央表示する。
+- 既存Prefabとの互換維持のため、`CatalogUI` と `DesignTokenApplier` でランタイム補正を実装。
