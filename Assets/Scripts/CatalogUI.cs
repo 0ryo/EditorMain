@@ -1917,6 +1917,7 @@ public class CatalogUI : MonoBehaviour
         ApplySettingsPanelDesign(settingsPanel);
         RefreshSettingsTabs();
         settingsPanel.gameObject.SetActive(true);
+        settingsPanel.SetAsLastSibling(); // Canvas 内の最前面へ
     }
 
     void CloseSettingsPanel()
@@ -2283,6 +2284,7 @@ public class CatalogUI : MonoBehaviour
         {
             ApplyNewObjectSettingsDesign(newObjectSettingsPanel);
             newObjectSettingsPanel.gameObject.SetActive(true);
+            newObjectSettingsPanel.SetAsLastSibling(); // Canvas 内の最前面へ
         }
 
         SetStatus("Open object settings.");
