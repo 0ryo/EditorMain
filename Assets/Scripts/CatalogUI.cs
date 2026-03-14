@@ -1346,7 +1346,11 @@ public class CatalogUI : MonoBehaviour
         label.color = DesignTokens.TextPrimary;
         label.fontSize = 14;
         label.alignment = TextAnchor.MiddleCenter;
+#if UNITY_EDITOR
         label.text = "Import FBX";
+#else
+        label.text = "Import 3D Model";
+#endif
 
         EnsureScrollBottomPadding(56f);
     }
@@ -2246,9 +2250,54 @@ public class CatalogUI : MonoBehaviour
 
         OpenNewObjectSettings(prefab, assetPath);
 #else
-        SetStatus("FBX import is available in Unity Editor only.");
+        OnClickAddRuntimeAsync();
 #endif
     }
+
+#if !UNITY_EDITOR
+    async void OnClickAddRuntimeAsync()
+    {
+        EnsureRuntimeBindings();
+        EnsureRuntimeCatalogControls();
+        WireUiEvents();
+
+        if (placementController == null)
+        {
+            SetStatus("PlacementController is not found.");
+            return;
+        }
+
+        string selectedPath = null;
+#if UNITY_STANDALONE_WIN
+        selectedPath = RuntimeModelLoader.OpenFileDialog("Select 3D Model", "");
+#else
+        SetStatus("File dialog is not supported on this platform.");
+        return;
+#endif
+
+        if (string.IsNullOrWhiteSpace(selectedPath))
+        {
+            SetStatus("File selection canceled.");
+            return;
+        }
+
+        if (!RuntimeModelLoader.IsSupportedExtension(selectedPath))
+        {
+            SetStatus("Please select a .glb or .gltf file.");
+            return;
+        }
+
+        SetStatus("Loading 3D model...");
+        var loadedModel = await RuntimeModelLoader.LoadModelAsync(selectedPath);
+        if (loadedModel == null)
+        {
+            SetStatus("Failed to load 3D model.");
+            return;
+        }
+
+        OpenNewObjectSettings(loadedModel, selectedPath);
+    }
+#endif
 
     void OpenNewObjectSettings(GameObject prefab, string assetPath)
     {
@@ -2279,7 +2328,7 @@ public class CatalogUI : MonoBehaviour
 
         if (newObjectPathText != null)
         {
-            newObjectPathText.text = $"FBX: {assetPath}";
+            newObjectPathText.text = $"File: {assetPath}";
         }
 
         if (newObjectSettingsPanel != null)
@@ -2555,6 +2604,7 @@ public class CatalogUI : MonoBehaviour
     {
         return path.Replace('\\', '/');
     }
+#endif
 
     static string BuildImportedTypeId(string assetPath, string displayLabel)
     {
@@ -2597,7 +2647,6 @@ public class CatalogUI : MonoBehaviour
 
         return new string(chars).Trim('_');
     }
-#endif
 }
 
 public class SettingsOverlayClickCatcher : MonoBehaviour, IPointerClickHandler
