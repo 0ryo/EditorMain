@@ -382,6 +382,7 @@ public static class DesignTokenApplier
         scaler.referenceResolution = ReferenceResolution;
         scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
         scaler.matchWidthOrHeight = 0.5f;
+        canvas.pixelPerfect = true;
     }
 
     // ── ノードアウトライン ──
