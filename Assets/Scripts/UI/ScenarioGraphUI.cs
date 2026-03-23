@@ -9,6 +9,42 @@ public class ScenarioGraphUI : MonoBehaviour
     static readonly Color ConnectionLineColor = DesignTokens.Accent;
     static readonly Color DragPreviewLineColor = new Color(DesignTokens.Accent.r, DesignTokens.Accent.g, DesignTokens.Accent.b, 0.9f);
 
+    static readonly System.Collections.Generic.Dictionary<string, string> ErrorMessages = new System.Collections.Generic.Dictionary<string, string>
+    {
+        { "E-01", "スタートノードがありません" },
+        { "E-02", "エンドノードがありません" },
+        { "E-03", "スタートノードが次のノードに接続されていません" },
+        { "E-04", "ステップが正しく繋がっていません" },
+        { "E-05", "エンドノードに前のノードが接続されていません" },
+        { "E-06", "手順が設定されていないステップがあります" },
+        { "E-07", "どのステップにも紐付いていない手順があります" },
+        { "E-08", "オブジェクトが選択されていない手順があります" },
+        { "E-09", "AとBに同じオブジェクトが設定されている手順があります" },
+        { "E-10", "手順で参照しているオブジェクトが削除されています" },
+        { "E-11", "データが不整合な状態です。編集をやり直してください" },
+    };
+
+    static readonly System.Collections.Generic.Dictionary<string, string> WarningMessages = new System.Collections.Generic.Dictionary<string, string>
+    {
+        { "W-01", "手順が上限（3件）に達しているステップがあります" },
+        { "W-02", "複数のステップで同じオブジェクトAが使われています" },
+    };
+
+    static readonly System.Collections.Generic.Dictionary<string, string> ConnectReasonMessages = new System.Collections.Generic.Dictionary<string, string>
+    {
+        { "CONNECT_EMPTY_ID", "接続情報が不正です" },
+        { "CONNECT_SELF", "自分自身には接続できません" },
+        { "CONNECT_NODE_NOT_FOUND", "接続先のノードが見つかりません" },
+        { "CONNECT_INVALID_ROUTE", "この組み合わせは接続できません" },
+        { "CONNECT_DUPLICATE", "すでに接続済みです" },
+        { "STEPFLOW_OUT_LIMIT", "このノードはすでに次のノードに繋がっています" },
+        { "STEPFLOW_IN_LIMIT", "このノードはすでに前のノードに繋がっています" },
+        { "END_IN_LIMIT", "エンドノードはすでに接続済みです" },
+        { "STEPFLOW_CYCLE", "接続すると経路が循環してしまいます" },
+        { "CONDITION_BIND_LIMIT", "この手順はすでにステップに紐付いています" },
+        { "STEP_CONDITION_MAX", "このステップの手順は上限（3件）です" },
+    };
+
     [Header("Services")]
     [SerializeField] CurriculumGraphService graph;
 
@@ -733,7 +769,8 @@ public class ScenarioGraphUI : MonoBehaviour
         {
             if (statusText != null)
             {
-                statusText.text = $"Condition格納失敗: {reason}";
+                string friendly = ConnectReasonMessages.TryGetValue(reason, out var msg) ? msg : reason;
+                statusText.text = $"手順を格納できません: {friendly}";
             }
             return;
         }
@@ -890,7 +927,8 @@ public class ScenarioGraphUI : MonoBehaviour
 
         if (!graph.TryAddEdge(fromNodeId, toNodeId, out var reason))
         {
-            statusText.text = $"接続失敗: {reason}";
+            string friendly = ConnectReasonMessages.TryGetValue(reason, out var msg) ? msg : reason;
+            statusText.text = $"接続できません: {friendly}";
             Debug.LogWarning($"[ScenarioGraphUI] Connect rejected mode={mode} from={fromNodeId} to={toNodeId} reason={reason}");
             return;
         }
@@ -1122,7 +1160,11 @@ public class ScenarioGraphUI : MonoBehaviour
 
         if (validation.warnings.Count > 0)
         {
-            statusText.text = "警告あり: " + string.Join(" / ", validation.warnings.Select(w => $"{w.code} {w.message}"));
+            var firstWarn = validation.warnings[0];
+            string friendly = WarningMessages.TryGetValue(firstWarn.code, out var warnMsg) ? warnMsg : firstWarn.message;
+            statusText.text = validation.warnings.Count == 1
+                ? $"警告: {friendly}"
+                : $"警告: {friendly}（他 {validation.warnings.Count - 1} 件）";
             return;
         }
 
@@ -1159,7 +1201,13 @@ public class ScenarioGraphUI : MonoBehaviour
     static string BuildValidationMessage(GraphValidationResult validation)
     {
         if (validation == null || validation.errors.Count == 0) return string.Empty;
-        return "保存不可: " + string.Join(" / ", validation.errors.Select(e => $"{e.code} {e.message}"));
+
+        var firstError = validation.errors[0];
+        string friendly = ErrorMessages.TryGetValue(firstError.code, out var msg) ? msg : firstError.message;
+
+        return validation.errors.Count == 1
+            ? $"保存できません: {friendly}"
+            : $"保存できません: {friendly}（他 {validation.errors.Count - 1} 件のエラー）";
     }
 }
 
