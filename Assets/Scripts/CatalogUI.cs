@@ -17,9 +17,9 @@ public class CatalogUI : MonoBehaviour
     [SerializeField] PlacementController placementController;
     [SerializeField] RectTransform content;
     [SerializeField] Button buttonTemplate;
-    [SerializeField] InputField searchInput;
+    [SerializeField] TMP_InputField searchInput;
     [SerializeField] Button addButton;
-    [SerializeField] Text statusText;
+    [SerializeField] TMP_Text statusText;
     [SerializeField] RectTransform editModeRow;
     [SerializeField] Button browseModeButton;
     [SerializeField] Button transformModeButton;
@@ -34,18 +34,18 @@ public class CatalogUI : MonoBehaviour
     [SerializeField] RectTransform settingsIntegrationContent;
     [SerializeField] RectTransform settingsAccountContent;
     [SerializeField] Slider settingsSensitivitySlider;
-    [SerializeField] Text settingsSensitivityValueText;
+    [SerializeField] TMP_Text settingsSensitivityValueText;
     [SerializeField] Button settingsIntegrationLinkButton;
     [SerializeField] Button settingsRevertButton;
     [SerializeField] Button settingsApplyButton;
-    [SerializeField] Text settingsAccountUserNameText;
-    [SerializeField] Text settingsAccountEmailText;
+    [SerializeField] TMP_Text settingsAccountUserNameText;
+    [SerializeField] TMP_Text settingsAccountEmailText;
     [SerializeField] RectTransform newObjectSettingsPanel;
-    [SerializeField] InputField newObjectNameInput;
-    [SerializeField] InputField newObjectDescriptionInput;
+    [SerializeField] TMP_InputField newObjectNameInput;
+    [SerializeField] TMP_InputField newObjectDescriptionInput;
     [SerializeField] Button newObjectApplyButton;
     [SerializeField] Button newObjectCancelButton;
-    [SerializeField] Text newObjectPathText;
+    [SerializeField] TMP_Text newObjectPathText;
     [SerializeField] float statusAutoClearSeconds = 2f;
     [SerializeField] float cornerRadius = DesignTokens.CornerRadius;
     [SerializeField] string importedCardLabel = "New Object";
@@ -563,22 +563,21 @@ public class CatalogUI : MonoBehaviour
         var image = button.GetComponent<Image>();
         if (image != null) image.color = DesignTokens.BgSecondary;
 
-        var label = button.GetComponentInChildren<Text>(true);
+        var label = button.GetComponentInChildren<TMP_Text>(true);
         if (label == null)
         {
-            var labelGo = new GameObject("Label", typeof(RectTransform), typeof(Text));
+            var labelGo = new GameObject("Label", typeof(RectTransform), typeof(TextMeshProUGUI));
             var labelRt = labelGo.GetComponent<RectTransform>();
             labelRt.SetParent(button.transform, false);
             labelRt.anchorMin = Vector2.zero;
             labelRt.anchorMax = Vector2.one;
             labelRt.offsetMin = Vector2.zero;
             labelRt.offsetMax = Vector2.zero;
-            label = labelGo.GetComponent<Text>();
+            label = labelGo.GetComponent<TMP_Text>();
         }
 
-        label.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
         label.fontSize = 12;
-        label.alignment = TextAnchor.MiddleCenter;
+        label.alignment = TextAlignmentOptions.Center;
         label.text = labelText;
         label.color = DesignTokens.TextPrimary;
     }
@@ -641,22 +640,21 @@ public class CatalogUI : MonoBehaviour
             button.targetGraphic = image;
         }
 
-        var label = button.GetComponentInChildren<Text>(true);
+        var label = button.GetComponentInChildren<TMP_Text>(true);
         if (label == null)
         {
-            var labelGo = new GameObject("Label", typeof(RectTransform), typeof(Text));
+            var labelGo = new GameObject("Label", typeof(RectTransform), typeof(TextMeshProUGUI));
             var labelRt = labelGo.GetComponent<RectTransform>();
             labelRt.SetParent(button.transform, false);
             labelRt.anchorMin = Vector2.zero;
             labelRt.anchorMax = Vector2.one;
             labelRt.offsetMin = Vector2.zero;
             labelRt.offsetMax = Vector2.zero;
-            label = labelGo.GetComponent<Text>();
+            label = labelGo.GetComponent<TMP_Text>();
         }
 
-        label.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
         label.fontSize = 22;
-        label.alignment = TextAnchor.MiddleCenter;
+        label.alignment = TextAlignmentOptions.Center;
         label.text = "\u2699";
         label.color = DesignTokens.TextPrimary;
     }
@@ -735,7 +733,7 @@ public class CatalogUI : MonoBehaviour
         if (sliderTr != null) settingsSensitivitySlider = sliderTr.GetComponent<Slider>();
 
         var sliderValueTr = overlayRt.Find("Window/Content/Content_General/SliderRow/Text_SensitivityValue");
-        if (sliderValueTr != null) settingsSensitivityValueText = sliderValueTr.GetComponent<Text>();
+        if (sliderValueTr != null) settingsSensitivityValueText = sliderValueTr.GetComponent<TMP_Text>();
 
         var linkTr = overlayRt.Find("Window/Content/Content_Integration/Button_WebLink");
         if (linkTr != null) settingsIntegrationLinkButton = linkTr.GetComponent<Button>();
@@ -747,10 +745,10 @@ public class CatalogUI : MonoBehaviour
         if (applyTr != null) settingsApplyButton = applyTr.GetComponent<Button>();
 
         var userNameTr = overlayRt.Find("Window/Content/Content_Account/Text_UserName");
-        if (userNameTr != null) settingsAccountUserNameText = userNameTr.GetComponent<Text>();
+        if (userNameTr != null) settingsAccountUserNameText = userNameTr.GetComponent<TMP_Text>();
 
         var emailTr = overlayRt.Find("Window/Content/Content_Account/Text_Email");
-        if (emailTr != null) settingsAccountEmailText = emailTr.GetComponent<Text>();
+        if (emailTr != null) settingsAccountEmailText = emailTr.GetComponent<TMP_Text>();
     }
 
     void ApplySettingsPanelDesign(RectTransform overlayRt)
@@ -837,11 +835,11 @@ public class CatalogUI : MonoBehaviour
             var revertImage = settingsRevertButton.GetComponent<Image>();
             if (revertImage != null) revertImage.color = DesignTokens.BgSecondary;
 
-            var revertLabel = settingsRevertButton.GetComponentInChildren<Text>(true);
+            var revertLabel = settingsRevertButton.GetComponentInChildren<TMP_Text>(true);
             if (revertLabel != null)
             {
                 revertLabel.fontSize = 14;
-                revertLabel.alignment = TextAnchor.MiddleCenter;
+                revertLabel.alignment = TextAlignmentOptions.Center;
                 revertLabel.color = DesignTokens.TextPrimary;
                 revertLabel.text = "\u5143\u306b\u623b\u3059";
             }
@@ -862,11 +860,11 @@ public class CatalogUI : MonoBehaviour
             var applyImage = settingsApplyButton.GetComponent<Image>();
             if (applyImage != null) applyImage.color = DesignTokens.Accent;
 
-            var applyLabel = settingsApplyButton.GetComponentInChildren<Text>(true);
+            var applyLabel = settingsApplyButton.GetComponentInChildren<TMP_Text>(true);
             if (applyLabel != null)
             {
                 applyLabel.fontSize = 14;
-                applyLabel.alignment = TextAnchor.MiddleCenter;
+                applyLabel.alignment = TextAlignmentOptions.Center;
                 applyLabel.color = DesignTokens.Surface;
                 applyLabel.text = "\u9069\u7528";
             }
@@ -887,7 +885,7 @@ public class CatalogUI : MonoBehaviour
             settingsAccountUserNameText.text = "User Name";
             settingsAccountUserNameText.fontSize = 28;
             settingsAccountUserNameText.color = DesignTokens.TextPrimary;
-            settingsAccountUserNameText.alignment = TextAnchor.MiddleCenter;
+            settingsAccountUserNameText.alignment = TextAlignmentOptions.Center;
         }
 
         if (settingsAccountEmailText != null)
@@ -895,7 +893,7 @@ public class CatalogUI : MonoBehaviour
             settingsAccountEmailText.text = "user@example.com";
             settingsAccountEmailText.fontSize = 14;
             settingsAccountEmailText.color = DesignTokens.TextSecondary;
-            settingsAccountEmailText.alignment = TextAnchor.MiddleCenter;
+            settingsAccountEmailText.alignment = TextAlignmentOptions.Center;
         }
 
         settingsInitializingUi = true;
@@ -963,23 +961,22 @@ public class CatalogUI : MonoBehaviour
         if (image == null) image = button.gameObject.AddComponent<Image>();
         image.color = DesignTokens.BgSecondary;
 
-        var label = button.GetComponentInChildren<Text>(true);
+        var label = button.GetComponentInChildren<TMP_Text>(true);
         if (label == null)
         {
-            var labelGo = new GameObject("Label", typeof(RectTransform), typeof(Text));
+            var labelGo = new GameObject("Label", typeof(RectTransform), typeof(TextMeshProUGUI));
             var labelRt = labelGo.GetComponent<RectTransform>();
             labelRt.SetParent(button.transform, false);
             labelRt.anchorMin = Vector2.zero;
             labelRt.anchorMax = Vector2.one;
             labelRt.offsetMin = Vector2.zero;
             labelRt.offsetMax = Vector2.zero;
-            label = labelGo.GetComponent<Text>();
+            label = labelGo.GetComponent<TMP_Text>();
         }
 
-        label.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
         label.text = labelText;
         label.fontSize = 14;
-        label.alignment = TextAnchor.MiddleCenter;
+        label.alignment = TextAlignmentOptions.Center;
         label.color = DesignTokens.TextPrimary;
         return button;
     }
@@ -994,7 +991,7 @@ public class CatalogUI : MonoBehaviour
 
         var title = FindOrCreateSettingsText(contentRt, "Text_Title", "視点操作感度");
         title.fontSize = 16;
-        title.alignment = TextAnchor.MiddleLeft;
+        title.alignment = TextAlignmentOptions.MidlineLeft;
         title.color = DesignTokens.TextPrimary;
         var titleRt = title.rectTransform;
         titleRt.anchorMin = new Vector2(0f, 1f);
@@ -1023,7 +1020,7 @@ public class CatalogUI : MonoBehaviour
 
         settingsSensitivityValueText = FindOrCreateSettingsText(sliderRow, "Text_SensitivityValue", "1.00x");
         settingsSensitivityValueText.fontSize = 14;
-        settingsSensitivityValueText.alignment = TextAnchor.MiddleRight;
+        settingsSensitivityValueText.alignment = TextAlignmentOptions.MidlineRight;
         settingsSensitivityValueText.color = DesignTokens.TextSecondary;
         var valueRt = settingsSensitivityValueText.rectTransform;
         valueRt.anchorMin = new Vector2(1f, 0f);
@@ -1055,13 +1052,13 @@ public class CatalogUI : MonoBehaviour
             var image = settingsIntegrationLinkButton.GetComponent<Image>();
             if (image != null) image.color = DesignTokens.BgSecondary;
 
-            var label = settingsIntegrationLinkButton.GetComponentInChildren<Text>(true);
+            var label = settingsIntegrationLinkButton.GetComponentInChildren<TMP_Text>(true);
             if (label != null)
             {
                 label.text = "ここからウェブサイトへ遷移";
                 label.fontSize = 16;
                 label.color = DesignTokens.Accent;
-                label.alignment = TextAnchor.MiddleCenter;
+                label.alignment = TextAlignmentOptions.Center;
             }
         }
     }
@@ -1076,7 +1073,7 @@ public class CatalogUI : MonoBehaviour
 
         var icon = FindOrCreateSettingsText(contentRt, "Text_AvatarIcon", "\u25CF");
         icon.fontSize = 72;
-        icon.alignment = TextAnchor.MiddleCenter;
+        icon.alignment = TextAlignmentOptions.Center;
         icon.color = DesignTokens.Accent;
         var iconRt = icon.rectTransform;
         iconRt.anchorMin = new Vector2(0.5f, 0.5f);
@@ -1160,22 +1157,21 @@ public class CatalogUI : MonoBehaviour
         return slider;
     }
 
-    Text FindOrCreateSettingsText(Transform parent, string objectName, string defaultText)
+    TMP_Text FindOrCreateSettingsText(Transform parent, string objectName, string defaultText)
     {
         if (parent == null) return null;
 
         var found = parent.Find(objectName);
-        Text text = null;
-        if (found != null) text = found.GetComponent<Text>();
+        TMP_Text text = null;
+        if (found != null) text = found.GetComponent<TMP_Text>();
         if (text == null)
         {
-            var go = new GameObject(objectName, typeof(RectTransform), typeof(Text));
+            var go = new GameObject(objectName, typeof(RectTransform), typeof(TextMeshProUGUI));
             var rt = go.GetComponent<RectTransform>();
             rt.SetParent(parent, false);
-            text = go.GetComponent<Text>();
+            text = go.GetComponent<TMP_Text>();
         }
 
-        text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
         text.text = defaultText;
         return text;
     }
@@ -1198,20 +1194,19 @@ public class CatalogUI : MonoBehaviour
             button = go.GetComponent<Button>();
         }
 
-        var label = button.GetComponentInChildren<Text>(true);
+        var label = button.GetComponentInChildren<TMP_Text>(true);
         if (label == null)
         {
-            var labelGo = new GameObject("Label", typeof(RectTransform), typeof(Text));
+            var labelGo = new GameObject("Label", typeof(RectTransform), typeof(TextMeshProUGUI));
             var labelRt = labelGo.GetComponent<RectTransform>();
             labelRt.SetParent(button.transform, false);
             labelRt.anchorMin = Vector2.zero;
             labelRt.anchorMax = Vector2.one;
             labelRt.offsetMin = Vector2.zero;
             labelRt.offsetMax = Vector2.zero;
-            label = labelGo.GetComponent<Text>();
+            label = labelGo.GetComponent<TMP_Text>();
         }
 
-        label.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
         label.text = labelText;
         return button;
     }
@@ -1333,7 +1328,7 @@ public class CatalogUI : MonoBehaviour
         image.color = DesignTokens.BgSecondary;
         addButton = buttonRoot.GetComponent<Button>();
 
-        var labelGo = new GameObject("Label", typeof(RectTransform), typeof(Text));
+        var labelGo = new GameObject("Label", typeof(RectTransform), typeof(TextMeshProUGUI));
         var labelRt = labelGo.GetComponent<RectTransform>();
         labelRt.SetParent(buttonRt, false);
         labelRt.anchorMin = Vector2.zero;
@@ -1341,11 +1336,10 @@ public class CatalogUI : MonoBehaviour
         labelRt.offsetMin = Vector2.zero;
         labelRt.offsetMax = Vector2.zero;
 
-        var label = labelGo.GetComponent<Text>();
-        label.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        var label = labelGo.GetComponent<TMP_Text>();
         label.color = DesignTokens.TextPrimary;
         label.fontSize = 14;
-        label.alignment = TextAnchor.MiddleCenter;
+        label.alignment = TextAlignmentOptions.Center;
 #if UNITY_EDITOR
         label.text = "Import FBX";
 #else
@@ -1388,48 +1382,42 @@ public class CatalogUI : MonoBehaviour
         var windowImage = window.GetComponent<Image>();
         windowImage.color = DesignTokens.Surface;
 
-        var title = new GameObject("Text_Title", typeof(RectTransform), typeof(Text));
+        var title = new GameObject("Text_Title", typeof(RectTransform), typeof(TextMeshProUGUI));
         var titleRt = title.GetComponent<RectTransform>();
         titleRt.SetParent(windowRt, false);
-        var titleText = title.GetComponent<Text>();
-        titleText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        var titleText = title.GetComponent<TMP_Text>();
         titleText.color = DesignTokens.TextPrimary;
         titleText.fontSize = 16;
-        titleText.alignment = TextAnchor.MiddleLeft;
+        titleText.alignment = TextAlignmentOptions.MidlineLeft;
         titleText.text = "\u30AA\u30D6\u30B8\u30A7\u30AF\u30C8\u8A2D\u5B9A";
 
-        var pathTextObj = new GameObject("Text_FilePath", typeof(RectTransform), typeof(Text));
+        var pathTextObj = new GameObject("Text_FilePath", typeof(RectTransform), typeof(TextMeshProUGUI));
         var pathTextRt = pathTextObj.GetComponent<RectTransform>();
         pathTextRt.SetParent(windowRt, false);
-        var pathText = pathTextObj.GetComponent<Text>();
-        pathText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        var pathText = pathTextObj.GetComponent<TMP_Text>();
         pathText.color = DesignTokens.TextSecondary;
         pathText.fontSize = 12;
-        pathText.alignment = TextAnchor.UpperLeft;
-        pathText.horizontalOverflow = HorizontalWrapMode.Wrap;
-        pathText.verticalOverflow = VerticalWrapMode.Truncate;
+        pathText.alignment = TextAlignmentOptions.TopLeft;
         pathText.text = string.Empty;
 
-        var nameLabelObj = new GameObject("Text_NameLabel", typeof(RectTransform), typeof(Text));
+        var nameLabelObj = new GameObject("Text_NameLabel", typeof(RectTransform), typeof(TextMeshProUGUI));
         var nameLabelRt = nameLabelObj.GetComponent<RectTransform>();
         nameLabelRt.SetParent(windowRt, false);
-        var nameLabel = nameLabelObj.GetComponent<Text>();
-        nameLabel.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        var nameLabel = nameLabelObj.GetComponent<TMP_Text>();
         nameLabel.color = DesignTokens.TextPrimary;
         nameLabel.fontSize = 13;
-        nameLabel.alignment = TextAnchor.MiddleLeft;
+        nameLabel.alignment = TextAlignmentOptions.MidlineLeft;
         nameLabel.text = "\u30AA\u30D6\u30B8\u30A7\u30AF\u30C8\u540D";
 
         var input = CreateInputField(windowRt, "Input_NewObjectName", "New Object");
 
-        var descriptionLabelObj = new GameObject("Text_DescriptionLabel", typeof(RectTransform), typeof(Text));
+        var descriptionLabelObj = new GameObject("Text_DescriptionLabel", typeof(RectTransform), typeof(TextMeshProUGUI));
         var descriptionLabelRt = descriptionLabelObj.GetComponent<RectTransform>();
         descriptionLabelRt.SetParent(windowRt, false);
-        var descriptionLabel = descriptionLabelObj.GetComponent<Text>();
-        descriptionLabel.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        var descriptionLabel = descriptionLabelObj.GetComponent<TMP_Text>();
         descriptionLabel.color = DesignTokens.TextPrimary;
         descriptionLabel.fontSize = 13;
-        descriptionLabel.alignment = TextAnchor.MiddleLeft;
+        descriptionLabel.alignment = TextAlignmentOptions.MidlineLeft;
         descriptionLabel.text = "\u8AAC\u660E";
 
         var descriptionInput = CreateMultilineInputField(windowRt, "Input_NewObjectDescription", "\u8AAC\u660E\u3092\u5165\u529B...");
@@ -1450,18 +1438,17 @@ public class CatalogUI : MonoBehaviour
         var applyLayout = applyButton.GetComponent<LayoutElement>();
         applyLayout.minHeight = 40f;
         applyLayout.preferredHeight = 40f;
-        var applyLabelObj = new GameObject("Label", typeof(RectTransform), typeof(Text));
+        var applyLabelObj = new GameObject("Label", typeof(RectTransform), typeof(TextMeshProUGUI));
         var applyLabelRt = applyLabelObj.GetComponent<RectTransform>();
         applyLabelRt.SetParent(applyRt, false);
         applyLabelRt.anchorMin = Vector2.zero;
         applyLabelRt.anchorMax = Vector2.one;
         applyLabelRt.offsetMin = Vector2.zero;
         applyLabelRt.offsetMax = Vector2.zero;
-        var applyLabel = applyLabelObj.GetComponent<Text>();
-        applyLabel.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        var applyLabel = applyLabelObj.GetComponent<TMP_Text>();
         applyLabel.color = DesignTokens.Surface;
         applyLabel.fontSize = 14;
-        applyLabel.alignment = TextAnchor.MiddleCenter;
+        applyLabel.alignment = TextAlignmentOptions.Center;
         applyLabel.text = "\u8FFD\u52A0";
 
         var cancelButton = new GameObject("Button_Cancel", typeof(RectTransform), typeof(Image), typeof(Button), typeof(LayoutElement));
@@ -1471,18 +1458,17 @@ public class CatalogUI : MonoBehaviour
         var cancelLayout = cancelButton.GetComponent<LayoutElement>();
         cancelLayout.minHeight = 40f;
         cancelLayout.preferredHeight = 40f;
-        var cancelLabelObj = new GameObject("Label", typeof(RectTransform), typeof(Text));
+        var cancelLabelObj = new GameObject("Label", typeof(RectTransform), typeof(TextMeshProUGUI));
         var cancelLabelRt = cancelLabelObj.GetComponent<RectTransform>();
         cancelLabelRt.SetParent(cancelRt, false);
         cancelLabelRt.anchorMin = Vector2.zero;
         cancelLabelRt.anchorMax = Vector2.one;
         cancelLabelRt.offsetMin = Vector2.zero;
         cancelLabelRt.offsetMax = Vector2.zero;
-        var cancelLabel = cancelLabelObj.GetComponent<Text>();
-        cancelLabel.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        var cancelLabel = cancelLabelObj.GetComponent<TMP_Text>();
         cancelLabel.color = DesignTokens.TextPrimary;
         cancelLabel.fontSize = 14;
-        cancelLabel.alignment = TextAnchor.MiddleCenter;
+        cancelLabel.alignment = TextAlignmentOptions.Center;
         cancelLabel.text = "\u30AD\u30E3\u30F3\u30BB\u30EB";
 
         newObjectSettingsPanel = overlayRt;
@@ -1556,10 +1542,10 @@ public class CatalogUI : MonoBehaviour
         if (overlayRt == null) return;
 
         var nameInputTr = overlayRt.Find("Window/Input_NewObjectName");
-        if (nameInputTr != null) newObjectNameInput = nameInputTr.GetComponent<InputField>();
+        if (nameInputTr != null) newObjectNameInput = nameInputTr.GetComponent<TMP_InputField>();
 
         var descInputTr = overlayRt.Find("Window/Input_NewObjectDescription");
-        if (descInputTr != null) newObjectDescriptionInput = descInputTr.GetComponent<InputField>();
+        if (descInputTr != null) newObjectDescriptionInput = descInputTr.GetComponent<TMP_InputField>();
 
         var applyTr = overlayRt.Find("Window/ButtonsRow/Button_Apply");
         if (applyTr != null) newObjectApplyButton = applyTr.GetComponent<Button>();
@@ -1568,7 +1554,7 @@ public class CatalogUI : MonoBehaviour
         if (cancelTr != null) newObjectCancelButton = cancelTr.GetComponent<Button>();
 
         var pathTextTr = overlayRt.Find("Window/Text_FilePath");
-        if (pathTextTr != null) newObjectPathText = pathTextTr.GetComponent<Text>();
+        if (pathTextTr != null) newObjectPathText = pathTextTr.GetComponent<TMP_Text>();
     }
 
     void ApplyNewObjectSettingsDesign(RectTransform overlayRt)
@@ -1586,13 +1572,13 @@ public class CatalogUI : MonoBehaviour
         if (windowImage == null) windowImage = windowRt.gameObject.AddComponent<Image>();
         windowImage.color = DesignTokens.Surface;
 
-        var title = windowRt.Find("Text_Title")?.GetComponent<Text>();
+        var title = windowRt.Find("Text_Title")?.GetComponent<TMP_Text>();
         if (title != null)
         {
             title.text = "\u30AA\u30D6\u30B8\u30A7\u30AF\u30C8\u8A2D\u5B9A";
             title.fontSize = 16;
             title.color = DesignTokens.TextPrimary;
-            title.alignment = TextAnchor.MiddleLeft;
+            title.alignment = TextAlignmentOptions.MidlineLeft;
             var rt = title.rectTransform;
             rt.anchorMin = new Vector2(0f, 1f);
             rt.anchorMax = new Vector2(1f, 1f);
@@ -1604,9 +1590,7 @@ public class CatalogUI : MonoBehaviour
         {
             newObjectPathText.fontSize = 12;
             newObjectPathText.color = DesignTokens.TextSecondary;
-            newObjectPathText.alignment = TextAnchor.UpperLeft;
-            newObjectPathText.horizontalOverflow = HorizontalWrapMode.Wrap;
-            newObjectPathText.verticalOverflow = VerticalWrapMode.Truncate;
+            newObjectPathText.alignment = TextAlignmentOptions.TopLeft;
             var rt = newObjectPathText.rectTransform;
             rt.anchorMin = new Vector2(0f, 1f);
             rt.anchorMax = new Vector2(1f, 1f);
@@ -1614,7 +1598,7 @@ public class CatalogUI : MonoBehaviour
             rt.offsetMax = new Vector2(-16f, -52f);
         }
 
-        var nameLabel = windowRt.Find("Text_NameLabel")?.GetComponent<Text>();
+        var nameLabel = windowRt.Find("Text_NameLabel")?.GetComponent<TMP_Text>();
         if (nameLabel != null)
         {
             nameLabel.text = "\u30AA\u30D6\u30B8\u30A7\u30AF\u30C8\u540D";
@@ -1639,7 +1623,7 @@ public class CatalogUI : MonoBehaviour
             }
         }
 
-        var descriptionLabel = windowRt.Find("Text_DescriptionLabel")?.GetComponent<Text>();
+        var descriptionLabel = windowRt.Find("Text_DescriptionLabel")?.GetComponent<TMP_Text>();
         if (descriptionLabel != null)
         {
             descriptionLabel.text = "\u8AAC\u660E";
@@ -1654,7 +1638,7 @@ public class CatalogUI : MonoBehaviour
 
         if (newObjectDescriptionInput != null)
         {
-            newObjectDescriptionInput.lineType = InputField.LineType.MultiLineNewline;
+            newObjectDescriptionInput.lineType = TMP_InputField.LineType.MultiLineNewline;
             var rt = newObjectDescriptionInput.GetComponent<RectTransform>();
             if (rt != null)
             {
@@ -1682,13 +1666,13 @@ public class CatalogUI : MonoBehaviour
             if (layout == null) layout = newObjectApplyButton.gameObject.AddComponent<LayoutElement>();
             layout.minHeight = 40f;
             layout.preferredHeight = 40f;
-            var label = newObjectApplyButton.GetComponentInChildren<Text>(true);
+            var label = newObjectApplyButton.GetComponentInChildren<TMP_Text>(true);
             if (label != null)
             {
                 label.text = "\u8FFD\u52A0";
                 label.fontSize = 14;
                 label.color = DesignTokens.Surface;
-                label.alignment = TextAnchor.MiddleCenter;
+                label.alignment = TextAlignmentOptions.Center;
             }
         }
 
@@ -1700,13 +1684,13 @@ public class CatalogUI : MonoBehaviour
             if (layout == null) layout = newObjectCancelButton.gameObject.AddComponent<LayoutElement>();
             layout.minHeight = 40f;
             layout.preferredHeight = 40f;
-            var label = newObjectCancelButton.GetComponentInChildren<Text>(true);
+            var label = newObjectCancelButton.GetComponentInChildren<TMP_Text>(true);
             if (label != null)
             {
                 label.text = "\u30AD\u30E3\u30F3\u30BB\u30EB";
                 label.fontSize = 14;
                 label.color = DesignTokens.TextPrimary;
-                label.alignment = TextAnchor.MiddleCenter;
+                label.alignment = TextAlignmentOptions.Center;
             }
         }
 
@@ -1784,11 +1768,8 @@ public class CatalogUI : MonoBehaviour
         {
             StretchCardLabel(explicitMain);
 
-            var text = explicitMain.GetComponent<Text>();
-            if (text != null) text.alignment = TextAnchor.MiddleCenter;
-
-            var tmp = explicitMain.GetComponent<TMP_Text>();
-            if (tmp != null) tmp.alignment = TextAlignmentOptions.Center;
+            var text = explicitMain.GetComponent<TMP_Text>();
+            if (text != null) text.alignment = TextAlignmentOptions.Center;
         }
     }
 
@@ -1809,34 +1790,13 @@ public class CatalogUI : MonoBehaviour
         var explicitMain = root.transform.Find(CardMainLabelName);
         if (explicitMain != null)
         {
-            var txt = explicitMain.GetComponent<Text>();
+            var txt = explicitMain.GetComponent<TMP_Text>();
             if (txt != null)
             {
                 txt.text = typeId;
-                txt.alignment = TextAnchor.MiddleCenter;
-            }
-
-            var tmp = explicitMain.GetComponent<TMP_Text>();
-            if (tmp != null)
-            {
-                tmp.text = typeId;
-                tmp.alignment = TextAlignmentOptions.Center;
+                txt.alignment = TextAlignmentOptions.Center;
             }
             return;
-        }
-
-        var legacyTexts = root.GetComponentsInChildren<Text>(true);
-        foreach (var legacyText in legacyTexts)
-        {
-            if (legacyText == null) continue;
-            if (IsUnderCardRemoveButton(legacyText.transform)) continue;
-            legacyText.text = typeId;
-            legacyText.alignment = TextAnchor.MiddleCenter;
-            if (legacyText.rectTransform != null && legacyText.rectTransform.parent == root.transform)
-            {
-                StretchCardLabel(legacyText.rectTransform);
-            }
-            break;
         }
 
         var tmps = root.GetComponentsInChildren<TMP_Text>(true);
@@ -1988,7 +1948,7 @@ public class CatalogUI : MonoBehaviour
             image.color = isActive ? DesignTokens.Accent : DesignTokens.BgSecondary;
         }
 
-        var label = button.GetComponentInChildren<Text>(true);
+        var label = button.GetComponentInChildren<TMP_Text>(true);
         if (label != null)
         {
             label.color = isActive ? DesignTokens.Surface : DesignTokens.TextPrimary;
@@ -2113,7 +2073,7 @@ public class CatalogUI : MonoBehaviour
             image.color = isActive ? DesignTokens.Accent : DesignTokens.BgSecondary;
         }
 
-        var label = button.GetComponentInChildren<Text>(true);
+        var label = button.GetComponentInChildren<TMP_Text>(true);
         if (label != null)
         {
             label.color = isActive ? DesignTokens.Surface : DesignTokens.TextPrimary;
@@ -2445,40 +2405,38 @@ public class CatalogUI : MonoBehaviour
         }
     }
 
-    InputField CreateInputField(Transform parent, string name, string placeholderText)
+    TMP_InputField CreateInputField(Transform parent, string name, string placeholderText)
     {
-        var root = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(InputField));
+        var root = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(TMP_InputField));
         var rootRt = root.GetComponent<RectTransform>();
         rootRt.SetParent(parent, false);
         root.GetComponent<Image>().color = DesignTokens.BgPrimary;
-        var input = root.GetComponent<InputField>();
+        var input = root.GetComponent<TMP_InputField>();
 
-        var textGo = new GameObject("Text", typeof(RectTransform), typeof(Text));
+        var textGo = new GameObject("Text", typeof(RectTransform), typeof(TextMeshProUGUI));
         var textRt = textGo.GetComponent<RectTransform>();
         textRt.SetParent(rootRt, false);
         textRt.anchorMin = Vector2.zero;
         textRt.anchorMax = Vector2.one;
         textRt.offsetMin = new Vector2(8f, 0f);
         textRt.offsetMax = new Vector2(-8f, 0f);
-        var text = textGo.GetComponent<Text>();
-        text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        var text = textGo.GetComponent<TextMeshProUGUI>();
         text.color = DesignTokens.TextPrimary;
         text.fontSize = 14;
-        text.alignment = TextAnchor.MiddleLeft;
+        text.alignment = TextAlignmentOptions.MidlineLeft;
         text.text = "";
 
-        var placeholderGo = new GameObject("Placeholder", typeof(RectTransform), typeof(Text));
+        var placeholderGo = new GameObject("Placeholder", typeof(RectTransform), typeof(TextMeshProUGUI));
         var placeholderRt = placeholderGo.GetComponent<RectTransform>();
         placeholderRt.SetParent(rootRt, false);
         placeholderRt.anchorMin = Vector2.zero;
         placeholderRt.anchorMax = Vector2.one;
         placeholderRt.offsetMin = new Vector2(8f, 0f);
         placeholderRt.offsetMax = new Vector2(-8f, 0f);
-        var placeholder = placeholderGo.GetComponent<Text>();
-        placeholder.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        var placeholder = placeholderGo.GetComponent<TextMeshProUGUI>();
         placeholder.color = DesignTokens.TextTertiary;
         placeholder.fontSize = 14;
-        placeholder.alignment = TextAnchor.MiddleLeft;
+        placeholder.alignment = TextAlignmentOptions.MidlineLeft;
         placeholder.text = placeholderText;
 
         input.textComponent = text;
@@ -2486,24 +2444,24 @@ public class CatalogUI : MonoBehaviour
         return input;
     }
 
-    InputField CreateMultilineInputField(Transform parent, string name, string placeholderText)
+    TMP_InputField CreateMultilineInputField(Transform parent, string name, string placeholderText)
     {
         var input = CreateInputField(parent, name, placeholderText);
         if (input == null) return null;
 
-        input.lineType = InputField.LineType.MultiLineNewline;
+        input.lineType = TMP_InputField.LineType.MultiLineNewline;
 
         if (input.textComponent != null)
         {
-            input.textComponent.alignment = TextAnchor.UpperLeft;
+            input.textComponent.alignment = TextAlignmentOptions.TopLeft;
             var textRt = input.textComponent.rectTransform;
             textRt.offsetMin = new Vector2(8f, 8f);
             textRt.offsetMax = new Vector2(-8f, -8f);
         }
 
-        if (input.placeholder is Text placeholderTextComp)
+        if (input.placeholder is TMP_Text placeholderTextComp)
         {
-            placeholderTextComp.alignment = TextAnchor.UpperLeft;
+            placeholderTextComp.alignment = TextAlignmentOptions.TopLeft;
             var placeholderRt = placeholderTextComp.rectTransform;
             placeholderRt.offsetMin = new Vector2(8f, 8f);
             placeholderRt.offsetMax = new Vector2(-8f, -8f);

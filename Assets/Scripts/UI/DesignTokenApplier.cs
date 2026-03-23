@@ -1,3 +1,4 @@
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -58,7 +59,7 @@ public static class DesignTokenApplier
         var statusText = FindDeep(panelRoot, "Text_Status");
         if (statusText != null)
         {
-            var text = statusText.GetComponent<Text>();
+            var text = statusText.GetComponent<TMP_Text>();
             if (text != null) text.color = DesignTokens.TextSecondary;
         }
 
@@ -170,7 +171,7 @@ public static class DesignTokenApplier
         {
             SetImageColor(deleteBtn, DesignTokens.Surface);
             EnsureThinOutline(deleteBtn, DesignTokens.Divider);
-            var label = deleteBtn.GetComponentInChildren<Text>(true);
+            var label = deleteBtn.GetComponentInChildren<TMP_Text>(true);
             if (label != null) label.color = DesignTokens.TextPrimary;
         }
 
@@ -178,7 +179,7 @@ public static class DesignTokenApplier
         var warning = FindDeep(nodeRoot, "Warning");
         if (warning != null)
         {
-            var text = warning.GetComponent<Text>();
+            var text = warning.GetComponent<TMP_Text>();
             if (text != null) text.color = DesignTokens.Warning;
         }
 
@@ -186,7 +187,7 @@ public static class DesignTokenApplier
         var condSummary = FindDeep(nodeRoot, "Text_ConditionSummary");
         if (condSummary != null)
         {
-            var text = condSummary.GetComponent<Text>();
+            var text = condSummary.GetComponent<TMP_Text>();
             if (text != null) text.color = DesignTokens.TextSecondary;
         }
 
@@ -249,11 +250,11 @@ public static class DesignTokenApplier
         {
             if (button == null) continue;
             // InputField 内のものは除外
-            if (button.GetComponent<InputField>() != null) continue;
-            if (button.GetComponentInParent<InputField>() != null) continue;
+            if (button.GetComponent<TMP_InputField>() != null) continue;
+            if (button.GetComponentInParent<TMP_InputField>() != null) continue;
             // Dropdown 内のものは除外
-            if (button.GetComponent<Dropdown>() != null) continue;
-            if (button.GetComponentInParent<Dropdown>() != null) continue;
+            if (button.GetComponent<TMP_Dropdown>() != null) continue;
+            if (button.GetComponentInParent<TMP_Dropdown>() != null) continue;
 
             var image = button.GetComponent<Image>();
             if (image != null)
@@ -267,7 +268,7 @@ public static class DesignTokenApplier
     {
         if (root == null) return;
 
-        foreach (var input in root.GetComponentsInChildren<InputField>(true))
+        foreach (var input in root.GetComponentsInChildren<TMP_InputField>(true))
         {
             if (input == null) continue;
 
@@ -277,7 +278,7 @@ public static class DesignTokenApplier
             if (input.textComponent != null)
                 input.textComponent.color = DesignTokens.TextPrimary;
 
-            var placeholder = input.placeholder as Text;
+            var placeholder = input.placeholder as TMP_Text;
             if (placeholder != null)
                 placeholder.color = DesignTokens.TextTertiary;
         }
@@ -287,7 +288,7 @@ public static class DesignTokenApplier
     {
         if (root == null) return;
 
-        foreach (var dropdown in root.GetComponentsInChildren<Dropdown>(true))
+        foreach (var dropdown in root.GetComponentsInChildren<TMP_Dropdown>(true))
         {
             if (dropdown == null) continue;
 
@@ -325,7 +326,7 @@ public static class DesignTokenApplier
     {
         if (root == null) return;
 
-        foreach (var text in root.GetComponentsInChildren<Text>(true))
+        foreach (var text in root.GetComponentsInChildren<TMP_Text>(true))
         {
             if (text == null) continue;
             // 特殊テキストは除外（ステータス、警告、削除ヒント等は個別設定済み）
@@ -400,7 +401,7 @@ public static class DesignTokenApplier
         var outline = target.GetComponent<Outline>();
         if (outline == null) outline = target.gameObject.AddComponent<Outline>();
         outline.effectColor = color;
-        outline.effectDistance = new Vector2(0.5f, -0.5f);
+        outline.effectDistance = new Vector2(1f, -1f);
         outline.useGraphicAlpha = false;
     }
 
@@ -444,7 +445,7 @@ public static class DesignTokenApplier
         // ラベルテキストを中央配置
         if (terminal.labelText != null)
         {
-            terminal.labelText.alignment = TextAnchor.MiddleCenter;
+            terminal.labelText.alignment = TextAlignmentOptions.Center;
             var labelRt = terminal.labelText.rectTransform;
             labelRt.anchorMin = Vector2.zero;
             labelRt.anchorMax = Vector2.one;
@@ -490,10 +491,10 @@ public static class DesignTokenApplier
             var labelMain = child.Find("LabelMain");
             if (labelMain != null)
             {
-                var text = labelMain.GetComponent<Text>();
+                var text = labelMain.GetComponent<TMP_Text>();
                 if (text != null)
                 {
-                    text.alignment = TextAnchor.MiddleCenter;
+                    text.alignment = TextAlignmentOptions.Center;
                 }
 
                 var labelRect = labelMain as RectTransform;
@@ -507,13 +508,13 @@ public static class DesignTokenApplier
                 }
             }
 
-            // フォールバック: 最初の Text を中央配置
+            // フォールバック: 最初の TMP_Text を中央配置
             if (labelMain == null)
             {
-                var text = child.GetComponentInChildren<Text>(true);
+                var text = child.GetComponentInChildren<TMP_Text>(true);
                 if (text != null)
                 {
-                    text.alignment = TextAnchor.MiddleCenter;
+                    text.alignment = TextAlignmentOptions.Center;
                     var textRect = text.rectTransform;
                     if (textRect != null && textRect.parent == child)
                     {
@@ -540,7 +541,7 @@ public static class DesignTokenApplier
     {
         if (panelRoot == null) return;
 
-        foreach (var input in panelRoot.GetComponentsInChildren<InputField>(true))
+        foreach (var input in panelRoot.GetComponentsInChildren<TMP_InputField>(true))
         {
             if (input == null) continue;
             if (!input.gameObject.name.Contains("Search")) continue;
@@ -571,7 +572,7 @@ public static class DesignTokenApplier
         SetImageColor(header, DesignTokens.Surface);
         if (header != null)
         {
-            var titleText = header.GetComponentInChildren<Text>(true);
+            var titleText = header.GetComponentInChildren<TMP_Text>(true);
             if (titleText != null) titleText.color = DesignTokens.TextPrimary;
         }
 
@@ -598,7 +599,7 @@ public static class DesignTokenApplier
                 var labelTf = child.Find("Label");
                 if (labelTf != null)
                 {
-                    var t = labelTf.GetComponent<Text>();
+                    var t = labelTf.GetComponent<TMP_Text>();
                     if (t != null) t.color = DesignTokens.TextSecondary;
                 }
 
@@ -607,7 +608,7 @@ public static class DesignTokenApplier
                 {
                     if (grandchild == null) continue;
                     if (!grandchild.name.StartsWith("Text_")) continue;
-                    var t = grandchild.GetComponent<Text>();
+                    var t = grandchild.GetComponent<TMP_Text>();
                     if (t != null) t.color = DesignTokens.TextPrimary;
                 }
             }

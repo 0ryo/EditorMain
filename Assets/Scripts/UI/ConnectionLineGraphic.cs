@@ -23,7 +23,7 @@ public class ConnectionLineGraphic : MaskableGraphic, IPointerEnterHandler, IPoi
     TextMeshProUGUI hoverDeleteLabel;
     bool isPointerOver;
 
-    const float AaEdgeWidth = 1.5f; // アンチエイリアス用の端のぼかし幅
+    const float AaEdgeWidth = 2.5f; // アンチエイリアス用の端のぼかし幅
 
     protected override void OnPopulateMesh(VertexHelper vh)
     {

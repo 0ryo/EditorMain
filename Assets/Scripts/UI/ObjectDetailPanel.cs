@@ -2,19 +2,20 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Text;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
 public class ObjectDetailPanel : MonoBehaviour
 {
-    [SerializeField] Text textPrefabLabel;
-    [SerializeField] InputField inputObjectName;
-    [SerializeField] InputField inputDescription;
-    [SerializeField] Text textDescription; // Legacy fallback.
+    [SerializeField] TMP_Text textPrefabLabel;
+    [SerializeField] TMP_InputField inputObjectName;
+    [SerializeField] TMP_InputField inputDescription;
+    [SerializeField] TMP_Text textDescription; // Legacy fallback.
     [SerializeField] GameObject rowDescription;
 
-    [SerializeField] Text usageNodeLabelText;
-    [SerializeField] Text textConditionUsage; // Empty-state fallback text.
+    [SerializeField] TMP_Text usageNodeLabelText;
+    [SerializeField] TMP_Text textConditionUsage; // Empty-state fallback text.
     [SerializeField] RectTransform usageNodeListRoot;
     [SerializeField] GameObject usageNodeBlockTemplate;
     [SerializeField] ObjectDetailConditionNodeStyler usageNodeStyler;
@@ -228,7 +229,7 @@ public class ObjectDetailPanel : MonoBehaviour
 
         if (inputDescription == null && rowDescription != null)
         {
-            foreach (var input in rowDescription.GetComponentsInChildren<InputField>(true))
+            foreach (var input in rowDescription.GetComponentsInChildren<TMP_InputField>(true))
             {
                 if (input != null && input.gameObject.name == "Input_Description")
                 {
@@ -250,18 +251,18 @@ public class ObjectDetailPanel : MonoBehaviour
         }
         else if (textDescription == null && rowDescription != null)
         {
-            textDescription = rowDescription.GetComponentInChildren<Text>(true);
+            textDescription = rowDescription.GetComponentInChildren<TMP_Text>(true);
         }
     }
 
-    static InputField CreateDescriptionInput(Transform row)
+    static TMP_InputField CreateDescriptionInput(Transform row)
     {
-        var inputGo = new GameObject("Input_Description", typeof(RectTransform), typeof(Image), typeof(InputField), typeof(LayoutElement));
+        var inputGo = new GameObject("Input_Description", typeof(RectTransform), typeof(Image), typeof(TMP_InputField), typeof(LayoutElement));
         var inputRt = inputGo.GetComponent<RectTransform>();
         inputRt.SetParent(row, false);
 
-        var input = inputGo.GetComponent<InputField>();
-        input.lineType = InputField.LineType.MultiLineNewline;
+        var input = inputGo.GetComponent<TMP_InputField>();
+        input.lineType = TMP_InputField.LineType.MultiLineNewline;
 
         var image = inputGo.GetComponent<Image>();
         image.color = DesignTokens.BgPrimary;
@@ -271,19 +272,19 @@ public class ObjectDetailPanel : MonoBehaviour
         layout.preferredHeight = DescriptionInputMinHeight;
 
         var text = CreateInputText(inputRt, "Text", string.Empty, DesignTokens.TextPrimary);
-        text.alignment = TextAnchor.UpperLeft;
+        text.alignment = TextAlignmentOptions.TopLeft;
 
         var placeholder = CreateInputText(inputRt, "Placeholder", DescriptionPlaceholder, DesignTokens.TextTertiary);
-        placeholder.alignment = TextAnchor.UpperLeft;
+        placeholder.alignment = TextAlignmentOptions.TopLeft;
 
         input.textComponent = text;
         input.placeholder = placeholder;
         return input;
     }
 
-    static Text CreateInputText(RectTransform parent, string name, string value, Color color)
+    static TMP_Text CreateInputText(RectTransform parent, string name, string value, Color color)
     {
-        var textGo = new GameObject(name, typeof(RectTransform), typeof(Text));
+        var textGo = new GameObject(name, typeof(RectTransform), typeof(TextMeshProUGUI));
         var textRt = textGo.GetComponent<RectTransform>();
         textRt.SetParent(parent, false);
         textRt.anchorMin = Vector2.zero;
@@ -292,22 +293,19 @@ public class ObjectDetailPanel : MonoBehaviour
         textRt.offsetMin = new Vector2(8f, 8f);
         textRt.offsetMax = new Vector2(-8f, -8f);
 
-        var text = textGo.GetComponent<Text>();
-        text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        var text = textGo.GetComponent<TMP_Text>();
         text.fontSize = DesignTokens.FontSizeBody;
         text.color = color;
-        text.horizontalOverflow = HorizontalWrapMode.Wrap;
-        text.verticalOverflow = VerticalWrapMode.Overflow;
-        text.alignment = TextAnchor.MiddleLeft;
+        text.alignment = TextAlignmentOptions.MidlineLeft;
         text.text = value;
         return text;
     }
 
-    static void ConfigureDescriptionInput(InputField input)
+    static void ConfigureDescriptionInput(TMP_InputField input)
     {
         if (input == null) return;
 
-        input.lineType = InputField.LineType.MultiLineNewline;
+        input.lineType = TMP_InputField.LineType.MultiLineNewline;
 
         var image = input.GetComponent<Image>();
         if (image != null)
@@ -322,17 +320,15 @@ public class ObjectDetailPanel : MonoBehaviour
 
         if (input.textComponent != null)
         {
-            input.textComponent.alignment = TextAnchor.UpperLeft;
-            input.textComponent.horizontalOverflow = HorizontalWrapMode.Wrap;
-            input.textComponent.verticalOverflow = VerticalWrapMode.Overflow;
+            input.textComponent.alignment = TextAlignmentOptions.TopLeft;
             var textRt = input.textComponent.rectTransform;
             textRt.offsetMin = new Vector2(8f, 8f);
             textRt.offsetMax = new Vector2(-8f, -8f);
         }
 
-        if (input.placeholder is Text placeholderText)
+        if (input.placeholder is TMP_Text placeholderText)
         {
-            placeholderText.alignment = TextAnchor.UpperLeft;
+            placeholderText.alignment = TextAlignmentOptions.TopLeft;
             var placeholderRt = placeholderText.rectTransform;
             placeholderRt.offsetMin = new Vector2(8f, 8f);
             placeholderRt.offsetMax = new Vector2(-8f, -8f);
@@ -387,21 +383,20 @@ public class ObjectDetailPanel : MonoBehaviour
         if (usageNodeLabelText == null)
         {
             var tf = row.Find(UsageLabelName);
-            if (tf != null) usageNodeLabelText = tf.GetComponent<Text>();
+            if (tf != null) usageNodeLabelText = tf.GetComponent<TMP_Text>();
         }
 
         if (usageNodeLabelText == null)
         {
-            var labelGo = new GameObject(UsageLabelName, typeof(RectTransform), typeof(Text), typeof(LayoutElement));
+            var labelGo = new GameObject(UsageLabelName, typeof(RectTransform), typeof(TextMeshProUGUI), typeof(LayoutElement));
             var labelRt = labelGo.GetComponent<RectTransform>();
             labelRt.SetParent(row, false);
-            usageNodeLabelText = labelGo.GetComponent<Text>();
+            usageNodeLabelText = labelGo.GetComponent<TMP_Text>();
         }
 
-        usageNodeLabelText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
         usageNodeLabelText.fontSize = DesignTokens.FontSizeCaption;
         usageNodeLabelText.color = DesignTokens.TextSecondary;
-        usageNodeLabelText.alignment = TextAnchor.MiddleLeft;
+        usageNodeLabelText.alignment = TextAlignmentOptions.MidlineLeft;
         usageNodeLabelText.text = UsageRowLabel;
 
         var layout = usageNodeLabelText.GetComponent<LayoutElement>();
@@ -415,23 +410,20 @@ public class ObjectDetailPanel : MonoBehaviour
         if (textConditionUsage == null)
         {
             var tf = row.Find(UsageEmptyTextName);
-            if (tf != null) textConditionUsage = tf.GetComponent<Text>();
+            if (tf != null) textConditionUsage = tf.GetComponent<TMP_Text>();
         }
 
         if (textConditionUsage == null)
         {
-            var textGo = new GameObject(UsageEmptyTextName, typeof(RectTransform), typeof(Text), typeof(LayoutElement));
+            var textGo = new GameObject(UsageEmptyTextName, typeof(RectTransform), typeof(TextMeshProUGUI), typeof(LayoutElement));
             var textRt = textGo.GetComponent<RectTransform>();
             textRt.SetParent(row, false);
-            textConditionUsage = textGo.GetComponent<Text>();
+            textConditionUsage = textGo.GetComponent<TMP_Text>();
         }
 
-        textConditionUsage.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
         textConditionUsage.fontSize = DesignTokens.FontSizeBody;
         textConditionUsage.color = DesignTokens.TextPrimary;
-        textConditionUsage.alignment = TextAnchor.UpperLeft;
-        textConditionUsage.horizontalOverflow = HorizontalWrapMode.Wrap;
-        textConditionUsage.verticalOverflow = VerticalWrapMode.Overflow;
+        textConditionUsage.alignment = TextAlignmentOptions.TopLeft;
         textConditionUsage.text = UnusedLabel;
 
         var layout = textConditionUsage.GetComponent<LayoutElement>();
@@ -497,14 +489,14 @@ public class ObjectDetailPanel : MonoBehaviour
 
         var outline = blockGo.GetComponent<Outline>();
         outline.effectColor = DesignTokens.Divider;
-        outline.effectDistance = new Vector2(0.5f, -0.5f);
+        outline.effectDistance = new Vector2(1f, -1f);
         outline.useGraphicAlpha = false;
 
         var layout = blockGo.GetComponent<LayoutElement>();
         layout.minHeight = UsageNodeBlockMinHeight;
         layout.preferredHeight = UsageNodeBlockMinHeight;
 
-        var bodyGo = new GameObject(UsageBlockBodyName, typeof(RectTransform), typeof(Text));
+        var bodyGo = new GameObject(UsageBlockBodyName, typeof(RectTransform), typeof(TextMeshProUGUI));
         var bodyRt = bodyGo.GetComponent<RectTransform>();
         bodyRt.SetParent(blockRt, false);
         bodyRt.anchorMin = Vector2.zero;
@@ -513,13 +505,10 @@ public class ObjectDetailPanel : MonoBehaviour
         bodyRt.offsetMin = new Vector2(10f, 8f);
         bodyRt.offsetMax = new Vector2(-10f, -8f);
 
-        var bodyText = bodyGo.GetComponent<Text>();
-        bodyText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        var bodyText = bodyGo.GetComponent<TMP_Text>();
         bodyText.fontSize = DesignTokens.FontSizeBody;
         bodyText.color = DesignTokens.TextPrimary;
-        bodyText.alignment = TextAnchor.UpperLeft;
-        bodyText.horizontalOverflow = HorizontalWrapMode.Wrap;
-        bodyText.verticalOverflow = VerticalWrapMode.Overflow;
+        bodyText.alignment = TextAlignmentOptions.TopLeft;
         bodyText.text = UnusedLabel;
 
         return blockGo;
@@ -770,10 +759,10 @@ public class ObjectDetailPanel : MonoBehaviour
         block.name = $"UsageNodeBlock_{nodeId}";
         block.SetActive(true);
 
-        var body = block.transform.Find(UsageBlockBodyName)?.GetComponent<Text>();
+        var body = block.transform.Find(UsageBlockBodyName)?.GetComponent<TMP_Text>();
         if (body == null)
         {
-            body = block.GetComponentInChildren<Text>(true);
+            body = block.GetComponentInChildren<TMP_Text>(true);
         }
         if (body == null) return;
 

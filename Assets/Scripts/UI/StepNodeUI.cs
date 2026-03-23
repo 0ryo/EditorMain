@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -21,9 +22,9 @@ public class StepNodeUI : MonoBehaviour
     const float DragAreaBottom = 16f;
 
     [Header("Basic")]
-    public Text stepIdText;
-    public InputField titleInput;
-    public Text conditionSummaryText;
+    public TMP_Text stepIdText;
+    public TMP_InputField titleInput;
+    public TMP_Text conditionSummaryText;
     public GameObject warningIcon;
 
     [Header("Connectors")]
@@ -67,7 +68,7 @@ public class StepNodeUI : MonoBehaviour
         if (stepIdText != null)
         {
             stepIdText.text = stepName;
-            stepIdText.fontStyle = FontStyle.Bold;
+            stepIdText.fontStyle = FontStyles.Bold;
         }
 
         if (titleInput != null)
@@ -417,7 +418,7 @@ public class StepNodeUI : MonoBehaviour
 
             deleteButton = buttonGo.GetComponent<Button>();
 
-            var labelGo = new GameObject("Label", typeof(RectTransform), typeof(Text));
+            var labelGo = new GameObject("Label", typeof(RectTransform), typeof(TextMeshProUGUI));
             var labelRt = labelGo.GetComponent<RectTransform>();
             labelRt.SetParent(rt, false);
             labelRt.anchorMin = Vector2.zero;
@@ -425,11 +426,10 @@ public class StepNodeUI : MonoBehaviour
             labelRt.offsetMin = Vector2.zero;
             labelRt.offsetMax = Vector2.zero;
 
-            var labelText = labelGo.GetComponent<Text>();
-            labelText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            var labelText = labelGo.GetComponent<TextMeshProUGUI>();
             labelText.text = "X";
             labelText.fontSize = 14;
-            labelText.alignment = TextAnchor.MiddleCenter;
+            labelText.alignment = TextAlignmentOptions.Center;
             labelText.color = DesignTokens.Error;
             labelText.raycastTarget = false;
         }
@@ -441,7 +441,7 @@ public class StepNodeUI : MonoBehaviour
         }
         EnsureThinOutline(deleteButton.transform);
 
-        var labelTextCurrent = deleteButton.GetComponentInChildren<Text>(true);
+        var labelTextCurrent = deleteButton.GetComponentInChildren<TMP_Text>(true);
         if (labelTextCurrent != null)
         {
             labelTextCurrent.color = DesignTokens.TextPrimary;
@@ -521,7 +521,7 @@ public class StepNodeUI : MonoBehaviour
         var outline = target.GetComponent<Outline>();
         if (outline == null) outline = target.gameObject.AddComponent<Outline>();
         outline.effectColor = DesignTokens.Divider;
-        outline.effectDistance = new Vector2(0.5f, -0.5f);
+        outline.effectDistance = new Vector2(1f, -1f);
         outline.useGraphicAlpha = false;
     }
 }
