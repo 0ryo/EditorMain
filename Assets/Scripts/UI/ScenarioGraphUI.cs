@@ -1138,6 +1138,24 @@ public class ScenarioGraphUI : MonoBehaviour
         UiRoundedTheme.ApplyToHierarchy(root, cornerRadius);
     }
 
+    /// <summary>
+    /// 外部UI（例: オブジェクト詳細）で Condition ノード見た目を再利用するための参照。
+    /// </summary>
+    public ConditionNodeUI GetConditionNodeTemplateForExternalUse()
+    {
+        EnsureRuntimeTemplates();
+        return conditionNodeTemplate;
+    }
+
+    /// <summary>
+    /// 外部から Condition 編集が入ったときにグラフ表示を再同期する。
+    /// </summary>
+    public void RebuildFromExternalChange()
+    {
+        if (!isActiveAndEnabled) return;
+        RebuildAll();
+    }
+
     static string BuildValidationMessage(GraphValidationResult validation)
     {
         if (validation == null || validation.errors.Count == 0) return string.Empty;

@@ -232,9 +232,11 @@ public static class DesignTokenApplier
             {
                 image.color = DesignTokens.BgSecondary;
 
-                // サムネイル
                 var thumb = child.Find("Thumbnail");
-                SetImageColor(thumb, DesignTokens.BgSecondary);
+                if (thumb != null) thumb.gameObject.SetActive(false);
+
+                var removeButton = child.Find("Button_RemoveCard");
+                if (removeButton != null) removeButton.gameObject.SetActive(false);
             }
         }
     }
@@ -492,6 +494,16 @@ public static class DesignTokenApplier
                 {
                     text.alignment = TextAnchor.MiddleCenter;
                 }
+
+                var labelRect = labelMain as RectTransform;
+                if (labelRect != null)
+                {
+                    labelRect.anchorMin = Vector2.zero;
+                    labelRect.anchorMax = Vector2.one;
+                    labelRect.pivot = new Vector2(0.5f, 0.5f);
+                    labelRect.offsetMin = new Vector2(10f, 0f);
+                    labelRect.offsetMax = new Vector2(-10f, 0f);
+                }
             }
 
             // フォールバック: 最初の Text を中央配置
@@ -501,8 +513,23 @@ public static class DesignTokenApplier
                 if (text != null)
                 {
                     text.alignment = TextAnchor.MiddleCenter;
+                    var textRect = text.rectTransform;
+                    if (textRect != null && textRect.parent == child)
+                    {
+                        textRect.anchorMin = Vector2.zero;
+                        textRect.anchorMax = Vector2.one;
+                        textRect.pivot = new Vector2(0.5f, 0.5f);
+                        textRect.offsetMin = new Vector2(10f, 0f);
+                        textRect.offsetMax = new Vector2(-10f, 0f);
+                    }
                 }
             }
+
+            var thumb = child.Find("Thumbnail");
+            if (thumb != null) thumb.gameObject.SetActive(false);
+
+            var removeButton = child.Find("Button_RemoveCard");
+            if (removeButton != null) removeButton.gameObject.SetActive(false);
         }
     }
 
@@ -522,6 +549,71 @@ public static class DesignTokenApplier
             outline.effectColor = DesignTokens.Divider;
             outline.effectDistance = new Vector2(1f, -1f);
             outline.useGraphicAlpha = false;
+        }
+    }
+
+    /// <summary>
+    /// オブジェクト詳細パネル配下の全要素に DesignTokens カラーを適用する。
+    /// </summary>
+    public static void ApplyDetailPanel(Transform panelRoot)
+    {
+        if (panelRoot == null) return;
+
+        // Canvas 解像度を QHD に強制
+        ApplyCanvasResolution(panelRoot);
+
+        // パネル背景
+        SetImageColor(panelRoot, DesignTokens.BgPrimary);
+
+        // ヘッダー背景 + タイトルテキスト
+        var header = panelRoot.Find("Header");
+        SetImageColor(header, DesignTokens.Surface);
+        if (header != null)
+        {
+            var titleText = header.GetComponentInChildren<Text>(true);
+            if (titleText != null) titleText.color = DesignTokens.TextPrimary;
+        }
+
+        // Viewport 背景
+        var viewport = FindDeep(panelRoot, "Viewport");
+        SetImageColor(viewport, DesignTokens.Surface);
+
+        // InputField（オブジェクト名入力欄）のスタイル
+        ApplyInputFieldColors(panelRoot);
+
+        // Content 直下の Row / Divider を個別に処理
+        var content = FindDeep(panelRoot, "Content");
+        if (content == null) return;
+
+        foreach (Transform child in content)
+        {
+            if (child == null) continue;
+
+            if (child.name.StartsWith("Row_"))
+            {
+                SetImageColor(child, DesignTokens.Surface);
+
+                // 見出しラベル → TextSecondary
+                var labelTf = child.Find("Label");
+                if (labelTf != null)
+                {
+                    var t = labelTf.GetComponent<Text>();
+                    if (t != null) t.color = DesignTokens.TextSecondary;
+                }
+
+                // 値テキスト (Text_PrefabLabel / Text_ObjectName / Text_Description) → TextPrimary
+                foreach (Transform grandchild in child)
+                {
+                    if (grandchild == null) continue;
+                    if (!grandchild.name.StartsWith("Text_")) continue;
+                    var t = grandchild.GetComponent<Text>();
+                    if (t != null) t.color = DesignTokens.TextPrimary;
+                }
+            }
+            else if (child.name == "Divider")
+            {
+                SetImageColor(child, DesignTokens.Divider);
+            }
         }
     }
 

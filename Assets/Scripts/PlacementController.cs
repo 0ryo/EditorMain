@@ -204,11 +204,49 @@ public class PlacedObject : MonoBehaviour
 {
     public string id;
     public string typeId;
+    /// <summary>
+    /// ユーザーが設定した表示名。未設定の場合は id (obj-0001) を返す。
+    /// Condition ノードのドロップダウンなど、UI 表示には GetDisplayName() を使用する。
+    /// </summary>
+    public string displayName;
+
+    /// <summary>表示名が変更されたときに発火する。購読側はドロップダウン等を再描画する。</summary>
+    public static event System.Action<PlacedObject> OnDisplayNameChanged;
 
     static int fallbackSeq;
 
     public string Id => id;
     public string TypeId => typeId;
+
+    /// <summary>displayName が設定されていれば返し、未設定なら id を返す。</summary>
+    public string GetDisplayName() =>
+        string.IsNullOrWhiteSpace(displayName) ? id : displayName;
+
+    /// <summary>表示名を更新し OnDisplayNameChanged を発火する。</summary>
+    public void SetDisplayName(string name)
+    {
+        displayName = name?.Trim() ?? string.Empty;
+        OnDisplayNameChanged?.Invoke(this);
+    }
+
+    public string description;
+    public bool hasDescriptionOverride;
+
+    public string GetDescription() =>
+        description ?? string.Empty;
+
+    public string GetDisplayDescription(string fallback)
+    {
+        if (hasDescriptionOverride) return GetDescription();
+        if (!string.IsNullOrWhiteSpace(description)) return description;
+        return fallback ?? string.Empty;
+    }
+
+    public void SetDescription(string value)
+    {
+        description = value?.Trim() ?? string.Empty;
+        hasDescriptionOverride = true;
+    }
 
     public void InitType(string t)
     {

@@ -2,8 +2,8 @@
 
 ## 0. 対象範囲
 - ブランチ: `improve/objectlist`
-- 作業テーマ: オブジェクト一覧カードの削除導線追加（右上 `x`）
-- 最終更新: 2026-03-02
+- 作業テーマ: オブジェクト一覧カード表示の簡素化（オブジェクト名のみ中央表示）
+- 最終更新: 2026-03-03
 - 参照コミット:
   - `eb3fc47c` rulesを更新
 
@@ -36,6 +36,7 @@
 - 既存Prefab互換のため、`CatalogUI` は削除ボタン未配置カードにもランタイム補完で `x` を生成。
 - `BuildUiPrefabs` の `Card_Template` にも `Button_RemoveCard` を追加し、Prefab自動生成経路を同期。
 - UI仕様ドキュメント（オブジェクト一覧 / 全体UI仕様）へ今回挙動を追記。
+- 最新調整として、カードから `Thumbnail`（四角領域）と `Button_RemoveCard` を非表示化し、オブジェクト名のみの中央表示へ統一。
 
 ## 3. 変更ファイル
 - `Assets/Scripts/CatalogUI.cs`
@@ -45,11 +46,9 @@
 - `Docs/worklog/worklog_latest.md`
 
 ## 4. 操作仕様（現行）
-- オブジェクト一覧の各カードに、ホバー時のみ `×` ボタンを表示。
-- `×` はカード右上角の外側にはみ出し、丸の中心がカード角に重なる。
+- オブジェクト一覧カードはオブジェクト名のみを表示し、文字は中央に配置する。
+- カード内の `Thumbnail`（四角領域）と `Button_RemoveCard` は表示しない。
 - カードクリック後、ワールドクリック待ちの配置モード中は該当カードを青枠で強調表示する。
-- `×` 押下で該当カードをオブジェクト一覧から除去。
-- この除去は一覧表示のみで、ワールド内の既存オブジェクトには影響しない。
 
 ## 5. 検証状況
 - AGENTS.md の Local Execution Policy に従い、Unity Editor 起動・CLIコンパイルは未実施。
@@ -59,12 +58,11 @@
   - ドキュメント更新差分を確認
 
 ## 6. 人間確認チェックリスト
-- [ ] オブジェクト一覧カードにホバーしたときのみ小型 `×` が表示される。
-- [ ] `×` がカード右上角に対して半分はみ出し、丸の中心が角に重なっている。
+- [ ] オブジェクト一覧カードに四角い `Thumbnail` 領域が表示されない。
+- [ ] オブジェクト一覧カードに `×` ボタンが表示されない。
+- [ ] カードのオブジェクト名テキストが中央表示される。
 - [ ] カードクリック直後、配置待ち中のカードだけ青枠で強調表示される。
 - [ ] ワールド配置完了後（または配置モード解除後）に青枠が消える。
-- [ ] `×` 押下で該当カードが一覧から消える。
-- [ ] 検索ワード変更後も除去したカードが再表示されない。
 - [ ] 設定画面や他UI操作に副作用がない（カードクリック配置・ドラッグ配置が従来どおり動く）。
 
 ## 7. アーカイブ
@@ -132,3 +130,166 @@
 - [ ] START / END ノードが指定の単色（青 / 赤）で表示される。
 - [ ] 2色の境界線（以前の DragHandle アウトライン）が消えている。
 - [ ] START / END ノードのどこを掴んでもドラッグで移動できる。
+
+## 11. セッション進捗メモ（2026-03-03）— オブジェクト詳細パネル
+
+### Task 1 完了: SelectionService 選択変更イベント追加
+- `SelectionService` に `public event System.Action<PlacedObject> OnSelectionChanged` を追加。
+- `Select(PlacedObject po)` 内で `Current` 更新・アウトライン更新の直後に `OnSelectionChanged?.Invoke(po)` を発火。
+- `null`（選択解除）もそのまま渡すため、購読側で表示/非表示を一元管理できる。
+
+### 変更ファイル（Task 1）
+- `Assets/Scripts/SelectionService.cs`
+
+### Task 2 完了: CatalogUI メタデータ公開 API 追加
+- `CatalogUI` に `public bool TryGetTypeInfo(string typeId, out string label, out string description)` を追加。
+- `cards` リストを OrdinalIgnoreCase で線形検索し、一致すれば `displayLabel` / `displayDescription` を返す。
+- 見つからない場合は `label = typeId`、`description = empty` にフォールバックして `false` を返す。
+
+### 変更ファイル（Task 2）
+- `Assets/Scripts/CatalogUI.cs`
+
+### Task 3 完了: ObjectDetailPanel スクリプト作成
+- `Assets/Scripts/UI/ObjectDetailPanel.cs` を新規作成。
+- `Start()` で `SelectionService` / `CatalogUI` を `FindFirstObjectByType` で自動取得。
+- `SelectionService.OnSelectionChanged` を購読し、`OnDestroy()` で購読解除。
+- 選択解除 (`null`) → `gameObject.SetActive(false)`。
+- 選択時 → `Populate()` でテキスト設定後に `SetActive(true)`。
+  - `textPrefabLabel`: `CatalogUI.TryGetTypeInfo` の label
+  - `textObjectName`: `po.gameObject.name`
+  - `textDescription` / `rowDescription`: description が空なら行ごと非表示
+- `DesignTokenApplier.ApplyDetailPanel` の空スタブを `DesignTokenApplier.cs` に追加（Task 5 で実装）。
+
+### 変更ファイル（Task 3）
+- `Assets/Scripts/UI/ObjectDetailPanel.cs`（新規）
+- `Assets/Scripts/UI/DesignTokenApplier.cs`（ApplyDetailPanel スタブ追加）
+
+### Task 4 完了: BuildUiPrefabs 詳細パネル生成処理追加
+- `Build()` に `BuildDetailPanel(root.transform)` 呼び出しを追加。
+- `BuildDetailPanel()`: `Panel_Detail` を右アンカー（anchorMin.x=1）・幅288px・全高さで生成。
+  - ヘッダー（"オブジェクト詳細"、Surface 背景）
+  - `Scroll_Detail`（ScrollRect）→ Viewport → Content（VerticalLayoutGroup + ContentSizeFitter）
+  - `Row_PrefabLabel` / Divider / `Row_ObjectName` / Divider / `Row_Description` を Content に追加
+  - `ObjectDetailPanel` を AddComponent し SerializedObject で各 Text・rowDescription を配線
+  - 初期 `SetActive(false)`
+- `BuildDetailRow()`: 見出し Label（caption/TextSecondary）+ 値テキスト（body/TextPrimary、WordWrap）の行を生成。ContentSizeFitter で高さ自動拡張。
+- `BuildDetailDivider()`: 1px Divider Image を LayoutElement で管理。
+
+### 変更ファイル（Task 4）
+- `Assets/Editor/Automation/BuildUiPrefabs.cs`
+
+### Task 5 完了: DesignTokenApplier.ApplyDetailPanel 実装
+- スタブを完全実装に置き換え。
+- 適用順序:
+  1. `ApplyCanvasResolution` — QHD 強制
+  2. パネル背景 → `BgPrimary`
+  3. `Header` → `Surface`、内包 Title テキスト → `TextPrimary`
+  4. `Viewport` → `Surface`
+  5. `Content` 直下を走査:
+     - `Row_*` → `Surface`、`Label` 子 → `TextSecondary`、`Text_*` 子 → `TextPrimary`
+     - `Divider` → `DesignTokens.Divider`
+
+### 変更ファイル（Task 5）
+- `Assets/Scripts/UI/DesignTokenApplier.cs`
+
+### 人間確認チェックリスト（オブジェクト詳細パネル）
+- [ ] `Tools > Automation > Build UI Prefabs` を実行すると `UIRoot.prefab` に `Panel_Detail` が追加される。
+- [ ] ワールド上のオブジェクトをクリックすると画面右側にパネルが表示される。
+- [ ] パネルに「プレファブ名」「オブジェクト名」が正しく表示される。
+- [ ] 説明文があるオブジェクトでは「説明」行も表示される。
+- [ ] 説明文がないオブジェクト（レジストリ由来）では「説明」行が非表示になる。
+- [ ] オブジェクトの選択を解除するとパネルが非表示になる。
+- [ ] パネルの色がデザイントークン準拠（背景 BgPrimary、ヘッダー Surface、見出し TextSecondary、値 TextPrimary）になっている。
+
+## 12. セッション進捗メモ（2026-03-03）— オブジェクト一覧カード簡素化
+
+### 実装サマリ
+- `CatalogUI` のカード補正処理を追加し、`Thumbnail` / `Button_RemoveCard` を非表示化。
+- `LabelMain` の Rect をカード全幅へ再配置し、テキストを中央揃えに統一。
+- `SetupCardInteractions` から削除ボタン関連のホバー表示制御を外し、カード操作を「選択 + ドラッグ配置」に限定。
+- `BuildUiPrefabs` の `Card_Template` を更新し、生成時点で「オブジェクト名のみ中央表示」の構造にした。
+- `DesignTokenApplier` 側にも同等のランタイム補正を追加し、既存Prefabでも表示を揃えるようにした。
+
+### 変更ファイル
+- `Assets/Scripts/CatalogUI.cs`
+- `Assets/Editor/Automation/BuildUiPrefabs.cs`
+- `Assets/Scripts/UI/DesignTokenApplier.cs`
+- `Docs/worklog/worklog_UI/worklog_オブジェクト一覧ウィンドウ.md`
+- `Docs/worklog/worklog_UI/全体UI仕様.md`
+- `Docs/worklog/worklog_latest.md`
+
+### 人間確認チェックリスト（カード簡素化）
+- [ ] オブジェクト一覧カードに四角領域（旧 `Thumbnail`）が表示されない。
+- [ ] カード内に `×` ボタンが表示されない。
+- [ ] カードのオブジェクト名が中央表示される。
+- [ ] カードクリックで配置モードに入り、配置待ちカードの青枠強調が維持される。
+- [ ] カードのドラッグ配置が従来どおり動作する。
+
+## 13. セッション進捗メモ（2026-03-03）— オブジェクト詳細の説明編集
+
+### 実装サマリ
+- `ObjectDetailPanel` を更新し、説明行を常時表示（空でも表示）に変更。
+- 説明表示を `Text` から `InputField`（マルチライン）中心へ切り替え、空欄からの入力と既存文の編集を両対応。
+- 既存Prefab互換のため、説明入力欄が未配置の詳細パネルでは `ObjectDetailPanel` がランタイムで `Input_Description` を補完生成。
+- `PlacedObject` に説明文保持 (`description`) と上書きフラグ (`hasDescriptionOverride`) を追加し、オブジェクト単位で編集内容を保持。
+- `BuildUiPrefabs` の詳細パネル生成を更新し、`Row_Description` を編集可能な `InputField` として生成・配線。
+
+### 変更ファイル
+- `Assets/Scripts/UI/ObjectDetailPanel.cs`
+- `Assets/Scripts/PlacementController.cs` (`PlacedObject` 内)
+- `Assets/Editor/Automation/BuildUiPrefabs.cs`
+- `Docs/worklog/worklog_UI/全体UI仕様.md`
+- `Docs/worklog/worklog_latest.md`
+
+### 人間確認チェックリスト（説明編集）
+- [ ] 説明が空のオブジェクトでも詳細パネルの「説明」行が表示される。
+- [ ] 「説明」欄に空のテキストエリアが表示され、クリックして入力できる。
+- [ ] 既存説明があるオブジェクトで、同じテキストエリアから内容を編集できる。
+- [ ] 編集後に別オブジェクトを選択して戻っても、編集した説明が保持される。
+
+## 14. セッション進捗メモ（2026-03-03）— オブジェクト詳細の使用中ノード表示
+
+### 実装サマリ
+- `ObjectDetailPanel` の表記を `使用中ノード` に変更。
+- 選択中 `PlacedObject.id` を `ConditionNodeData.objectAId/objectBId` と照合し、使用している Condition ノードごとに四角いブロックを生成する。
+- 各ブロックは 2 行表示で、`〇〇を` / `〇〇に近づける` の形式（実データでは `objectA名を` / `objectB名に近づける`）に統一。
+- ブロックは `Outline` で枠を付け、件数分だけ縦に並べる。
+- 該当 Condition がない場合は `未使用` を表示する。
+- 既存Prefab互換のため、`ObjectDetailPanel` は `Row_ConditionUsage` / `UsageNodeList` / `UsageNodeBlock_Template` が未配置でもランタイム補完生成する。
+- `BuildUiPrefabs` 側でも `Row_ConditionUsage` を「ラベル + 空状態テキスト + ブロックテンプレート付きリスト」構成で生成し、参照を `ObjectDetailPanel` に配線する。
+
+### 変更ファイル
+- `Assets/Scripts/UI/ObjectDetailPanel.cs`
+- `Assets/Editor/Automation/BuildUiPrefabs.cs`
+- `Docs/worklog/worklog_UI/全体UI仕様.md`
+- `Docs/worklog/worklog_latest.md`
+
+### 人間確認チェックリスト（使用中ノード表示）
+- [ ] オブジェクト詳細パネルに `使用中ノード` 行が表示される。
+- [ ] 条件に使われていないオブジェクトでは `未使用` と表示される。
+- [ ] 条件に使われている場合、件数分の四角いブロックが表示される。
+- [ ] 各ブロックの本文が 2 行（`〇〇を` / `〇〇に近づける`）で表示される。
+
+## 15. セッション進捗メモ（2026-03-03）— 使用中ノードを実ConditionノードUIへ移植
+
+### 実装サマリ
+- `ObjectDetailPanel` の使用中ノード表示を、簡易テキストブロックから `ConditionNodeUI` 実体の複製表示へ変更。
+- 各使用ノードは `ConditionNodeUI.Bind(...)` で実データに接続し、`EnterEmbeddedMode(index)` を適用して `手順 1` 形式のヘッダーを表示。
+- ドロップダウン編集（A/B）を有効化し、詳細パネル上で変更した値が `ConditionNodeData` に反映されるようにした。
+- 編集/削除が詳細側から行われた場合に `ScenarioGraphUI.RebuildFromExternalChange()` を呼び、グラフ表示を再同期するようにした。
+- 頻繁な再生成で入力操作が壊れないよう、使用中ノード一覧はシグネチャ比較で差分更新に変更。
+- 将来「詳細ウィンドウだけ」デザイン変更できるよう、`ObjectDetailConditionNodeStyler` を追加し、詳細パネルでのみ適用する拡張ポイントを分離。
+
+### 変更ファイル
+- `Assets/Scripts/UI/ObjectDetailPanel.cs`
+- `Assets/Scripts/UI/ObjectDetailConditionNodeStyler.cs`（新規）
+- `Assets/Scripts/UI/ScenarioGraphUI.cs`
+- `Assets/Editor/Automation/BuildUiPrefabs.cs`
+- `Docs/worklog/worklog_latest.md`
+
+### 人間確認チェックリスト（実Conditionノード移植）
+- [ ] 使用中ノードが簡易テキストではなく、Conditionノードと同じ見た目で表示される。
+- [ ] 各ノードに `手順 1` 形式のヘッダーが表示される。
+- [ ] 詳細パネル内ノードの A/B ドロップダウンを編集でき、値変更が反映される。
+- [ ] 詳細パネル側で変更後、シナリオグラフ側表示も同期される。
+- [ ] 詳細パネル側の見た目調整は `ObjectDetailConditionNodeStyler` だけを変更して行える。

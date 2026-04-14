@@ -3,6 +3,9 @@ using UnityEngine.EventSystems;
 
 public class SelectionService : MonoBehaviour
 {
+    /// <summary>選択が変わるたびに発火する。null は選択解除を意味する。</summary>
+    public event System.Action<PlacedObject> OnSelectionChanged;
+
     public Camera cam;
     public LayerMask pickMask = ~0;
     public PlacedObject Current;
@@ -123,6 +126,7 @@ public class SelectionService : MonoBehaviour
     {
         Current = po;
         if (outline != null) outline.ShowFor(po ? po.gameObject : null);
+        OnSelectionChanged?.Invoke(po);
     }
 
     GameObject InstantiatePlacedForUndo(GameObject prefab, string typeId)
