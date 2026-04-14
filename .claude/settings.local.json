@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(xargs grep -l \"TriLib\\\\|GLTFast\\\\|glTFast\\\\|RuntimeImporter\\\\|FbxImporter\\\\|ModelImporter\\\\|RuntimeFBX\\\\|Assimp\\\\|SimpleFileBrowser\\\\|StandaloneFileBrowser\\\\|FileBrowser\\\\|NativeFilePicker\\\\|SFB\")"
+    ]
+  }
+}
