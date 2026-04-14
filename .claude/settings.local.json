@@ -3,7 +3,9 @@
     "allow": [
       "Bash(xargs grep -l \"TriLib\\\\|GLTFast\\\\|glTFast\\\\|RuntimeImporter\\\\|FbxImporter\\\\|ModelImporter\\\\|RuntimeFBX\\\\|Assimp\\\\|SimpleFileBrowser\\\\|StandaloneFileBrowser\\\\|FileBrowser\\\\|NativeFilePicker\\\\|SFB\")",
       "Bash(xargs grep:*)",
-      "Bash(xargs cat:*)"
+      "Bash(xargs cat:*)",
+      "Bash(do if:*)",
+      "Bash(grep:*)"
     ]
   }
 }

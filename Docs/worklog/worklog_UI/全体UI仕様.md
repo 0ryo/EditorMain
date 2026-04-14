@@ -288,3 +288,15 @@
 - A/B �� Dropdown �͕ҏW�\�ŁA�ύX�� `ConditionNodeData.objectAId/objectBId` �ɔ��f�����B
 - �ڍב��̕ҏW�E�폜��� `ScenarioGraphUI.RebuildFromExternalChange()` �ŃO���t�\����ē�������B
 - �ڍא�p�̃f�U�C���ύX�|�C���g�Ƃ��� `ObjectDetailConditionNodeStyler` �𓱓����A�ڍ׃E�B���h�E�������̌����ڒ�����\�ɂ���B
+
+## 32. 2026-03-23 Rendering Quality / TMP Migration
+- UI 基盤は引き続き `uGUI` だが、テキスト・入力欄・ドロップダウンは `TextMeshPro` 系 (`TMP_Text`, `TMP_InputField`, `TMP_Dropdown`) へ移行する。
+- 対象は `CatalogUI`, `ScenarioGraphUI`, `ConditionNodeUI`, `ConditionRowUI`, `StepNodeUI`, `TerminalNodeUI`, `ObjectDetailPanel`, `BuildUiPrefabs`。
+- 既存 Prefab との差分が残る期間でも、`DesignTokenApplier` 側で TMP 前提の色・アウトライン補正を行う。
+- `TmpFontInitializer` により、Windows では `Yu Gothic UI` / `Meiryo UI` 等を候補に TMP の日本語フォールバックフォントをランタイム登録する。
+- `UiRoundedTheme` の角丸スプライト生成解像度を引き上げ、丸ボタンや角丸パネルのジャギーを低減する。
+- `ConnectionLineGraphic` はアンチエイリアス幅を広げ、接続線のエッジを滑らかにする。
+- `DesignTokenApplier` / `BuildUiPrefabs` / 各 UI スクリプトの `Outline.effectDistance` は `1, -1` 基準に寄せ、細線の見え方を揃える。
+- `QualitySettings` は高品質寄りのプリセットを既定にし、UI と線描画の視認性改善を優先する。
+- 日本語フォールバックは `TmpFontInitializer` が Editor / Runtime の両方で登録する。`TMP_Settings.fallbackFontAssets` を空のままにしない。
+- フォールバック候補フォントは Windows の `Yu Gothic UI` / `Meiryo UI` などを優先し、`あ / ア / 漢 / （ / ）` を描画できるものだけを採用する。

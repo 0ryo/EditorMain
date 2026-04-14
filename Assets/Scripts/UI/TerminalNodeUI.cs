@@ -1,11 +1,12 @@
 using System;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
 public class TerminalNodeUI : MonoBehaviour
 {
     [Header("Basic")]
-    public Text labelText;
+    public TMP_Text labelText;
 
     [Header("Connectors")]
     public Button inputConnector;

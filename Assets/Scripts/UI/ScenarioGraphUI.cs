@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -50,11 +51,11 @@ public class ScenarioGraphUI : MonoBehaviour
 
     [Header("Controls")]
     [SerializeField] RectTransform panelRoot;
-    [SerializeField] InputField projectNameInput;
+    [SerializeField] TMP_InputField projectNameInput;
     [SerializeField] Button addStepButton;
     [SerializeField] Button addConditionButton;
     [SerializeField] Button saveButton;
-    [SerializeField] Text statusText;
+    [SerializeField] TMP_Text statusText;
     [SerializeField] RectTransform nodeArea;
     [SerializeField] RectTransform graphContent;
     [SerializeField] RectTransform lineLayer;

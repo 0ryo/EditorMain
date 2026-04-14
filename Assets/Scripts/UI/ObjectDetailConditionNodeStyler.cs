@@ -75,7 +75,7 @@ public class ObjectDetailConditionNodeStyler : MonoBehaviour
         var outline = target.GetComponent<Outline>();
         if (outline == null) outline = target.gameObject.AddComponent<Outline>();
         outline.effectColor = color;
-        outline.effectDistance = new Vector2(0.5f, -0.5f);
+        outline.effectDistance = new Vector2(1f, -1f);
         outline.useGraphicAlpha = false;
         outline.enabled = true;
     }

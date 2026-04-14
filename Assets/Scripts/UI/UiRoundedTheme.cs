@@ -66,7 +66,7 @@ public static class UiRoundedTheme
     {
         if (circleSprite != null) return circleSprite;
 
-        int size = 64;
+        int size = 128;
         var texture = new Texture2D(size, size, TextureFormat.RGBA32, false);
         texture.name = CircleSpriteName;
         texture.wrapMode = TextureWrapMode.Clamp;
@@ -110,7 +110,7 @@ public static class UiRoundedTheme
             return cached;
         }
 
-        int size = Mathf.Max(64, radius * 4);
+        int size = Mathf.Max(128, radius * 8);
         var texture = new Texture2D(size, size, TextureFormat.RGBA32, false);
         texture.name = $"{GeneratedSpriteNamePrefix}{radius}";
         texture.wrapMode = TextureWrapMode.Clamp;

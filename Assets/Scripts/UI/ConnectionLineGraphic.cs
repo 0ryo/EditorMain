@@ -1,4 +1,5 @@
 using System;
+using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -19,10 +20,10 @@ public class ConnectionLineGraphic : MaskableGraphic, IPointerEnterHandler, IPoi
 
     public Action<ConnectionLineGraphic> onClickLine;
 
-    Text hoverDeleteLabel;
+    TextMeshProUGUI hoverDeleteLabel;
     bool isPointerOver;
 
-    const float AaEdgeWidth = 1.5f; // アンチエイリアス用の端のぼかし幅
+    const float AaEdgeWidth = 2.5f; // アンチエイリアス用の端のぼかし幅
 
     protected override void OnPopulateMesh(VertexHelper vh)
     {
@@ -165,7 +166,7 @@ public class ConnectionLineGraphic : MaskableGraphic, IPointerEnterHandler, IPoi
     {
         if (hoverDeleteLabel != null) return;
 
-        var labelGo = new GameObject("Text_DeleteHint", typeof(RectTransform), typeof(Text));
+        var labelGo = new GameObject("Text_DeleteHint", typeof(RectTransform), typeof(TextMeshProUGUI));
         var labelRt = labelGo.GetComponent<RectTransform>();
         labelRt.SetParent(rectTransform, false);
         labelRt.anchorMin = new Vector2(0.5f, 0.5f);
@@ -174,11 +175,10 @@ public class ConnectionLineGraphic : MaskableGraphic, IPointerEnterHandler, IPoi
         labelRt.sizeDelta = new Vector2(52f, 22f);
         labelRt.anchoredPosition = Vector2.zero;
 
-        hoverDeleteLabel = labelGo.GetComponent<Text>();
-        hoverDeleteLabel.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        hoverDeleteLabel = labelGo.GetComponent<TextMeshProUGUI>();
         hoverDeleteLabel.text = "\u524A\u9664";
         hoverDeleteLabel.fontSize = 12;
-        hoverDeleteLabel.alignment = TextAnchor.MiddleCenter;
+        hoverDeleteLabel.alignment = TextAlignmentOptions.Center;
         hoverDeleteLabel.color = DesignTokens.Error;
         hoverDeleteLabel.raycastTarget = false;
         hoverDeleteLabel.gameObject.SetActive(false);

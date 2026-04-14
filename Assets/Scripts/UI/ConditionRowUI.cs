@@ -1,16 +1,17 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 public class ConditionRowUI : MonoBehaviour
 {
-    public Dropdown dropdownA;
-    public Dropdown dropdownB;
-    public Text textAfterA;
-    public Text textAfterB;
+    public TMP_Dropdown dropdownA;
+    public TMP_Dropdown dropdownB;
+    public TMP_Text textAfterA;
+    public TMP_Text textAfterB;
 
     static readonly Color DropdownBackground = DesignTokens.Surface;
     static readonly Color DropdownTemplateBackground = DesignTokens.Surface;
@@ -94,11 +95,11 @@ public class ConditionRowUI : MonoBehaviour
 
         if (textAfterA != null) textAfterA.text = LabelParticleA;
         if (textAfterB != null) textAfterB.text = LabelParticleB;
-        if (textAfterA != null) textAfterA.fontStyle = FontStyle.Bold;
-        if (textAfterB != null) textAfterB.fontStyle = FontStyle.Bold;
+        if (textAfterA != null) textAfterA.fontStyle = FontStyles.Bold;
+        if (textAfterB != null) textAfterB.fontStyle = FontStyles.Bold;
     }
 
-    static void RebindDropdown(Dropdown dropdown, List<string> labels, int value, Action<int> onChanged)
+    static void RebindDropdown(TMP_Dropdown dropdown, List<string> labels, int value, Action<int> onChanged)
     {
         if (dropdown == null) return;
 
@@ -123,7 +124,7 @@ public class ConditionRowUI : MonoBehaviour
         ForceRebuildDropdownLayout(dropdown);
     }
 
-    static void ApplyDropdownVisualStyle(Dropdown dropdown)
+    static void ApplyDropdownVisualStyle(TMP_Dropdown dropdown)
     {
         if (dropdown == null) return;
 
@@ -187,7 +188,7 @@ public class ConditionRowUI : MonoBehaviour
                 var itemLabel = item.Find("Item Label");
                 if (itemLabel != null)
                 {
-                    var txt = itemLabel.GetComponent<Text>();
+                    var txt = itemLabel.GetComponent<TMP_Text>();
                     if (txt != null)
                     {
                         var txtRt = txt.rectTransform;
@@ -195,14 +196,14 @@ public class ConditionRowUI : MonoBehaviour
                         txtRt.anchorMax = Vector2.one;
                         txtRt.offsetMin = new Vector2(8f, 0f);
                         txtRt.offsetMax = new Vector2(-8f, 0f);
-                        txt.alignment = TextAnchor.MiddleLeft;
+                        txt.alignment = TextAlignmentOptions.MidlineLeft;
                         EnsureTextReadable(txt);
                         txt.color = DesignTokens.TextPrimary;
                     }
                 }
             }
 
-            var allTexts = templateRt.GetComponentsInChildren<Text>(true);
+            var allTexts = templateRt.GetComponentsInChildren<TMP_Text>(true);
             foreach (var t in allTexts)
             {
                 if (t == null) continue;
@@ -228,32 +229,30 @@ public class ConditionRowUI : MonoBehaviour
         var outline = target.GetComponent<Outline>();
         if (outline == null) outline = target.gameObject.AddComponent<Outline>();
         outline.effectColor = DesignTokens.Divider;
-        outline.effectDistance = new Vector2(0.5f, -0.5f);
+        outline.effectDistance = new Vector2(1f, -1f);
         outline.useGraphicAlpha = false;
     }
 
-    static void EnsureTextReadable(Text text)
+    static void EnsureTextReadable(TMP_Text text)
     {
         if (text == null) return;
 
-        // Always override to a known-good built-in font in Unity 6.
-        text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
         text.enabled = true;
         text.gameObject.SetActive(true);
-        text.canvasRenderer.SetAlpha(1f);
+        text.alpha = 1f;
         if (text.fontSize <= 0) text.fontSize = 14;
-        text.alignment = TextAnchor.MiddleLeft;
-        text.supportRichText = false;
+        text.alignment = TextAlignmentOptions.MidlineLeft;
+        text.richText = false;
     }
 
-    static void EnsureDropdownReferences(Dropdown dropdown)
+    static void EnsureDropdownReferences(TMP_Dropdown dropdown)
     {
         if (dropdown == null) return;
 
         if (dropdown.captionText == null)
         {
             var caption = dropdown.transform.Find("Caption");
-            if (caption != null) dropdown.captionText = caption.GetComponent<Text>();
+            if (caption != null) dropdown.captionText = caption.GetComponent<TMP_Text>();
         }
 
         if (dropdown.template == null)
@@ -265,7 +264,7 @@ public class ConditionRowUI : MonoBehaviour
         if (dropdown.itemText == null && dropdown.template != null)
         {
             var itemLabel = dropdown.template.Find("Viewport/Content/Item/Item Label");
-            if (itemLabel != null) dropdown.itemText = itemLabel.GetComponent<Text>();
+            if (itemLabel != null) dropdown.itemText = itemLabel.GetComponent<TMP_Text>();
         }
 
         if (dropdown.captionText != null)
@@ -278,7 +277,7 @@ public class ConditionRowUI : MonoBehaviour
         {
             EnsureTextReadable(dropdown.itemText);
             dropdown.itemText.color = DesignTokens.TextPrimary;
-            dropdown.itemText.alignment = TextAnchor.MiddleLeft;
+            dropdown.itemText.alignment = TextAlignmentOptions.MidlineLeft;
             var rt = dropdown.itemText.rectTransform;
             rt.anchorMin = Vector2.zero;
             rt.anchorMax = Vector2.one;
@@ -303,7 +302,7 @@ public class ConditionRowUI : MonoBehaviour
         }
     }
 
-    static void ForceRebuildDropdownLayout(Dropdown dropdown)
+    static void ForceRebuildDropdownLayout(TMP_Dropdown dropdown)
     {
         if (dropdown == null || dropdown.template == null) return;
 
@@ -344,7 +343,7 @@ public class ConditionRowUI : MonoBehaviour
                 var label = child.Find("Item Label");
                 if (label != null)
                 {
-                    var text = label.GetComponent<Text>();
+                    var text = label.GetComponent<TMP_Text>();
                     EnsureTextReadable(text);
                 }
             }
@@ -376,10 +375,10 @@ public class ConditionRowUI : MonoBehaviour
 
 public class DropdownOpenFixer : MonoBehaviour, IPointerClickHandler
 {
-    Dropdown dropdown;
+    TMP_Dropdown dropdown;
     Coroutine fixRoutine;
 
-    public void Bind(Dropdown target)
+    public void Bind(TMP_Dropdown target)
     {
         dropdown = target;
     }
@@ -406,15 +405,13 @@ public class DropdownOpenFixer : MonoBehaviour, IPointerClickHandler
         var listImage = list.GetComponent<Image>();
         if (listImage != null) listImage.color = DesignTokens.Surface;
 
-        var texts = list.GetComponentsInChildren<Text>(true);
+        var texts = list.GetComponentsInChildren<TMP_Text>(true);
         foreach (var t in texts)
         {
             if (t == null) continue;
-            t.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             t.color = DesignTokens.TextPrimary;
             t.enabled = true;
-            t.alignment = TextAnchor.MiddleLeft;
-            t.canvasRenderer.SetAlpha(1f);
+            t.alignment = TextAlignmentOptions.MidlineLeft;
         }
 
         var toggles = list.GetComponentsInChildren<Toggle>(false);
@@ -437,13 +434,11 @@ public class DropdownOpenFixer : MonoBehaviour, IPointerClickHandler
             var label = toggle.transform.Find("Item Label");
             if (label != null)
             {
-                var txt = label.GetComponent<Text>();
+                var txt = label.GetComponent<TMP_Text>();
                 if (txt != null)
                 {
-                    txt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
                     txt.color = DesignTokens.TextPrimary;
                     txt.enabled = true;
-                    txt.canvasRenderer.SetAlpha(1f);
                     txt.text = visibleIndex < dropdown.options.Count
                         ? dropdown.options[visibleIndex].text
                         : string.Empty;

@@ -1,4 +1,5 @@
 using System;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -18,8 +19,8 @@ public class ConditionNodeUI : MonoBehaviour
     const float RowVerticalInset = 6f;
 
     [Header("Basic")]
-    public Text nodeIdText;
-    public InputField titleInput;
+    public TMP_Text nodeIdText;
+    public TMP_InputField titleInput;
     public GameObject warningIcon;
     public ConditionRowUI conditionRow;
 
@@ -168,7 +169,7 @@ public class ConditionNodeUI : MonoBehaviour
 
             deleteButton = buttonGo.GetComponent<Button>();
 
-            var labelGo = new GameObject("Label", typeof(RectTransform), typeof(Text));
+            var labelGo = new GameObject("Label", typeof(RectTransform), typeof(TextMeshProUGUI));
             var labelRt = labelGo.GetComponent<RectTransform>();
             labelRt.SetParent(rt, false);
             labelRt.anchorMin = Vector2.zero;
@@ -176,11 +177,10 @@ public class ConditionNodeUI : MonoBehaviour
             labelRt.offsetMin = Vector2.zero;
             labelRt.offsetMax = Vector2.zero;
 
-            var labelText = labelGo.GetComponent<Text>();
-            labelText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            var labelText = labelGo.GetComponent<TextMeshProUGUI>();
             labelText.text = "X";
             labelText.fontSize = 14;
-            labelText.alignment = TextAnchor.MiddleCenter;
+            labelText.alignment = TextAlignmentOptions.Center;
             labelText.color = DesignTokens.Error;
             labelText.raycastTarget = false;
         }
@@ -192,7 +192,7 @@ public class ConditionNodeUI : MonoBehaviour
         }
         EnsureThinOutline(deleteButton.transform);
 
-        var labelTextCurrent = deleteButton.GetComponentInChildren<Text>(true);
+        var labelTextCurrent = deleteButton.GetComponentInChildren<TMP_Text>(true);
         if (labelTextCurrent != null)
         {
             labelTextCurrent.color = DesignTokens.TextPrimary;
@@ -222,7 +222,7 @@ public class ConditionNodeUI : MonoBehaviour
         var outline = target.GetComponent<Outline>();
         if (outline == null) outline = target.gameObject.AddComponent<Outline>();
         outline.effectColor = DesignTokens.Divider;
-        outline.effectDistance = new Vector2(0.5f, -0.5f);
+        outline.effectDistance = new Vector2(1f, -1f);
         outline.useGraphicAlpha = false;
     }
 
@@ -241,9 +241,9 @@ public class ConditionNodeUI : MonoBehaviour
 
         if (nodeIdText != null)
         {
-            nodeIdText.fontStyle = FontStyle.Bold;
+            nodeIdText.fontStyle = FontStyles.Bold;
             nodeIdText.fontSize = DesignTokens.FontSizeBody;
-            nodeIdText.alignment = TextAnchor.MiddleLeft;
+            nodeIdText.alignment = TextAlignmentOptions.MidlineLeft;
             nodeIdText.text = BuildHeaderLabel();
             SetTopStretchRect(nodeIdText.rectTransform, HeaderLeft, HeaderRight, HeaderBottom, HeaderTop);
         }
@@ -323,7 +323,7 @@ public class ConditionNodeUI : MonoBehaviour
         if (outline != null) outline.enabled = false;
     }
 
-    static void LayoutConditionLine(RectTransform lineRt, Dropdown dropdown, Text suffix, float suffixLeft, string suffixText)
+    static void LayoutConditionLine(RectTransform lineRt, TMP_Dropdown dropdown, TMP_Text suffix, float suffixLeft, string suffixText)
     {
         if (lineRt == null) return;
 
@@ -347,8 +347,8 @@ public class ConditionNodeUI : MonoBehaviour
             suffixRt.offsetMin = new Vector2(suffixLeft, 0f);
             suffixRt.offsetMax = new Vector2(0f, 0f);
             suffix.text = suffixText;
-            suffix.fontStyle = FontStyle.Bold;
-            suffix.alignment = TextAnchor.MiddleLeft;
+            suffix.fontStyle = FontStyles.Bold;
+            suffix.alignment = TextAlignmentOptions.MidlineLeft;
         }
     }
 
@@ -411,7 +411,7 @@ public class ConditionNodeUI : MonoBehaviour
         var titleTransform = transform.Find("Input_Title");
         if (titleTransform != null)
         {
-            titleInput = titleTransform.GetComponent<InputField>();
+            titleInput = titleTransform.GetComponent<TMP_InputField>();
         }
     }
 
