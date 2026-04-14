@@ -49,6 +49,8 @@ public class CatalogUI : MonoBehaviour
     [SerializeField] float statusAutoClearSeconds = 2f;
     [SerializeField] float cornerRadius = DesignTokens.CornerRadius;
     [SerializeField] string importedCardLabel = "New Object";
+    const string AddObjectButtonLabel = "オブジェクトを追加";
+    const string EditorSupportedModelExtensionsLabel = ".fbx, .glb, or .gltf";
 
     [Serializable]
     public class StringEvent : UnityEvent<string> { }
@@ -1308,6 +1310,7 @@ public class CatalogUI : MonoBehaviour
 
             if (isBottomAnchored)
             {
+                EnsureBottomAddButtonLabel();
                 EnsureScrollBottomPadding(56f);
                 return;
             }
@@ -1340,13 +1343,19 @@ public class CatalogUI : MonoBehaviour
         label.color = DesignTokens.TextPrimary;
         label.fontSize = 14;
         label.alignment = TextAlignmentOptions.Center;
-#if UNITY_EDITOR
-        label.text = "Import FBX";
-#else
-        label.text = "Import 3D Model";
-#endif
+        label.text = AddObjectButtonLabel;
 
         EnsureScrollBottomPadding(56f);
+    }
+
+    void EnsureBottomAddButtonLabel()
+    {
+        if (addButton == null) return;
+
+        var label = addButton.GetComponentInChildren<TMP_Text>(true);
+        if (label == null) return;
+
+        label.text = AddObjectButtonLabel;
     }
 
     void EnsureRuntimeNewObjectSettingsDialog(RectTransform panel)
@@ -2182,7 +2191,7 @@ public class CatalogUI : MonoBehaviour
         outline.enabled = true;
     }
 
-    void OnClickAdd()
+    async void OnClickAdd()
     {
 #if UNITY_EDITOR
         EnsureRuntimeBindings();
@@ -2195,16 +2204,38 @@ public class CatalogUI : MonoBehaviour
             return;
         }
 
-        var selectedPath = EditorUtility.OpenFilePanel("Select FBX", GetDefaultFbxDirectory(), "fbx");
+        var selectedPath = EditorUtility.OpenFilePanel("Select 3D Model", GetDefaultModelDirectory(), string.Empty);
         if (string.IsNullOrWhiteSpace(selectedPath))
         {
-            SetStatus("FBX selection canceled.");
+            SetStatus("Object selection canceled.");
             return;
         }
 
-        if (!TryLoadFbxAsset(selectedPath, out var prefab, out var assetPath, out var errorMessage))
+        GameObject prefab = null;
+        string assetPath = selectedPath;
+        string errorMessage = null;
+        var selectedExtension = Path.GetExtension(selectedPath);
+        if (string.Equals(selectedExtension, ".fbx", StringComparison.OrdinalIgnoreCase))
         {
-            SetStatus(errorMessage);
+            if (!TryLoadFbxAsset(selectedPath, out prefab, out assetPath, out errorMessage))
+            {
+                SetStatus(errorMessage);
+                return;
+            }
+        }
+        else if (RuntimeModelLoader.IsSupportedExtension(selectedPath))
+        {
+            SetStatus("Loading 3D model...");
+            prefab = await RuntimeModelLoader.LoadModelAsync(selectedPath);
+            if (prefab == null)
+            {
+                SetStatus("Failed to load selected 3D model.");
+                return;
+            }
+        }
+        else
+        {
+            SetStatus($"Please select {EditorSupportedModelExtensionsLabel}.");
             return;
         }
 
@@ -2305,7 +2336,7 @@ public class CatalogUI : MonoBehaviour
     {
         if (pendingImportedPrefab == null || string.IsNullOrWhiteSpace(pendingImportedAssetPath))
         {
-            SetStatus("No imported FBX is pending.");
+            SetStatus("No imported object is pending.");
             CloseNewObjectSettings(clearPending: true);
             return;
         }
@@ -2329,7 +2360,7 @@ public class CatalogUI : MonoBehaviour
         var typeId = BuildImportedTypeId(pendingImportedAssetPath, displayLabel);
         if (!placementController.RegisterRuntimePrefab(typeId, pendingImportedPrefab))
         {
-            SetStatus("Failed to register imported FBX.");
+            SetStatus("Failed to register imported object.");
             return;
         }
 
@@ -2471,7 +2502,7 @@ public class CatalogUI : MonoBehaviour
     }
 
 #if UNITY_EDITOR
-    static string GetDefaultFbxDirectory()
+    static string GetDefaultModelDirectory()
     {
         var importedRoot = Path.Combine(Application.dataPath, "ImportedFbx");
         if (!Directory.Exists(importedRoot))
@@ -2490,7 +2521,7 @@ public class CatalogUI : MonoBehaviour
 
         if (string.IsNullOrWhiteSpace(absolutePath))
         {
-            errorMessage = "FBX path is empty.";
+            errorMessage = "Model path is empty.";
             return false;
         }
 
@@ -2502,7 +2533,7 @@ public class CatalogUI : MonoBehaviour
 
         if (!File.Exists(absolutePath))
         {
-            errorMessage = "Selected FBX file does not exist.";
+            errorMessage = "Selected file does not exist.";
             return false;
         }
 

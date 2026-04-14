@@ -112,7 +112,7 @@ public static class BuildUiPrefabs
         var resize = resizeHandle.gameObject.AddComponent<PanelHorizontalResizeHandle>();
         resize.targetPanel = panel;
 
-        var addButton = CreateButton("Button_AddObjectBottom", panel, "FBX\u3092\u8FFD\u52A0");
+        var addButton = CreateButton("Button_AddObjectBottom", panel, "\u30AA\u30D6\u30B8\u30A7\u30AF\u30C8\u3092\u8FFD\u52A0");
         SetRect(addButton.GetComponent<RectTransform>(), new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(10f, 10f), new Vector2(-10f, 48f));
         addButton.GetComponent<Image>().color = DesignTokens.BgSecondary;
 

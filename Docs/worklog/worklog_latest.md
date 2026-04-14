@@ -151,3 +151,9 @@
 - `InitializeOnLoadMethod` 直後に `EnsureJapaneseFallback()` を即実行していたため、Editor の再読込中で未初期化な `TextMeshProUGUI` に `ForceMeshUpdate()` が入り、`GenerateTextMesh()` 内で `NullReferenceException` が発生していた。
 - 対応として Editor 側初期化は `EditorApplication.delayCall` のみへ変更し、即時実行を廃止した。
 - あわせて `RefreshLoadedTextComponents()` では `fontSharedMaterials` の固定上書きと `ForceMeshUpdate()` をやめ、`SetVerticesDirty / SetLayoutDirty / SetMaterialDirty` による安全な再描画通知へ変更した。
+
+## 14. 追記（2026-04-14 / オブジェクト追加の形式拡張）
+- `CatalogUI` の Editor 側追加導線を `.fbx` 固定から `.fbx / .glb / .gltf` 対応へ拡張した。
+- `.fbx` は従来どおり `AssetDatabase` で `Assets/ImportedFbx/` へ取り込み、`.glb / .gltf` は `RuntimeModelLoader` でそのまま読み込む。
+- 追加ボタンの文言は `FBXを追加` から `オブジェクトを追加` に変更し、既存 Prefab を使う場合も `CatalogUI` のランタイム補正で表示が揃うようにした。
+- `BuildUiPrefabs` も同じ文言へ更新し、今後の Prefab 再生成後も表示が一致するようにした。

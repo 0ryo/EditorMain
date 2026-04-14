@@ -178,6 +178,11 @@ public class PlacementController : MonoBehaviour
             if (!TryGetPrefab(tId, out var sourcePrefab)) return null;
 
             var obj = UnityEngine.Object.Instantiate(sourcePrefab);
+            if (!obj.activeSelf)
+            {
+                // Runtime-loaded glTF templates stay inactive in the scene; placed instances must be visible.
+                obj.SetActive(true);
+            }
             var placed = obj.GetComponent<PlacedObject>();
             if (placed == null) placed = obj.AddComponent<PlacedObject>();
 
