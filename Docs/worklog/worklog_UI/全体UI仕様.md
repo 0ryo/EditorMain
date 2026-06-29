@@ -300,3 +300,8 @@
 - `QualitySettings` は高品質寄りのプリセットを既定にし、UI と線描画の視認性改善を優先する。
 - 日本語フォールバックは `TmpFontInitializer` が Editor / Runtime の両方で登録する。`TMP_Settings.fallbackFontAssets` を空のままにしない。
 - フォールバック候補フォントは Windows の `Yu Gothic UI` / `Meiryo UI` などを優先し、`あ / ア / 漢 / （ / ）` を描画できるものだけを採用する。
+
+## 33. 2026-06-29 Canvas Reference Resolution
+- CanvasScaler の Reference Resolution は `1920x1080` に統一する。
+- `DesignTokens.ReferenceResolution` を正とし、`BuildUiPrefabs` と `DesignTokenApplier` は同じ値を参照する。
+- 既存仕様の `Reference 1920x1080` を維持し、実装側に残っていた `2560x1440` 固定値は使わない。

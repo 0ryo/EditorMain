@@ -71,6 +71,7 @@ public static class DesignTokens
     public const float CornerRadius       = 6f;
     public const float MinTouchTarget     = 44f;
     public const float TransitionDuration = 0.15f; // 150ms
+    public static readonly Vector2 ReferenceResolution = new Vector2(1920f, 1080f);
 
     // 円形要素（コネクタ・削除ボタン）
     public const float ConnectorSize      = 24f;   // コネクタの幅・高さ

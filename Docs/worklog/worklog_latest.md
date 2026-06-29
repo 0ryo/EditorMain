@@ -1,10 +1,10 @@
 # worklog_latest
 
 ## 0. 対象範囲
-- ブランチ: `improve/addmodel`
-- 作業テーマ: 実行中ビルドの UI/UX デザイン監査
+- ブランチ: `codex/ui-design-foundation-20260629`
+- 作業テーマ: `ui_design_implementation_policy_2026-06-29.md` に基づく UI デザイン実装
 - 最終更新: 2026-06-29
-- 旧ログ: `Docs/worklog/worklog_2026-03-23_archive_rendering_quality.md`
+- 旧ログ: `Docs/worklog/worklog_2026-06-29_ui_design_audit.md`
 
 ## 1. Phase A 現状把握
 - Unityバージョン: `6000.2.6f2`
@@ -16,39 +16,35 @@
   - `ScenarioGraphUI`
   - `ObjectDetailPanel`
   - `BuildUiPrefabs`
+- UI仕様ログ:
+  - `Docs/worklog/worklog_UI/全体UI仕様.md`
+  - `Docs/worklog/worklog_UI/worklog_オブジェクト一覧ウィンドウ.md`
 
-## 2. 今回の調査
-- 実行中ビルド `Editor.exe` のスクリーンショットを取得した。
-- Unity Editor は起動していない。
-- `Docs/rules/design_rule.md` / `Docs/rules/ui_editing_rules.md` / `Docs/rules/worklog_rules.md` を参照した。
-- 監査結果は `Docs/design_audit/ui_ux_design_audit_2026-06-29.md` に作成した。
-- ユーザー回答を踏まえた実装方針を `Docs/design_audit/ui_design_implementation_policy_2026-06-29.md` に追加した。
+## 2. 参照した方針
+- `Docs/design_audit/ui_design_implementation_policy_2026-06-29.md`
+- `Docs/design_audit/ui_ux_design_audit_2026-06-29.md`
+- `Docs/rules/design_rule.md`
+- `Docs/rules/ui_editing_rules.md`
+- `Docs/rules/worklog_rules.md`
 
-## 3. 主な指摘
-- 3D viewport が大きなグレー面に見え、完成品としての信頼感が弱い。
-- 配置中/選択中/保存不可などの状態フィードバックが弱い。
-- Scenario graph の検証エラーが小さく、どこを直すべきか分かりにくい。
-- Catalog card / Detail panel がプレースホルダー感を残している。
-- `CanvasScaler` の参照解像度がデザインルールと実装でずれている。
-- Unicode記号依存の設定ボタンが実画面で明瞭な歯車に見えない可能性がある。
+## 3. 実装方針
+- Unity Editor / Unity CLI は起動しない。静的チェックのみ行い、コンパイルと実機確認はユーザーが実施する。
+- Scene/Prefab の直接YAML編集は避け、必要な場合は `Assets/Editor/Automation/BuildUiPrefabs.cs` など Editor API 経由の更新ルートに限定する。
+- 仕様と差が出そうな場合は実装前に停止して報告する。
+- 1タスク完了ごとにユーザーへ報告し、次へ進む判断を待つ。
 
-## 3.1 方針更新
-- 目標の雰囲気は「現場講師向けの親しみやすい研修コンテンツ作成ツール」。
-- 3D viewport と Scenario graph は同等に重要。
-- ライトテーマを維持し、アクセント色は現在より落ち着いた現代的な色へ寄せる。
-- Start/End ノードは強調しすぎず、静かな意味づけにする。
-- 検証エラーは編集中は控えめに、保存操作時に対話的な警告として詳しく出す。
-- 設定は常にグローバルにアクセス可能にする。
-- 詳細パネルは右端から浮いて出るリッチなアニメーションを前提にする。
-- UI文言はできるだけ分かりやすい日本語に寄せる。
+## 4. 最初の候補タスク
+- Phase 1: Foundation And Responsiveness のうち、最小差分で扱えるものから着手する。
+- 候補:
+  - Canvas reference resolution の 1920x1080 統一確認と必要最小修正
+  - `DesignTokens` のアクセント色を `#2563EB` 系へ更新
+  - Unicode-only 設定ボタンの日本語ラベル化
 
-## 4. 変更ファイル
-- 追加: `Docs/design_audit/ui_ux_design_audit_2026-06-29.md`
-- 追加: `Docs/design_audit/ui_design_implementation_policy_2026-06-29.md`
-- 追加: `Docs/design_audit/captures/*.png`
-- 追加: `Docs/worklog/worklog_latest.md`
-- 移動: `Docs/worklog/worklog_2026-03-23_archive_rendering_quality.md`
+## 5. 実装メモ
+- Task 1: Canvas reference resolution を `1920x1080` に統一。
+- `DesignTokens.ReferenceResolution` を追加し、`DesignTokenApplier` と `BuildUiPrefabs` が同じ値を参照するようにした。
+- `Docs/worklog/worklog_UI/全体UI仕様.md` の既存仕様は `1920x1080` だったため、仕様変更ではなく実装側のズレ修正として扱う。
 
-## 5. 検証状況
-- Unity Editor 起動、Unity CLI、コンパイル確認は実施していない。
-- 実行中ビルドの画面確認と静的コード確認のみ実施。
+## 6. 検証状況
+- `git diff --check`: 現在ブランチ作成前の監査コミットで成功。
+- Unity Editor 起動、Unity CLI、コンパイル確認は Local Execution Policy により未実施。

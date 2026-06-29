@@ -8,8 +8,8 @@ using UnityEngine.UI;
 /// </summary>
 public static class DesignTokenApplier
 {
-    // Canvas 基準解像度（QHD）
-    static readonly Vector2 ReferenceResolution = new Vector2(2560f, 1440f);
+    // Canvas 基準解像度は design_rule.md と実装方針に合わせて 1920x1080 に統一する。
+    static readonly Vector2 ReferenceResolution = DesignTokens.ReferenceResolution;
     /// <summary>
     /// カタログパネル配下の全要素に DesignTokens カラーを適用する。
     /// </summary>
@@ -17,7 +17,7 @@ public static class DesignTokenApplier
     {
         if (panelRoot == null) return;
 
-        // Canvas 解像度を QHD に強制
+        // Canvas 解像度をデザイン基準へ補正
         ApplyCanvasResolution(panelRoot);
 
         // パネル背景
@@ -83,7 +83,7 @@ public static class DesignTokenApplier
     {
         if (panelRoot == null) return;
 
-        // Canvas 解像度を QHD に強制
+        // Canvas 解像度をデザイン基準へ補正
         ApplyCanvasResolution(panelRoot);
 
         // パネル背景

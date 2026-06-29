@@ -19,7 +19,7 @@ public static class BuildUiPrefabs
         canvas.renderMode = RenderMode.ScreenSpaceOverlay;
         var scaler = root.AddComponent<CanvasScaler>();
         scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-        scaler.referenceResolution = new Vector2(2560f, 1440f);
+        scaler.referenceResolution = DesignTokens.ReferenceResolution;
         root.AddComponent<GraphicRaycaster>();
 
         var catalogPanel = BuildCatalogPanel(root.transform);
