@@ -8,7 +8,6 @@ public class PlacementController : MonoBehaviour
     static readonly string[] BlockingUiRectNames =
     {
         "Panel_Catalog",
-        "Panel_ScenarioGraph",
         "Panel_Settings",
         "Panel_NewObjectSettings",
         "EditModeRow",
@@ -40,6 +39,7 @@ public class PlacementController : MonoBehaviour
     public event Action<string> PlacementTypeChanged;
     public event Action<PlacedObject, string> ObjectPlaced;
     public string CurrentTypeId => currentTypeId;
+    public string LastDebugMessage { get; private set; }
 
     public static void SetUiDragInProgress(bool isDragging)
     {
@@ -129,7 +129,7 @@ public class PlacementController : MonoBehaviour
     {
         if (!string.IsNullOrEmpty(currentTypeId))
         {
-            Debug.Log($"[Placement] CancelPlacement: {currentTypeId}");
+            LogDebug($"CancelPlacement: {currentTypeId}");
         }
         SetCurrentTypeId(null);
     }
@@ -140,13 +140,13 @@ public class PlacementController : MonoBehaviour
 
         if (string.IsNullOrEmpty(typeId))
         {
-            Debug.LogWarning("[Placement] EnterPlacement called with null/empty typeId");
+            LogWarning("EnterPlacement called with null/empty typeId");
             return;
         }
 
         if (!TryGetPrefab(typeId, out _))
         {
-            Debug.LogWarning($"[Placement] EnterPlacement NG: {typeId} is not registered");
+            LogWarning($"EnterPlacement NG: {typeId} is not registered");
             return;
         }
 
@@ -156,7 +156,7 @@ public class PlacementController : MonoBehaviour
             EditModeService.I.SetMode(EditMode.Place);
         }
 
-        Debug.Log($"[Placement] EnterPlacement OK: {currentTypeId}");
+        LogDebug($"EnterPlacement OK: {currentTypeId}. Click the 3D viewport to place.");
     }
 
     void SetCurrentTypeId(string typeId)
@@ -169,15 +169,16 @@ public class PlacementController : MonoBehaviour
     public bool PlaceOnceAtScreenPoint(string typeId, Vector2 screenPosition)
     {
         if (string.IsNullOrWhiteSpace(typeId)) return false;
+        EnsureCameraAssigned();
         if (cam == null)
         {
-            Debug.LogWarning("[Placement] PlaceOnceAtScreenPoint failed. Camera is null.");
+            LogWarning("PlaceOnceAtScreenPoint failed. Camera is null.");
             return false;
         }
 
         if (!TryGetPlacementPoint(screenPosition, out var placementPoint))
         {
-            Debug.LogWarning("[Placement] PlaceOnceAtScreenPoint failed. Could not resolve placement point.");
+            LogWarning($"PlaceOnceAtScreenPoint failed. Could not resolve placement point. screen={screenPosition}");
             return false;
         }
 
@@ -189,12 +190,15 @@ public class PlacementController : MonoBehaviour
         if (string.IsNullOrEmpty(currentTypeId)) return;
         if (uiDragInProgress) return;
 
-        if (IsScreenPositionOverBlockingUi(Input.mousePosition))
+        if (!Input.GetMouseButtonDown(0)) return;
+
+        if (TryGetBlockingUiName(Input.mousePosition, BlockingUiRectNames, out var blockingUiName))
         {
+            LogDebug($"Placement click blocked by UI: {blockingUiName}, screen={Input.mousePosition}");
             return;
         }
 
-        if (!Input.GetMouseButtonDown(0)) return;
+        LogDebug($"Placement click accepted: type={currentTypeId}, screen={Input.mousePosition}");
 
         if (PlaceOnceAtScreenPoint(currentTypeId, Input.mousePosition))
         {
@@ -204,21 +208,23 @@ public class PlacementController : MonoBehaviour
 
     public static bool IsScreenPositionOverBlockingUi(Vector2 screenPosition)
     {
-        return IsScreenPositionOverNamedUi(screenPosition, BlockingUiRectNames);
+        return TryGetBlockingUiName(screenPosition, BlockingUiRectNames, out _);
     }
 
     public static bool IsScreenPositionOverCameraBlockingUi(Vector2 screenPosition)
     {
-        return IsScreenPositionOverNamedUi(screenPosition, CameraBlockingUiRectNames);
+        return TryGetBlockingUiName(screenPosition, CameraBlockingUiRectNames, out _);
     }
 
-    static bool IsScreenPositionOverNamedUi(Vector2 screenPosition, string[] blockingNames)
+    static bool TryGetBlockingUiName(Vector2 screenPosition, string[] blockingNames, out string blockingUiName)
     {
+        blockingUiName = null;
         foreach (var rect in FindObjectsByType<RectTransform>(FindObjectsInactive.Exclude, FindObjectsSortMode.None))
         {
             if (rect == null || !IsNamedBlockingUiRect(rect.name, blockingNames)) continue;
             if (RectTransformUtility.RectangleContainsScreenPoint(rect, screenPosition, null))
             {
+                blockingUiName = rect.name;
                 return true;
             }
         }
@@ -246,6 +252,7 @@ public class PlacementController : MonoBehaviour
         if (Physics.Raycast(ray, out var hit, 1000f, floorMask))
         {
             point = hit.point;
+            LogDebug($"Placement point resolved by floor raycast: {point}");
             return true;
         }
 
@@ -256,7 +263,7 @@ public class PlacementController : MonoBehaviour
         }
 
         point = ray.GetPoint(distance);
-        Debug.Log($"[Placement] Floor raycast missed. Used y=0 plane fallback at {point}.");
+        LogDebug($"Floor raycast missed. Used y=0 plane fallback at {point}.");
         return true;
     }
 
@@ -264,7 +271,7 @@ public class PlacementController : MonoBehaviour
     {
         if (!TryGetPrefab(typeId, out var prefab))
         {
-            Debug.LogWarning($"[Placement] PlaceType failed. {typeId} is not registered.");
+            LogWarning($"PlaceType failed. {typeId} is not registered.");
             return false;
         }
 
@@ -301,13 +308,41 @@ public class PlacementController : MonoBehaviour
         };
 
         var cmd = new PlaceObjectCommand(typeId, placedPosition, Quaternion.identity, factory);
-        CommandService.I.Stack.Execute(cmd);
+        if (CommandService.I != null && CommandService.I.Stack != null)
+        {
+            CommandService.I.Stack.Execute(cmd);
+        }
+        else
+        {
+            LogWarning("CommandService is missing. Placing object directly without undo stack.");
+            var obj = factory(typeId);
+            if (obj == null)
+            {
+                LogWarning($"Direct placement failed. Factory returned null: {typeId}");
+                return false;
+            }
+            obj.transform.SetPositionAndRotation(placedPosition, Quaternion.identity);
+        }
+
         if (createdPlacedObject != null)
         {
             ObjectPlaced?.Invoke(createdPlacedObject, typeId);
         }
-        Debug.Log($"[Placement] Placed {typeId} at {placedPosition} via Command");
+
+        LogDebug($"Placed OK: type={typeId}, id={createdPlacedObject?.Id ?? "(unknown)"}, position={placedPosition}");
         return true;
+    }
+
+    void LogDebug(string message)
+    {
+        LastDebugMessage = message;
+        Debug.Log("[Placement] " + message);
+    }
+
+    void LogWarning(string message)
+    {
+        LastDebugMessage = message;
+        Debug.LogWarning("[Placement] " + message);
     }
 }
 

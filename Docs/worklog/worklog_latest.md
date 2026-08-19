@@ -97,6 +97,11 @@
 - `EditCameraController` は新Input System の `Mouse.current` 依存をやめ、既存の配置/選択系と同じ旧 `Input` API へ統一した。
 - 視点操作は中ドラッグで回転、Shift+中ドラッグで平行移動、ホイールでズームに戻した。
 - `WorkspaceFloorGrid` の半透明色を少し濃くし、BuildRevision を更新して既存ランタイム生成物も再生成されるようにした。
+- Task 13: 配置優先のデバッグ補強。
+- `PlacementController` は配置クリックのブロック対象から `Panel_ScenarioGraph` を外し、下部パネルの矩形が3Dビュー配置を止めないようにした。
+- 配置開始、クリック受理、UIブロック、配置点解決、配置成功/失敗を `[Placement]` ログとしてコンソールへ出すようにした。
+- `CommandService` が未初期化でも直接配置へフォールバックし、まずオブジェクトが出ることを優先するようにした。
+- `ViewportStatusStrip` にカメラ座標/ズーム値と直近の配置デバッグログを表示する行を追加した。
 
 ## 6. 検証状況
 - `git diff --check`: 現在ブランチ作成前の監査コミットで成功。
@@ -111,5 +116,6 @@
 - `git diff --check`: Task 10 変更後に成功。
 - `git diff --check`: Task 11 変更後に成功。
 - `git diff --check`: Task 12 変更後に成功。
+- `git diff --check -- Assets/Scripts/PlacementController.cs Assets/Scripts/UI/ViewportStatusStrip.cs Docs/worklog/worklog_latest.md Docs/worklog/worklog_UI/全体UI仕様.md`: Task 13 変更後に成功。
 - `dotnet build .\Assembly-CSharp.csproj`: 実行したが、Unity生成csprojが既存の `DesignTokens` / `UiRoundedTheme` / `RuntimeModelLoader` などを解決できない状態で失敗。Unity Editor 起動なしの静的ビルド検証としては利用不可。
 - Unity Editor 起動、Unity CLI、コンパイル確認は Local Execution Policy により未実施。

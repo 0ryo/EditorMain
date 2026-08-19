@@ -7,7 +7,7 @@ public class ViewportStatusStrip : MonoBehaviour
     const float StripHeight = 40f;
     const float StripTop = -64f;
     const float StripLeftMargin = 24f;
-    const float StripMaxWidth = 720f;
+    const float StripMaxWidth = 1120f;
     const float StripRightMargin = 24f;
     const float ToastDuration = 2.2f;
 
@@ -17,6 +17,7 @@ public class ViewportStatusStrip : MonoBehaviour
     [SerializeField] TMP_Text modeText;
     [SerializeField] TMP_Text targetText;
     [SerializeField] TMP_Text toastText;
+    [SerializeField] TMP_Text debugText;
 
     PlacementController placementController;
     SelectionService selectionService;
@@ -52,6 +53,7 @@ public class ViewportStatusStrip : MonoBehaviour
         ResolveReferences();
         PositionStrip();
         RefreshToast();
+        RefreshDebugLine();
     }
 
     void EnsureVisualTree()
@@ -92,6 +94,7 @@ public class ViewportStatusStrip : MonoBehaviour
         modeText = FindOrCreateText("Text_Mode", "\u95B2\u89A7\u4E2D", DesignTokens.Accent, 88f, TextAlignmentOptions.MidlineLeft);
         targetText = FindOrCreateText("Text_Target", "\u9078\u629E\u306A\u3057", DesignTokens.TextPrimary, 300f, TextAlignmentOptions.MidlineLeft);
         toastText = FindOrCreateText("Text_Toast", "", DesignTokens.TextSecondary, 240f, TextAlignmentOptions.MidlineLeft);
+        debugText = FindOrCreateText("Text_Debug", "", DesignTokens.TextSecondary, 360f, TextAlignmentOptions.MidlineLeft);
         PositionStrip();
     }
 
@@ -272,6 +275,27 @@ public class ViewportStatusStrip : MonoBehaviour
         }
 
         toastText.text = string.Empty;
+    }
+
+    void RefreshDebugLine()
+    {
+        if (debugText == null) return;
+
+        var cam = Camera.main != null ? Camera.main : FindFirstObjectByType<Camera>();
+        string cameraText = cam != null
+            ? $"Cam {FormatVector(cam.transform.position)} / Zoom {(cam.orthographic ? cam.orthographicSize : cam.transform.position.magnitude):0.0}"
+            : "Cam none";
+
+        string placementText = placementController != null && !string.IsNullOrWhiteSpace(placementController.LastDebugMessage)
+            ? " | " + placementController.LastDebugMessage
+            : string.Empty;
+
+        debugText.text = cameraText + placementText;
+    }
+
+    static string FormatVector(Vector3 value)
+    {
+        return $"({value.x:0.0},{value.y:0.0},{value.z:0.0})";
     }
 
     string BuildTypeLabel(string typeId)
