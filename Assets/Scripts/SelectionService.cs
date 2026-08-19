@@ -15,10 +15,12 @@ public class SelectionService : MonoBehaviour
     public PlacementController placementController;
     public MoveTool moveTool;
     public float pickabilityAutoFixInterval = 1f;
+    public bool enableDiagnostics = true;
 
     float nextPickabilityFixTime;
     bool warnedCameraMissing;
     bool warnedPickMaskExclusion;
+    public string LastDebugMessage { get; private set; }
 
     void Update()
     {
@@ -32,6 +34,11 @@ public class SelectionService : MonoBehaviour
             moveTool = FindFirstObjectByType<MoveTool>();
         }
 
+        if (cam == null)
+        {
+            cam = EditWorkspace.ResolveCamera();
+        }
+
         AutoFixPickabilityIfNeeded();
 
         if (Current != null && Current.gameObject == null)
@@ -39,29 +46,51 @@ public class SelectionService : MonoBehaviour
             Select(null);
         }
 
-        if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject()) return;
-        if (moveTool != null && moveTool.ShouldConsumeSelectionClick()) return;
+        var mousePosition = EditInput.MousePosition;
+        if (PlacementController.IsScreenPositionOverBlockingUi(mousePosition))
+        {
+            if (EditInput.LeftPressedThisFrame())
+            {
+                LogDebug($"Selection click blocked by editor UI. mouse={mousePosition}");
+            }
+            return;
+        }
 
-        if (Input.GetMouseButtonDown(0))
+        if (moveTool != null && moveTool.ShouldConsumeSelectionClick())
+        {
+            if (EditInput.LeftPressedThisFrame())
+            {
+                LogDebug("Selection click consumed by MoveTool.");
+            }
+            return;
+        }
+
+        if (EditInput.LeftPressedThisFrame())
         {
             if (cam == null)
             {
                 if (!warnedCameraMissing)
                 {
                     warnedCameraMissing = true;
-                    Debug.LogWarning("[Selection] Camera is not assigned.");
+                    LogWarning("Camera is not assigned.");
                 }
                 return;
             }
 
-            Ray ray = cam.ScreenPointToRay(Input.mousePosition);
+            Ray ray = cam.ScreenPointToRay(mousePosition);
             if (TryPickPlacedObject(ray, out var picked, out var hitSomething))
             {
+                LogDebug($"Picked placed object: id={picked.Id}, name={picked.name}, mouse={mousePosition}");
                 Select(picked);
             }
             else if (hitSomething)
             {
+                LogDebug($"Selection cleared by non-placed hit. mouse={mousePosition}");
                 Select(null);
+            }
+            else
+            {
+                LogDebug($"Selection click hit nothing. mouse={mousePosition}");
             }
         }
 
@@ -124,9 +153,11 @@ public class SelectionService : MonoBehaviour
 
     public void Select(PlacedObject po)
     {
+        if (Current == po) return;
         Current = po;
         if (outline != null) outline.ShowFor(po ? po.gameObject : null);
         OnSelectionChanged?.Invoke(po);
+        LogDebug(po != null ? $"Selected: id={po.Id}, type={po.TypeId}" : "Selection cleared.");
     }
 
     GameObject InstantiatePlacedForUndo(GameObject prefab, string typeId)
@@ -161,7 +192,7 @@ public class SelectionService : MonoBehaviour
 
         if (fixedCount > 0)
         {
-            Debug.Log($"[Selection] Auto-fixed pickability. collidersAdded={fixedCount}");
+            LogDebug($"Auto-fixed pickability. collidersAdded={fixedCount}");
         }
     }
 
@@ -200,12 +231,25 @@ public class SelectionService : MonoBehaviour
             if (!warnedPickMaskExclusion)
             {
                 warnedPickMaskExclusion = true;
-                Debug.LogWarning($"[Selection] pickMask excluded selected object layer. picked={fallback.name}");
+                LogWarning($"pickMask excluded selected object layer. picked={fallback.name}");
             }
             return true;
         }
 
         return false;
+    }
+
+    void LogDebug(string message)
+    {
+        LastDebugMessage = message;
+        if (!enableDiagnostics) return;
+        Debug.Log("[Selection] " + message);
+    }
+
+    void LogWarning(string message)
+    {
+        LastDebugMessage = message;
+        Debug.LogWarning("[Selection] " + message);
     }
 
     static bool IsLayerIncluded(int layer, LayerMask mask)

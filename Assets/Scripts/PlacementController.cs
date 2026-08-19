@@ -184,16 +184,24 @@ public class PlacementController : MonoBehaviour
 
     void Update()
     {
-        LogDiagnostics("Update", false);
+        bool leftPressedThisFrame = EditInput.LeftPressedThisFrame();
+        if (string.IsNullOrEmpty(currentTypeId))
+        {
+            if (leftPressedThisFrame)
+            {
+                LogDiagnostics("IdleClick", true);
+            }
+            return;
+        }
 
-        if (string.IsNullOrEmpty(currentTypeId)) return;
+        LogDiagnostics("ActiveUpdate", false);
         if (uiDragInProgress)
         {
             LogDebug("Placement input skipped because catalog drag is in progress.");
             return;
         }
 
-        if (!EditInput.LeftPressedThisFrame()) return;
+        if (!leftPressedThisFrame) return;
 
         var mousePosition = EditInput.MousePosition;
         if (EditWorkspace.TryGetBlockingUiName(mousePosition, BlockingUiRectNames, out var blockingUiName))

@@ -119,6 +119,14 @@
 - ユーザー確認ログから、3Dビュークリック以前に `CatalogUI` が `PlacementController` を解決できていないことが確定した。
 - `CatalogUI.EnsureRuntimeBindings()` を、active な `PlacementController` 探索、inactive 含む探索と再有効化、最後に `RuntimePlacementSystems` へのランタイム生成、の順に必ず配置システムを解決する実装へ変更した。
 - 生成/再有効化した `PlacementController` へ、既存 `PrefabRegistry`、Camera、`SelectionService` を補完するようにした。
+- Task 17: 配置後の選択切り替え、移動、視点操作の実行経路を修正。
+- ユーザー確認ログから、配置自体は成功している一方で `[PlacementDiag] Update` が常時出ており、さらに `mode=(no EditModeService)` だったため、配置後の編集系サービスが見つかっていないことを原因候補として扱った。
+- `CatalogUI` のランタイム補完を拡張し、`EditModeService` / `CommandService` / `SelectionService` / `MoveTool` / `EditorCameraController` が見つからない場合は再有効化または生成し、Camera / Registry / Selection / Placement 参照を同期するようにした。
+- `EditInput` は旧Inputを優先し、新Input Systemはフォールバックに変更した。これにより `mouse=(405,-705)` のようなGameビュー外座標を編集操作に使いにくくした。
+- `SelectionService` は全画面 `EventSystem.IsPointerOverGameObject()` 判定をやめ、配置と同じブロックUI矩形だけを除外して選択Raycastするようにした。選択クリック時のみ `[Selection]` ログを出す。
+- `MoveTool` は共通入力とブロックUI矩形判定へ寄せ、移動モードでのドラッグ開始/確定、または移動モードではない時のクリックだけ `[MoveTool]` ログを出す。
+- `PlacementController` の `[PlacementDiag]` は配置中または配置対象なしでクリックされた時だけ出し、マウス移動だけでは出ないようにした。
+- `ViewportStatusStrip` は選択変更イベントを取り逃がしても `SelectionService.Current` から選択表示を追従するようにした。
 
 ## 6. 検証状況
 - `git diff --check`: 現在ブランチ作成前の監査コミットで成功。
@@ -137,5 +145,6 @@
 - `git diff --check -- Assets/Scripts/EditWorkspace.cs Assets/Scripts/EditWorkspace.cs.meta Assets/Scripts/EditCameraController.cs Assets/Scripts/PlacementController.cs Assets/Scripts/CatalogUI.cs Assets/Scripts/UI/ViewportStatusStrip.cs Assets/Scripts/UI/ViewportStatusStrip.cs.meta Docs/worklog/worklog_latest.md Docs/worklog/worklog_UI/全体UI仕様.md`: Task 14 変更後に成功。
 - `git diff --check -- Assets/Scripts/EditInput.cs Assets/Scripts/EditInput.cs.meta Assets/Scripts/PlacementController.cs Assets/Scripts/EditCameraController.cs Assets/Scripts/CatalogUI.cs Assets/Scripts/UI/TmpFontInitializer.cs`: Task 15 変更後に成功。
 - `git diff --check -- Assets/Scripts/CatalogUI.cs`: Task 16 変更後に成功。
+- `git diff --check -- Assets/Scripts/EditInput.cs Assets/Scripts/PlacementController.cs Assets/Scripts/CatalogUI.cs Assets/Scripts/SelectionService.cs Assets/Scripts/MoveTool.cs Assets/Scripts/EditCameraController.cs Assets/Scripts/UI/ViewportStatusStrip.cs`: Task 17 変更後に成功。
 - `dotnet build .\Assembly-CSharp.csproj`: 実行したが、Unity生成csprojが既存の `DesignTokens` / `UiRoundedTheme` / `RuntimeModelLoader` などを解決できない状態で失敗。Unity Editor 起動なしの静的ビルド検証としては利用不可。
 - Unity Editor 起動、Unity CLI、コンパイル確認は Local Execution Policy により未実施。

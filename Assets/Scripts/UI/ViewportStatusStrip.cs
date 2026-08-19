@@ -249,6 +249,11 @@ public class ViewportStatusStrip : MonoBehaviour
     {
         if (modeText == null || targetText == null) return;
 
+        if (selectionService != null && selectedObject != selectionService.Current)
+        {
+            selectedObject = selectionService.Current;
+        }
+
         if (!string.IsNullOrWhiteSpace(lastPlacementTypeId))
         {
             modeText.text = "\u914D\u7F6E\u4E2D";

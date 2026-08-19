@@ -10,6 +10,7 @@ public class MoveTool : MonoBehaviour
     public Camera cam;
     public SelectionService sel;
     public float gridSize = 0.1f;
+    public bool enableDiagnostics = true;
 
     [Header("Transform Gizmo")]
     public float gizmoLineWidth = 0.04f;
@@ -82,18 +83,23 @@ public class MoveTool : MonoBehaviour
         if (!IsTransformMode()) return false;
         if (sel == null || sel.Current == null) return false;
         if (activeGizmoDragMode != GizmoDragMode.None) return true;
-        if (!Input.GetMouseButtonDown(0)) return false;
-        if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject()) return false;
+        if (!EditInput.LeftPressedThisFrame()) return false;
+        if (PlacementController.IsScreenPositionOverBlockingUi(EditInput.MousePosition)) return false;
 
-        return TryGetHandleUnderPointer(Input.mousePosition, out _, out _);
+        return TryGetHandleUnderPointer(EditInput.MousePosition, out _, out _);
     }
 
     void Update()
     {
         EnsureCamera();
+        EnsureSelection();
 
         if (!IsTransformMode())
         {
+            if (sel != null && sel.Current != null && EditInput.LeftPressedThisFrame())
+            {
+                LogDebug($"MoveTool inactive because mode is {GetModeLabel()}. Select the move mode first.");
+            }
             CancelRuntimeDragStates();
             SetGizmoVisible(false);
             return;
@@ -110,13 +116,13 @@ public class MoveTool : MonoBehaviour
 
         if (activeGizmoDragMode != GizmoDragMode.None)
         {
-            if (Input.GetMouseButtonUp(0))
+            if (EditInput.LeftReleasedThisFrame())
             {
                 CommitGizmoDragIfNeeded();
                 return;
             }
 
-            if (Input.GetMouseButton(0))
+            if (EditInput.LeftPressed())
             {
                 UpdateGizmoDrag();
                 return;
@@ -126,12 +132,12 @@ public class MoveTool : MonoBehaviour
             return;
         }
 
-        if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
+        if (PlacementController.IsScreenPositionOverBlockingUi(EditInput.MousePosition))
         {
             return;
         }
 
-        if (TryBeginGizmoDrag(Input.mousePosition))
+        if (TryBeginGizmoDrag(EditInput.MousePosition))
         {
             return;
         }
@@ -198,7 +204,7 @@ public class MoveTool : MonoBehaviour
 
     bool TryBeginGizmoDrag(Vector2 pointer)
     {
-        if (!Input.GetMouseButtonDown(0)) return false;
+        if (!EditInput.LeftPressedThisFrame()) return false;
         if (!TryGetHandleUnderPointer(pointer, out var dragMode, out var axis)) return false;
         if (!TryGetSelectionCenterAndAxisLength(out var center, out var axisLength)) return false;
         if (!TryWorldToScreen(center, out var centerScreen)) return false;
@@ -232,6 +238,7 @@ public class MoveTool : MonoBehaviour
             gizmoDragAxisScreenDir = axisScreenVector / axisPixels;
             gizmoDragStartPointerProjection = Vector2.Dot(pointer - centerScreen, gizmoDragAxisScreenDir);
             gizmoDragWorldPerPixel = axisLength / axisPixels;
+            LogDebug($"Move drag started. axis={axis}, pointer={pointer}");
             return true;
         }
 
@@ -250,6 +257,7 @@ public class MoveTool : MonoBehaviour
         }
 
         gizmoRotationStartVector = startVector.normalized;
+        LogDebug($"Rotate drag started. axis={axis}, pointer={pointer}");
         return true;
     }
 
@@ -263,7 +271,7 @@ public class MoveTool : MonoBehaviour
 
         if (activeGizmoDragMode == GizmoDragMode.Move)
         {
-            float projection = Vector2.Dot((Vector2)Input.mousePosition - gizmoDragStartCenterScreen, gizmoDragAxisScreenDir);
+            float projection = Vector2.Dot(EditInput.MousePosition - gizmoDragStartCenterScreen, gizmoDragAxisScreenDir);
             float deltaWorld = (projection - gizmoDragStartPointerProjection) * gizmoDragWorldPerPixel;
 
             if (gridSize > 0.0001f)
@@ -277,7 +285,7 @@ public class MoveTool : MonoBehaviour
 
         if (activeGizmoDragMode == GizmoDragMode.Rotate)
         {
-            if (!TryRaycastPlane(Input.mousePosition, gizmoRotationPlane, out var point)) return;
+            if (!TryRaycastPlane(EditInput.MousePosition, gizmoRotationPlane, out var point)) return;
 
             Vector3 axisDir = AxisFromEnum(activeGizmoAxis, gizmoDragStartRotation);
             Vector3 currentVector = Vector3.ProjectOnPlane(point - gizmoDragStartCenter, axisDir);
@@ -314,6 +322,7 @@ public class MoveTool : MonoBehaviour
             {
                 var cmd = new MoveObjectCommand(sel.Current.gameObject, gizmoDragStartPosition, endPos);
                 CommandService.I.Stack.Execute(cmd);
+                LogDebug($"Move drag committed. id={sel.Current.Id}, from={gizmoDragStartPosition}, to={endPos}");
             }
         }
         else if (activeGizmoDragMode == GizmoDragMode.Rotate)
@@ -323,6 +332,7 @@ public class MoveTool : MonoBehaviour
             {
                 var cmd = new RotateObjectQuaternionCommand(sel.Current.gameObject, gizmoDragStartRotation, endRot);
                 CommandService.I.Stack.Execute(cmd);
+                LogDebug($"Rotate drag committed. id={sel.Current.Id}");
             }
         }
 
@@ -896,10 +906,23 @@ public class MoveTool : MonoBehaviour
     void EnsureCamera()
     {
         if (cam != null) return;
-        cam = Camera.main;
-        if (cam == null)
-        {
-            cam = FindFirstObjectByType<Camera>();
-        }
+        cam = EditWorkspace.ResolveCamera();
+    }
+
+    void EnsureSelection()
+    {
+        if (sel != null) return;
+        sel = FindFirstObjectByType<SelectionService>();
+    }
+
+    string GetModeLabel()
+    {
+        return EditModeService.I != null ? EditModeService.I.Mode.ToString() : "(no EditModeService)";
+    }
+
+    void LogDebug(string message)
+    {
+        if (!enableDiagnostics) return;
+        Debug.Log("[MoveTool] " + message);
     }
 }

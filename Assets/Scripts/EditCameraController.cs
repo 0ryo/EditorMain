@@ -53,8 +53,6 @@ public class EditorCameraController : MonoBehaviour
         bool middlePressed = EditInput.MiddlePressed();
         bool shiftPressed = EditInput.ShiftPressed();
 
-        LogDiagnostics("Update", false, Vector2.zero, scrollY);
-
         if (typingBlocked)
         {
             if (middlePressed || Mathf.Abs(scrollY) > 0.0001f)

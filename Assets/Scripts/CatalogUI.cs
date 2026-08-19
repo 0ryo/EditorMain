@@ -200,6 +200,7 @@ public class CatalogUI : MonoBehaviour
             placementController.registry = registry;
         }
 
+        EnsureRuntimeEditServices();
         EnsurePlacementControllerBinding();
 
         if (placementController != null)
@@ -212,7 +213,11 @@ public class CatalogUI : MonoBehaviour
 
     PlacementController ResolvePlacementController()
     {
-        if (placementController != null) return placementController;
+        if (placementController != null)
+        {
+            EnsureRuntimeEditServices();
+            return placementController;
+        }
 
         placementController = FindFirstObjectByType<PlacementController>();
         if (placementController == null)
@@ -240,6 +245,8 @@ public class CatalogUI : MonoBehaviour
             }
         }
 
+        EnsureRuntimeEditServices();
+
         if (registry != null && (placementController.registry == null || !placementController.registry.HasEntries))
         {
             placementController.registry = registry;
@@ -258,6 +265,81 @@ public class CatalogUI : MonoBehaviour
         return placementController;
     }
 
+    void EnsureRuntimeEditServices()
+    {
+        var systems = placementController != null ? placementController.gameObject : GameObject.Find("RuntimePlacementSystems");
+        if (systems == null) systems = new GameObject("RuntimePlacementSystems");
+
+        var camera = EditWorkspace.ResolveCamera(placementController != null ? placementController.cam : null);
+
+        var editMode = ResolveOrCreateService<EditModeService>(systems, "EditModeService");
+        if (editMode != null)
+        {
+            editMode.enabled = true;
+        }
+
+        var commandService = ResolveOrCreateService<CommandService>(systems, "CommandService");
+        if (commandService != null)
+        {
+            commandService.enabled = true;
+        }
+
+        var selection = ResolveOrCreateService<SelectionService>(systems, "SelectionService");
+        if (selection != null)
+        {
+            selection.enabled = true;
+            if (selection.cam == null) selection.cam = camera;
+            if (selection.registry == null) selection.registry = registry;
+            if (selection.placementController == null) selection.placementController = placementController;
+        }
+
+        var moveTool = ResolveOrCreateService<MoveTool>(systems, "MoveTool");
+        if (moveTool != null)
+        {
+            moveTool.enabled = true;
+            if (moveTool.cam == null) moveTool.cam = camera;
+            if (moveTool.sel == null) moveTool.sel = selection;
+        }
+
+        if (selection != null && selection.moveTool == null)
+        {
+            selection.moveTool = moveTool;
+        }
+
+        if (placementController != null)
+        {
+            if (placementController.cam == null) placementController.cam = camera;
+            if (placementController.selection == null) placementController.selection = selection;
+        }
+    }
+
+    T ResolveOrCreateService<T>(GameObject fallbackHost, string serviceName) where T : MonoBehaviour
+    {
+        var service = FindFirstObjectByType<T>();
+        if (service == null)
+        {
+            var services = FindObjectsByType<T>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            if (services != null && services.Length > 0)
+            {
+                service = services[0];
+                service.gameObject.SetActive(true);
+                service.enabled = true;
+                Debug.LogWarning($"[CatalogUI] Re-enabled inactive {serviceName}: {service.name}");
+            }
+        }
+
+        if (service != null) return service;
+
+        service = fallbackHost.GetComponent<T>();
+        if (service == null)
+        {
+            service = fallbackHost.AddComponent<T>();
+            Debug.LogWarning($"[CatalogUI] Created runtime {serviceName} because none was found in the loaded scene.");
+        }
+
+        return service;
+    }
+
     void EnsureViewportReady(bool resetView)
     {
         var viewportCamera = EditWorkspace.ResolveCamera(placementController != null ? placementController.cam : null);
@@ -265,6 +347,12 @@ public class CatalogUI : MonoBehaviour
         if (viewportCamera != null)
         {
             var cameraController = viewportCamera.GetComponent<EditorCameraController>();
+            if (cameraController == null)
+            {
+                cameraController = viewportCamera.gameObject.AddComponent<EditorCameraController>();
+                Debug.LogWarning("[CatalogUI] Added EditorCameraController to viewport camera.");
+            }
+
             if (resetView && cameraController != null)
             {
                 cameraController.ResetToDefaultView();
