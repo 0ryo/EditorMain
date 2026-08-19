@@ -72,6 +72,8 @@
 - `PrefabRegistry.LoadDefault()` を追加し、`CatalogUI` と `PlacementController` が `Assets/Data/DefaultRegistry.asset` へフォールバックできるようにした。
 - Catalog のスクロール領域背景を `DesignTokens.BgPrimary` に戻し、`Surface` カードが背景と同化しないようにした。
 - これにより `Vehicle/Car_Proxy` / `ToolBox/Basic_Proxy` / `Tire/Replacement_Proxy` / `Env/Wall_Min` の既定カードが復旧しやすくなった。
+- Task 7: 床ColliderへのRaycastが外れても配置できるようにした。
+- `PlacementController` の配置点解決を Collider Raycast 優先 + y=0 平面フォールバックに変更し、床表示やレイヤー状態に左右されず配置できるようにした。
 
 ## 6. 検証状況
 - `git diff --check`: 現在ブランチ作成前の監査コミットで成功。
@@ -80,5 +82,6 @@
 - `git diff --check`: Task 4 変更後に成功。
 - `git diff --check`: Task 5 変更後に成功。
 - `git diff --check`: Task 6 変更後に成功。
+- `git diff --check`: Task 7 変更後に成功。
 - `dotnet build .\Assembly-CSharp.csproj`: 実行したが、Unity生成csprojが既存の `DesignTokens` / `UiRoundedTheme` / `RuntimeModelLoader` などを解決できない状態で失敗。Unity Editor 起動なしの静的ビルド検証としては利用不可。
 - Unity Editor 起動、Unity CLI、コンパイル確認は Local Execution Policy により未実施。

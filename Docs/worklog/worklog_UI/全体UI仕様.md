@@ -83,6 +83,7 @@
 ## 7. 配置処理ルール（PlacementController）
 - 配置先判定
   - カメラから床へ Raycast（`floorMask`）
+  - 床Colliderに当たらない場合は y=0 平面へフォールバックして配置点を解決する
 - 3Dビュー補助表示
   - `WorkspaceFloorGrid` が実行時に床グリッドを補完する
   - `ViewportStatusStrip` が `閲覧中` / `配置中` / `移動中` / `スケール調整` と対象情報を表示する

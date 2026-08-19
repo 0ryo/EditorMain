@@ -139,13 +139,13 @@ public class PlacementController : MonoBehaviour
             return false;
         }
 
-        if (!TryRaycastFloor(screenPosition, out var hit))
+        if (!TryGetPlacementPoint(screenPosition, out var placementPoint))
         {
-            Debug.LogWarning("[Placement] PlaceOnceAtScreenPoint failed. Floor raycast did not hit.");
+            Debug.LogWarning("[Placement] PlaceOnceAtScreenPoint failed. Could not resolve placement point.");
             return false;
         }
 
-        return PlaceType(typeId, hit.point);
+        return PlaceType(typeId, placementPoint);
     }
 
     void Update()
@@ -166,13 +166,27 @@ public class PlacementController : MonoBehaviour
         }
     }
 
-    bool TryRaycastFloor(Vector2 screenPosition, out RaycastHit hit)
+    bool TryGetPlacementPoint(Vector2 screenPosition, out Vector3 point)
     {
-        hit = default;
+        point = default;
         if (cam == null) return false;
 
         Ray ray = cam.ScreenPointToRay(screenPosition);
-        return Physics.Raycast(ray, out hit, 1000f, floorMask);
+        if (Physics.Raycast(ray, out var hit, 1000f, floorMask))
+        {
+            point = hit.point;
+            return true;
+        }
+
+        var fallbackPlane = new Plane(Vector3.up, Vector3.zero);
+        if (!fallbackPlane.Raycast(ray, out var distance) || distance < 0f)
+        {
+            return false;
+        }
+
+        point = ray.GetPoint(distance);
+        Debug.Log($"[Placement] Floor raycast missed. Used y=0 plane fallback at {point}.");
+        return true;
     }
 
     bool PlaceType(string typeId, Vector3 floorPoint)
