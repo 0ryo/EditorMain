@@ -15,7 +15,7 @@
   - `anchorMax = (0, 1)`
 - オフセット:
   - `offsetMin = (0, 0)`
-  - `offsetMax = (288, 0)`（初期幅 288）
+  - `offsetMax = (312, 0)`（初期幅 312）
 - 画面に対して上端・下端まで伸長する。
 - 右端に横リサイズハンドル `ResizeHandleX` を持つ。
 
@@ -28,13 +28,17 @@
 - `ResizeHandleX`
 
 ## 5. 見た目
-- 背景色: 薄いグレー基調（シナリオ側パネルと同系色）
-- ボタンテンプレート: 薄い黄色基調
-- 文字色: 黒
+- 背景色: `DesignTokens.BgPrimary`
+- カード背景: `DesignTokens.Surface` + `DesignTokens.Divider` の細線
+- カード内表示:
+  - カテゴリバッジ（例: `車両`, `工具`, `環境`, `追加`, `その他`）
+  - 表示名（例: `車両`, `工具箱`, `タイヤ交換`）
+  - 技術ID（例: `Vehicle/Car_Proxy`）
+- 文字色: `DesignTokens.TextPrimary` / `DesignTokens.TextSecondary`
 
 ## 6. 挙動
 - `CatalogUI` が `PrefabRegistry.entries` を列挙し、`Btn_Template` を `Content` に生成。
-- 各カードはオブジェクト名のみを表示し、文字を中央配置する。
+- 各カードはカテゴリ、表示名、技術IDを表示し、左揃えで配置する。
 - ボタン押下で `onSelectType(string typeId)` を発火。
 - カード押下後、ワールドクリック待ちの配置モード中は該当カードをテーマ青（`DesignTokens.Accent`）の枠線で強調表示する。
 - 実行時の機能接続:
@@ -45,8 +49,8 @@
 - スクリプト: `PanelHorizontalResizeHandle`
 - 操作: `ResizeHandleX` を左右ドラッグ
 - 制約:
-  - `minWidth = 220`
-  - `maxWidth = 720`
+  - `minWidth = 240`
+  - `maxWidth = 420`
 - 幅変更時、`UiPanelDockSync` によりノード追加ウィンドウの左端が追従し、隙間は常に `0`。
 
 ## 8. 依存スクリプト
@@ -109,3 +113,9 @@
 - 追加ボタンの文言を `FBXを追加` から `オブジェクトを追加` に変更。
 - Editor 上の追加導線で `.fbx / .glb / .gltf` を選択可能にした。
 - `.fbx` は従来どおり `Assets/ImportedFbx/` に取り込み、`.glb / .gltf` は `RuntimeModelLoader` で読み込んで新規オブジェクト設定へ進む。
+
+## 17. 追記（2026-06-29 / カード情報密度の改善）
+- カード高を `96` に変更し、カテゴリバッジ、表示名、技術IDの3段構成にした。
+- `CatalogUI` は `typeId` からカテゴリと表示名を推定し、既存Prefabでもランタイム補完で同じ構造を生成する。
+- `BuildUiPrefabs` の `Card_Template` も同じ3段構成で生成する。
+- `DesignTokenApplier` は旧カード中央寄せ補正をやめ、新カードレイアウトを維持する。

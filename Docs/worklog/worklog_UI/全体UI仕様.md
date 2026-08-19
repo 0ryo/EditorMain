@@ -59,8 +59,9 @@
   - スクロール一覧（カード縦積み）
   - 右端に横リサイズハンドル
 - カード表示
-  - `typeId` を表示
-  - カード高は `84` 固定
+  - カテゴリバッジ、表示名、技術ID（`typeId`）を表示
+  - カード高は `96` 固定
+  - `typeId` からカテゴリと表示名を推定する
   - 上詰め配置（`VerticalLayoutGroup.childAlignment = UpperLeft`）
   - 小型 `×` ボタンはカードホバー時のみ表示
   - `×` ボタンはカード右上角の外側にはみ出し、丸の中心がカード角に重なる
@@ -323,3 +324,9 @@
 - `PlacementController.ObjectPlaced` を追加し、配置成功をUIへ通知する。
 - `WorkspaceFloorGrid` を追加し、実行時に床グリッドを補完して灰色の無地感を減らす。
 - `SelectionOutline` のライン色を `DesignTokens.Accent` に寄せる。
+
+## 36. 2026-06-29 Catalog Card Information Density
+- カタログカードをカテゴリバッジ、表示名、技術IDの3段構成に更新する。
+- `CatalogUI` は既存Prefabでも `Badge_Category` / `LabelCategory` / `LabelTechnicalId` をランタイム補完する。
+- `BuildUiPrefabs` の `Card_Template` も同じ3段構成で生成する。
+- `DesignTokenApplier` は旧中央寄せ補正をやめ、新カードレイアウトを維持する。

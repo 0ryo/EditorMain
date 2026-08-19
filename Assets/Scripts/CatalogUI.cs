@@ -64,6 +64,9 @@ public class CatalogUI : MonoBehaviour
     const string CardRemoveButtonName = "Button_RemoveCard";
     const string CardThumbnailName = "Thumbnail";
     const string CardMainLabelName = "LabelMain";
+    const string CardCategoryBadgeName = "Badge_Category";
+    const string CardCategoryLabelName = "LabelCategory";
+    const string CardTechnicalLabelName = "LabelTechnicalId";
     string runtimeImportedTypeId;
     string runtimeImportedCardLabel;
     string runtimeImportedDescription;
@@ -357,13 +360,14 @@ public class CatalogUI : MonoBehaviour
             EnsureCardHeight(cardButton.gameObject);
 
             var typeId = entry.typeId;
-            SetCardLabel(cardButton.gameObject, typeId);
+            var displayLabel = BuildDisplayName(typeId);
+            SetCardLabel(cardButton.gameObject, displayLabel, typeId);
             SetupCardInteractions(cardButton, typeId);
 
             cards.Add(new CardState
             {
                 typeId = typeId,
-                displayLabel = typeId,
+                displayLabel = displayLabel,
                 displayDescription = string.Empty,
                 root = cardButton.gameObject
             });
@@ -389,7 +393,7 @@ public class CatalogUI : MonoBehaviour
         cardButton.gameObject.SetActive(true);
         EnsureCardHeight(cardButton.gameObject);
         var cardLabel = string.IsNullOrWhiteSpace(runtimeImportedCardLabel) ? importedCardLabel : runtimeImportedCardLabel;
-        SetCardLabel(cardButton.gameObject, cardLabel);
+        SetCardLabel(cardButton.gameObject, cardLabel, importedTypeId);
 
         var importedTypeId = runtimeImportedTypeId;
         SetupCardInteractions(cardButton, importedTypeId);
@@ -1767,8 +1771,8 @@ public class CatalogUI : MonoBehaviour
 
         var layout = cardObject.GetComponent<LayoutElement>();
         if (layout == null) layout = cardObject.AddComponent<LayoutElement>();
-        layout.minHeight = 84f;
-        layout.preferredHeight = 84f;
+        layout.minHeight = 96f;
+        layout.preferredHeight = 96f;
         NormalizeCardVisuals(cardObject);
     }
 
@@ -1777,6 +1781,9 @@ public class CatalogUI : MonoBehaviour
         if (cardObject == null) return;
 
         var root = cardObject.transform;
+        var cardImage = cardObject.GetComponent<Image>();
+        if (cardImage != null) cardImage.color = DesignTokens.Surface;
+        EnsureCardOutline(cardObject.transform);
 
         var thumbnail = root.Find(CardThumbnailName);
         if (thumbnail != null) thumbnail.gameObject.SetActive(false);
@@ -1790,24 +1797,32 @@ public class CatalogUI : MonoBehaviour
         var explicitMain = root.Find(CardMainLabelName) as RectTransform;
         if (explicitMain != null)
         {
-            StretchCardLabel(explicitMain);
+            LayoutMainCardLabel(explicitMain);
 
             var text = explicitMain.GetComponent<TMP_Text>();
-            if (text != null) text.alignment = TextAlignmentOptions.Center;
+            if (text != null)
+            {
+                text.alignment = TextAlignmentOptions.MidlineLeft;
+                text.fontSize = DesignTokens.FontSizeBody;
+                text.color = DesignTokens.TextPrimary;
+            }
         }
+
+        EnsureCategoryBadge(root);
+        EnsureTechnicalIdLabel(root);
     }
 
-    static void StretchCardLabel(RectTransform labelRect)
+    static void LayoutMainCardLabel(RectTransform labelRect)
     {
         if (labelRect == null) return;
-        labelRect.anchorMin = Vector2.zero;
-        labelRect.anchorMax = Vector2.one;
-        labelRect.pivot = new Vector2(0.5f, 0.5f);
-        labelRect.offsetMin = new Vector2(10f, 0f);
-        labelRect.offsetMax = new Vector2(-10f, 0f);
+        labelRect.anchorMin = new Vector2(0f, 1f);
+        labelRect.anchorMax = new Vector2(1f, 1f);
+        labelRect.pivot = new Vector2(0f, 1f);
+        labelRect.offsetMin = new Vector2(16f, -64f);
+        labelRect.offsetMax = new Vector2(-16f, -38f);
     }
 
-    void SetCardLabel(GameObject root, string typeId)
+    void SetCardLabel(GameObject root, string displayLabel, string typeId)
     {
         NormalizeCardVisuals(root);
 
@@ -1817,25 +1832,133 @@ public class CatalogUI : MonoBehaviour
             var txt = explicitMain.GetComponent<TMP_Text>();
             if (txt != null)
             {
-                txt.text = typeId;
-                txt.alignment = TextAlignmentOptions.Center;
+                txt.text = string.IsNullOrWhiteSpace(displayLabel) ? BuildDisplayName(typeId) : displayLabel;
+                txt.alignment = TextAlignmentOptions.MidlineLeft;
             }
-            return;
         }
+
+        var categoryLabel = root.transform.Find($"{CardCategoryBadgeName}/{CardCategoryLabelName}")?.GetComponent<TMP_Text>();
+        if (categoryLabel != null) categoryLabel.text = BuildCategoryLabel(typeId);
+
+        var technical = root.transform.Find(CardTechnicalLabelName)?.GetComponent<TMP_Text>();
+        if (technical != null) technical.text = typeId ?? string.Empty;
 
         var tmps = root.GetComponentsInChildren<TMP_Text>(true);
         foreach (var tmp in tmps)
         {
             if (tmp == null) continue;
             if (IsUnderCardRemoveButton(tmp.transform)) continue;
-            tmp.text = typeId;
-            tmp.alignment = TextAlignmentOptions.Center;
+            if (tmp.transform == explicitMain || tmp == categoryLabel || tmp == technical) continue;
+            tmp.text = string.IsNullOrWhiteSpace(displayLabel) ? BuildDisplayName(typeId) : displayLabel;
+            tmp.alignment = TextAlignmentOptions.MidlineLeft;
             if (tmp.rectTransform != null && tmp.rectTransform.parent == root.transform)
             {
-                StretchCardLabel(tmp.rectTransform);
+                LayoutMainCardLabel(tmp.rectTransform);
             }
             break;
         }
+    }
+
+    static RectTransform EnsureCategoryBadge(Transform root)
+    {
+        var badge = root.Find(CardCategoryBadgeName) as RectTransform;
+        if (badge == null)
+        {
+            var badgeGo = new GameObject(CardCategoryBadgeName, typeof(RectTransform), typeof(Image));
+            badge = badgeGo.GetComponent<RectTransform>();
+            badge.SetParent(root, false);
+        }
+
+        badge.anchorMin = new Vector2(0f, 1f);
+        badge.anchorMax = new Vector2(0f, 1f);
+        badge.pivot = new Vector2(0f, 1f);
+        badge.offsetMin = new Vector2(16f, -34f);
+        badge.offsetMax = new Vector2(84f, -12f);
+
+        var image = badge.GetComponent<Image>();
+        if (image == null) image = badge.gameObject.AddComponent<Image>();
+        image.color = DesignTokens.BadgeBg(DesignTokens.Accent);
+        image.raycastTarget = false;
+
+        var label = badge.Find(CardCategoryLabelName)?.GetComponent<TMP_Text>();
+        if (label == null)
+        {
+            var labelGo = new GameObject(CardCategoryLabelName, typeof(RectTransform), typeof(TextMeshProUGUI));
+            labelGo.transform.SetParent(badge, false);
+            label = labelGo.GetComponent<TMP_Text>();
+        }
+
+        label.fontSize = DesignTokens.FontSizeCaption;
+        label.color = DesignTokens.Accent;
+        label.alignment = TextAlignmentOptions.Center;
+        label.raycastTarget = false;
+        label.rectTransform.anchorMin = Vector2.zero;
+        label.rectTransform.anchorMax = Vector2.one;
+        label.rectTransform.offsetMin = Vector2.zero;
+        label.rectTransform.offsetMax = Vector2.zero;
+        return badge;
+    }
+
+    static TMP_Text EnsureTechnicalIdLabel(Transform root)
+    {
+        var technical = root.Find(CardTechnicalLabelName)?.GetComponent<TMP_Text>();
+        if (technical == null)
+        {
+            var go = new GameObject(CardTechnicalLabelName, typeof(RectTransform), typeof(TextMeshProUGUI));
+            go.transform.SetParent(root, false);
+            technical = go.GetComponent<TMP_Text>();
+        }
+
+        technical.fontSize = DesignTokens.FontSizeCaption;
+        technical.color = DesignTokens.TextSecondary;
+        technical.alignment = TextAlignmentOptions.MidlineLeft;
+        technical.raycastTarget = false;
+        var rt = technical.rectTransform;
+        rt.anchorMin = new Vector2(0f, 1f);
+        rt.anchorMax = new Vector2(1f, 1f);
+        rt.pivot = new Vector2(0f, 1f);
+        rt.offsetMin = new Vector2(16f, -84f);
+        rt.offsetMax = new Vector2(-16f, -64f);
+        return technical;
+    }
+
+    static void EnsureCardOutline(Transform target)
+    {
+        if (target == null) return;
+        if (target.GetComponent<Graphic>() == null) return;
+
+        var outline = target.GetComponent<Outline>();
+        if (outline == null) outline = target.gameObject.AddComponent<Outline>();
+        outline.effectColor = DesignTokens.Divider;
+        outline.effectDistance = new Vector2(1f, -1f);
+        outline.useGraphicAlpha = false;
+    }
+
+    static string BuildDisplayName(string typeId)
+    {
+        if (string.IsNullOrWhiteSpace(typeId)) return string.Empty;
+
+        if (typeId.Contains("Vehicle/Car", StringComparison.OrdinalIgnoreCase)) return "\u8ECA\u4E21";
+        if (typeId.Contains("ToolBox", StringComparison.OrdinalIgnoreCase)) return "\u5DE5\u5177\u7BB1";
+        if (typeId.Contains("Tire/Replacement", StringComparison.OrdinalIgnoreCase)) return "\u30BF\u30A4\u30E4\u4EA4\u63DB";
+        if (typeId.Contains("Env/Wall", StringComparison.OrdinalIgnoreCase)) return "\u58C1";
+
+        var tail = typeId;
+        int slash = tail.LastIndexOf('/');
+        if (slash >= 0 && slash < tail.Length - 1) tail = tail.Substring(slash + 1);
+        tail = tail.Replace("_Proxy", string.Empty).Replace('_', ' ').Trim();
+        return string.IsNullOrWhiteSpace(tail) ? typeId : tail;
+    }
+
+    static string BuildCategoryLabel(string typeId)
+    {
+        if (string.IsNullOrWhiteSpace(typeId)) return "\u305D\u306E\u4ED6";
+        if (typeId.Contains("Vehicle", StringComparison.OrdinalIgnoreCase)) return "\u8ECA\u4E21";
+        if (typeId.Contains("Tire", StringComparison.OrdinalIgnoreCase)) return "\u8ECA\u4E21";
+        if (typeId.Contains("Tool", StringComparison.OrdinalIgnoreCase)) return "\u5DE5\u5177";
+        if (typeId.Contains("Env", StringComparison.OrdinalIgnoreCase)) return "\u74B0\u5883";
+        if (typeId.Contains("Imported", StringComparison.OrdinalIgnoreCase)) return "\u8FFD\u52A0";
+        return "\u305D\u306E\u4ED6";
     }
 
     static bool IsUnderCardRemoveButton(Transform target)

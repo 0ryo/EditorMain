@@ -146,16 +146,32 @@ public static class BuildUiPrefabs
 
         var cardTemplate = CreateUiRect("Card_Template", content);
         SetRect(cardTemplate, new Vector2(0f, 1f), new Vector2(1f, 1f), Vector2.zero, Vector2.zero);
-        cardTemplate.gameObject.AddComponent<Image>().color = DesignTokens.BgSecondary;
+        cardTemplate.gameObject.AddComponent<Image>().color = DesignTokens.Surface;
+        EnsureThinOutline(cardTemplate.gameObject, DesignTokens.Divider);
         var cardButton = cardTemplate.gameObject.AddComponent<Button>();
         var cardLayout = cardTemplate.gameObject.AddComponent<LayoutElement>();
-        cardLayout.minHeight = 84f;
-        cardLayout.preferredHeight = 84f;
+        cardLayout.minHeight = 96f;
+        cardLayout.preferredHeight = 96f;
+
+        var categoryBadge = CreateUiRect("Badge_Category", cardTemplate);
+        SetRect(categoryBadge, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(16f, -34f), new Vector2(84f, -12f));
+        categoryBadge.gameObject.AddComponent<Image>().color = DesignTokens.BadgeBg(DesignTokens.Accent);
+        var categoryLabel = CreateText("LabelCategory", categoryBadge, "\u305D\u306E\u4ED6");
+        categoryLabel.fontSize = DesignTokens.FontSizeCaption;
+        categoryLabel.color = DesignTokens.Accent;
+        categoryLabel.alignment = TextAlignmentOptions.Center;
+        SetRect(categoryLabel.rectTransform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
 
         var labelMain = CreateText("LabelMain", cardTemplate, "Item");
-        labelMain.fontSize = 14;
-        labelMain.alignment = TextAlignmentOptions.Center;
-        SetRect(labelMain.rectTransform, new Vector2(0f, 0f), new Vector2(1f, 1f), new Vector2(10f, 0f), new Vector2(-10f, 0f));
+        labelMain.fontSize = DesignTokens.FontSizeBody;
+        labelMain.alignment = TextAlignmentOptions.MidlineLeft;
+        SetRect(labelMain.rectTransform, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(16f, -64f), new Vector2(-16f, -38f));
+
+        var technicalLabel = CreateText("LabelTechnicalId", cardTemplate, "Type/Id");
+        technicalLabel.fontSize = DesignTokens.FontSizeCaption;
+        technicalLabel.color = DesignTokens.TextSecondary;
+        technicalLabel.alignment = TextAlignmentOptions.MidlineLeft;
+        SetRect(technicalLabel.rectTransform, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(16f, -84f), new Vector2(-16f, -64f));
 
         cardTemplate.gameObject.SetActive(false);
         var settingsPanel = BuildSettingsDialog(

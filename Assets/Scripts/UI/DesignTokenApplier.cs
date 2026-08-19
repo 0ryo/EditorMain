@@ -231,7 +231,8 @@ public static class DesignTokenApplier
             var button = child.GetComponent<Button>();
             if (image != null && button != null)
             {
-                image.color = DesignTokens.BgSecondary;
+                image.color = DesignTokens.Surface;
+                EnsureThinOutline(child, DesignTokens.Divider);
 
                 var thumb = child.Find("Thumbnail");
                 if (thumb != null) thumb.gameObject.SetActive(false);
@@ -487,51 +488,97 @@ public static class DesignTokenApplier
             if (!child.name.StartsWith("Card_") && child.name != "Card_Template") continue;
             if (child.GetComponent<Button>() == null) continue;
 
-            // LabelMain を中央配置
-            var labelMain = child.Find("LabelMain");
-            if (labelMain != null)
-            {
-                var text = labelMain.GetComponent<TMP_Text>();
-                if (text != null)
-                {
-                    text.alignment = TextAlignmentOptions.Center;
-                }
-
-                var labelRect = labelMain as RectTransform;
-                if (labelRect != null)
-                {
-                    labelRect.anchorMin = Vector2.zero;
-                    labelRect.anchorMax = Vector2.one;
-                    labelRect.pivot = new Vector2(0.5f, 0.5f);
-                    labelRect.offsetMin = new Vector2(10f, 0f);
-                    labelRect.offsetMax = new Vector2(-10f, 0f);
-                }
-            }
-
-            // フォールバック: 最初の TMP_Text を中央配置
-            if (labelMain == null)
-            {
-                var text = child.GetComponentInChildren<TMP_Text>(true);
-                if (text != null)
-                {
-                    text.alignment = TextAlignmentOptions.Center;
-                    var textRect = text.rectTransform;
-                    if (textRect != null && textRect.parent == child)
-                    {
-                        textRect.anchorMin = Vector2.zero;
-                        textRect.anchorMax = Vector2.one;
-                        textRect.pivot = new Vector2(0.5f, 0.5f);
-                        textRect.offsetMin = new Vector2(10f, 0f);
-                        textRect.offsetMax = new Vector2(-10f, 0f);
-                    }
-                }
-            }
+            ApplyCatalogCardTextLayout(child);
 
             var thumb = child.Find("Thumbnail");
             if (thumb != null) thumb.gameObject.SetActive(false);
 
             var removeButton = child.Find("Button_RemoveCard");
             if (removeButton != null) removeButton.gameObject.SetActive(false);
+        }
+    }
+
+    static void ApplyCatalogCardTextLayout(Transform child)
+    {
+        if (child == null) return;
+
+        var categoryBadge = child.Find("Badge_Category") as RectTransform;
+        if (categoryBadge != null)
+        {
+            categoryBadge.anchorMin = new Vector2(0f, 1f);
+            categoryBadge.anchorMax = new Vector2(0f, 1f);
+            categoryBadge.pivot = new Vector2(0f, 1f);
+            categoryBadge.offsetMin = new Vector2(16f, -34f);
+            categoryBadge.offsetMax = new Vector2(84f, -12f);
+
+            var image = categoryBadge.GetComponent<Image>();
+            if (image != null) image.color = DesignTokens.BadgeBg(DesignTokens.Accent);
+
+            var categoryText = categoryBadge.Find("LabelCategory")?.GetComponent<TMP_Text>();
+            if (categoryText != null)
+            {
+                categoryText.fontSize = DesignTokens.FontSizeCaption;
+                categoryText.color = DesignTokens.Accent;
+                categoryText.alignment = TextAlignmentOptions.Center;
+            }
+        }
+
+        var technical = child.Find("LabelTechnicalId")?.GetComponent<TMP_Text>();
+        if (technical != null)
+        {
+            technical.fontSize = DesignTokens.FontSizeCaption;
+            technical.color = DesignTokens.TextSecondary;
+            technical.alignment = TextAlignmentOptions.MidlineLeft;
+            var technicalRect = technical.rectTransform;
+            technicalRect.anchorMin = new Vector2(0f, 1f);
+            technicalRect.anchorMax = new Vector2(1f, 1f);
+            technicalRect.pivot = new Vector2(0f, 1f);
+            technicalRect.offsetMin = new Vector2(16f, -84f);
+            technicalRect.offsetMax = new Vector2(-16f, -64f);
+        }
+
+        // LabelMain をカードタイトルとして左寄せ配置
+        {
+            var labelMain = child.Find("LabelMain");
+            if (labelMain != null)
+            {
+                var text = labelMain.GetComponent<TMP_Text>();
+                if (text != null)
+                {
+                    text.fontSize = DesignTokens.FontSizeBody;
+                    text.color = DesignTokens.TextPrimary;
+                    text.alignment = TextAlignmentOptions.MidlineLeft;
+                }
+
+                var labelRect = labelMain as RectTransform;
+                if (labelRect != null)
+                {
+                    labelRect.anchorMin = new Vector2(0f, 1f);
+                    labelRect.anchorMax = new Vector2(1f, 1f);
+                    labelRect.pivot = new Vector2(0f, 1f);
+                    labelRect.offsetMin = new Vector2(16f, -64f);
+                    labelRect.offsetMax = new Vector2(-16f, -38f);
+                }
+            }
+
+            // フォールバック: 最初の TMP_Text をカードタイトルとして扱う
+            if (labelMain == null)
+            {
+                var text = child.GetComponentInChildren<TMP_Text>(true);
+                if (text != null)
+                {
+                    text.alignment = TextAlignmentOptions.MidlineLeft;
+                    var textRect = text.rectTransform;
+                    if (textRect != null && textRect.parent == child)
+                    {
+                        textRect.anchorMin = new Vector2(0f, 1f);
+                        textRect.anchorMax = new Vector2(1f, 1f);
+                        textRect.pivot = new Vector2(0f, 1f);
+                        textRect.offsetMin = new Vector2(16f, -64f);
+                        textRect.offsetMax = new Vector2(-16f, -38f);
+                    }
+                }
+            }
         }
     }
 

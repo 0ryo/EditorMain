@@ -57,10 +57,17 @@
 - `WorkspaceFloorGrid` を追加し、実行時に床グリッドを補完して灰色の無地感を減らすようにした。
 - `SelectionOutline` のライン色を `DesignTokens.Accent` に変更した。
 - `BuildUiPrefabs` と `CatalogUI` の両方に `ViewportStatusStrip` の生成/補完ルートを追加した。
+- Task 4: Phase 3 Catalog Polish の入口としてカタログカード表示を改善。
+- カードをカテゴリバッジ、表示名、技術IDの3段構成にした。
+- `CatalogUI` は `typeId` からカテゴリ/表示名を推定し、既存Prefabへ `Badge_Category` / `LabelCategory` / `LabelTechnicalId` をランタイム補完するようにした。
+- `BuildUiPrefabs` の `Card_Template` も同じ3段構成で生成するようにした。
+- `DesignTokenApplier` の旧カード中央寄せ補正を、新カードレイアウト維持に変更した。
+- UI仕様ログ `Docs/worklog/worklog_UI/全体UI仕様.md` と `Docs/worklog/worklog_UI/worklog_オブジェクト一覧ウィンドウ.md` を更新した。
 
 ## 6. 検証状況
 - `git diff --check`: 現在ブランチ作成前の監査コミットで成功。
 - `git diff --check`: Task 2 変更後に成功。
 - `git diff --check`: Task 3 変更後に成功。
+- `git diff --check`: Task 4 変更後に成功。
 - `dotnet build .\Assembly-CSharp.csproj`: 実行したが、Unity生成csprojが既存の `DesignTokens` / `UiRoundedTheme` / `RuntimeModelLoader` などを解決できない状態で失敗。Unity Editor 起動なしの静的ビルド検証としては利用不可。
 - Unity Editor 起動、Unity CLI、コンパイル確認は Local Execution Policy により未実施。
