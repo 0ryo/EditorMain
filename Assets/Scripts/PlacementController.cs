@@ -25,8 +25,20 @@ public class PlacementController : MonoBehaviour
 
     void Awake()
     {
+        EnsureRegistryAssigned();
         RebuildTypeMapFromRegistry();
         WorkspaceFloorGrid.EnsureExists();
+    }
+
+    void EnsureRegistryAssigned()
+    {
+        if (registry != null && registry.HasEntries) return;
+
+        var defaultRegistry = PrefabRegistry.LoadDefault();
+        if (defaultRegistry == null || !defaultRegistry.HasEntries) return;
+
+        registry = defaultRegistry;
+        Debug.Log($"[Placement] Bound default registry: {PrefabRegistry.DefaultAssetPath}");
     }
 
     void RebuildTypeMapFromRegistry()
@@ -53,8 +65,9 @@ public class PlacementController : MonoBehaviour
 
     void EnsureTypeMap()
     {
-        if (map != null) return;
-        map = new Dictionary<string, GameObject>();
+        EnsureRegistryAssigned();
+        if (map != null && map.Count > 0) return;
+        RebuildTypeMapFromRegistry();
     }
 
     public bool RegisterRuntimePrefab(string typeId, GameObject prefab)

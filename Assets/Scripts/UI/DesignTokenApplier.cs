@@ -41,11 +41,11 @@ public static class DesignTokenApplier
 
         // スクロール領域
         var scroll = FindDeep(panelRoot, "Scroll_Catalog");
-        SetImageColor(scroll, DesignTokens.Surface);
+        SetImageColor(scroll, DesignTokens.BgPrimary);
         if (scroll != null)
         {
             var viewport = scroll.Find("Viewport");
-            SetImageColor(viewport, DesignTokens.Surface);
+            SetImageColor(viewport, DesignTokens.BgPrimary);
         }
 
         // リサイズハンドル

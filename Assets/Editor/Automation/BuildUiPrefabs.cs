@@ -121,12 +121,12 @@ public static class BuildUiPrefabs
 
         var scroll = CreateUiRect("Scroll_Catalog", panel);
         SetRect(scroll, new Vector2(0f, 0f), new Vector2(1f, 1f), new Vector2(8f, 56f), new Vector2(-8f, -72f));
-        scroll.gameObject.AddComponent<Image>().color = DesignTokens.Surface;
+        scroll.gameObject.AddComponent<Image>().color = DesignTokens.BgPrimary;
         var scrollRect = scroll.gameObject.AddComponent<ScrollRect>();
 
         var viewport = CreateUiRect("Viewport", scroll);
         SetRect(viewport, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
-        viewport.gameObject.AddComponent<Image>().color = DesignTokens.Surface;
+        viewport.gameObject.AddComponent<Image>().color = DesignTokens.BgPrimary;
         viewport.gameObject.AddComponent<Mask>().showMaskGraphic = false;
 
         var content = CreateUiRect("Content", viewport);

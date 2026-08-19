@@ -183,6 +183,24 @@ public class CatalogUI : MonoBehaviour
             registry = placementController.registry;
         }
 
+        if (registry == null || !registry.HasEntries)
+        {
+            var defaultRegistry = PrefabRegistry.LoadDefault();
+            if (defaultRegistry != null && defaultRegistry.HasEntries)
+            {
+                registry = defaultRegistry;
+                Debug.Log($"[CatalogUI] Bound default registry: {PrefabRegistry.DefaultAssetPath}");
+            }
+        }
+
+        if (placementController != null &&
+            (placementController.registry == null || !placementController.registry.HasEntries) &&
+            registry != null &&
+            registry.HasEntries)
+        {
+            placementController.registry = registry;
+        }
+
         EnsurePlacementControllerBinding();
 
         if (!runtimeListenerBound && onSelectType.GetPersistentEventCount() == 0 && placementController != null)

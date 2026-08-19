@@ -119,3 +119,7 @@
 - `CatalogUI` は `typeId` からカテゴリと表示名を推定し、既存Prefabでもランタイム補完で同じ構造を生成する。
 - `BuildUiPrefabs` の `Card_Template` も同じ3段構成で生成する。
 - `DesignTokenApplier` は旧カード中央寄せ補正をやめ、新カードレイアウトを維持する。
+
+## 18. 追記（2026-06-29 / 既定カタログ復旧）
+- `CatalogUI` と `PlacementController` は registry 未設定または空の場合、`Assets/Data/DefaultRegistry.asset` を既定値として読み込む。
+- カタログのスクロール領域背景は `DesignTokens.BgPrimary` とし、`Surface` カードが背景に埋もれないようにする。
