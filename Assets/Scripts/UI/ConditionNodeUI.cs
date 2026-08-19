@@ -356,7 +356,7 @@ public class ConditionNodeUI : MonoBehaviour
     {
         int index = ExtractTrailingNumber(conditionNode != null ? conditionNode.nodeId : null);
         if (index <= 0) index = 1;
-        return $"\u624B\u9806 {index}";
+        return $"\u6761\u4EF6 {index}";
     }
 
     static int ExtractTrailingNumber(string value)
@@ -401,7 +401,7 @@ public class ConditionNodeUI : MonoBehaviour
             outputConnector.gameObject.SetActive(false);
 
         if (nodeIdText != null)
-            nodeIdText.text = $"\u624B\u9806 {sequentialIndex}";
+            nodeIdText.text = $"\u6761\u4EF6 {sequentialIndex}";
     }
 
     void EnsureTitleInputReference()

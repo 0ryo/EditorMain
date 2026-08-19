@@ -63,11 +63,17 @@
 - `BuildUiPrefabs` の `Card_Template` も同じ3段構成で生成するようにした。
 - `DesignTokenApplier` の旧カード中央寄せ補正を、新カードレイアウト維持に変更した。
 - UI仕様ログ `Docs/worklog/worklog_UI/全体UI仕様.md` と `Docs/worklog/worklog_UI/worklog_オブジェクト一覧ウィンドウ.md` を更新した。
+- Task 5: Scenario graph の英語表示残りを日本語へ寄せた。
+- `StepNodeUI` の見出しを `STEP n` から `手順 n` に変更した。
+- `ConditionNodeUI` の見出しを `条件 n` に統一した。
+- `BuildUiPrefabs` の Step node template 初期表示も `手順 1` に変更した。
+- `CurriculumGraphService` の新規Stepタイトルと保存JSONの required action 名も `手順 n` に変更した。
 
 ## 6. 検証状況
 - `git diff --check`: 現在ブランチ作成前の監査コミットで成功。
 - `git diff --check`: Task 2 変更後に成功。
 - `git diff --check`: Task 3 変更後に成功。
 - `git diff --check`: Task 4 変更後に成功。
+- `git diff --check`: Task 5 変更後に成功。
 - `dotnet build .\Assembly-CSharp.csproj`: 実行したが、Unity生成csprojが既存の `DesignTokens` / `UiRoundedTheme` / `RuntimeModelLoader` などを解決できない状態で失敗。Unity Editor 起動なしの静的ビルド検証としては利用不可。
 - Unity Editor 起動、Unity CLI、コンパイル確認は Local Execution Policy により未実施。

@@ -633,7 +633,7 @@ public static class BuildUiPrefabs
         EnsureThinOutline(root.gameObject, DesignTokens.Divider);
         var stepNode = root.gameObject.AddComponent<StepNodeUI>();
 
-        var stepId = CreateText("Text_StepId", root, "STEP 1");
+        var stepId = CreateText("Text_StepId", root, "\u624B\u9806 1");
         stepId.fontStyle = FontStyles.Bold;
         SetRect(stepId.rectTransform, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(12f, -28f), new Vector2(-44f, -8f));
 

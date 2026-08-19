@@ -63,7 +63,7 @@ public class StepNodeUI : MonoBehaviour
         if (stepNode == null) return;
 
         int displayIndex = stepDisplayIndex <= 0 ? 1 : stepDisplayIndex;
-        string stepName = $"STEP {displayIndex}";
+        string stepName = $"\u624B\u9806 {displayIndex}";
 
         if (stepIdText != null)
         {

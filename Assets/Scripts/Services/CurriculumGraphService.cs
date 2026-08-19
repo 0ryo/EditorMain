@@ -109,7 +109,7 @@ public class CurriculumGraphService : MonoBehaviour
             nodeType = ScenarioNodeType.Step,
             step = new StepNodeData
             {
-                title = $"STEP {stepSequence}"
+                title = $"\u624B\u9806 {stepSequence}"
             },
             condition = new ConditionNodeData()
         };
@@ -881,7 +881,7 @@ public class CurriculumGraphService : MonoBehaviour
             var action = new RequiredActionExport
             {
                 id = $"act-{(i + 1).ToString("D3")}",
-                name = $"STEP {i + 1}"
+                name = $"\u624B\u9806 {i + 1}"
             };
 
             var conditions = GetConditionNodesForStep(step.nodeId);

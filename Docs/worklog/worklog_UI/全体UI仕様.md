@@ -124,10 +124,10 @@
 
 ## 9. ノードカード仕様
 - `StepNodeUI`
-  - 表示: `STEP n`、条件数サマリ、警告アイコン
+  - 表示: `手順 n`、条件数サマリ、警告アイコン
   - 接続: 入力1 / 出力1（StepFlow）
 - `ConditionNodeUI`
-  - 表示: `Condition nodeId`、`DropdownA` + `DropdownB`
+  - 表示: `条件 n`、`DropdownA` + `DropdownB`
   - 接続: 出力1（ConditionBind）
 - `TerminalNodeUI`
   - `開始`: 出力のみ
@@ -330,3 +330,9 @@
 - `CatalogUI` は既存Prefabでも `Badge_Category` / `LabelCategory` / `LabelTechnicalId` をランタイム補完する。
 - `BuildUiPrefabs` の `Card_Template` も同じ3段構成で生成する。
 - `DesignTokenApplier` は旧中央寄せ補正をやめ、新カードレイアウトを維持する。
+
+## 37. 2026-06-29 Scenario Graph Japanese Terminology
+- `StepNodeUI` の見出しを `STEP n` から `手順 n` に変更する。
+- `ConditionNodeUI` の見出しを `条件 n` に統一する。
+- `BuildUiPrefabs` の Step node template も `手順 1` で生成する。
+- `CurriculumGraphService` の新規Stepタイトルと保存JSONの required action 名も `手順 n` とする。
