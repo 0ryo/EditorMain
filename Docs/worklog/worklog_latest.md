@@ -1,7 +1,7 @@
 # worklog_latest
 
 ## 0. 対象範囲
-- ブランチ: `codex/ui-design-foundation-20260629`
+- ブランチ: `codex/placement-camera-floor-refactor`
 - 作業テーマ: `ui_design_implementation_policy_2026-06-29.md` に基づく UI デザイン実装
 - 最終更新: 2026-06-29
 - 旧ログ: `Docs/worklog/worklog_2026-06-29_ui_design_audit.md`
@@ -102,6 +102,13 @@
 - 配置開始、クリック受理、UIブロック、配置点解決、配置成功/失敗を `[Placement]` ログとしてコンソールへ出すようにした。
 - `CommandService` が未初期化でも直接配置へフォールバックし、まずオブジェクトが出ることを優先するようにした。
 - `ViewportStatusStrip` にカメラ座標/ズーム値と直近の配置デバッグログを表示する行を追加した。
+- Task 14: 床/視点移動/配置の調査とリファクタリング。
+- 調査結果: Scene上の `Floor` は Layer 8 かつ `floorMask` も Layer 8 だが、Collider は 1x1 の `BoxCollider` なので、広いグリッド表示範囲のクリックを床Colliderで受ける設計として不十分だった。
+- 調査結果: Unity公式API上も `Camera.ScreenPointToRay` と `Plane.Raycast` でスクリーン座標を作業平面へ直接変換できるため、配置は床Colliderではなく y=0 の数学的な作業平面を主経路にする。
+- `EditWorkspace` を追加し、カメラ解決、作業平面変換、配置点スナップ、UI矩形ブロック判定、入力欄判定を集約した。
+- `PlacementController` は `floorMask` 依存をやめ、`EditWorkspace.TryScreenToGround` で必ず作業平面へ配置点を解決するようにした。
+- `EditorCameraController` はUI矩形ブロックをやめ、入力欄編集中以外は中ドラッグ/Shift+中ドラッグ/ホイールを処理するようにした。
+- `CatalogUI` と `ViewportStatusStrip` も `EditWorkspace` 経由で同じカメラを解決するようにし、初期化経路を一本化した。
 
 ## 6. 検証状況
 - `git diff --check`: 現在ブランチ作成前の監査コミットで成功。
@@ -117,5 +124,6 @@
 - `git diff --check`: Task 11 変更後に成功。
 - `git diff --check`: Task 12 変更後に成功。
 - `git diff --check -- Assets/Scripts/PlacementController.cs Assets/Scripts/UI/ViewportStatusStrip.cs Docs/worklog/worklog_latest.md Docs/worklog/worklog_UI/全体UI仕様.md`: Task 13 変更後に成功。
+- `git diff --check -- Assets/Scripts/EditWorkspace.cs Assets/Scripts/EditWorkspace.cs.meta Assets/Scripts/EditCameraController.cs Assets/Scripts/PlacementController.cs Assets/Scripts/CatalogUI.cs Assets/Scripts/UI/ViewportStatusStrip.cs Assets/Scripts/UI/ViewportStatusStrip.cs.meta Docs/worklog/worklog_latest.md Docs/worklog/worklog_UI/全体UI仕様.md`: Task 14 変更後に成功。
 - `dotnet build .\Assembly-CSharp.csproj`: 実行したが、Unity生成csprojが既存の `DesignTokens` / `UiRoundedTheme` / `RuntimeModelLoader` などを解決できない状態で失敗。Unity Editor 起動なしの静的ビルド検証としては利用不可。
 - Unity Editor 起動、Unity CLI、コンパイル確認は Local Execution Policy により未実施。

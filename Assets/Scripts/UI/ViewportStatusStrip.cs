@@ -281,7 +281,7 @@ public class ViewportStatusStrip : MonoBehaviour
     {
         if (debugText == null) return;
 
-        var cam = Camera.main != null ? Camera.main : FindFirstObjectByType<Camera>();
+        var cam = EditWorkspace.ResolveCamera();
         string cameraText = cam != null
             ? $"Cam {FormatVector(cam.transform.position)} / Zoom {(cam.orthographic ? cam.orthographicSize : cam.transform.position.magnitude):0.0}"
             : "Cam none";

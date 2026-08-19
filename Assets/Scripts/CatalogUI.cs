@@ -214,11 +214,7 @@ public class CatalogUI : MonoBehaviour
 
     void EnsureViewportReady(bool resetView)
     {
-        var viewportCamera = placementController != null && placementController.cam != null
-            ? placementController.cam
-            : Camera.main != null
-                ? Camera.main
-                : FindFirstObjectByType<Camera>();
+        var viewportCamera = EditWorkspace.ResolveCamera(placementController != null ? placementController.cam : null);
 
         if (viewportCamera != null)
         {
@@ -229,7 +225,7 @@ public class CatalogUI : MonoBehaviour
             }
             else if (resetView)
             {
-                viewportCamera.transform.position = new Vector3(0f, 6f, -10f);
+                viewportCamera.transform.position = EditWorkspace.DefaultCameraPosition;
                 viewportCamera.transform.LookAt(Vector3.zero, Vector3.up);
                 viewportCamera.orthographic = true;
                 viewportCamera.orthographicSize = 7f;
@@ -243,7 +239,7 @@ public class CatalogUI : MonoBehaviour
             }
         }
 
-        WorkspaceFloorGrid.EnsureExists();
+        EditWorkspace.EnsureWorkspaceVisuals();
     }
 
     void EnsurePlacementControllerBinding()

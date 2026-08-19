@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using System;
 using UnityEngine;
-using UnityEngine.EventSystems;
 
 public class PlacementController : MonoBehaviour
 {
@@ -16,21 +15,10 @@ public class PlacementController : MonoBehaviour
         "Button_Settings_Runtime"
     };
 
-    static readonly string[] CameraBlockingUiRectNames =
-    {
-        "Panel_Catalog",
-        "Panel_Settings",
-        "Panel_NewObjectSettings",
-        "EditModeRow",
-        "EditModeRow_Runtime",
-        "Button_Settings",
-        "Button_Settings_Runtime"
-    };
-
     public PrefabRegistry registry;
     public Camera cam;
     public float gridSize = 0.1f;
-    public LayerMask floorMask;
+    public float placementYOffset = 0.5f;
     public SelectionService selection;
 
     string currentTypeId;
@@ -51,19 +39,18 @@ public class PlacementController : MonoBehaviour
         EnsureCameraAssigned();
         EnsureRegistryAssigned();
         RebuildTypeMapFromRegistry();
-        WorkspaceFloorGrid.EnsureExists();
+        EditWorkspace.EnsureWorkspaceVisuals();
     }
 
     void Start()
     {
         EnsureCameraAssigned();
-        WorkspaceFloorGrid.EnsureExists();
+        EditWorkspace.EnsureWorkspaceVisuals();
     }
 
     void EnsureCameraAssigned()
     {
-        if (cam != null) return;
-        cam = Camera.main != null ? Camera.main : FindFirstObjectByType<Camera>();
+        cam = EditWorkspace.ResolveCamera(cam);
     }
 
     void EnsureRegistryAssigned()
@@ -176,12 +163,13 @@ public class PlacementController : MonoBehaviour
             return false;
         }
 
-        if (!TryGetPlacementPoint(screenPosition, out var placementPoint))
+        if (!TryGetPlacementPoint(screenPosition, out var placementPoint, out var resolveReason))
         {
             LogWarning($"PlaceOnceAtScreenPoint failed. Could not resolve placement point. screen={screenPosition}");
             return false;
         }
 
+        LogDebug($"Placement point resolved by {resolveReason}: {placementPoint}");
         return PlaceType(typeId, placementPoint);
     }
 
@@ -192,7 +180,7 @@ public class PlacementController : MonoBehaviour
 
         if (!Input.GetMouseButtonDown(0)) return;
 
-        if (TryGetBlockingUiName(Input.mousePosition, BlockingUiRectNames, out var blockingUiName))
+        if (EditWorkspace.TryGetBlockingUiName(Input.mousePosition, BlockingUiRectNames, out var blockingUiName))
         {
             LogDebug($"Placement click blocked by UI: {blockingUiName}, screen={Input.mousePosition}");
             return;
@@ -208,63 +196,13 @@ public class PlacementController : MonoBehaviour
 
     public static bool IsScreenPositionOverBlockingUi(Vector2 screenPosition)
     {
-        return TryGetBlockingUiName(screenPosition, BlockingUiRectNames, out _);
+        return EditWorkspace.TryGetBlockingUiName(screenPosition, BlockingUiRectNames, out _);
     }
 
-    public static bool IsScreenPositionOverCameraBlockingUi(Vector2 screenPosition)
+    bool TryGetPlacementPoint(Vector2 screenPosition, out Vector3 point, out string resolveReason)
     {
-        return TryGetBlockingUiName(screenPosition, CameraBlockingUiRectNames, out _);
-    }
-
-    static bool TryGetBlockingUiName(Vector2 screenPosition, string[] blockingNames, out string blockingUiName)
-    {
-        blockingUiName = null;
-        foreach (var rect in FindObjectsByType<RectTransform>(FindObjectsInactive.Exclude, FindObjectsSortMode.None))
-        {
-            if (rect == null || !IsNamedBlockingUiRect(rect.name, blockingNames)) continue;
-            if (RectTransformUtility.RectangleContainsScreenPoint(rect, screenPosition, null))
-            {
-                blockingUiName = rect.name;
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    static bool IsNamedBlockingUiRect(string objectName, string[] blockingNames)
-    {
-        if (string.IsNullOrWhiteSpace(objectName)) return false;
-        foreach (var blockingName in blockingNames)
-        {
-            if (string.Equals(objectName, blockingName, StringComparison.Ordinal)) return true;
-        }
-
-        return false;
-    }
-
-    bool TryGetPlacementPoint(Vector2 screenPosition, out Vector3 point)
-    {
-        point = default;
-        if (cam == null) return false;
-
-        Ray ray = cam.ScreenPointToRay(screenPosition);
-        if (Physics.Raycast(ray, out var hit, 1000f, floorMask))
-        {
-            point = hit.point;
-            LogDebug($"Placement point resolved by floor raycast: {point}");
-            return true;
-        }
-
-        var fallbackPlane = new Plane(Vector3.up, Vector3.zero);
-        if (!fallbackPlane.Raycast(ray, out var distance) || distance < 0f)
-        {
-            return false;
-        }
-
-        point = ray.GetPoint(distance);
-        LogDebug($"Floor raycast missed. Used y=0 plane fallback at {point}.");
-        return true;
+        EnsureCameraAssigned();
+        return EditWorkspace.TryScreenToGround(cam, screenPosition, out point, out resolveReason);
     }
 
     bool PlaceType(string typeId, Vector3 floorPoint)
@@ -275,36 +213,14 @@ public class PlacementController : MonoBehaviour
             return false;
         }
 
-        var placedPosition = floorPoint;
-        placedPosition.x = Mathf.Round(placedPosition.x / gridSize) * gridSize;
-        placedPosition.z = Mathf.Round(placedPosition.z / gridSize) * gridSize;
-        placedPosition.y = floorPoint.y + 0.5f;
+        var placedPosition = EditWorkspace.SnapPlacementPoint(floorPoint, gridSize, placementYOffset);
 
         PlacedObject createdPlacedObject = null;
-        System.Func<string, GameObject> factory = (tId) =>
+        GameObject createdObject = null;
+        System.Func<string, GameObject> factory = tId =>
         {
-            if (!TryGetPrefab(tId, out var sourcePrefab)) return null;
-
-            var obj = UnityEngine.Object.Instantiate(sourcePrefab);
-            if (!obj.activeSelf)
-            {
-                // Runtime-loaded glTF templates stay inactive in the scene; placed instances must be visible.
-                obj.SetActive(true);
-            }
-            var placed = obj.GetComponent<PlacedObject>();
-            if (placed == null) placed = obj.AddComponent<PlacedObject>();
-
-            placed.InitType(tId);
-            placed.ForceNewId();
-            createdPlacedObject = placed;
-            PlacedObjectPickability.EnsurePickable(placed, true);
-
-            if (selection != null)
-            {
-                selection.Select(placed);
-            }
-
-            return obj;
+            createdObject = CreatePlacedObject(tId, out createdPlacedObject);
+            return createdObject;
         };
 
         var cmd = new PlaceObjectCommand(typeId, placedPosition, Quaternion.identity, factory);
@@ -315,22 +231,50 @@ public class PlacementController : MonoBehaviour
         else
         {
             LogWarning("CommandService is missing. Placing object directly without undo stack.");
-            var obj = factory(typeId);
-            if (obj == null)
+            createdObject = factory(typeId);
+            if (createdObject == null)
             {
                 LogWarning($"Direct placement failed. Factory returned null: {typeId}");
                 return false;
             }
-            obj.transform.SetPositionAndRotation(placedPosition, Quaternion.identity);
+            createdObject.transform.SetPositionAndRotation(placedPosition, Quaternion.identity);
         }
 
-        if (createdPlacedObject != null)
+        if (createdObject == null || createdPlacedObject == null)
         {
-            ObjectPlaced?.Invoke(createdPlacedObject, typeId);
+            LogWarning($"PlaceType failed. Object was not created: {typeId}");
+            return false;
         }
+
+        if (selection != null)
+        {
+            selection.Select(createdPlacedObject);
+        }
+
+        ObjectPlaced?.Invoke(createdPlacedObject, typeId);
 
         LogDebug($"Placed OK: type={typeId}, id={createdPlacedObject?.Id ?? "(unknown)"}, position={placedPosition}");
         return true;
+    }
+
+    GameObject CreatePlacedObject(string typeId, out PlacedObject placed)
+    {
+        placed = null;
+        if (!TryGetPrefab(typeId, out var sourcePrefab)) return null;
+
+        var obj = Instantiate(sourcePrefab);
+        if (!obj.activeSelf)
+        {
+            obj.SetActive(true);
+        }
+
+        placed = obj.GetComponent<PlacedObject>();
+        if (placed == null) placed = obj.AddComponent<PlacedObject>();
+
+        placed.InitType(typeId);
+        placed.ForceNewId();
+        PlacedObjectPickability.EnsurePickable(placed, true);
+        return obj;
     }
 
     void LogDebug(string message)

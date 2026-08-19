@@ -2,8 +2,6 @@ using UnityEngine;
 
 public class EditorCameraController : MonoBehaviour
 {
-    static readonly Vector3 DefaultCameraOffset = new Vector3(0f, 6f, -10f);
-
     [Header("Sensitivity")]
     public float orbitSpeed = 12f;
     public float panSpeed = 0.01f;
@@ -32,11 +30,9 @@ public class EditorCameraController : MonoBehaviour
 
     void Start()
     {
-        cachedCamera = GetComponent<Camera>();
-        EnsurePivot();
-        AttachCameraToPivot();
+        EnsureCameraRig();
         ResetToDefaultView();
-        WorkspaceFloorGrid.EnsureExists();
+        EditWorkspace.EnsureWorkspaceVisuals();
 
         SyncPivotAngles();
         ApplySensitivityFloor();
@@ -44,16 +40,14 @@ public class EditorCameraController : MonoBehaviour
 
     void Update()
     {
-        Vector2 mousePosition = Input.mousePosition;
-        bool pointerBlocked = PlacementController.IsScreenPositionOverCameraBlockingUi(mousePosition);
+        EnsureCameraRig();
+        if (EditWorkspace.IsTypingIntoInputField()) return;
 
-        if (!pointerBlocked)
-        {
-            HandleZoom(Input.mouseScrollDelta.y);
-        }
+        Vector2 mousePosition = Input.mousePosition;
+        HandleZoom(Input.mouseScrollDelta.y);
 
         bool middlePressed = Input.GetMouseButton(2);
-        if (pointerBlocked || !middlePressed)
+        if (!middlePressed)
         {
             RememberMousePosition(mousePosition);
             return;
@@ -84,6 +78,17 @@ public class EditorCameraController : MonoBehaviour
         hasPreviousMousePosition = true;
     }
 
+    void EnsureCameraRig()
+    {
+        if (cachedCamera == null)
+        {
+            cachedCamera = GetComponent<Camera>();
+        }
+
+        EnsurePivot();
+        AttachCameraToPivot();
+    }
+
     void EnsurePivot()
     {
         if (pivot != null) return;
@@ -101,12 +106,10 @@ public class EditorCameraController : MonoBehaviour
 
     public void ResetToDefaultView()
     {
-        cachedCamera = GetComponent<Camera>();
-        EnsurePivot();
-        AttachCameraToPivot();
+        EnsureCameraRig();
         pivot.position = Vector3.zero;
         pivot.rotation = Quaternion.identity;
-        transform.localPosition = DefaultCameraOffset;
+        transform.localPosition = EditWorkspace.DefaultCameraPosition;
         transform.LookAt(pivot.position, Vector3.up);
 
         if (cachedCamera != null)
