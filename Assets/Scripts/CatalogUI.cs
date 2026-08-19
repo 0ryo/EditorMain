@@ -133,6 +133,7 @@ public class CatalogUI : MonoBehaviour
     public void HandleCardDrop(string typeId, Vector2 screenPosition)
     {
         EnsureRuntimeBindings();
+        Debug.Log($"[CatalogUI] Card dropped: type={typeId}, screen={screenPosition}, placementController={GetPlacementControllerName()}");
 
         if (placementController == null)
         {
@@ -2282,6 +2283,7 @@ public class CatalogUI : MonoBehaviour
         if (removedTypeIds.Contains(typeId)) return;
         EnsureRuntimeBindings();
         EnsureViewportReady(false);
+        Debug.Log($"[CatalogUI] Card clicked: type={typeId}, placementController={GetPlacementControllerName()}");
 
         if (placementController != null)
         {
@@ -2292,7 +2294,12 @@ public class CatalogUI : MonoBehaviour
             onSelectType?.Invoke(typeId);
         }
 
-        ClearStatus();
+        SetStatus($"配置モード: {typeId}");
+    }
+
+    string GetPlacementControllerName()
+    {
+        return placementController != null ? placementController.name : "(null)";
     }
 
     void OnClickRemoveCard(string typeId)

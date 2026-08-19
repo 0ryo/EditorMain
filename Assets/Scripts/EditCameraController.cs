@@ -22,11 +22,16 @@ public class EditorCameraController : MonoBehaviour
     [Header("Runtime Policy")]
     public bool enforceHighSensitivity = true;
 
+    [Header("Diagnostics")]
+    public bool enableDiagnostics = true;
+    public float diagnosticInterval = 1f;
+
     Camera cachedCamera;
     float yaw;
     float pitch;
     Vector2 previousMousePosition;
     bool hasPreviousMousePosition;
+    float nextDiagnosticLogTime;
 
     void Start()
     {
@@ -36,26 +41,41 @@ public class EditorCameraController : MonoBehaviour
 
         SyncPivotAngles();
         ApplySensitivityFloor();
+        LogDiagnostics("Start", true, Vector2.zero, 0f);
     }
 
     void Update()
     {
         EnsureCameraRig();
-        if (EditWorkspace.IsTypingIntoInputField()) return;
+        bool typingBlocked = EditWorkspace.IsTypingIntoInputField();
+        Vector2 mousePosition = EditInput.MousePosition;
+        float scrollY = EditInput.ScrollY;
+        bool middlePressed = EditInput.MiddlePressed();
+        bool shiftPressed = EditInput.ShiftPressed();
 
-        Vector2 mousePosition = Input.mousePosition;
-        HandleZoom(Input.mouseScrollDelta.y);
+        LogDiagnostics("Update", false, Vector2.zero, scrollY);
 
-        bool middlePressed = Input.GetMouseButton(2);
+        if (typingBlocked)
+        {
+            if (middlePressed || Mathf.Abs(scrollY) > 0.0001f)
+            {
+                Debug.Log("[CameraDiag] Input ignored because a text field is focused.");
+            }
+            return;
+        }
+
+        HandleZoom(scrollY);
+
         if (!middlePressed)
         {
             RememberMousePosition(mousePosition);
             return;
         }
 
-        if (Input.GetMouseButtonDown(2) || !hasPreviousMousePosition)
+        if (EditInput.MiddlePressedThisFrame() || !hasPreviousMousePosition)
         {
             RememberMousePosition(mousePosition);
+            Debug.Log($"[CameraDiag] Middle drag started. mouse={mousePosition}, shift={shiftPressed}");
             return;
         }
 
@@ -63,13 +83,15 @@ public class EditorCameraController : MonoBehaviour
         RememberMousePosition(mousePosition);
         if (delta.sqrMagnitude <= 0.0001f) return;
 
-        if (IsShiftPressed())
+        if (shiftPressed)
         {
             HandleHorizontalPan(delta);
+            LogDiagnostics("Pan", true, delta, scrollY);
             return;
         }
 
         HandleOrbit(delta);
+        LogDiagnostics("Orbit", true, delta, scrollY);
     }
 
     void RememberMousePosition(Vector2 mousePosition)
@@ -177,6 +199,7 @@ public class EditorCameraController : MonoBehaviour
                 maxSize);
 
             cachedCamera.orthographicSize = targetSize;
+            LogDiagnostics("Zoom", true, Vector2.zero, rawScrollY);
             return;
         }
 
@@ -187,11 +210,7 @@ public class EditorCameraController : MonoBehaviour
             maxDistance);
 
         transform.localPosition = transform.localPosition.normalized * targetDistance;
-    }
-
-    static bool IsShiftPressed()
-    {
-        return Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
+        LogDiagnostics("Zoom", true, Vector2.zero, rawScrollY);
     }
 
     static float NormalizeAngle(float angle)
@@ -199,5 +218,21 @@ public class EditorCameraController : MonoBehaviour
         angle %= 360f;
         if (angle > 180f) angle -= 360f;
         return angle;
+    }
+
+    void LogDiagnostics(string phase, bool force, Vector2 delta, float scrollY)
+    {
+        if (!enableDiagnostics) return;
+
+        float now = Time.unscaledTime;
+        if (!force && now < nextDiagnosticLogTime) return;
+        nextDiagnosticLogTime = now + Mathf.Max(0.1f, diagnosticInterval);
+
+        string cameraName = cachedCamera != null ? cachedCamera.name : "(null)";
+        string pivotPosition = pivot != null ? pivot.position.ToString("F2") : "(null)";
+        float orthoSize = cachedCamera != null && cachedCamera.orthographic ? cachedCamera.orthographicSize : -1f;
+
+        Debug.Log(
+            $"[CameraDiag] {phase}: enabled={enabled}, active={gameObject.activeInHierarchy}, cam={cameraName}, mouse={EditInput.MousePosition}, middle={EditInput.MiddlePressed()}, shift={EditInput.ShiftPressed()}, scrollY={scrollY:F3}, delta={delta}, pivot={pivotPosition}, camPos={transform.position.ToString("F2")}, yaw={yaw:F1}, pitch={pitch:F1}, ortho={orthoSize:F2}");
     }
 }

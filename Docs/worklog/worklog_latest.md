@@ -109,6 +109,12 @@
 - `PlacementController` は `floorMask` 依存をやめ、`EditWorkspace.TryScreenToGround` で必ず作業平面へ配置点を解決するようにした。
 - `EditorCameraController` はUI矩形ブロックをやめ、入力欄編集中以外は中ドラッグ/Shift+中ドラッグ/ホイールを処理するようにした。
 - `CatalogUI` と `ViewportStatusStrip` も `EditWorkspace` 経由で同じカメラを解決するようにし、初期化経路を一本化した。
+- Task 15: 配置/視点操作が無反応な問題の実行経路診断を追加。
+- 調査結果: `Editor.log` 上で `TmpFontInitializer.ClearTmpMaterialCaches()` と `TMP_SubMeshUI` 更新中の `NullReferenceException` が継続発生していたため、TMP内部状態が不安定なタイミングでは例外を投げず警告に落として処理を継続するようにした。
+- `EditInput` を追加し、3Dビュー操作の左クリック/中クリック/Shift/ホイールを旧Inputと新Input Systemの両方から読めるようにした。`ProjectSettings.asset` は `activeInputHandler: 2` で両対応だが、SceneのEventSystemは `InputSystemUIInputModule` なので、操作系も新Inputを見られるようにした。
+- `CatalogUI` はカードクリック/ドラッグドロップ時に `[CatalogUI]` ログを出し、`PlacementController` の接続有無と typeId を確認できるようにした。
+- `PlacementController` は `[PlacementDiag]` ログで、配置対象、Prefab map件数、カメラ、マウス座標、左クリック、UIブロック名、EditModeを一定間隔および配置開始時に出すようにした。
+- `EditorCameraController` は `[CameraDiag]` ログで、カメラ/ピボット座標、マウス座標、中ボタン、Shift、ホイール、ズーム値を表示し、視点操作入力が読めているか確認できるようにした。
 
 ## 6. 検証状況
 - `git diff --check`: 現在ブランチ作成前の監査コミットで成功。
@@ -125,5 +131,6 @@
 - `git diff --check`: Task 12 変更後に成功。
 - `git diff --check -- Assets/Scripts/PlacementController.cs Assets/Scripts/UI/ViewportStatusStrip.cs Docs/worklog/worklog_latest.md Docs/worklog/worklog_UI/全体UI仕様.md`: Task 13 変更後に成功。
 - `git diff --check -- Assets/Scripts/EditWorkspace.cs Assets/Scripts/EditWorkspace.cs.meta Assets/Scripts/EditCameraController.cs Assets/Scripts/PlacementController.cs Assets/Scripts/CatalogUI.cs Assets/Scripts/UI/ViewportStatusStrip.cs Assets/Scripts/UI/ViewportStatusStrip.cs.meta Docs/worklog/worklog_latest.md Docs/worklog/worklog_UI/全体UI仕様.md`: Task 14 変更後に成功。
+- `git diff --check -- Assets/Scripts/EditInput.cs Assets/Scripts/EditInput.cs.meta Assets/Scripts/PlacementController.cs Assets/Scripts/EditCameraController.cs Assets/Scripts/CatalogUI.cs Assets/Scripts/UI/TmpFontInitializer.cs`: Task 15 変更後に成功。
 - `dotnet build .\Assembly-CSharp.csproj`: 実行したが、Unity生成csprojが既存の `DesignTokens` / `UiRoundedTheme` / `RuntimeModelLoader` などを解決できない状態で失敗。Unity Editor 起動なしの静的ビルド検証としては利用不可。
 - Unity Editor 起動、Unity CLI、コンパイル確認は Local Execution Policy により未実施。

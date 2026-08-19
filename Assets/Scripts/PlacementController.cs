@@ -29,6 +29,12 @@ public class PlacementController : MonoBehaviour
     public string CurrentTypeId => currentTypeId;
     public string LastDebugMessage { get; private set; }
 
+    [Header("Diagnostics")]
+    public bool enableDiagnostics = true;
+    public float diagnosticInterval = 1f;
+
+    float nextDiagnosticLogTime;
+
     public static void SetUiDragInProgress(bool isDragging)
     {
         uiDragInProgress = isDragging;
@@ -40,12 +46,14 @@ public class PlacementController : MonoBehaviour
         EnsureRegistryAssigned();
         RebuildTypeMapFromRegistry();
         EditWorkspace.EnsureWorkspaceVisuals();
+        LogDiagnostics("Awake", true);
     }
 
     void Start()
     {
         EnsureCameraAssigned();
         EditWorkspace.EnsureWorkspaceVisuals();
+        LogDiagnostics("Start", true);
     }
 
     void EnsureCameraAssigned()
@@ -138,6 +146,7 @@ public class PlacementController : MonoBehaviour
         }
 
         SetCurrentTypeId(typeId);
+        LogDiagnostics($"EnterPlacement type={currentTypeId}", true);
         if (EditModeService.I != null)
         {
             EditModeService.I.SetMode(EditMode.Place);
@@ -175,20 +184,27 @@ public class PlacementController : MonoBehaviour
 
     void Update()
     {
+        LogDiagnostics("Update", false);
+
         if (string.IsNullOrEmpty(currentTypeId)) return;
-        if (uiDragInProgress) return;
-
-        if (!Input.GetMouseButtonDown(0)) return;
-
-        if (EditWorkspace.TryGetBlockingUiName(Input.mousePosition, BlockingUiRectNames, out var blockingUiName))
+        if (uiDragInProgress)
         {
-            LogDebug($"Placement click blocked by UI: {blockingUiName}, screen={Input.mousePosition}");
+            LogDebug("Placement input skipped because catalog drag is in progress.");
             return;
         }
 
-        LogDebug($"Placement click accepted: type={currentTypeId}, screen={Input.mousePosition}");
+        if (!EditInput.LeftPressedThisFrame()) return;
 
-        if (PlaceOnceAtScreenPoint(currentTypeId, Input.mousePosition))
+        var mousePosition = EditInput.MousePosition;
+        if (EditWorkspace.TryGetBlockingUiName(mousePosition, BlockingUiRectNames, out var blockingUiName))
+        {
+            LogDebug($"Placement click blocked by UI: {blockingUiName}, screen={mousePosition}");
+            return;
+        }
+
+        LogDebug($"Placement click accepted: type={currentTypeId}, screen={mousePosition}");
+
+        if (PlaceOnceAtScreenPoint(currentTypeId, mousePosition))
         {
             CancelPlacement();
         }
@@ -287,6 +303,25 @@ public class PlacementController : MonoBehaviour
     {
         LastDebugMessage = message;
         Debug.LogWarning("[Placement] " + message);
+    }
+
+    void LogDiagnostics(string phase, bool force)
+    {
+        if (!enableDiagnostics) return;
+
+        float now = Time.unscaledTime;
+        if (!force && now < nextDiagnosticLogTime) return;
+        nextDiagnosticLogTime = now + Mathf.Max(0.1f, diagnosticInterval);
+
+        var mousePosition = EditInput.MousePosition;
+        string blockingName = null;
+        bool blocked = EditWorkspace.TryGetBlockingUiName(mousePosition, BlockingUiRectNames, out blockingName);
+        string cameraName = cam != null ? cam.name : "(null)";
+        int typeCount = map != null ? map.Count : -1;
+        string mode = EditModeService.I != null ? EditModeService.I.Mode.ToString() : "(no EditModeService)";
+
+        Debug.Log(
+            $"[PlacementDiag] {phase}: enabled={enabled}, active={gameObject.activeInHierarchy}, type={(currentTypeId ?? "(none)")}, map={typeCount}, cam={cameraName}, mouse={mousePosition}, leftDown={EditInput.LeftPressedThisFrame()}, uiDrag={uiDragInProgress}, blocked={blocked}, blocker={(blockingName ?? "(none)")}, mode={mode}");
     }
 }
 

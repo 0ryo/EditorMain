@@ -20,6 +20,9 @@ public static class TmpFontInitializer
 
     static bool initialized;
     static TMP_FontAsset japaneseFallbackFontAsset;
+    static bool warnedTmpCacheClearFailure;
+    static bool warnedSubMeshRefreshFailure;
+    static bool warnedTextRefreshFailure;
 
     static readonly string[] JapaneseFontFamilies =
     {
@@ -286,7 +289,16 @@ public static class TmpFontInitializer
 
     static void ClearTmpMaterialCaches()
     {
-        TMP_MaterialManager.ClearMaterials();
+        try
+        {
+            TMP_MaterialManager.ClearMaterials();
+        }
+        catch (System.Exception ex)
+        {
+            WarnOnce(
+                ref warnedTmpCacheClearFailure,
+                $"[TmpFontInitializer] TMP material cache clear skipped because TextMeshPro is mid-refresh. {ex.GetType().Name}: {ex.Message}");
+        }
 
         var type = typeof(TMP_MaterialManager);
         ClearPrivateCollection(type, "m_fallbackMaterials");
@@ -296,18 +308,27 @@ public static class TmpFontInitializer
 
     static void ClearPrivateCollection(System.Type type, string fieldName)
     {
-        var field = type.GetField(fieldName, BindingFlags.Static | BindingFlags.NonPublic);
-        if (field == null) return;
-
-        var value = field.GetValue(null);
-        switch (value)
+        try
         {
-            case IDictionary dict:
-                dict.Clear();
-                break;
-            case IList list:
-                list.Clear();
-                break;
+            var field = type.GetField(fieldName, BindingFlags.Static | BindingFlags.NonPublic);
+            if (field == null) return;
+
+            var value = field.GetValue(null);
+            switch (value)
+            {
+                case IDictionary dict:
+                    dict.Clear();
+                    break;
+                case IList list:
+                    list.Clear();
+                    break;
+            }
+        }
+        catch (System.Exception ex)
+        {
+            WarnOnce(
+                ref warnedTmpCacheClearFailure,
+                $"[TmpFontInitializer] TMP private cache clear skipped: {fieldName}. {ex.GetType().Name}: {ex.Message}");
         }
     }
 
@@ -325,6 +346,16 @@ public static class TmpFontInitializer
             if (EditorUtility.IsPersistent(text)) continue;
 #endif
 
+            RefreshTextState(text, defaultFont);
+        }
+
+        RefreshLoadedSubMeshes(defaultFont);
+    }
+
+    static void RefreshTextState(TMP_Text text, TMP_FontAsset defaultFont)
+    {
+        try
+        {
             var font = text.font;
             if (font == null || IsBrokenOrTransientFallback(font))
             {
@@ -362,8 +393,12 @@ public static class TmpFontInitializer
                 tmp.SetMaterialDirty();
             }
         }
-
-        RefreshLoadedSubMeshes(defaultFont);
+        catch (System.Exception ex)
+        {
+            WarnOnce(
+                ref warnedTextRefreshFailure,
+                $"[TmpFontInitializer] TMP text refresh skipped for {GetObjectName(text)}. {ex.GetType().Name}: {ex.Message}");
+        }
     }
 
     static void RefreshLoadedSubMeshes(TMP_FontAsset defaultFont)
@@ -389,32 +424,50 @@ public static class TmpFontInitializer
 
     static void RefreshSubMeshState(TMP_SubMeshUI subMesh, TMP_FontAsset defaultFont)
     {
-        var font = subMesh.fontAsset;
-        if (font == null || IsBrokenOrTransientFallback(font))
+        try
         {
-            subMesh.fontAsset = defaultFont;
-            font = defaultFont;
-        }
+            var font = subMesh.fontAsset;
+            if (font == null || IsBrokenOrTransientFallback(font))
+            {
+                subMesh.fontAsset = defaultFont;
+                font = defaultFont;
+            }
 
-        subMesh.fallbackMaterial = null;
-        subMesh.fallbackSourceMaterial = null;
-        subMesh.sharedMaterial = ResolveFontMaterial(font, defaultFont.material);
-        subMesh.SetMaterialDirty();
-        subMesh.SetVerticesDirty();
+            subMesh.fallbackMaterial = null;
+            subMesh.fallbackSourceMaterial = null;
+            subMesh.sharedMaterial = ResolveFontMaterial(font, defaultFont.material);
+            subMesh.SetMaterialDirty();
+            subMesh.SetVerticesDirty();
+        }
+        catch (System.Exception ex)
+        {
+            WarnOnce(
+                ref warnedSubMeshRefreshFailure,
+                $"[TmpFontInitializer] TMP UI sub-mesh refresh skipped for {GetObjectName(subMesh)}. {ex.GetType().Name}: {ex.Message}");
+        }
     }
 
     static void RefreshSubMeshState(TMP_SubMesh subMesh, TMP_FontAsset defaultFont)
     {
-        var font = subMesh.fontAsset;
-        if (font == null || IsBrokenOrTransientFallback(font))
+        try
         {
-            subMesh.fontAsset = defaultFont;
-            font = defaultFont;
-        }
+            var font = subMesh.fontAsset;
+            if (font == null || IsBrokenOrTransientFallback(font))
+            {
+                subMesh.fontAsset = defaultFont;
+                font = defaultFont;
+            }
 
-        subMesh.fallbackMaterial = null;
-        subMesh.fallbackSourceMaterial = null;
-        subMesh.sharedMaterial = ResolveFontMaterial(font, defaultFont.material);
+            subMesh.fallbackMaterial = null;
+            subMesh.fallbackSourceMaterial = null;
+            subMesh.sharedMaterial = ResolveFontMaterial(font, defaultFont.material);
+        }
+        catch (System.Exception ex)
+        {
+            WarnOnce(
+                ref warnedSubMeshRefreshFailure,
+                $"[TmpFontInitializer] TMP sub-mesh refresh skipped for {GetObjectName(subMesh)}. {ex.GetType().Name}: {ex.Message}");
+        }
     }
 
     static Material ResolveFontMaterial(TMP_FontAsset font, Material defaultMaterial)
@@ -432,9 +485,30 @@ public static class TmpFontInitializer
 
     static void ClearPrivateInstanceField(object target, string fieldName)
     {
-        var field = typeof(TMP_Text).GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
-        if (field == null) return;
+        try
+        {
+            var field = typeof(TMP_Text).GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
+            if (field == null) return;
 
-        field.SetValue(target, null);
+            field.SetValue(target, null);
+        }
+        catch (System.Exception ex)
+        {
+            WarnOnce(
+                ref warnedTextRefreshFailure,
+                $"[TmpFontInitializer] TMP text material field clear skipped: {fieldName}. {ex.GetType().Name}: {ex.Message}");
+        }
+    }
+
+    static void WarnOnce(ref bool warned, string message)
+    {
+        if (warned) return;
+        warned = true;
+        Debug.LogWarning(message);
+    }
+
+    static string GetObjectName(UnityEngine.Object obj)
+    {
+        return obj != null ? obj.name : "(destroyed)";
     }
 }
