@@ -412,8 +412,8 @@ public static class DesignTokenApplier
         if (term != null && term.labelText != null)
         {
             string label = term.labelText.text;
-            if (label == "START") return DesignTokens.NodeStart;
-            if (label == "END")   return DesignTokens.NodeEnd;
+            if (label == "START" || label == "開始") return DesignTokens.NodeStart;
+            if (label == "END" || label == "終了") return DesignTokens.NodeEnd;
         }
         return DesignTokens.BgSecondary;
     }

@@ -9,6 +9,11 @@ public class ScenarioGraphUI : MonoBehaviour
 {
     static readonly Color ConnectionLineColor = DesignTokens.Accent;
     static readonly Color DragPreviewLineColor = new Color(DesignTokens.Accent.r, DesignTokens.Accent.g, DesignTokens.Accent.b, 0.9f);
+    const string AddStepLabel = "+ 手順";
+    const string AddConditionLabel = "+ 条件";
+    const string SaveLabel = "保存";
+    const string StartNodeLabel = "開始";
+    const string EndNodeLabel = "終了";
 
     static readonly System.Collections.Generic.Dictionary<string, string> ErrorMessages = new System.Collections.Generic.Dictionary<string, string>
     {
@@ -181,6 +186,7 @@ public class ScenarioGraphUI : MonoBehaviour
 
         EnsureRuntimeTemplates();
         ApplyRoundedTheme();
+        EnsureControlLabels();
 
         if (resizeHandle != null && panelRoot != null)
         {
@@ -217,6 +223,34 @@ public class ScenarioGraphUI : MonoBehaviour
         });
     }
 
+    void EnsureControlLabels()
+    {
+        SetButtonLabel(addStepButton, AddStepLabel);
+        SetButtonLabel(addConditionButton, AddConditionLabel);
+        SetButtonLabel(saveButton, SaveLabel);
+    }
+
+    static void SetButtonLabel(Button button, string labelText)
+    {
+        if (button == null) return;
+
+        var tmpLabel = button.GetComponentInChildren<TMP_Text>(true);
+        if (tmpLabel != null)
+        {
+            tmpLabel.text = labelText;
+            tmpLabel.fontSize = DesignTokens.FontSizeBody;
+            tmpLabel.alignment = TextAlignmentOptions.Center;
+        }
+
+        var legacyLabel = button.GetComponentInChildren<Text>(true);
+        if (legacyLabel != null)
+        {
+            legacyLabel.text = labelText;
+            legacyLabel.fontSize = DesignTokens.FontSizeBody;
+            legacyLabel.alignment = TextAnchor.MiddleCenter;
+        }
+    }
+
     Button CreateRuntimeConditionButton()
     {
         if (addStepButton == null) return null;
@@ -225,11 +259,7 @@ public class ScenarioGraphUI : MonoBehaviour
         cloned.gameObject.name = "Button_AddCondition_Runtime";
         cloned.transform.SetSiblingIndex(addStepButton.transform.GetSiblingIndex() + 1);
 
-        var label = cloned.GetComponentInChildren<Text>(true);
-        if (label != null)
-        {
-            label.text = "+ Condition";
-        }
+        SetButtonLabel(cloned, AddConditionLabel);
 
         return cloned;
     }
@@ -240,7 +270,7 @@ public class ScenarioGraphUI : MonoBehaviour
         {
             startNodeTemplate = CreateTerminalTemplateFromStepTemplate(
                 "StartNodeTemplate_Runtime",
-                "START",
+                StartNodeLabel,
                 hasInput: false,
                 hasOutput: true,
                 color: DesignTokens.BgSecondary);
@@ -250,7 +280,7 @@ public class ScenarioGraphUI : MonoBehaviour
         {
             endNodeTemplate = CreateTerminalTemplateFromStepTemplate(
                 "EndNodeTemplate_Runtime",
-                "END",
+                EndNodeLabel,
                 hasInput: true,
                 hasOutput: false,
                 color: DesignTokens.BgSecondary);
@@ -592,7 +622,7 @@ public class ScenarioGraphUI : MonoBehaviour
         ui.onOutputConnectorDrag = UpdateConnectorDrag;
         ui.onCompleteConnectorDrag = CompleteConnectorDrag;
         ui.onCancelConnectorDrag = () => CancelConnectorDrag(clearStatus: true);
-        ui.Bind(node, "START", allowInput: false, allowOutput: true);
+        ui.Bind(node, StartNodeLabel, allowInput: false, allowOutput: true);
 
         RegisterNode(
             node,
@@ -610,7 +640,7 @@ public class ScenarioGraphUI : MonoBehaviour
         ui.gameObject.name = $"Node_{node.nodeId}";
         ui.gameObject.SetActive(true);
         ui.onClickInputConnector = OnClickInputConnector;
-        ui.Bind(node, "END", allowInput: true, allowOutput: false);
+        ui.Bind(node, EndNodeLabel, allowInput: true, allowOutput: false);
 
         RegisterNode(
             node,

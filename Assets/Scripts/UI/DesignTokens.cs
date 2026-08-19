@@ -22,8 +22,8 @@ public static class DesignTokens
     public static readonly Color TextTertiary    = new Color(0.682f, 0.682f, 0.698f, 1f); // #AEAEB2
 
     // アクセント
-    public static readonly Color Accent          = new Color(0.039f, 0.518f, 1f, 1f);     // #0A84FF
-    public static readonly Color AccentHover     = new Color(0f, 0.439f, 0.878f, 1f);     // #0070E0
+    public static readonly Color Accent          = new Color(0.145f, 0.388f, 0.922f, 1f); // #2563EB
+    public static readonly Color AccentHover     = new Color(0.114f, 0.306f, 0.847f, 1f); // #1D4ED8
 
     // セマンティック
     public static readonly Color Success         = new Color(0.188f, 0.820f, 0.345f, 1f); // #30D158
@@ -34,8 +34,8 @@ public static class DesignTokens
     public static readonly Color Divider         = new Color(0.820f, 0.820f, 0.839f, 1f); // #D1D1D6
 
     // ターミナルノード
-    public static readonly Color NodeStart       = new Color(0.537f, 0.765f, 1.000f, 1f); // #89C3FF
-    public static readonly Color NodeEnd         = new Color(1.000f, 0.537f, 0.545f, 1f); // #FF898B
+    public static readonly Color NodeStart       = Surface;
+    public static readonly Color NodeEnd         = Surface;
 
     // ボタン テキスト (Primary / Danger 用)
     public static readonly Color ButtonTextLight = new Color(1f, 1f, 1f, 1f);             // White on accent
@@ -45,7 +45,7 @@ public static class DesignTokens
     public static readonly Color DangerPress     = new Color(0.769f, 0.208f, 0.188f, 1f); // #C43530
 
     // Accent press
-    public static readonly Color AccentPress     = new Color(0f, 0.369f, 0.769f, 1f);     // #005EC4
+    public static readonly Color AccentPress     = new Color(0.118f, 0.251f, 0.686f, 1f); // #1E40AF
 
     // ── 4. スペーシングシステム ────────────────────────
 
@@ -72,6 +72,14 @@ public static class DesignTokens
     public const float MinTouchTarget     = 44f;
     public const float TransitionDuration = 0.15f; // 150ms
     public static readonly Vector2 ReferenceResolution = new Vector2(1920f, 1080f);
+
+    // レスポンシブレイアウト
+    public const float CatalogDefaultWidth = 312f;
+    public const float CatalogMinWidth     = 240f;
+    public const float CatalogMaxWidth     = 420f;
+    public const float ScenarioDefaultHeight = 320f;
+    public const float ScenarioMinHeight     = 220f;
+    public const float ScenarioMaxHeight     = 720f;
 
     // 円形要素（コネクタ・削除ボタン）
     public const float ConnectorSize      = 24f;   // コネクタの幅・高さ

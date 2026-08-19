@@ -39,7 +39,7 @@ public static class BuildUiPrefabs
     static RectTransform BuildCatalogPanel(Transform parent)
     {
         var panel = CreateUiRect("Panel_Catalog", parent);
-        SetRect(panel, new Vector2(0f, 0f), new Vector2(0f, 1f), new Vector2(0f, 0f), new Vector2(288f, 0f));
+        SetRect(panel, new Vector2(0f, 0f), new Vector2(0f, 1f), new Vector2(0f, 0f), new Vector2(DesignTokens.CatalogDefaultWidth, 0f));
         panel.gameObject.AddComponent<Image>().color = DesignTokens.BgPrimary;
 
         var editModeRow = CreateUiRect("EditModeRow", parent);
@@ -77,12 +77,12 @@ public static class BuildUiPrefabs
         scaleModeLayout.preferredWidth = 70f;
         scaleModeLayout.flexibleWidth = 1f;
 
-        var settingsButton = CreateButton("Button_Settings", parent, "\u2699");
-        SetRect(settingsButton.GetComponent<RectTransform>(), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-82f, -52f), new Vector2(-12f, -12f));
+        var settingsButton = CreateButton("Button_Settings", parent, "\u8A2D\u5B9A");
+        SetRect(settingsButton.GetComponent<RectTransform>(), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-92f, -52f), new Vector2(-12f, -12f));
         var settingsLabel = settingsButton.GetComponentInChildren<TMP_Text>(true);
         if (settingsLabel != null)
         {
-            settingsLabel.fontSize = 22;
+            settingsLabel.fontSize = DesignTokens.FontSizeBody;
             settingsLabel.alignment = TextAlignmentOptions.Center;
         }
 
@@ -111,6 +111,8 @@ public static class BuildUiPrefabs
         resizeHandle.gameObject.AddComponent<Image>().color = DesignTokens.BgPrimary;
         var resize = resizeHandle.gameObject.AddComponent<PanelHorizontalResizeHandle>();
         resize.targetPanel = panel;
+        resize.minWidth = DesignTokens.CatalogMinWidth;
+        resize.maxWidth = DesignTokens.CatalogMaxWidth;
 
         var addButton = CreateButton("Button_AddObjectBottom", panel, "\u30AA\u30D6\u30B8\u30A7\u30AF\u30C8\u3092\u8FFD\u52A0");
         SetRect(addButton.GetComponent<RectTransform>(), new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(10f, 10f), new Vector2(-10f, 48f));
@@ -239,7 +241,7 @@ public static class BuildUiPrefabs
     static RectTransform BuildScenarioPanel(Transform parent)
     {
         var panel = CreateUiRect("Panel_ScenarioGraph", parent);
-        SetRect(panel, new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(288f, 0f), new Vector2(0f, 300f));
+        SetRect(panel, new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(DesignTokens.CatalogDefaultWidth, 0f), new Vector2(0f, DesignTokens.ScenarioDefaultHeight));
         panel.gameObject.AddComponent<Image>().color = DesignTokens.BgPrimary;
 
         var topBar = CreateUiRect("TopBar", panel);
@@ -253,13 +255,13 @@ public static class BuildUiPrefabs
         var projectInput = CreateInputField("Input_ProjectName", topBar, "ProjectName");
         projectInput.gameObject.AddComponent<LayoutElement>().minWidth = 360f;
 
-        var addStepButton = CreateButton("Button_AddStep", topBar, "+ Step");
+        var addStepButton = CreateButton("Button_AddStep", topBar, "+ \u624B\u9806");
         addStepButton.gameObject.AddComponent<LayoutElement>().minWidth = 120f;
 
-        var addConditionButton = CreateButton("Button_AddCondition", topBar, "+ Condition");
+        var addConditionButton = CreateButton("Button_AddCondition", topBar, "+ \u6761\u4EF6");
         addConditionButton.gameObject.AddComponent<LayoutElement>().minWidth = 150f;
 
-        var saveButton = CreateButton("Button_SaveCurriculum", topBar, "Save");
+        var saveButton = CreateButton("Button_SaveCurriculum", topBar, "\u4FDD\u5B58");
         saveButton.gameObject.AddComponent<LayoutElement>().minWidth = 110f;
 
         var status = CreateText("Text_Status", topBar, "");
@@ -301,6 +303,8 @@ public static class BuildUiPrefabs
         resizeHandle.gameObject.AddComponent<Image>().color = DesignTokens.BgPrimary;
         var resizeComp = resizeHandle.gameObject.AddComponent<PanelVerticalResizeHandle>();
         resizeComp.targetPanel = panel;
+        resizeComp.minHeight = DesignTokens.ScenarioMinHeight;
+        resizeComp.maxHeight = DesignTokens.ScenarioMaxHeight;
 
         var scenarioUi = panel.gameObject.AddComponent<ScenarioGraphUI>();
         var scenarioSo = new SerializedObject(scenarioUi);

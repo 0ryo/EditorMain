@@ -27,10 +27,10 @@
 - 全体トーンは白基調。
 - 透明度は原則 1.0（不透明）。例外は線レイヤーの透明背景のみ。
 - 主要色（実装値）
-  - パネル背景: `0.96, 0.96, 0.96, 1`
-  - ノード/主要ボタン: 薄い黄系（例: `1, 0.98, 0.86, 1`）
-  - 接続線: 明るい黄（`1, 0.92, 0.2, 1`）
-  - ドロップダウン背景: グレー系（`0.92`〜`0.97`）
+  - パネル背景: `DesignTokens.BgPrimary`
+  - ノード/カード背景: `DesignTokens.Surface` または `DesignTokens.BgSecondary`
+  - アクセント/選択/接続線: `DesignTokens.Accent`（`#2563EB`）
+  - ドロップダウン背景: `DesignTokens.Surface`
 - フォント
   - ランタイムで参照する built-in font は `LegacyRuntime.ttf` を使用。
 - 視認性
@@ -41,11 +41,11 @@
 - `Panel_Catalog`
   - 画面左側固定、上下端まで表示。
   - 横幅可変（`PanelHorizontalResizeHandle`）
-  - 幅制限: `min=220`, `max=720`
+  - 幅制限: `min=240`, `max=420`
 - `Panel_ScenarioGraph`
   - 画面下部固定、右側に展開。
   - 高さ可変（`PanelVerticalResizeHandle`）
-  - 高さ制限: `min=180`, `max=720`
+  - 高さ制限: `min=220`, `max=720`
 - 2パネルの隙間
   - `UiPanelDockSync.gap = 0` を維持し、常に密着。
   - カタログ幅変更時も隙間を作らない。
@@ -94,7 +94,7 @@
 ## 8. ノード追加ウィンドウ仕様
 - 対象: `Panel_ScenarioGraph` / `ScenarioGraphUI`
 - UI構成
-  - TopBar: プロジェクト名、`+ Step`、`+ Condition`、`Save`、ステータス
+  - TopBar: プロジェクト名、`+ 手順`、`+ 条件`、`保存`、ステータス
   - NodeArea: ノード配置領域
   - LineLayer: 接続線描画レイヤー
   - 上端に縦リサイズハンドル
@@ -102,13 +102,13 @@
   - `Start` / `End`（各1つ）
   - `Step`（複数）
   - `Condition`（複数）
-- `+ Step`
+- `+ 手順`
   - `CurriculumGraphService.AddStep()` を実行
   - 既存ノード位置は保持
   - 未保存位置がないノードは自動整列位置を適用
-- `+ Condition`
+- `+ 条件`
   - `CurriculumGraphService.AddCondition()` を実行
-  - 新規Conditionノードを追加
+  - 新規Conditionノード（表示名は条件）を追加
 - ノード移動
   - `NodeDragHandler` でドラッグ移動可能
 - 保存
@@ -124,8 +124,8 @@
   - 表示: `Condition nodeId`、`DropdownA` + `DropdownB`
   - 接続: 出力1（ConditionBind）
 - `TerminalNodeUI`
-  - `START`: 出力のみ
-  - `END`: 入力のみ
+  - `開始`: 出力のみ
+  - `終了`: 入力のみ
 
 ## 10. 条件ドロップダウン仕様
 - 対象: `ConditionRowUI`, `PlacedObjectOptionProvider`
@@ -305,3 +305,10 @@
 - CanvasScaler の Reference Resolution は `1920x1080` に統一する。
 - `DesignTokens.ReferenceResolution` を正とし、`BuildUiPrefabs` と `DesignTokenApplier` は同じ値を参照する。
 - 既存仕様の `Reference 1920x1080` を維持し、実装側に残っていた `2560x1440` 固定値は使わない。
+
+## 34. 2026-06-29 Foundation Color / Labels / Layout
+- アクセント色を `#2563EB`、hover を `#1D4ED8`、press を `#1E40AF` に更新した。
+- Start/End ノードは強い青/赤塗りをやめ、`Surface` 背景 + `Divider` アウトラインの静かな表示にする。
+- 設定ボタンは Unicode 歯車単独ではなく `設定` の日本語ラベルで表示する。
+- Scenario graph の主要操作ラベルは `+ 手順` / `+ 条件` / `保存` とする。
+- ラップトップ対応として Catalog 幅を `min=240`, `default=312`, `max=420`、Scenario graph 高さを `min=220`, `default=320`, `max=720` に寄せる。

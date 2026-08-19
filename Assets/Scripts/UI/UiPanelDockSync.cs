@@ -12,11 +12,24 @@ public class UiPanelDockSync : MonoBehaviour
     public float editModePanelWidth = 236f;
     public float editModePanelHeight = 40f;
     public float settingsButtonRightMargin = 12f;
-    public float settingsButtonWidth = 70f;
+    public float settingsButtonWidth = DesignTokens.ButtonMinWidth;
+
+    void Awake()
+    {
+        ApplyDefaultLayoutValues();
+    }
+
+#if UNITY_EDITOR
+    void OnValidate()
+    {
+        ApplyDefaultLayoutValues();
+    }
+#endif
 
     void LateUpdate()
     {
         if (catalogPanel == null || scenarioPanel == null) return;
+        ApplyDefaultLayoutValues();
 
         float left = catalogPanel.offsetMax.x + gap;
         if (!Mathf.Approximately(scenarioPanel.offsetMin.x, left))
@@ -48,5 +61,10 @@ public class UiPanelDockSync : MonoBehaviour
         settingsButtonPanel.pivot = new Vector2(1f, 1f);
         settingsButtonPanel.offsetMin = new Vector2(settingsLeft, settingsBottom);
         settingsButtonPanel.offsetMax = new Vector2(settingsRight, settingsTop);
+    }
+
+    void ApplyDefaultLayoutValues()
+    {
+        settingsButtonWidth = DesignTokens.ButtonMinWidth;
     }
 }

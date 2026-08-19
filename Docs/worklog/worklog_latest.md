@@ -44,7 +44,15 @@
 - Task 1: Canvas reference resolution を `1920x1080` に統一。
 - `DesignTokens.ReferenceResolution` を追加し、`DesignTokenApplier` と `BuildUiPrefabs` が同じ値を参照するようにした。
 - `Docs/worklog/worklog_UI/全体UI仕様.md` の既存仕様は `1920x1080` だったため、仕様変更ではなく実装側のズレ修正として扱う。
+- Task 2: Phase 1 Foundation の残り最小差分を実装。
+- `DesignTokens.Accent` / `AccentHover` / `AccentPress` を落ち着いた `#2563EB` 系へ更新した。
+- Start/End ノードの強い青/赤塗りをやめ、`Surface` 背景 + `Divider` アウトラインの静かな表示に寄せた。
+- 設定ボタンを Unicode 歯車単独から `設定` の日本語ラベルへ変更した。既存Prefab向けに `CatalogUI` のランタイム補正も更新した。
+- Scenario graph のボタンラベルを `+ 手順` / `+ 条件` / `保存` へ寄せた。
+- Catalog / Scenario graph のラップトップ向けリサイズ制限を `DesignTokens` に追加し、既存Prefabの古い serialized 値も起動時に正規化するようにした。
+- UI仕様ログ `Docs/worklog/worklog_UI/全体UI仕様.md` とデザインルール `Docs/rules/design_rule.md` を実装値に合わせて更新した。
 
 ## 6. 検証状況
 - `git diff --check`: 現在ブランチ作成前の監査コミットで成功。
+- `git diff --check`: Task 2 変更後に成功。
 - Unity Editor 起動、Unity CLI、コンパイル確認は Local Execution Policy により未実施。

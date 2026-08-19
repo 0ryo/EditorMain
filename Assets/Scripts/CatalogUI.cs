@@ -50,6 +50,7 @@ public class CatalogUI : MonoBehaviour
     [SerializeField] float cornerRadius = DesignTokens.CornerRadius;
     [SerializeField] string importedCardLabel = "New Object";
     const string AddObjectButtonLabel = "オブジェクトを追加";
+    const string SettingsButtonLabel = "設定";
     const string EditorSupportedModelExtensionsLabel = ".fbx, .glb, or .gltf";
 
     [Serializable]
@@ -624,7 +625,7 @@ public class CatalogUI : MonoBehaviour
             buttonRt.anchorMin = new Vector2(1f, 1f);
             buttonRt.anchorMax = new Vector2(1f, 1f);
             buttonRt.pivot = new Vector2(1f, 1f);
-            buttonRt.offsetMin = new Vector2(-82f, -52f);
+            buttonRt.offsetMin = new Vector2(-92f, -52f);
             buttonRt.offsetMax = new Vector2(-12f, -12f);
         }
 
@@ -655,9 +656,9 @@ public class CatalogUI : MonoBehaviour
             label = labelGo.GetComponent<TMP_Text>();
         }
 
-        label.fontSize = 22;
+        label.fontSize = DesignTokens.FontSizeBody;
         label.alignment = TextAlignmentOptions.Center;
-        label.text = "\u2699";
+        label.text = SettingsButtonLabel;
         label.color = DesignTokens.TextPrimary;
     }
 
