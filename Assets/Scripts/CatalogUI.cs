@@ -106,6 +106,7 @@ public class CatalogUI : MonoBehaviour
         cornerRadius = DesignTokens.CornerRadius;
         EnsureSingleEventSystem();
         EnsureRuntimeBindings();
+        EnsureViewportReady();
         EnsureRuntimeCatalogControls();
         EnsureEditModeServiceBinding();
         EnsureContentTopAligned();
@@ -209,6 +210,33 @@ public class CatalogUI : MonoBehaviour
             onSelectType.AddListener(placementController.EnterPlacement);
             runtimeListenerBound = true;
         }
+    }
+
+    void EnsureViewportReady()
+    {
+        var viewportCamera = placementController != null && placementController.cam != null
+            ? placementController.cam
+            : Camera.main != null
+                ? Camera.main
+                : FindFirstObjectByType<Camera>();
+
+        if (viewportCamera != null)
+        {
+            viewportCamera.transform.SetParent(null, true);
+            viewportCamera.transform.position = new Vector3(0f, 6f, -10f);
+            viewportCamera.transform.LookAt(Vector3.zero, Vector3.up);
+            viewportCamera.orthographic = true;
+            viewportCamera.orthographicSize = 7f;
+            viewportCamera.nearClipPlane = 0.05f;
+            viewportCamera.farClipPlane = 1000f;
+
+            if (placementController != null && placementController.cam == null)
+            {
+                placementController.cam = viewportCamera;
+            }
+        }
+
+        WorkspaceFloorGrid.EnsureExists();
     }
 
     void EnsurePlacementControllerBinding()
@@ -2249,7 +2277,18 @@ public class CatalogUI : MonoBehaviour
     {
         if (string.IsNullOrWhiteSpace(typeId)) return;
         if (removedTypeIds.Contains(typeId)) return;
-        onSelectType?.Invoke(typeId);
+        EnsureRuntimeBindings();
+        EnsureViewportReady();
+
+        if (placementController != null)
+        {
+            placementController.EnterPlacement(typeId);
+        }
+        else
+        {
+            onSelectType?.Invoke(typeId);
+        }
+
         ClearStatus();
     }
 

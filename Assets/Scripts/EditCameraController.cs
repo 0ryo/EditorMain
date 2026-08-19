@@ -4,6 +4,8 @@ using UnityEngine.InputSystem;
 
 public class EditorCameraController : MonoBehaviour
 {
+    static readonly Vector3 DefaultCameraOffset = new Vector3(0f, 6f, -10f);
+
     [Header("Sensitivity")]
     public float orbitSpeed = 12f;
     public float panSpeed = 0.01f;
@@ -31,16 +33,14 @@ public class EditorCameraController : MonoBehaviour
 
     void Start()
     {
+        cachedCamera = GetComponent<Camera>();
         EnsurePivot();
         AttachCameraToPivot();
-        EnsureDefaultOffset();
-        transform.LookAt(pivot.position, Vector3.up);
+        ResetToDefaultView();
+        WorkspaceFloorGrid.EnsureExists();
 
         SyncPivotAngles();
-        ApplyPivotRotation();
         ApplySensitivityFloor();
-
-        cachedCamera = GetComponent<Camera>();
     }
 
     void Update()
@@ -83,10 +83,20 @@ public class EditorCameraController : MonoBehaviour
         transform.SetParent(pivot, true);
     }
 
-    void EnsureDefaultOffset()
+    void ResetToDefaultView()
     {
-        if (transform.localPosition.sqrMagnitude > 0.0001f) return;
-        transform.localPosition = new Vector3(0f, 5f, -10f);
+        pivot.position = Vector3.zero;
+        pivot.rotation = Quaternion.identity;
+        transform.localPosition = DefaultCameraOffset;
+        transform.LookAt(pivot.position, Vector3.up);
+
+        if (cachedCamera != null)
+        {
+            cachedCamera.orthographic = true;
+            cachedCamera.orthographicSize = 7f;
+            cachedCamera.nearClipPlane = 0.05f;
+            cachedCamera.farClipPlane = 1000f;
+        }
     }
 
     void ApplySensitivityFloor()

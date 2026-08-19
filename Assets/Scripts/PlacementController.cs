@@ -37,9 +37,22 @@ public class PlacementController : MonoBehaviour
 
     void Awake()
     {
+        EnsureCameraAssigned();
         EnsureRegistryAssigned();
         RebuildTypeMapFromRegistry();
         WorkspaceFloorGrid.EnsureExists();
+    }
+
+    void Start()
+    {
+        EnsureCameraAssigned();
+        WorkspaceFloorGrid.EnsureExists();
+    }
+
+    void EnsureCameraAssigned()
+    {
+        if (cam != null) return;
+        cam = Camera.main != null ? Camera.main : FindFirstObjectByType<Camera>();
     }
 
     void EnsureRegistryAssigned()

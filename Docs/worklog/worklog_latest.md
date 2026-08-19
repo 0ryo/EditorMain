@@ -79,6 +79,10 @@
 - `WorkspaceFloorGrid` を LineRenderer 依存からメッシュ床面 + 格子線 + X/Z方向軸 + Origin ラベルの表示へ変更した。
 - `CatalogCardDragHandler` の UI ドロップ判定も同じブロック矩形判定に寄せた。
 - `CatalogUI` の配置イベント配線を毎回 `PlacementController.EnterPlacement` へ明示再バインドし、壊れた永続イベント参照に左右されないようにした。
+- Task 9: 3Dビュー初期化をシンプルな確定経路へ移した。
+- `CatalogUI` 起動時とカードクリック時に Main Camera を床向きの既定ビューへ戻し、`WorkspaceFloorGrid` 生成も保証するようにした。
+- `PlacementController` もカメラ参照切れを自動補完し、Start 時にもグリッド生成を保証するようにした。
+- `EditCameraController` は保存済みの遠いカメラ位置を使わず、起動時に床向き既定ビューへ戻すようにした。
 
 ## 6. 検証状況
 - `git diff --check`: 現在ブランチ作成前の監査コミットで成功。
@@ -89,5 +93,6 @@
 - `git diff --check`: Task 6 変更後に成功。
 - `git diff --check`: Task 7 変更後に成功。
 - `git diff --check`: Task 8 変更後に成功。
+- `git diff --check`: Task 9 変更後に成功。
 - `dotnet build .\Assembly-CSharp.csproj`: 実行したが、Unity生成csprojが既存の `DesignTokens` / `UiRoundedTheme` / `RuntimeModelLoader` などを解決できない状態で失敗。Unity Editor 起動なしの静的ビルド検証としては利用不可。
 - Unity Editor 起動、Unity CLI、コンパイル確認は Local Execution Policy により未実施。
