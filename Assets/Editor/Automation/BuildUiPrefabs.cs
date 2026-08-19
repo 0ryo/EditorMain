@@ -25,6 +25,7 @@ public static class BuildUiPrefabs
         var catalogPanel = BuildCatalogPanel(root.transform);
         var scenarioPanel = BuildScenarioPanel(root.transform);
         BuildDetailPanel(root.transform);
+        root.AddComponent<ViewportStatusStrip>();
         var editModeRow = root.transform.Find("EditModeRow") as RectTransform;
         var settingsButton = root.transform.Find("Button_Settings") as RectTransform;
         BuildDockSync(root, catalogPanel, scenarioPanel, editModeRow, settingsButton);

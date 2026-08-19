@@ -51,8 +51,16 @@
 - Scenario graph のボタンラベルを `+ 手順` / `+ 条件` / `保存` へ寄せた。
 - Catalog / Scenario graph のラップトップ向けリサイズ制限を `DesignTokens` に追加し、既存Prefabの古い serialized 値も起動時に正規化するようにした。
 - UI仕様ログ `Docs/worklog/worklog_UI/全体UI仕様.md` とデザインルール `Docs/rules/design_rule.md` を実装値に合わせて更新した。
+- Task 3: Phase 2 State Feedback の入口として 3D Viewport の状態表示を追加。
+- `ViewportStatusStrip` を追加し、現在モード、配置対象、選択中オブジェクト、配置成功メッセージを 3D ビュー上部へ表示するようにした。
+- `PlacementController.ObjectPlaced` を追加し、配置成功を UI へ通知できるようにした。
+- `WorkspaceFloorGrid` を追加し、実行時に床グリッドを補完して灰色の無地感を減らすようにした。
+- `SelectionOutline` のライン色を `DesignTokens.Accent` に変更した。
+- `BuildUiPrefabs` と `CatalogUI` の両方に `ViewportStatusStrip` の生成/補完ルートを追加した。
 
 ## 6. 検証状況
 - `git diff --check`: 現在ブランチ作成前の監査コミットで成功。
 - `git diff --check`: Task 2 変更後に成功。
+- `git diff --check`: Task 3 変更後に成功。
+- `dotnet build .\Assembly-CSharp.csproj`: 実行したが、Unity生成csprojが既存の `DesignTokens` / `UiRoundedTheme` / `RuntimeModelLoader` などを解決できない状態で失敗。Unity Editor 起動なしの静的ビルド検証としては利用不可。
 - Unity Editor 起動、Unity CLI、コンパイル確認は Local Execution Policy により未実施。

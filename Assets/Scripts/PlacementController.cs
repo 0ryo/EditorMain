@@ -15,6 +15,7 @@ public class PlacementController : MonoBehaviour
     Dictionary<string, GameObject> map;
     static bool uiDragInProgress;
     public event Action<string> PlacementTypeChanged;
+    public event Action<PlacedObject, string> ObjectPlaced;
     public string CurrentTypeId => currentTypeId;
 
     public static void SetUiDragInProgress(bool isDragging)
@@ -25,6 +26,7 @@ public class PlacementController : MonoBehaviour
     void Awake()
     {
         RebuildTypeMapFromRegistry();
+        WorkspaceFloorGrid.EnsureExists();
     }
 
     void RebuildTypeMapFromRegistry()
@@ -173,6 +175,7 @@ public class PlacementController : MonoBehaviour
         placedPosition.z = Mathf.Round(placedPosition.z / gridSize) * gridSize;
         placedPosition.y = floorPoint.y + 0.5f;
 
+        PlacedObject createdPlacedObject = null;
         System.Func<string, GameObject> factory = (tId) =>
         {
             if (!TryGetPrefab(tId, out var sourcePrefab)) return null;
@@ -188,6 +191,7 @@ public class PlacementController : MonoBehaviour
 
             placed.InitType(tId);
             placed.ForceNewId();
+            createdPlacedObject = placed;
             PlacedObjectPickability.EnsurePickable(placed, true);
 
             if (selection != null)
@@ -200,6 +204,10 @@ public class PlacementController : MonoBehaviour
 
         var cmd = new PlaceObjectCommand(typeId, placedPosition, Quaternion.identity, factory);
         CommandService.I.Stack.Execute(cmd);
+        if (createdPlacedObject != null)
+        {
+            ObjectPlaced?.Invoke(createdPlacedObject, typeId);
+        }
         Debug.Log($"[Placement] Placed {typeId} at {placedPosition} via Command");
         return true;
     }

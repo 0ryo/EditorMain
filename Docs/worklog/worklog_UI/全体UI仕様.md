@@ -15,6 +15,7 @@
 - `UIRoot`（Canvas）
   - `Panel_Catalog`（左固定、オブジェクト一覧）
   - `Panel_ScenarioGraph`（下部固定、ノード追加）
+  - `ViewportStatusStrip`（3Dビュー上部、現在モード/配置/選択状態）
   - `UiPanelDockSync`（2パネル密着同期）
 - Canvas 設定
   - Render Mode: `Screen Space - Overlay`
@@ -81,6 +82,9 @@
 ## 7. 配置処理ルール（PlacementController）
 - 配置先判定
   - カメラから床へ Raycast（`floorMask`）
+- 3Dビュー補助表示
+  - `WorkspaceFloorGrid` が実行時に床グリッドを補完する
+  - `ViewportStatusStrip` が `閲覧中` / `配置中` / `移動中` / `スケール調整` と対象情報を表示する
 - 座標
   - `x,z` は `0.1m` グリッドスナップ
   - `y = hit.y + 0.5`
@@ -89,7 +93,8 @@
   - `InitType(typeId)` 実行
   - `ForceNewId()` で `obj-0001` 形式 ID を保証
   - 回転は `Quaternion.identity`
-  - 配置後は自動選択
+- 配置後は自動選択
+  - 配置成功時は `ViewportStatusStrip` に短時間 `配置しました: obj-xxxx` を表示する
 
 ## 8. ノード追加ウィンドウ仕様
 - 対象: `Panel_ScenarioGraph` / `ScenarioGraphUI`
@@ -312,3 +317,9 @@
 - 設定ボタンは Unicode 歯車単独ではなく `設定` の日本語ラベルで表示する。
 - Scenario graph の主要操作ラベルは `+ 手順` / `+ 条件` / `保存` とする。
 - ラップトップ対応として Catalog 幅を `min=240`, `default=312`, `max=420`、Scenario graph 高さを `min=220`, `default=320`, `max=720` に寄せる。
+
+## 35. 2026-06-29 Viewport State Feedback
+- `ViewportStatusStrip` を追加し、3Dビュー上部に現在モード、配置対象、選択中オブジェクト、配置成功メッセージを表示する。
+- `PlacementController.ObjectPlaced` を追加し、配置成功をUIへ通知する。
+- `WorkspaceFloorGrid` を追加し、実行時に床グリッドを補完して灰色の無地感を減らす。
+- `SelectionOutline` のライン色を `DesignTokens.Accent` に寄せる。

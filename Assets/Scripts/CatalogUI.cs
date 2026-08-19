@@ -441,6 +441,7 @@ public class CatalogUI : MonoBehaviour
         EnsureRuntimeEditModeButtons(panel);
         EnsureRuntimeSettingsButton(panel);
         EnsureRuntimeSettingsDialog(panel);
+        EnsureRuntimeViewportStatusStrip(panel);
         EnsureEditModeDockSync(panel);
         EnsureRuntimeSearchInput(panel);
         EnsureRuntimeBottomAddButton(panel);
@@ -448,6 +449,19 @@ public class CatalogUI : MonoBehaviour
         ApplyCatalogTopLayout(panel);
         EnsureScrollBottomPadding(56f);
         RefreshModeButtons();
+    }
+
+    void EnsureRuntimeViewportStatusStrip(RectTransform panel)
+    {
+        if (panel == null) return;
+        var host = panel.root as RectTransform;
+        if (host == null) host = panel;
+
+        var strip = host.GetComponent<ViewportStatusStrip>();
+        if (strip == null)
+        {
+            host.gameObject.AddComponent<ViewportStatusStrip>();
+        }
     }
 
     void EnsureEditModeDockSync(RectTransform panel)

@@ -150,8 +150,8 @@ public class SelectionOutline : MonoBehaviour
             lr.alignment = LineAlignment.View;
             lr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             lr.receiveShadows = false;
-            lr.startColor = Color.cyan;
-            lr.endColor = Color.cyan;
+            lr.startColor = DesignTokens.Accent;
+            lr.endColor = DesignTokens.Accent;
             lines.Add(lr);
         }
 
