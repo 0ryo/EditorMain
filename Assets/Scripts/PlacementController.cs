@@ -5,6 +5,18 @@ using UnityEngine.EventSystems;
 
 public class PlacementController : MonoBehaviour
 {
+    static readonly string[] BlockingUiRectNames =
+    {
+        "Panel_Catalog",
+        "Panel_ScenarioGraph",
+        "Panel_Settings",
+        "Panel_NewObjectSettings",
+        "EditModeRow",
+        "EditModeRow_Runtime",
+        "Button_Settings",
+        "Button_Settings_Runtime"
+    };
+
     public PrefabRegistry registry;
     public Camera cam;
     public float gridSize = 0.1f;
@@ -153,7 +165,7 @@ public class PlacementController : MonoBehaviour
         if (string.IsNullOrEmpty(currentTypeId)) return;
         if (uiDragInProgress) return;
 
-        if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
+        if (IsScreenPositionOverBlockingUi(Input.mousePosition))
         {
             return;
         }
@@ -164,6 +176,31 @@ public class PlacementController : MonoBehaviour
         {
             CancelPlacement();
         }
+    }
+
+    public static bool IsScreenPositionOverBlockingUi(Vector2 screenPosition)
+    {
+        foreach (var rect in FindObjectsByType<RectTransform>(FindObjectsInactive.Exclude, FindObjectsSortMode.None))
+        {
+            if (rect == null || !IsBlockingUiRect(rect.name)) continue;
+            if (RectTransformUtility.RectangleContainsScreenPoint(rect, screenPosition, null))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    static bool IsBlockingUiRect(string objectName)
+    {
+        if (string.IsNullOrWhiteSpace(objectName)) return false;
+        foreach (var blockingName in BlockingUiRectNames)
+        {
+            if (string.Equals(objectName, blockingName, StringComparison.Ordinal)) return true;
+        }
+
+        return false;
     }
 
     bool TryGetPlacementPoint(Vector2 screenPosition, out Vector3 point)

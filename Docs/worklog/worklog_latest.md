@@ -74,6 +74,11 @@
 - これにより `Vehicle/Car_Proxy` / `ToolBox/Basic_Proxy` / `Tire/Replacement_Proxy` / `Env/Wall_Min` の既定カードが復旧しやすくなった。
 - Task 7: 床ColliderへのRaycastが外れても配置できるようにした。
 - `PlacementController` の配置点解決を Collider Raycast 優先 + y=0 平面フォールバックに変更し、床表示やレイヤー状態に左右されず配置できるようにした。
+- Task 8: 3Dビュー配置クリックと床グリッド表示を改善。
+- `PlacementController` は 3Dビュー全体を UI ヒット扱いで弾かず、Catalog / Scenario graph / モーダル / 上部操作だけをブロックするようにした。
+- `WorkspaceFloorGrid` を LineRenderer 依存からメッシュ床面 + 格子線 + X/Z方向軸 + Origin ラベルの表示へ変更した。
+- `CatalogCardDragHandler` の UI ドロップ判定も同じブロック矩形判定に寄せた。
+- `CatalogUI` の配置イベント配線を毎回 `PlacementController.EnterPlacement` へ明示再バインドし、壊れた永続イベント参照に左右されないようにした。
 
 ## 6. 検証状況
 - `git diff --check`: 現在ブランチ作成前の監査コミットで成功。
@@ -83,5 +88,6 @@
 - `git diff --check`: Task 5 変更後に成功。
 - `git diff --check`: Task 6 変更後に成功。
 - `git diff --check`: Task 7 変更後に成功。
+- `git diff --check`: Task 8 変更後に成功。
 - `dotnet build .\Assembly-CSharp.csproj`: 実行したが、Unity生成csprojが既存の `DesignTokens` / `UiRoundedTheme` / `RuntimeModelLoader` などを解決できない状態で失敗。Unity Editor 起動なしの静的ビルド検証としては利用不可。
 - Unity Editor 起動、Unity CLI、コンパイル確認は Local Execution Policy により未実施。

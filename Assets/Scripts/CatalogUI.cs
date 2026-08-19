@@ -203,8 +203,9 @@ public class CatalogUI : MonoBehaviour
 
         EnsurePlacementControllerBinding();
 
-        if (!runtimeListenerBound && onSelectType.GetPersistentEventCount() == 0 && placementController != null)
+        if (placementController != null)
         {
+            onSelectType.RemoveListener(placementController.EnterPlacement);
             onSelectType.AddListener(placementController.EnterPlacement);
             runtimeListenerBound = true;
         }
@@ -2881,7 +2882,7 @@ public class CatalogCardDragHandler : MonoBehaviour, IBeginDragHandler, IDragHan
     {
         if (owner == null) return;
 
-        bool droppedOverUi = EventSystem.current != null && EventSystem.current.IsPointerOverGameObject(eventData.pointerId);
+        bool droppedOverUi = PlacementController.IsScreenPositionOverBlockingUi(eventData.position);
         if (isDragging && !droppedOverUi)
         {
             owner.HandleCardDrop(typeId, eventData.position);
