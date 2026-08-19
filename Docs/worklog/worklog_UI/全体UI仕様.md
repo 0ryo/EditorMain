@@ -85,7 +85,7 @@
   - カメラから床へ Raycast（`floorMask`）
   - 床Colliderに当たらない場合は y=0 平面へフォールバックして配置点を解決する
 - 3Dビュー補助表示
-  - `WorkspaceFloorGrid` が実行時に薄い床面、格子線、X/Z方向軸、Originラベルを補完する
+  - `WorkspaceFloorGrid` が実行時に薄い床面、細い格子線、控えめなX/Z中心線を補完する
   - `ViewportStatusStrip` が `閲覧中` / `配置中` / `移動中` / `スケール調整` と対象情報を表示する
   - Main Camera は起動時に `(0, 6, -10)` から原点を見る既定ビューへ補正する
 - 座標

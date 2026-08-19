@@ -1,5 +1,4 @@
 using UnityEngine;
-using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 
 public class EditorCameraController : MonoBehaviour
@@ -46,8 +45,7 @@ public class EditorCameraController : MonoBehaviour
     void Update()
     {
         if (Mouse.current == null) return;
-        bool pointerOverUi = EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
-        if (pointerOverUi) return;
+        if (PlacementController.IsScreenPositionOverBlockingUi(Mouse.current.position.ReadValue())) return;
 
         HandleZoom(Mouse.current.scroll.ReadValue().y);
 
@@ -83,8 +81,10 @@ public class EditorCameraController : MonoBehaviour
         transform.SetParent(pivot, true);
     }
 
-    void ResetToDefaultView()
+    public void ResetToDefaultView()
     {
+        EnsurePivot();
+        AttachCameraToPivot();
         pivot.position = Vector3.zero;
         pivot.rotation = Quaternion.identity;
         transform.localPosition = DefaultCameraOffset;

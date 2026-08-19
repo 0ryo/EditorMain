@@ -106,7 +106,7 @@ public class CatalogUI : MonoBehaviour
         cornerRadius = DesignTokens.CornerRadius;
         EnsureSingleEventSystem();
         EnsureRuntimeBindings();
-        EnsureViewportReady();
+        EnsureViewportReady(true);
         EnsureRuntimeCatalogControls();
         EnsureEditModeServiceBinding();
         EnsureContentTopAligned();
@@ -212,7 +212,7 @@ public class CatalogUI : MonoBehaviour
         }
     }
 
-    void EnsureViewportReady()
+    void EnsureViewportReady(bool resetView)
     {
         var viewportCamera = placementController != null && placementController.cam != null
             ? placementController.cam
@@ -222,13 +222,20 @@ public class CatalogUI : MonoBehaviour
 
         if (viewportCamera != null)
         {
-            viewportCamera.transform.SetParent(null, true);
-            viewportCamera.transform.position = new Vector3(0f, 6f, -10f);
-            viewportCamera.transform.LookAt(Vector3.zero, Vector3.up);
-            viewportCamera.orthographic = true;
-            viewportCamera.orthographicSize = 7f;
-            viewportCamera.nearClipPlane = 0.05f;
-            viewportCamera.farClipPlane = 1000f;
+            var cameraController = viewportCamera.GetComponent<EditorCameraController>();
+            if (resetView && cameraController != null)
+            {
+                cameraController.ResetToDefaultView();
+            }
+            else if (resetView)
+            {
+                viewportCamera.transform.position = new Vector3(0f, 6f, -10f);
+                viewportCamera.transform.LookAt(Vector3.zero, Vector3.up);
+                viewportCamera.orthographic = true;
+                viewportCamera.orthographicSize = 7f;
+                viewportCamera.nearClipPlane = 0.05f;
+                viewportCamera.farClipPlane = 1000f;
+            }
 
             if (placementController != null && placementController.cam == null)
             {
@@ -2278,7 +2285,7 @@ public class CatalogUI : MonoBehaviour
         if (string.IsNullOrWhiteSpace(typeId)) return;
         if (removedTypeIds.Contains(typeId)) return;
         EnsureRuntimeBindings();
-        EnsureViewportReady();
+        EnsureViewportReady(false);
 
         if (placementController != null)
         {
