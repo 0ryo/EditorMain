@@ -1,5 +1,4 @@
 using UnityEngine;
-using UnityEngine.InputSystem;
 
 public class EditorCameraController : MonoBehaviour
 {
@@ -28,6 +27,8 @@ public class EditorCameraController : MonoBehaviour
     Camera cachedCamera;
     float yaw;
     float pitch;
+    Vector2 previousMousePosition;
+    bool hasPreviousMousePosition;
 
     void Start()
     {
@@ -43,25 +44,44 @@ public class EditorCameraController : MonoBehaviour
 
     void Update()
     {
-        if (Mouse.current == null) return;
-        if (PlacementController.IsScreenPositionOverCameraBlockingUi(Mouse.current.position.ReadValue())) return;
+        Vector2 mousePosition = Input.mousePosition;
+        bool pointerBlocked = PlacementController.IsScreenPositionOverCameraBlockingUi(mousePosition);
 
-        HandleZoom(Mouse.current.scroll.ReadValue().y);
+        if (!pointerBlocked)
+        {
+            HandleZoom(Input.mouseScrollDelta.y);
+        }
 
-        bool panPressed = Mouse.current.middleButton.isPressed;
-        bool orbitPressed = Mouse.current.rightButton.isPressed;
-        if (!panPressed && !orbitPressed) return;
+        bool middlePressed = Input.GetMouseButton(2);
+        if (pointerBlocked || !middlePressed)
+        {
+            RememberMousePosition(mousePosition);
+            return;
+        }
 
-        Vector2 delta = Mouse.current.delta.ReadValue();
+        if (Input.GetMouseButtonDown(2) || !hasPreviousMousePosition)
+        {
+            RememberMousePosition(mousePosition);
+            return;
+        }
+
+        Vector2 delta = mousePosition - previousMousePosition;
+        RememberMousePosition(mousePosition);
         if (delta.sqrMagnitude <= 0.0001f) return;
 
-        if (panPressed)
+        if (IsShiftPressed())
         {
             HandleHorizontalPan(delta);
             return;
         }
 
         HandleOrbit(delta);
+    }
+
+    void RememberMousePosition(Vector2 mousePosition)
+    {
+        previousMousePosition = mousePosition;
+        hasPreviousMousePosition = true;
     }
 
     void EnsurePivot()
@@ -164,6 +184,11 @@ public class EditorCameraController : MonoBehaviour
             maxDistance);
 
         transform.localPosition = transform.localPosition.normalized * targetDistance;
+    }
+
+    static bool IsShiftPressed()
+    {
+        return Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
     }
 
     static float NormalizeAngle(float angle)

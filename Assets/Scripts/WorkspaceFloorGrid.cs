@@ -5,17 +5,17 @@ public class WorkspaceFloorGrid : MonoBehaviour
 {
     const string RuntimeName = "WorkspaceFloorGrid_Runtime";
     const string FloorSurfaceName = "Floor_Surface";
-    const int BuildRevision = 2;
+    const int BuildRevision = 3;
     const int HalfLineCount = 80;
     const float GridStep = 1f;
     const float SurfaceY = -0.012f;
     const float GridY = 0.012f;
     const float LineWidth = 0.006f;
 
-    static readonly Color SurfaceColor = new Color(0.93f, 0.95f, 0.98f, 0.35f);
-    static readonly Color GridLineColor = new Color(0.50f, 0.58f, 0.68f, 0.22f);
-    static readonly Color XAxisColor = new Color(0.72f, 0.40f, 0.40f, 0.28f);
-    static readonly Color ZAxisColor = new Color(0.38f, 0.50f, 0.72f, 0.28f);
+    static readonly Color SurfaceColor = new Color(0.93f, 0.95f, 0.98f, 0.42f);
+    static readonly Color GridLineColor = new Color(0.50f, 0.58f, 0.68f, 0.32f);
+    static readonly Color XAxisColor = new Color(0.72f, 0.40f, 0.40f, 0.36f);
+    static readonly Color ZAxisColor = new Color(0.38f, 0.50f, 0.72f, 0.36f);
 
     Material surfaceMaterial;
     Material lineMaterial;

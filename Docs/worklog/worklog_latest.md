@@ -93,6 +93,10 @@
 - グリッド範囲を大きく取り、全線を同じ太さ、半透明マテリアルに統一した。
 - `PlacementController` にカメラ操作専用のUIブロック判定を追加し、Scenario graph の矩形が3Dビュー操作を止めないようにした。
 - `EditCameraController` は中ドラッグで平行移動、右ドラッグで回転、ホイールでズームするようにした。
+- Task 12: 視点操作の入力経路と操作仕様を修正。
+- `EditCameraController` は新Input System の `Mouse.current` 依存をやめ、既存の配置/選択系と同じ旧 `Input` API へ統一した。
+- 視点操作は中ドラッグで回転、Shift+中ドラッグで平行移動、ホイールでズームに戻した。
+- `WorkspaceFloorGrid` の半透明色を少し濃くし、BuildRevision を更新して既存ランタイム生成物も再生成されるようにした。
 
 ## 6. 検証状況
 - `git diff --check`: 現在ブランチ作成前の監査コミットで成功。
@@ -106,5 +110,6 @@
 - `git diff --check`: Task 9 変更後に成功。
 - `git diff --check`: Task 10 変更後に成功。
 - `git diff --check`: Task 11 変更後に成功。
+- `git diff --check`: Task 12 変更後に成功。
 - `dotnet build .\Assembly-CSharp.csproj`: 実行したが、Unity生成csprojが既存の `DesignTokens` / `UiRoundedTheme` / `RuntimeModelLoader` などを解決できない状態で失敗。Unity Editor 起動なしの静的ビルド検証としては利用不可。
 - Unity Editor 起動、Unity CLI、コンパイル確認は Local Execution Policy により未実施。
