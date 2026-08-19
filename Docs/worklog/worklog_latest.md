@@ -88,6 +88,11 @@
 - `CatalogUI.EnsureViewportReady` はカメラを親から外さず、`EditorCameraController.ResetToDefaultView()` 経由で初期化するようにした。
 - カードクリック時は視点をリセットせず、グリッドと配置コントローラ参照だけを保証するようにした。
 - `EditCameraController` のUI判定を全画面Canvasではなく操作パネル矩形だけにし、3Dビュー上の中ボタンドラッグ/ホイール操作が通るようにした。
+- Task 11: グリッド領域と視点移動を再修正。
+- `WorkspaceFloorGrid` は既存の生成済み子要素を毎回破棄してから再生成し、古い太いグリッドが残らないようにした。
+- グリッド範囲を大きく取り、全線を同じ太さ、半透明マテリアルに統一した。
+- `PlacementController` にカメラ操作専用のUIブロック判定を追加し、Scenario graph の矩形が3Dビュー操作を止めないようにした。
+- `EditCameraController` は中ドラッグで平行移動、右ドラッグで回転、ホイールでズームするようにした。
 
 ## 6. 検証状況
 - `git diff --check`: 現在ブランチ作成前の監査コミットで成功。
@@ -100,5 +105,6 @@
 - `git diff --check`: Task 8 変更後に成功。
 - `git diff --check`: Task 9 変更後に成功。
 - `git diff --check`: Task 10 変更後に成功。
+- `git diff --check`: Task 11 変更後に成功。
 - `dotnet build .\Assembly-CSharp.csproj`: 実行したが、Unity生成csprojが既存の `DesignTokens` / `UiRoundedTheme` / `RuntimeModelLoader` などを解決できない状態で失敗。Unity Editor 起動なしの静的ビルド検証としては利用不可。
 - Unity Editor 起動、Unity CLI、コンパイル確認は Local Execution Policy により未実施。

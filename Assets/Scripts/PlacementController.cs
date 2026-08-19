@@ -17,6 +17,17 @@ public class PlacementController : MonoBehaviour
         "Button_Settings_Runtime"
     };
 
+    static readonly string[] CameraBlockingUiRectNames =
+    {
+        "Panel_Catalog",
+        "Panel_Settings",
+        "Panel_NewObjectSettings",
+        "EditModeRow",
+        "EditModeRow_Runtime",
+        "Button_Settings",
+        "Button_Settings_Runtime"
+    };
+
     public PrefabRegistry registry;
     public Camera cam;
     public float gridSize = 0.1f;
@@ -193,9 +204,19 @@ public class PlacementController : MonoBehaviour
 
     public static bool IsScreenPositionOverBlockingUi(Vector2 screenPosition)
     {
+        return IsScreenPositionOverNamedUi(screenPosition, BlockingUiRectNames);
+    }
+
+    public static bool IsScreenPositionOverCameraBlockingUi(Vector2 screenPosition)
+    {
+        return IsScreenPositionOverNamedUi(screenPosition, CameraBlockingUiRectNames);
+    }
+
+    static bool IsScreenPositionOverNamedUi(Vector2 screenPosition, string[] blockingNames)
+    {
         foreach (var rect in FindObjectsByType<RectTransform>(FindObjectsInactive.Exclude, FindObjectsSortMode.None))
         {
-            if (rect == null || !IsBlockingUiRect(rect.name)) continue;
+            if (rect == null || !IsNamedBlockingUiRect(rect.name, blockingNames)) continue;
             if (RectTransformUtility.RectangleContainsScreenPoint(rect, screenPosition, null))
             {
                 return true;
@@ -205,10 +226,10 @@ public class PlacementController : MonoBehaviour
         return false;
     }
 
-    static bool IsBlockingUiRect(string objectName)
+    static bool IsNamedBlockingUiRect(string objectName, string[] blockingNames)
     {
         if (string.IsNullOrWhiteSpace(objectName)) return false;
-        foreach (var blockingName in BlockingUiRectNames)
+        foreach (var blockingName in blockingNames)
         {
             if (string.Equals(objectName, blockingName, StringComparison.Ordinal)) return true;
         }

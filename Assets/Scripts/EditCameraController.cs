@@ -28,7 +28,6 @@ public class EditorCameraController : MonoBehaviour
     Camera cachedCamera;
     float yaw;
     float pitch;
-    bool dragIsPanning;
 
     void Start()
     {
@@ -45,19 +44,18 @@ public class EditorCameraController : MonoBehaviour
     void Update()
     {
         if (Mouse.current == null) return;
-        if (PlacementController.IsScreenPositionOverBlockingUi(Mouse.current.position.ReadValue())) return;
+        if (PlacementController.IsScreenPositionOverCameraBlockingUi(Mouse.current.position.ReadValue())) return;
 
         HandleZoom(Mouse.current.scroll.ReadValue().y);
 
-        if (!Mouse.current.middleButton.isPressed) return;
-
-        if (Mouse.current.middleButton.wasPressedThisFrame)
-            dragIsPanning = IsShiftPressed();
+        bool panPressed = Mouse.current.middleButton.isPressed;
+        bool orbitPressed = Mouse.current.rightButton.isPressed;
+        if (!panPressed && !orbitPressed) return;
 
         Vector2 delta = Mouse.current.delta.ReadValue();
         if (delta.sqrMagnitude <= 0.0001f) return;
 
-        if (dragIsPanning)
+        if (panPressed)
         {
             HandleHorizontalPan(delta);
             return;
@@ -83,6 +81,7 @@ public class EditorCameraController : MonoBehaviour
 
     public void ResetToDefaultView()
     {
+        cachedCamera = GetComponent<Camera>();
         EnsurePivot();
         AttachCameraToPivot();
         pivot.position = Vector3.zero;
@@ -165,12 +164,6 @@ public class EditorCameraController : MonoBehaviour
             maxDistance);
 
         transform.localPosition = transform.localPosition.normalized * targetDistance;
-    }
-
-    bool IsShiftPressed()
-    {
-        if (Keyboard.current == null) return false;
-        return Keyboard.current.leftShiftKey.isPressed || Keyboard.current.rightShiftKey.isPressed;
     }
 
     static float NormalizeAngle(float angle)

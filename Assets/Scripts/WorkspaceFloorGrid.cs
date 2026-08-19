@@ -1,28 +1,27 @@
 using UnityEngine;
+using UnityEngine.Rendering;
 
 public class WorkspaceFloorGrid : MonoBehaviour
 {
     const string RuntimeName = "WorkspaceFloorGrid_Runtime";
     const string FloorSurfaceName = "Floor_Surface";
-    const int HalfLineCount = 12;
+    const int BuildRevision = 2;
+    const int HalfLineCount = 80;
     const float GridStep = 1f;
     const float SurfaceY = -0.012f;
     const float GridY = 0.012f;
-    const float MinorWidth = 0.008f;
-    const float MajorWidth = 0.014f;
-    const float AxisWidth = 0.02f;
+    const float LineWidth = 0.006f;
 
-    static readonly Color SurfaceColor = new Color(0.935f, 0.945f, 0.958f, 1f);
-    static readonly Color MinorColor = new Color(0.78f, 0.81f, 0.86f, 1f);
-    static readonly Color MajorColor = new Color(0.68f, 0.72f, 0.78f, 1f);
-    static readonly Color XAxisColor = new Color(0.78f, 0.45f, 0.43f, 1f);
-    static readonly Color ZAxisColor = new Color(0.42f, 0.55f, 0.78f, 1f);
+    static readonly Color SurfaceColor = new Color(0.93f, 0.95f, 0.98f, 0.35f);
+    static readonly Color GridLineColor = new Color(0.50f, 0.58f, 0.68f, 0.22f);
+    static readonly Color XAxisColor = new Color(0.72f, 0.40f, 0.40f, 0.28f);
+    static readonly Color ZAxisColor = new Color(0.38f, 0.50f, 0.72f, 0.28f);
 
     Material surfaceMaterial;
-    Material minorMaterial;
-    Material majorMaterial;
+    Material lineMaterial;
     Material xAxisMaterial;
     Material zAxisMaterial;
+    [SerializeField] int builtRevision;
 
     public static WorkspaceFloorGrid EnsureExists()
     {
@@ -46,8 +45,9 @@ public class WorkspaceFloorGrid : MonoBehaviour
 
     void BuildGrid()
     {
-        if (transform.Find(FloorSurfaceName) != null) return;
+        if (builtRevision == BuildRevision && transform.Find(FloorSurfaceName) != null) return;
 
+        ClearGeneratedChildren();
         EnsureMaterials();
         float extent = HalfLineCount * GridStep;
 
@@ -65,35 +65,52 @@ public class WorkspaceFloorGrid : MonoBehaviour
         for (int i = -HalfLineCount; i <= HalfLineCount; i++)
         {
             float offset = i * GridStep;
-            bool isMajor = i != 0 && i % 4 == 0;
-            var material = isMajor ? majorMaterial : minorMaterial;
-            float width = isMajor ? MajorWidth : MinorWidth;
 
             CreateGroundLine(
-                $"Grid_X_{i + HalfLineCount:00}",
+                $"Grid_X_{i + HalfLineCount:000}",
                 new Vector3(-extent, GridY, offset),
                 new Vector3(extent, GridY, offset),
-                width,
-                material);
+                LineWidth,
+                lineMaterial);
             CreateGroundLine(
-                $"Grid_Z_{i + HalfLineCount:00}",
+                $"Grid_Z_{i + HalfLineCount:000}",
                 new Vector3(offset, GridY, -extent),
                 new Vector3(offset, GridY, extent),
-                width,
-                material);
+                LineWidth,
+                lineMaterial);
         }
 
-        CreateGroundLine("Axis_X", new Vector3(-extent, GridY + 0.004f, 0f), new Vector3(extent, GridY + 0.004f, 0f), AxisWidth, xAxisMaterial);
-        CreateGroundLine("Axis_Z", new Vector3(0f, GridY + 0.006f, -extent), new Vector3(0f, GridY + 0.006f, extent), AxisWidth, zAxisMaterial);
+        CreateGroundLine("Axis_X", new Vector3(-extent, GridY + 0.004f, 0f), new Vector3(extent, GridY + 0.004f, 0f), LineWidth, xAxisMaterial);
+        CreateGroundLine("Axis_Z", new Vector3(0f, GridY + 0.006f, -extent), new Vector3(0f, GridY + 0.006f, extent), LineWidth, zAxisMaterial);
+        builtRevision = BuildRevision;
+    }
+
+    void ClearGeneratedChildren()
+    {
+        for (int i = transform.childCount - 1; i >= 0; i--)
+        {
+            var child = transform.GetChild(i);
+            if (Application.isPlaying)
+            {
+                Destroy(child.gameObject);
+            }
+            else
+            {
+                DestroyImmediate(child.gameObject);
+            }
+        }
     }
 
     void EnsureMaterials()
     {
         if (surfaceMaterial == null) surfaceMaterial = CreateMaterial("WorkspaceFloor_Surface", SurfaceColor);
-        if (minorMaterial == null) minorMaterial = CreateMaterial("WorkspaceFloor_MinorLine", MinorColor);
-        if (majorMaterial == null) majorMaterial = CreateMaterial("WorkspaceFloor_MajorLine", MajorColor);
+        if (lineMaterial == null) lineMaterial = CreateMaterial("WorkspaceFloor_Line", GridLineColor);
         if (xAxisMaterial == null) xAxisMaterial = CreateMaterial("WorkspaceFloor_XAxis", XAxisColor);
         if (zAxisMaterial == null) zAxisMaterial = CreateMaterial("WorkspaceFloor_ZAxis", ZAxisColor);
+
+        lineMaterial.renderQueue = (int)RenderQueue.Transparent + 1;
+        xAxisMaterial.renderQueue = (int)RenderQueue.Transparent + 1;
+        zAxisMaterial.renderQueue = (int)RenderQueue.Transparent + 1;
     }
 
     void CreateGroundLine(string objectName, Vector3 from, Vector3 to, float width, Material material)
@@ -129,7 +146,7 @@ public class WorkspaceFloorGrid : MonoBehaviour
         go.GetComponent<MeshFilter>().sharedMesh = mesh;
         var renderer = go.GetComponent<MeshRenderer>();
         renderer.sharedMaterial = material;
-        renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        renderer.shadowCastingMode = ShadowCastingMode.Off;
         renderer.receiveShadows = false;
     }
 
@@ -147,6 +164,22 @@ public class WorkspaceFloorGrid : MonoBehaviour
 
         if (material.HasProperty("_BaseColor")) material.SetColor("_BaseColor", color);
         if (material.HasProperty("_Color")) material.SetColor("_Color", color);
+        ConfigureTransparentMaterial(material);
         return material;
+    }
+
+    static void ConfigureTransparentMaterial(Material material)
+    {
+        material.SetOverrideTag("RenderType", "Transparent");
+        material.renderQueue = (int)RenderQueue.Transparent;
+
+        if (material.HasProperty("_Surface")) material.SetFloat("_Surface", 1f);
+        if (material.HasProperty("_Blend")) material.SetFloat("_Blend", 0f);
+        if (material.HasProperty("_SrcBlend")) material.SetFloat("_SrcBlend", (float)BlendMode.SrcAlpha);
+        if (material.HasProperty("_DstBlend")) material.SetFloat("_DstBlend", (float)BlendMode.OneMinusSrcAlpha);
+        if (material.HasProperty("_ZWrite")) material.SetFloat("_ZWrite", 0f);
+
+        material.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+        material.EnableKeyword("_ALPHABLEND_ON");
     }
 }
