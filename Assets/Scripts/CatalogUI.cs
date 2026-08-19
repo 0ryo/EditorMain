@@ -393,9 +393,8 @@ public class CatalogUI : MonoBehaviour
         cardButton.gameObject.SetActive(true);
         EnsureCardHeight(cardButton.gameObject);
         var cardLabel = string.IsNullOrWhiteSpace(runtimeImportedCardLabel) ? importedCardLabel : runtimeImportedCardLabel;
-        SetCardLabel(cardButton.gameObject, cardLabel, importedTypeId);
-
         var importedTypeId = runtimeImportedTypeId;
+        SetCardLabel(cardButton.gameObject, cardLabel, importedTypeId);
         SetupCardInteractions(cardButton, importedTypeId);
 
         cards.Add(new CardState
