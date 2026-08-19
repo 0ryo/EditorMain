@@ -115,6 +115,10 @@
 - `CatalogUI` はカードクリック/ドラッグドロップ時に `[CatalogUI]` ログを出し、`PlacementController` の接続有無と typeId を確認できるようにした。
 - `PlacementController` は `[PlacementDiag]` ログで、配置対象、Prefab map件数、カメラ、マウス座標、左クリック、UIブロック名、EditModeを一定間隔および配置開始時に出すようにした。
 - `EditorCameraController` は `[CameraDiag]` ログで、カメラ/ピボット座標、マウス座標、中ボタン、Shift、ホイール、ズーム値を表示し、視点操作入力が読めているか確認できるようにした。
+- Task 16: カードクリック時に `placementController=(null)` で配置モードに入れない問題を修正。
+- ユーザー確認ログから、3Dビュークリック以前に `CatalogUI` が `PlacementController` を解決できていないことが確定した。
+- `CatalogUI.EnsureRuntimeBindings()` を、active な `PlacementController` 探索、inactive 含む探索と再有効化、最後に `RuntimePlacementSystems` へのランタイム生成、の順に必ず配置システムを解決する実装へ変更した。
+- 生成/再有効化した `PlacementController` へ、既存 `PrefabRegistry`、Camera、`SelectionService` を補完するようにした。
 
 ## 6. 検証状況
 - `git diff --check`: 現在ブランチ作成前の監査コミットで成功。
@@ -132,5 +136,6 @@
 - `git diff --check -- Assets/Scripts/PlacementController.cs Assets/Scripts/UI/ViewportStatusStrip.cs Docs/worklog/worklog_latest.md Docs/worklog/worklog_UI/全体UI仕様.md`: Task 13 変更後に成功。
 - `git diff --check -- Assets/Scripts/EditWorkspace.cs Assets/Scripts/EditWorkspace.cs.meta Assets/Scripts/EditCameraController.cs Assets/Scripts/PlacementController.cs Assets/Scripts/CatalogUI.cs Assets/Scripts/UI/ViewportStatusStrip.cs Assets/Scripts/UI/ViewportStatusStrip.cs.meta Docs/worklog/worklog_latest.md Docs/worklog/worklog_UI/全体UI仕様.md`: Task 14 変更後に成功。
 - `git diff --check -- Assets/Scripts/EditInput.cs Assets/Scripts/EditInput.cs.meta Assets/Scripts/PlacementController.cs Assets/Scripts/EditCameraController.cs Assets/Scripts/CatalogUI.cs Assets/Scripts/UI/TmpFontInitializer.cs`: Task 15 変更後に成功。
+- `git diff --check -- Assets/Scripts/CatalogUI.cs`: Task 16 変更後に成功。
 - `dotnet build .\Assembly-CSharp.csproj`: 実行したが、Unity生成csprojが既存の `DesignTokens` / `UiRoundedTheme` / `RuntimeModelLoader` などを解決できない状態で失敗。Unity Editor 起動なしの静的ビルド検証としては利用不可。
 - Unity Editor 起動、Unity CLI、コンパイル確認は Local Execution Policy により未実施。

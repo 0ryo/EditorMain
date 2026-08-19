@@ -175,10 +175,7 @@ public class CatalogUI : MonoBehaviour
     {
         if (onSelectType == null) onSelectType = new StringEvent();
 
-        if (placementController == null)
-        {
-            placementController = FindFirstObjectByType<PlacementController>();
-        }
+        ResolvePlacementController();
 
         if (registry == null && placementController != null)
         {
@@ -211,6 +208,54 @@ public class CatalogUI : MonoBehaviour
             onSelectType.AddListener(placementController.EnterPlacement);
             runtimeListenerBound = true;
         }
+    }
+
+    PlacementController ResolvePlacementController()
+    {
+        if (placementController != null) return placementController;
+
+        placementController = FindFirstObjectByType<PlacementController>();
+        if (placementController == null)
+        {
+            var controllers = FindObjectsByType<PlacementController>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            if (controllers != null && controllers.Length > 0)
+            {
+                placementController = controllers[0];
+                placementController.gameObject.SetActive(true);
+                placementController.enabled = true;
+                Debug.LogWarning($"[CatalogUI] Re-enabled inactive PlacementController: {placementController.name}");
+            }
+        }
+
+        if (placementController == null)
+        {
+            var systems = GameObject.Find("RuntimePlacementSystems");
+            if (systems == null) systems = new GameObject("RuntimePlacementSystems");
+
+            placementController = systems.GetComponent<PlacementController>();
+            if (placementController == null)
+            {
+                placementController = systems.AddComponent<PlacementController>();
+                Debug.LogWarning("[CatalogUI] Created runtime PlacementController because none was found in the loaded scene.");
+            }
+        }
+
+        if (registry != null && (placementController.registry == null || !placementController.registry.HasEntries))
+        {
+            placementController.registry = registry;
+        }
+
+        if (placementController.cam == null)
+        {
+            placementController.cam = EditWorkspace.ResolveCamera();
+        }
+
+        if (placementController.selection == null)
+        {
+            placementController.selection = FindFirstObjectByType<SelectionService>();
+        }
+
+        return placementController;
     }
 
     void EnsureViewportReady(bool resetView)
