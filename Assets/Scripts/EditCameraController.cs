@@ -8,7 +8,7 @@ public class EditorCameraController : MonoBehaviour
     public float orbitSpeed = 12f;
     public float panSpeed = 0.01f;
     public float zoomSpeed = 18f;
-    public float orthographicZoomSpeed = 1.6f;
+    public float orthographicZoomSpeed = 0.12f;
 
     [Header("Limits")]
     public float minDistance = 1.2f;
@@ -35,6 +35,11 @@ public class EditorCameraController : MonoBehaviour
     Vector2 previousMousePosition;
     bool hasPreviousMousePosition;
     float nextDiagnosticLogTime;
+
+    void Awake()
+    {
+        NormalizeZoomSensitivity();
+    }
 
     void Start()
     {
@@ -158,7 +163,15 @@ public class EditorCameraController : MonoBehaviour
 
         orbitSpeed = Mathf.Max(orbitSpeed, 12f);
         zoomSpeed = Mathf.Max(zoomSpeed, 18f);
-        orthographicZoomSpeed = Mathf.Max(orthographicZoomSpeed, 1.6f);
+        orthographicZoomSpeed = Mathf.Clamp(orthographicZoomSpeed, 0.04f, 0.3f);
+    }
+
+    void NormalizeZoomSensitivity()
+    {
+        if (!float.IsFinite(orthographicZoomSpeed) || orthographicZoomSpeed <= 0f || orthographicZoomSpeed > 0.5f)
+        {
+            orthographicZoomSpeed = 0.12f;
+        }
     }
 
     void SyncPivotAngles()
@@ -202,10 +215,8 @@ public class EditorCameraController : MonoBehaviour
         {
             float minSize = Mathf.Max(0.01f, minOrthographicSize);
             float maxSize = Mathf.Max(minSize, maxOrthographicSize);
-            float targetSize = Mathf.Clamp(
-                cachedCamera.orthographicSize - (scroll * orthographicZoomSpeed),
-                minSize,
-                maxSize);
+            float zoomFactor = Mathf.Exp(-scroll * orthographicZoomSpeed);
+            float targetSize = Mathf.Clamp(cachedCamera.orthographicSize * zoomFactor, minSize, maxSize);
 
             cachedCamera.orthographicSize = targetSize;
             SyncOrthographicCameraDistance(targetSize);

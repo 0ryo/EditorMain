@@ -16,9 +16,11 @@ public class SelectionOutline : MonoBehaviour
     GameObject target;
     Camera cachedCamera;
     bool isScaling;
+    bool scaleCursorActive;
     Vector3 dragStartScale;
     float dragStartScreenDistance;
     Material runtimeLineMaterial;
+    Texture2D scaleCursorTexture;
 
     void Update()
     {
@@ -26,10 +28,12 @@ public class SelectionOutline : MonoBehaviour
         {
             EnsureLines(0);
             ResetScaleState();
+            SetScaleCursor(false);
             return;
         }
 
         UpdateOutline();
+        UpdateScaleCursor();
         HandleScaleDrag();
     }
 
@@ -41,6 +45,7 @@ public class SelectionOutline : MonoBehaviour
         if (target == null)
         {
             EnsureLines(0);
+            SetScaleCursor(false);
             return;
         }
 
@@ -87,6 +92,21 @@ public class SelectionOutline : MonoBehaviour
         }
 
         ApplyScaleFromPointer(EditInput.MousePosition);
+    }
+
+    void UpdateScaleCursor()
+    {
+        bool shouldShow = isScaling;
+        if (!shouldShow && IsScaleMode() &&
+            !PlacementController.IsScreenPositionOverBlockingUi(EditInput.MousePosition))
+        {
+            var cam = ResolveCamera();
+            shouldShow = cam != null &&
+                         TryGetClosestCornerScreen(cam, EditInput.MousePosition, out _, out var distance) &&
+                         distance <= handlePickRadiusPixels;
+        }
+
+        SetScaleCursor(shouldShow);
     }
 
     void TryBeginScaleDrag(Vector2 pointer)
@@ -186,18 +206,18 @@ public class SelectionOutline : MonoBehaviour
     {
         if (target == null) return;
 
-        var bounds = CalculateTargetBounds();
+        var bounds = CalculateTargetLocalBounds();
         Vector3 min = bounds.min;
         Vector3 max = bounds.max;
 
-        corners[0] = new Vector3(min.x, min.y, min.z);
-        corners[1] = new Vector3(max.x, min.y, min.z);
-        corners[2] = new Vector3(max.x, min.y, max.z);
-        corners[3] = new Vector3(min.x, min.y, max.z);
-        corners[4] = new Vector3(min.x, max.y, min.z);
-        corners[5] = new Vector3(max.x, max.y, min.z);
-        corners[6] = new Vector3(max.x, max.y, max.z);
-        corners[7] = new Vector3(min.x, max.y, max.z);
+        corners[0] = target.transform.TransformPoint(new Vector3(min.x, min.y, min.z));
+        corners[1] = target.transform.TransformPoint(new Vector3(max.x, min.y, min.z));
+        corners[2] = target.transform.TransformPoint(new Vector3(max.x, min.y, max.z));
+        corners[3] = target.transform.TransformPoint(new Vector3(min.x, min.y, max.z));
+        corners[4] = target.transform.TransformPoint(new Vector3(min.x, max.y, min.z));
+        corners[5] = target.transform.TransformPoint(new Vector3(max.x, max.y, min.z));
+        corners[6] = target.transform.TransformPoint(new Vector3(max.x, max.y, max.z));
+        corners[7] = target.transform.TransformPoint(new Vector3(min.x, max.y, max.z));
 
         edges[0, 0] = corners[0]; edges[0, 1] = corners[1];
         edges[1, 0] = corners[1]; edges[1, 1] = corners[2];
@@ -220,18 +240,40 @@ public class SelectionOutline : MonoBehaviour
         }
     }
 
-    Bounds CalculateTargetBounds()
+    Bounds CalculateTargetLocalBounds()
     {
-        var bounds = new Bounds(target.transform.position, Vector3.one * 0.5f);
-        var renderers = target.GetComponentsInChildren<Renderer>();
-        if (renderers != null && renderers.Length > 0)
+        var bounds = new Bounds(Vector3.zero, Vector3.one * 0.5f);
+        var renderers = target.GetComponentsInChildren<Renderer>(true);
+        bool hasPoint = false;
+
+        for (int rendererIndex = 0; rendererIndex < renderers.Length; rendererIndex++)
         {
-            bounds = renderers[0].bounds;
-            for (int i = 1; i < renderers.Length; i++)
+            var renderer = renderers[rendererIndex];
+            var rendererBounds = renderer.localBounds;
+            Vector3 min = rendererBounds.min;
+            Vector3 max = rendererBounds.max;
+
+            for (int cornerIndex = 0; cornerIndex < 8; cornerIndex++)
             {
-                bounds.Encapsulate(renderers[i].bounds);
+                var rendererLocalPoint = new Vector3(
+                    (cornerIndex & 1) == 0 ? min.x : max.x,
+                    (cornerIndex & 2) == 0 ? min.y : max.y,
+                    (cornerIndex & 4) == 0 ? min.z : max.z);
+                Vector3 worldPoint = renderer.transform.TransformPoint(rendererLocalPoint);
+                Vector3 targetLocalPoint = target.transform.InverseTransformPoint(worldPoint);
+
+                if (!hasPoint)
+                {
+                    bounds = new Bounds(targetLocalPoint, Vector3.zero);
+                    hasPoint = true;
+                }
+                else
+                {
+                    bounds.Encapsulate(targetLocalPoint);
+                }
             }
         }
+
         return bounds;
     }
 
@@ -240,7 +282,7 @@ public class SelectionOutline : MonoBehaviour
         centerScreen = default;
         if (target == null) return false;
 
-        var centerWorld = CalculateTargetBounds().center;
+        var centerWorld = target.transform.TransformPoint(CalculateTargetLocalBounds().center);
         var screen = cam.WorldToScreenPoint(centerWorld);
         if (screen.z <= 0f) return false;
 
@@ -312,11 +354,88 @@ public class SelectionOutline : MonoBehaviour
         return runtimeLineMaterial;
     }
 
+    void SetScaleCursor(bool active)
+    {
+        if (scaleCursorActive == active) return;
+
+        scaleCursorActive = active;
+        Cursor.SetCursor(active ? GetScaleCursorTexture() : null, active ? new Vector2(16f, 16f) : Vector2.zero, CursorMode.Auto);
+    }
+
+    Texture2D GetScaleCursorTexture()
+    {
+        if (scaleCursorTexture != null) return scaleCursorTexture;
+
+        const int size = 32;
+        scaleCursorTexture = new Texture2D(size, size, TextureFormat.RGBA32, false)
+        {
+            name = "ScaleHorizontalCursor_Runtime",
+            hideFlags = HideFlags.HideAndDontSave,
+            filterMode = FilterMode.Point,
+            wrapMode = TextureWrapMode.Clamp,
+        };
+        scaleCursorTexture.SetPixels(new Color[size * size]);
+
+        var segments = new[]
+        {
+            new[] { new Vector2Int(5, 16), new Vector2Int(26, 16) },
+            new[] { new Vector2Int(5, 16), new Vector2Int(11, 10) },
+            new[] { new Vector2Int(5, 16), new Vector2Int(11, 22) },
+            new[] { new Vector2Int(26, 16), new Vector2Int(20, 10) },
+            new[] { new Vector2Int(26, 16), new Vector2Int(20, 22) },
+        };
+
+        for (int i = 0; i < segments.Length; i++)
+        {
+            DrawCursorLine(scaleCursorTexture, segments[i][0], segments[i][1], Color.black, 1);
+        }
+        for (int i = 0; i < segments.Length; i++)
+        {
+            DrawCursorLine(scaleCursorTexture, segments[i][0], segments[i][1], Color.white, 0);
+        }
+
+        scaleCursorTexture.Apply(false, false);
+        return scaleCursorTexture;
+    }
+
+    static void DrawCursorLine(Texture2D texture, Vector2Int from, Vector2Int to, Color color, int radius)
+    {
+        int steps = Mathf.Max(Mathf.Abs(to.x - from.x), Mathf.Abs(to.y - from.y));
+        for (int step = 0; step <= steps; step++)
+        {
+            float t = steps == 0 ? 0f : (float)step / steps;
+            int x = Mathf.RoundToInt(Mathf.Lerp(from.x, to.x, t));
+            int y = Mathf.RoundToInt(Mathf.Lerp(from.y, to.y, t));
+
+            for (int offsetY = -radius; offsetY <= radius; offsetY++)
+            {
+                for (int offsetX = -radius; offsetX <= radius; offsetX++)
+                {
+                    int pixelX = x + offsetX;
+                    int pixelY = y + offsetY;
+                    if (pixelX < 0 || pixelX >= texture.width || pixelY < 0 || pixelY >= texture.height) continue;
+                    texture.SetPixel(pixelX, pixelY, color);
+                }
+            }
+        }
+    }
+
+    void OnDisable()
+    {
+        SetScaleCursor(false);
+    }
+
     void OnDestroy()
     {
+        SetScaleCursor(false);
         if (runtimeLineMaterial != null)
         {
             Destroy(runtimeLineMaterial);
+        }
+
+        if (scaleCursorTexture != null)
+        {
+            Destroy(scaleCursorTexture);
         }
     }
 

@@ -133,6 +133,11 @@
 - 正投影ズームでは `orthographicSize` に合わせてCamera距離も更新し、広い床面の手前側がnear clipを越える現象を抑えた。NodeArea上ではCamera入力を処理せず、ホイール/中ドラッグをノードビューへ渡す。
 - 新規グラフは Start / Step / End とStepに紐づくConditionを補完し、初期表示とノード追加後にNodeAreaを中央へ戻す。接続線レイヤーは透明・raycast無効・最背面を再保証する。
 - 配置対象なしクリック、Scaleモード時のMoveTool無効通知、Condition dropdown正常系、配置オブジェクト候補正常系、接続線再描画の常時ログを削除した。
+- Task 19: グリッド、ズーム、回転選択枠、スケールカーソルを調整。
+- グリッド線とX/Z軸の透明度を約15%濃くし、BuildRevision更新で既存ランタイム表示も再生成する。
+- 正投影ズームを固定量加算から倍率式へ変更し、既存Sceneの旧感度値 `1.6` は起動時に `0.12` へ移行する。
+- 選択枠はRendererのワールド軸AABBではなく、対象ルートのローカル空間で子Rendererの境界を合成し、オブジェクトの回転へ追従する。
+- Scaleモードでは選択枠の角ハンドル上とドラッグ中に横リサイズカーソルを表示する。
 
 ## 6. 検証状況
 - `git diff --check`: 現在ブランチ作成前の監査コミットで成功。
@@ -153,5 +158,6 @@
 - `git diff --check -- Assets/Scripts/CatalogUI.cs`: Task 16 変更後に成功。
 - `git diff --check -- Assets/Scripts/EditInput.cs Assets/Scripts/PlacementController.cs Assets/Scripts/CatalogUI.cs Assets/Scripts/SelectionService.cs Assets/Scripts/MoveTool.cs Assets/Scripts/EditCameraController.cs Assets/Scripts/UI/ViewportStatusStrip.cs`: Task 17 変更後に成功。
 - `git diff --check -- Assets/Scripts/EditWorkspace.cs Assets/Scripts/CatalogUI.cs Assets/Scripts/SelectionService.cs Assets/Scripts/SelectionOutline.cs Assets/Scripts/EditCameraController.cs Assets/Scripts/PlacementController.cs Assets/Scripts/MoveTool.cs Assets/Scripts/UI/NodeAreaPanZoomController.cs Assets/Scripts/UI/ScenarioGraphUI.cs Assets/Scripts/UI/ConditionRowUI.cs Assets/Scripts/Services/PlacedObjectOptionProvider.cs Docs/worklog/worklog_latest.md`: Task 18 変更後に成功。
+- `git diff --check -- Assets/Scripts/WorkspaceFloorGrid.cs Assets/Scripts/EditCameraController.cs Assets/Scripts/SelectionOutline.cs Docs/worklog/worklog_latest.md`: Task 19 変更後に成功。
 - `dotnet build .\Assembly-CSharp.csproj`: 実行したが、Unity生成csprojが既存の `DesignTokens` / `UiRoundedTheme` / `RuntimeModelLoader` などを解決できない状態で失敗。Unity Editor 起動なしの静的ビルド検証としては利用不可。
 - Unity Editor 起動、Unity CLI、コンパイル確認は Local Execution Policy により未実施。
