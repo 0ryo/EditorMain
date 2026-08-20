@@ -9,6 +9,7 @@ public class PlacementController : MonoBehaviour
         "Panel_Catalog",
         "Panel_Settings",
         "Panel_NewObjectSettings",
+        "NodeArea",
         "EditModeRow",
         "EditModeRow_Runtime",
         "Button_Settings",
@@ -187,14 +188,9 @@ public class PlacementController : MonoBehaviour
         bool leftPressedThisFrame = EditInput.LeftPressedThisFrame();
         if (string.IsNullOrEmpty(currentTypeId))
         {
-            if (leftPressedThisFrame)
-            {
-                LogDiagnostics("IdleClick", true);
-            }
             return;
         }
 
-        LogDiagnostics("ActiveUpdate", false);
         if (uiDragInProgress)
         {
             LogDebug("Placement input skipped because catalog drag is in progress.");

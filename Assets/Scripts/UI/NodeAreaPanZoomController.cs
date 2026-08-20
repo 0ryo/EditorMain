@@ -20,6 +20,16 @@ public class NodeAreaPanZoomController : MonoBehaviour, IScrollHandler, IBeginDr
         ClampPan();
     }
 
+    public void ResetView()
+    {
+        ResolveDefaults();
+        if (!IsReady()) return;
+
+        content.localScale = Vector3.one;
+        content.anchoredPosition = Vector2.zero;
+        ClampPan();
+    }
+
     void Awake()
     {
         ResolveDefaults();

@@ -2,6 +2,8 @@ using UnityEngine;
 
 public class EditorCameraController : MonoBehaviour
 {
+    static readonly string[] NodeAreaUiNames = { "NodeArea" };
+
     [Header("Sensitivity")]
     public float orbitSpeed = 12f;
     public float panSpeed = 0.01f;
@@ -10,11 +12,12 @@ public class EditorCameraController : MonoBehaviour
 
     [Header("Limits")]
     public float minDistance = 1.2f;
-    public float maxDistance = 120f;
+    public float maxDistance = 240f;
     public float minOrthographicSize = 0.4f;
     public float maxOrthographicSize = 80f;
     public float minPitch = -80f;
     public float maxPitch = 80f;
+    public float orthographicDistancePerSize = 2f;
 
     [Header("References")]
     public Transform pivot;
@@ -23,7 +26,7 @@ public class EditorCameraController : MonoBehaviour
     public bool enforceHighSensitivity = true;
 
     [Header("Diagnostics")]
-    public bool enableDiagnostics = true;
+    public bool enableDiagnostics = false;
     public float diagnosticInterval = 1f;
 
     Camera cachedCamera;
@@ -52,13 +55,20 @@ public class EditorCameraController : MonoBehaviour
         float scrollY = EditInput.ScrollY;
         bool middlePressed = EditInput.MiddlePressed();
         bool shiftPressed = EditInput.ShiftPressed();
+        bool overNodeArea = EditWorkspace.TryGetBlockingUiName(mousePosition, NodeAreaUiNames, out _);
 
         if (typingBlocked)
         {
             if (middlePressed || Mathf.Abs(scrollY) > 0.0001f)
             {
-                Debug.Log("[CameraDiag] Input ignored because a text field is focused.");
+                LogDiagnostics("Input ignored because a text field is focused", true, Vector2.zero, scrollY);
             }
+            return;
+        }
+
+        if (overNodeArea)
+        {
+            RememberMousePosition(mousePosition);
             return;
         }
 
@@ -73,7 +83,7 @@ public class EditorCameraController : MonoBehaviour
         if (EditInput.MiddlePressedThisFrame() || !hasPreviousMousePosition)
         {
             RememberMousePosition(mousePosition);
-            Debug.Log($"[CameraDiag] Middle drag started. mouse={mousePosition}, shift={shiftPressed}");
+            LogDiagnostics("Middle drag started", true, Vector2.zero, scrollY);
             return;
         }
 
@@ -136,8 +146,9 @@ public class EditorCameraController : MonoBehaviour
         {
             cachedCamera.orthographic = true;
             cachedCamera.orthographicSize = 7f;
-            cachedCamera.nearClipPlane = 0.05f;
+            cachedCamera.nearClipPlane = 0.01f;
             cachedCamera.farClipPlane = 1000f;
+            SyncOrthographicCameraDistance(cachedCamera.orthographicSize);
         }
     }
 
@@ -197,6 +208,7 @@ public class EditorCameraController : MonoBehaviour
                 maxSize);
 
             cachedCamera.orthographicSize = targetSize;
+            SyncOrthographicCameraDistance(targetSize);
             LogDiagnostics("Zoom", true, Vector2.zero, rawScrollY);
             return;
         }
@@ -209,6 +221,24 @@ public class EditorCameraController : MonoBehaviour
 
         transform.localPosition = transform.localPosition.normalized * targetDistance;
         LogDiagnostics("Zoom", true, Vector2.zero, rawScrollY);
+    }
+
+    void SyncOrthographicCameraDistance(float orthographicSize)
+    {
+        float distance = Mathf.Clamp(
+            orthographicSize * Mathf.Max(1f, orthographicDistancePerSize),
+            minDistance,
+            maxDistance);
+
+        Vector3 direction = transform.localPosition.sqrMagnitude > 0.0001f
+            ? transform.localPosition.normalized
+            : EditWorkspace.DefaultCameraPosition.normalized;
+        transform.localPosition = direction * distance;
+
+        if (cachedCamera != null)
+        {
+            cachedCamera.farClipPlane = Mathf.Max(1000f, distance + orthographicSize * 4f);
+        }
     }
 
     static float NormalizeAngle(float angle)

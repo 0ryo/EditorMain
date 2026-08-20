@@ -127,6 +127,12 @@
 - `MoveTool` は共通入力とブロックUI矩形判定へ寄せ、移動モードでのドラッグ開始/確定、または移動モードではない時のクリックだけ `[MoveTool]` ログを出す。
 - `PlacementController` の `[PlacementDiag]` は配置中または配置対象なしでクリックされた時だけ出し、マウス移動だけでは出ないようにした。
 - `ViewportStatusStrip` は選択変更イベントを取り逃がしても `SelectionService.Current` から選択表示を追従するようにした。
+- Task 18: 選択表示、スケール、正投影クリップ、ノード入力領域を修正。
+- `Editor.log` から、選択切り替えとノード追加イベント自体は成功していることを確認した。選択枠未表示とスケール不能は `SelectionOutline` の接続/入力経路、ノード追加が見えない問題は表示位置と接続線レイヤー順を原因として修正した。
+- `SelectionService` / `CatalogUI` は `SelectionOutline` を探索・再有効化・生成して現在選択へ再同期する。選択線材は白ベースのランタイム材へ統一し、Scaleモードの角ドラッグを共通入力と限定UI判定で処理する。
+- 正投影ズームでは `orthographicSize` に合わせてCamera距離も更新し、広い床面の手前側がnear clipを越える現象を抑えた。NodeArea上ではCamera入力を処理せず、ホイール/中ドラッグをノードビューへ渡す。
+- 新規グラフは Start / Step / End とStepに紐づくConditionを補完し、初期表示とノード追加後にNodeAreaを中央へ戻す。接続線レイヤーは透明・raycast無効・最背面を再保証する。
+- 配置対象なしクリック、Scaleモード時のMoveTool無効通知、Condition dropdown正常系、配置オブジェクト候補正常系、接続線再描画の常時ログを削除した。
 
 ## 6. 検証状況
 - `git diff --check`: 現在ブランチ作成前の監査コミットで成功。
@@ -146,5 +152,6 @@
 - `git diff --check -- Assets/Scripts/EditInput.cs Assets/Scripts/EditInput.cs.meta Assets/Scripts/PlacementController.cs Assets/Scripts/EditCameraController.cs Assets/Scripts/CatalogUI.cs Assets/Scripts/UI/TmpFontInitializer.cs`: Task 15 変更後に成功。
 - `git diff --check -- Assets/Scripts/CatalogUI.cs`: Task 16 変更後に成功。
 - `git diff --check -- Assets/Scripts/EditInput.cs Assets/Scripts/PlacementController.cs Assets/Scripts/CatalogUI.cs Assets/Scripts/SelectionService.cs Assets/Scripts/MoveTool.cs Assets/Scripts/EditCameraController.cs Assets/Scripts/UI/ViewportStatusStrip.cs`: Task 17 変更後に成功。
+- `git diff --check -- Assets/Scripts/EditWorkspace.cs Assets/Scripts/CatalogUI.cs Assets/Scripts/SelectionService.cs Assets/Scripts/SelectionOutline.cs Assets/Scripts/EditCameraController.cs Assets/Scripts/PlacementController.cs Assets/Scripts/MoveTool.cs Assets/Scripts/UI/NodeAreaPanZoomController.cs Assets/Scripts/UI/ScenarioGraphUI.cs Assets/Scripts/UI/ConditionRowUI.cs Assets/Scripts/Services/PlacedObjectOptionProvider.cs Docs/worklog/worklog_latest.md`: Task 18 変更後に成功。
 - `dotnet build .\Assembly-CSharp.csproj`: 実行したが、Unity生成csprojが既存の `DesignTokens` / `UiRoundedTheme` / `RuntimeModelLoader` などを解決できない状態で失敗。Unity Editor 起動なしの静的ビルド検証としては利用不可。
 - Unity Editor 起動、Unity CLI、コンパイル確認は Local Execution Policy により未実施。

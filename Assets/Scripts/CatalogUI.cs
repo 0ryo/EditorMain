@@ -284,6 +284,12 @@ public class CatalogUI : MonoBehaviour
             commandService.enabled = true;
         }
 
+        var selectionOutline = ResolveOrCreateService<SelectionOutline>(systems, "SelectionOutline");
+        if (selectionOutline != null)
+        {
+            selectionOutline.enabled = true;
+        }
+
         var selection = ResolveOrCreateService<SelectionService>(systems, "SelectionService");
         if (selection != null)
         {
@@ -291,6 +297,11 @@ public class CatalogUI : MonoBehaviour
             if (selection.cam == null) selection.cam = camera;
             if (selection.registry == null) selection.registry = registry;
             if (selection.placementController == null) selection.placementController = placementController;
+            if (selection.outline == null) selection.outline = selectionOutline;
+            if (selection.Current != null && selection.outline != null)
+            {
+                selection.outline.ShowFor(selection.Current.gameObject);
+            }
         }
 
         var moveTool = ResolveOrCreateService<MoveTool>(systems, "MoveTool");

@@ -87,12 +87,6 @@ public class ConditionRowUI : MonoBehaviour
         ApplyDropdownVisualStyle(dropdownA);
         ApplyDropdownVisualStyle(dropdownB);
 
-        Debug.Log(
-            $"[ConditionRowUI] bind labels={labels.Count} " +
-            $"aValue={dropdownA.value} bValue={dropdownB.value} " +
-            $"captionA={(dropdownA.captionText != null)} itemA={(dropdownA.itemText != null)} templateA={(dropdownA.template != null)} " +
-            $"labels={string.Join(",", labels)}");
-
         if (textAfterA != null) textAfterA.text = LabelParticleA;
         if (textAfterB != null) textAfterB.text = LabelParticleB;
         if (textAfterA != null) textAfterA.fontStyle = FontStyles.Bold;
@@ -294,11 +288,6 @@ public class ConditionRowUI : MonoBehaviour
             Debug.LogWarning(
                 $"[ConditionRowUI] dropdown refs missing " +
                 $"caption={(dropdown.captionText != null)} item={(dropdown.itemText != null)} template={(dropdown.template != null)}");
-        }
-        else
-        {
-            Debug.Log(
-                $"[ConditionRowUI] dropdown refs ok caption={dropdown.captionText.name} item={dropdown.itemText.name} template={dropdown.template.name}");
         }
     }
 

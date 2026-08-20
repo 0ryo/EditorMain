@@ -1,5 +1,4 @@
 using UnityEngine;
-using UnityEngine.EventSystems;
 using UnityEngine.Rendering;
 
 public class MoveTool : MonoBehaviour
@@ -96,10 +95,6 @@ public class MoveTool : MonoBehaviour
 
         if (!IsTransformMode())
         {
-            if (sel != null && sel.Current != null && EditInput.LeftPressedThisFrame())
-            {
-                LogDebug($"MoveTool inactive because mode is {GetModeLabel()}. Select the move mode first.");
-            }
             CancelRuntimeDragStates();
             SetGizmoVisible(false);
             return;
@@ -913,11 +908,6 @@ public class MoveTool : MonoBehaviour
     {
         if (sel != null) return;
         sel = FindFirstObjectByType<SelectionService>();
-    }
-
-    string GetModeLabel()
-    {
-        return EditModeService.I != null ? EditModeService.I.Mode.ToString() : "(no EditModeService)";
     }
 
     void LogDebug(string message)

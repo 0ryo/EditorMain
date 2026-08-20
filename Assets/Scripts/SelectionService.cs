@@ -22,8 +22,15 @@ public class SelectionService : MonoBehaviour
     bool warnedPickMaskExclusion;
     public string LastDebugMessage { get; private set; }
 
+    void Awake()
+    {
+        EnsureOutline();
+    }
+
     void Update()
     {
+        EnsureOutline();
+
         if (placementController == null)
         {
             placementController = FindFirstObjectByType<PlacementController>();
@@ -65,6 +72,11 @@ public class SelectionService : MonoBehaviour
             return;
         }
 
+        if (outline != null && outline.ShouldConsumeSelectionClick())
+        {
+            return;
+        }
+
         if (EditInput.LeftPressedThisFrame())
         {
             if (cam == null)
@@ -80,7 +92,10 @@ public class SelectionService : MonoBehaviour
             Ray ray = cam.ScreenPointToRay(mousePosition);
             if (TryPickPlacedObject(ray, out var picked, out var hitSomething))
             {
-                LogDebug($"Picked placed object: id={picked.Id}, name={picked.name}, mouse={mousePosition}");
+                if (picked != Current)
+                {
+                    LogDebug($"Picked placed object: id={picked.Id}, name={picked.name}, mouse={mousePosition}");
+                }
                 Select(picked);
             }
             else if (hitSomething)
@@ -153,7 +168,13 @@ public class SelectionService : MonoBehaviour
 
     public void Select(PlacedObject po)
     {
-        if (Current == po) return;
+        EnsureOutline();
+        if (Current == po)
+        {
+            if (outline != null) outline.ShowFor(po ? po.gameObject : null);
+            return;
+        }
+
         Current = po;
         if (outline != null) outline.ShowFor(po ? po.gameObject : null);
         OnSelectionChanged?.Invoke(po);
@@ -193,6 +214,34 @@ public class SelectionService : MonoBehaviour
         if (fixedCount > 0)
         {
             LogDebug($"Auto-fixed pickability. collidersAdded={fixedCount}");
+        }
+    }
+
+    void EnsureOutline()
+    {
+        if (outline != null) return;
+
+        outline = FindFirstObjectByType<SelectionOutline>();
+        if (outline == null)
+        {
+            var outlines = FindObjectsByType<SelectionOutline>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            if (outlines != null && outlines.Length > 0)
+            {
+                outline = outlines[0];
+                outline.gameObject.SetActive(true);
+                outline.enabled = true;
+            }
+        }
+
+        if (outline == null)
+        {
+            var outlineRoot = new GameObject("SelectionOutlineRoot_Runtime");
+            outline = outlineRoot.AddComponent<SelectionOutline>();
+        }
+
+        if (Current != null)
+        {
+            outline.ShowFor(Current.gameObject);
         }
     }
 

@@ -1,12 +1,13 @@
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.EventSystems;
+using UnityEngine.Rendering;
 
 public class SelectionOutline : MonoBehaviour
 {
     [SerializeField] Material lineMat;
     [SerializeField] float handlePickRadiusPixels = 18f;
     [SerializeField] float minScaleAxis = 0.1f;
+    [SerializeField] bool enableDiagnostics = true;
 
     readonly List<LineRenderer> lines = new();
     readonly Vector3[] corners = new Vector3[8];
@@ -17,6 +18,7 @@ public class SelectionOutline : MonoBehaviour
     bool isScaling;
     Vector3 dragStartScale;
     float dragStartScreenDistance;
+    Material runtimeLineMaterial;
 
     void Update()
     {
@@ -45,9 +47,23 @@ public class SelectionOutline : MonoBehaviour
         UpdateOutline();
     }
 
+    public bool ShouldConsumeSelectionClick()
+    {
+        if (target == null || !IsScaleMode()) return false;
+        if (!EditInput.LeftPressedThisFrame()) return false;
+        if (PlacementController.IsScreenPositionOverBlockingUi(EditInput.MousePosition)) return false;
+
+        var cam = ResolveCamera();
+        if (cam == null) return false;
+
+        UpdateOutline();
+        return TryGetClosestCornerScreen(cam, EditInput.MousePosition, out _, out var distance) &&
+               distance <= handlePickRadiusPixels;
+    }
+
     void HandleScaleDrag()
     {
-        if (EditModeService.I == null || EditModeService.I.Mode != EditMode.Scale)
+        if (!IsScaleMode())
         {
             if (isScaling)
             {
@@ -58,28 +74,28 @@ public class SelectionOutline : MonoBehaviour
 
         if (!isScaling)
         {
-            if (!Input.GetMouseButtonDown(0)) return;
-            if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject()) return;
-            TryBeginScaleDrag();
+            if (!EditInput.LeftPressedThisFrame()) return;
+            if (PlacementController.IsScreenPositionOverBlockingUi(EditInput.MousePosition)) return;
+            TryBeginScaleDrag(EditInput.MousePosition);
             return;
         }
 
-        if (!Input.GetMouseButton(0))
+        if (!EditInput.LeftPressed())
         {
             CommitScaleIfNeeded();
             return;
         }
 
-        ApplyScaleFromPointer();
+        ApplyScaleFromPointer(EditInput.MousePosition);
     }
 
-    void TryBeginScaleDrag()
+    void TryBeginScaleDrag(Vector2 pointer)
     {
         var cam = ResolveCamera();
         if (cam == null) return;
 
         if (!TryGetCenterScreen(cam, out var centerScreen)) return;
-        if (!TryGetClosestCornerScreen(cam, Input.mousePosition, out var nearestCorner, out var nearestDistance)) return;
+        if (!TryGetClosestCornerScreen(cam, pointer, out var nearestCorner, out var nearestDistance)) return;
         if (nearestDistance > handlePickRadiusPixels) return;
 
         dragStartScale = target.transform.localScale;
@@ -87,15 +103,16 @@ public class SelectionOutline : MonoBehaviour
         if (dragStartScreenDistance <= 0.001f) return;
 
         isScaling = true;
+        LogDebug($"Scale drag started. target={target.name}, pointer={pointer}");
     }
 
-    void ApplyScaleFromPointer()
+    void ApplyScaleFromPointer(Vector2 pointer)
     {
         var cam = ResolveCamera();
         if (cam == null) return;
         if (!TryGetCenterScreen(cam, out var centerScreen)) return;
 
-        float currentDistance = Vector2.Distance(centerScreen, Input.mousePosition);
+        float currentDistance = Vector2.Distance(centerScreen, pointer);
         float ratio = currentDistance / dragStartScreenDistance;
         if (!float.IsFinite(ratio)) return;
 
@@ -124,6 +141,8 @@ public class SelectionOutline : MonoBehaviour
                 var cmd = new ScaleObjectCommand(target, dragStartScale, endScale);
                 CommandService.I.Stack.Execute(cmd);
             }
+
+            LogDebug($"Scale drag committed. target={target.name}, from={dragStartScale}, to={endScale}");
         }
 
         ResetScaleState();
@@ -143,13 +162,15 @@ public class SelectionOutline : MonoBehaviour
             var go = new GameObject("OutlineLine");
             go.transform.SetParent(transform, false);
             var lr = go.AddComponent<LineRenderer>();
-            lr.material = lineMat;
+            lr.material = GetRuntimeLineMaterial();
             lr.positionCount = 2;
             lr.useWorldSpace = true;
             lr.widthMultiplier = 0.05f;
             lr.alignment = LineAlignment.View;
             lr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             lr.receiveShadows = false;
+            lr.textureMode = LineTextureMode.Stretch;
+            lr.sortingOrder = short.MaxValue;
             lr.startColor = DesignTokens.Accent;
             lr.endColor = DesignTokens.Accent;
             lines.Add(lr);
@@ -260,6 +281,49 @@ public class SelectionOutline : MonoBehaviour
             cachedCamera = FindFirstObjectByType<Camera>();
         }
         return cachedCamera;
+    }
+
+    bool IsScaleMode()
+    {
+        return EditModeService.I != null && EditModeService.I.Mode == EditMode.Scale;
+    }
+
+    Material GetRuntimeLineMaterial()
+    {
+        if (runtimeLineMaterial != null) return runtimeLineMaterial;
+
+        if (lineMat != null)
+        {
+            runtimeLineMaterial = new Material(lineMat);
+        }
+        else
+        {
+            var shader = Shader.Find("Sprites/Default");
+            if (shader == null) shader = Shader.Find("Universal Render Pipeline/Unlit");
+            if (shader == null) shader = Shader.Find("Unlit/Color");
+            runtimeLineMaterial = new Material(shader);
+        }
+
+        runtimeLineMaterial.name = "SelectionOutline_Runtime";
+        runtimeLineMaterial.hideFlags = HideFlags.HideAndDontSave;
+        if (runtimeLineMaterial.HasProperty("_Color")) runtimeLineMaterial.SetColor("_Color", Color.white);
+        if (runtimeLineMaterial.HasProperty("_BaseColor")) runtimeLineMaterial.SetColor("_BaseColor", Color.white);
+        runtimeLineMaterial.renderQueue = (int)RenderQueue.Transparent;
+        return runtimeLineMaterial;
+    }
+
+    void OnDestroy()
+    {
+        if (runtimeLineMaterial != null)
+        {
+            Destroy(runtimeLineMaterial);
+        }
+    }
+
+    void LogDebug(string message)
+    {
+        if (!enableDiagnostics) return;
+        Debug.Log("[SelectionOutline] " + message);
     }
 
     static float CalculateMinScaleRatio(Vector3 baseScale, float minAxis)

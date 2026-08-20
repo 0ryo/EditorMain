@@ -97,6 +97,7 @@ public class ScenarioGraphUI : MonoBehaviour
     readonly Dictionary<string, NodeUiBinding> nodeUIs = new Dictionary<string, NodeUiBinding>();
     readonly Dictionary<string, Vector2> nodePositions = new Dictionary<string, Vector2>();
     readonly List<ConnectionLineGraphic> lines = new List<ConnectionLineGraphic>();
+    NodeAreaPanZoomController panZoomController;
 
     void Awake()
     {
@@ -110,7 +111,12 @@ public class ScenarioGraphUI : MonoBehaviour
         graph.EnsureGraphInitialized();
         if (graph.GetNodes(ScenarioNodeType.Step).Count == 0)
         {
-            graph.AddStep();
+            var defaultStep = graph.AddStep();
+            var defaultCondition = graph.GetNodes(ScenarioNodeType.Condition).FirstOrDefault() ?? graph.AddCondition();
+            if (!graph.IsConditionBoundToStep(defaultCondition.nodeId))
+            {
+                graph.TryBindConditionToStep(defaultCondition.nodeId, defaultStep.nodeId, out _);
+            }
         }
 
         if (projectNameInput != null)
@@ -118,7 +124,7 @@ public class ScenarioGraphUI : MonoBehaviour
             projectNameInput.SetTextWithoutNotify(graph.curriculum.projectName);
         }
 
-        RebuildAll();
+        RebuildAndResetView();
         DesignTokenApplier.ApplyScenarioPanel(panelRoot != null ? panelRoot : transform as RectTransform);
     }
 
@@ -197,7 +203,7 @@ public class ScenarioGraphUI : MonoBehaviour
         addStepButton.onClick.AddListener(() =>
         {
             graph.AddStep();
-            RebuildAll();
+            RebuildAndResetView();
         });
 
         if (addConditionButton != null)
@@ -206,7 +212,7 @@ public class ScenarioGraphUI : MonoBehaviour
             addConditionButton.onClick.AddListener(() =>
             {
                 graph.AddCondition();
-                RebuildAll();
+                RebuildAndResetView();
             });
         }
 
@@ -353,13 +359,19 @@ public class ScenarioGraphUI : MonoBehaviour
     {
         if (nodeArea == null || graphContent == null) return;
 
-        var panZoom = nodeArea.GetComponent<NodeAreaPanZoomController>();
-        if (panZoom == null)
+        var nodeAreaImage = nodeArea.GetComponent<Image>();
+        if (nodeAreaImage != null)
         {
-            panZoom = nodeArea.gameObject.AddComponent<NodeAreaPanZoomController>();
+            nodeAreaImage.raycastTarget = true;
         }
 
-        panZoom.Configure(nodeArea, graphContent);
+        panZoomController = nodeArea.GetComponent<NodeAreaPanZoomController>();
+        if (panZoomController == null)
+        {
+            panZoomController = nodeArea.gameObject.AddComponent<NodeAreaPanZoomController>();
+        }
+
+        panZoomController.Configure(nodeArea, graphContent);
     }
 
     Transform GetNodeParent()
@@ -534,7 +546,13 @@ public class ScenarioGraphUI : MonoBehaviour
 
         if (lineLayer != null)
         {
-            lineLayer.SetAsLastSibling();
+            lineLayer.SetAsFirstSibling();
+            var lineLayerImage = lineLayer.GetComponent<Image>();
+            if (lineLayerImage != null)
+            {
+                lineLayerImage.color = Color.clear;
+                lineLayerImage.raycastTarget = false;
+            }
         }
 
         ApplyRoundedTheme();
@@ -1064,17 +1082,13 @@ public class ScenarioGraphUI : MonoBehaviour
 
     void RefreshLines()
     {
-        int removed = 0;
         foreach (var line in lines)
         {
             if (line == null) continue;
             Destroy(line.gameObject);
-            removed++;
         }
         lines.Clear();
 
-        int expectedEdges = graph.curriculum.edges.Count;
-        int created = 0;
         var raycastBlockers = nodeUIs.Values
             .Where(v => v != null && v.root != null)
             .Select(v => v.root)
@@ -1100,11 +1114,13 @@ public class ScenarioGraphUI : MonoBehaviour
             line.onClickLine = OnClickConnectionPath;
             ConfigureLineGraphic(line, ConnectionLineColor, 8f, raycastTarget: true);
             lines.Add(line);
-            created++;
         }
+    }
 
-        var layerSize = lineLayer != null ? lineLayer.rect.size : Vector2.zero;
-        Debug.Log($"[ScenarioGraphUI] RefreshLines expectedEdges={expectedEdges} created={created} removed={removed} lineLayerSize={layerSize}");
+    void RebuildAndResetView()
+    {
+        RebuildAll();
+        panZoomController?.ResetView();
     }
 
     void ConfigureLineGraphic(ConnectionLineGraphic line, Color color, float thickness, bool raycastTarget)
