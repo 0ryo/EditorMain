@@ -534,7 +534,26 @@ public static class DesignTokenApplier
             technicalRect.anchorMax = new Vector2(1f, 1f);
             technicalRect.pivot = new Vector2(0f, 1f);
             technicalRect.offsetMin = new Vector2(16f, -84f);
-            technicalRect.offsetMax = new Vector2(-16f, -64f);
+            technicalRect.offsetMax = new Vector2(-72f, -64f);
+        }
+
+        var categoryVisual = child.Find("CategoryVisual") as RectTransform;
+        if (categoryVisual != null)
+        {
+            categoryVisual.anchorMin = new Vector2(1f, 1f);
+            categoryVisual.anchorMax = new Vector2(1f, 1f);
+            categoryVisual.pivot = new Vector2(1f, 1f);
+            categoryVisual.offsetMin = new Vector2(-56f, -56f);
+            categoryVisual.offsetMax = new Vector2(-16f, -16f);
+            var visualImage = categoryVisual.GetComponent<Image>();
+            if (visualImage != null) visualImage.color = DesignTokens.BgSecondary;
+            var visualLabel = categoryVisual.Find("LabelCategoryVisual")?.GetComponent<TMP_Text>();
+            if (visualLabel != null)
+            {
+                visualLabel.fontSize = DesignTokens.FontSizeSubheading;
+                visualLabel.color = DesignTokens.TextSecondary;
+                visualLabel.alignment = TextAlignmentOptions.Center;
+            }
         }
 
         // LabelMain をカードタイトルとして左寄せ配置
@@ -557,7 +576,7 @@ public static class DesignTokenApplier
                     labelRect.anchorMax = new Vector2(1f, 1f);
                     labelRect.pivot = new Vector2(0f, 1f);
                     labelRect.offsetMin = new Vector2(16f, -64f);
-                    labelRect.offsetMax = new Vector2(-16f, -38f);
+                    labelRect.offsetMax = new Vector2(-72f, -38f);
                 }
             }
 
@@ -575,7 +594,7 @@ public static class DesignTokenApplier
                         textRect.anchorMax = new Vector2(1f, 1f);
                         textRect.pivot = new Vector2(0f, 1f);
                         textRect.offsetMin = new Vector2(16f, -64f);
-                        textRect.offsetMax = new Vector2(-16f, -38f);
+                        textRect.offsetMax = new Vector2(-72f, -38f);
                     }
                 }
             }
@@ -619,8 +638,13 @@ public static class DesignTokenApplier
         SetImageColor(header, DesignTokens.Surface);
         if (header != null)
         {
-            var titleText = header.GetComponentInChildren<TMP_Text>(true);
-            if (titleText != null) titleText.color = DesignTokens.TextPrimary;
+            foreach (var headerText in header.GetComponentsInChildren<TMP_Text>(true))
+            {
+                if (headerText == null) continue;
+                headerText.color = headerText.name == "Text_TechnicalId"
+                    ? DesignTokens.TextSecondary
+                    : DesignTokens.TextPrimary;
+            }
         }
 
         // Viewport 背景
@@ -662,6 +686,11 @@ public static class DesignTokenApplier
             else if (child.name == "Divider")
             {
                 SetImageColor(child, DesignTokens.Divider);
+            }
+            else if (child.name.StartsWith("Section_"))
+            {
+                var sectionText = child.GetComponent<TMP_Text>();
+                if (sectionText != null) sectionText.color = DesignTokens.TextPrimary;
             }
         }
     }

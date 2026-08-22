@@ -30,6 +30,16 @@ public class NodeAreaPanZoomController : MonoBehaviour, IScrollHandler, IBeginDr
         ClampPan();
     }
 
+    public void FocusContentPoint(Vector2 contentPoint)
+    {
+        ResolveDefaults();
+        if (!IsReady()) return;
+
+        float zoom = Mathf.Max(0.001f, content.localScale.x);
+        content.anchoredPosition = -contentPoint * zoom;
+        ClampPan();
+    }
+
     void Awake()
     {
         ResolveDefaults();

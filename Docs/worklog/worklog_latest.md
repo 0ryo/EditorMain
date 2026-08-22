@@ -3,7 +3,7 @@
 ## 0. 対象範囲
 - ブランチ: `codex/placement-camera-floor-refactor`
 - 作業テーマ: `ui_design_implementation_policy_2026-06-29.md` に基づく UI デザイン実装
-- 最終更新: 2026-06-29
+- 最終更新: 2026-08-22
 - 旧ログ: `Docs/worklog/worklog_2026-06-29_ui_design_audit.md`
 
 ## 1. Phase A 現状把握
@@ -138,6 +138,13 @@
 - 正投影ズームを固定量加算から倍率式へ変更し、既存Sceneの旧感度値 `1.6` は起動時に `0.12` へ移行する。
 - 選択枠はRendererのワールド軸AABBではなく、対象ルートのローカル空間で子Rendererの境界を合成し、オブジェクトの回転へ追従する。
 - Scaleモードでは選択枠の角ハンドル上とドラッグ中に横リサイズカーソルを表示する。
+- Task 20: UI改善ロードマップの必須残件を実装。
+- 空の手順ノードには `条件を追加してください` を表示し、Catalog/Scenario graphのリサイズ境界へ細いグリップ線と方向カーソルを追加した。
+- 保存ボタンを常に操作可能にし、保存失敗時は日本語の検証一覧を表示する。検証issueへ関連nodeIdを保持し、一覧から該当ノードまたは親Stepへ移動できるようにした。
+- Object detailは表示名＋技術IDの二段header、`基本情報` / `説明` / `使用中の条件` のsection、明確な未使用文、slide＋fadeへ更新した。上端を空けてglobal設定を隠さない。
+- Global `ヒント` ボタンと内容差し替え可能なplaceholder panelを追加した。
+- Catalog cardへ中立色のcategory fallback blockを追加し、既存のbadge・表示名・技術IDを維持した。
+- Unity `AssetPreview` は非同期cache前提で、現行card dataにも永続thumbnail参照がないため、任意のthumbnail automationは独立taskとして保留した。
 
 ## 6. 検証状況
 - `git diff --check`: 現在ブランチ作成前の監査コミットで成功。
@@ -159,5 +166,6 @@
 - `git diff --check -- Assets/Scripts/EditInput.cs Assets/Scripts/PlacementController.cs Assets/Scripts/CatalogUI.cs Assets/Scripts/SelectionService.cs Assets/Scripts/MoveTool.cs Assets/Scripts/EditCameraController.cs Assets/Scripts/UI/ViewportStatusStrip.cs`: Task 17 変更後に成功。
 - `git diff --check -- Assets/Scripts/EditWorkspace.cs Assets/Scripts/CatalogUI.cs Assets/Scripts/SelectionService.cs Assets/Scripts/SelectionOutline.cs Assets/Scripts/EditCameraController.cs Assets/Scripts/PlacementController.cs Assets/Scripts/MoveTool.cs Assets/Scripts/UI/NodeAreaPanZoomController.cs Assets/Scripts/UI/ScenarioGraphUI.cs Assets/Scripts/UI/ConditionRowUI.cs Assets/Scripts/Services/PlacedObjectOptionProvider.cs Docs/worklog/worklog_latest.md`: Task 18 変更後に成功。
 - `git diff --check -- Assets/Scripts/WorkspaceFloorGrid.cs Assets/Scripts/EditCameraController.cs Assets/Scripts/SelectionOutline.cs Docs/worklog/worklog_latest.md`: Task 19 変更後に成功。
+- `git diff --check -- Assets/Editor/Automation/BuildUiPrefabs.cs Assets/Scripts/CatalogUI.cs Assets/Scripts/PlacementController.cs Assets/Scripts/Services/CurriculumGraphService.cs Assets/Scripts/UI/DesignTokenApplier.cs Assets/Scripts/UI/HintPanelController.cs Assets/Scripts/UI/NodeAreaPanZoomController.cs Assets/Scripts/UI/ObjectDetailPanel.cs Assets/Scripts/UI/PanelHorizontalResizeHandle.cs Assets/Scripts/UI/PanelVerticalResizeHandle.cs Assets/Scripts/UI/ScenarioGraphUI.cs Assets/Scripts/UI/ScenarioValidationPanel.cs Assets/Scripts/UI/StepNodeUI.cs Docs/worklog/worklog_latest.md Docs/worklog/worklog_UI/全体UI仕様.md Docs/worklog/worklog_UI/worklog_オブジェクト一覧ウィンドウ.md`: Task 20 変更後に成功。
 - `dotnet build .\Assembly-CSharp.csproj`: 実行したが、Unity生成csprojが既存の `DesignTokens` / `UiRoundedTheme` / `RuntimeModelLoader` などを解決できない状態で失敗。Unity Editor 起動なしの静的ビルド検証としては利用不可。
 - Unity Editor 起動、Unity CLI、コンパイル確認は Local Execution Policy により未実施。

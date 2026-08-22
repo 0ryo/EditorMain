@@ -669,7 +669,7 @@ public class CurriculumGraphService : MonoBehaviour
         var duplicateIds = nodeIds.GroupBy(id => id).Where(g => g.Count() > 1).Select(g => g.Key).ToList();
         if (duplicateIds.Count > 0)
         {
-            result.AddError("E-11", $"Duplicate nodeId detected: {string.Join(", ", duplicateIds)}");
+            result.AddError("E-11", $"Duplicate nodeId detected: {string.Join(", ", duplicateIds)}", duplicateIds[0]);
         }
 
         var startNodes = nodes.Where(n => n.nodeType == ScenarioNodeType.Start).ToList();
@@ -709,7 +709,7 @@ public class CurriculumGraphService : MonoBehaviour
                              (toNode.nodeType == ScenarioNodeType.Step || toNode.nodeType == ScenarioNodeType.End);
                 if (!valid)
                 {
-                    result.AddError("E-04", $"Invalid StepFlow route: {fromNode.nodeType} -> {toNode.nodeType}");
+                    result.AddError("E-04", $"Invalid StepFlow route: {fromNode.nodeType} -> {toNode.nodeType}", fromNode.nodeId);
                 }
             }
             else if (edge.edgeType == ScenarioEdgeType.ConditionBind)
@@ -717,7 +717,7 @@ public class CurriculumGraphService : MonoBehaviour
                 bool valid = fromNode.nodeType == ScenarioNodeType.Condition && toNode.nodeType == ScenarioNodeType.Step;
                 if (!valid)
                 {
-                    result.AddError("E-07", $"Invalid ConditionBind route: {fromNode.nodeType} -> {toNode.nodeType}");
+                    result.AddError("E-07", $"Invalid ConditionBind route: {fromNode.nodeType} -> {toNode.nodeType}", fromNode.nodeId);
                 }
             }
         }
@@ -730,7 +730,7 @@ public class CurriculumGraphService : MonoBehaviour
             int outCount = stepFlowEdges.Count(e => e.fromNodeId == startNodes[0].nodeId);
             if (outCount != 1)
             {
-                result.AddError("E-03", $"Start must have exactly one outgoing StepFlow edge (actual={outCount}).");
+                result.AddError("E-03", $"Start must have exactly one outgoing StepFlow edge (actual={outCount}).", startNodes[0].nodeId);
             }
         }
 
@@ -739,7 +739,7 @@ public class CurriculumGraphService : MonoBehaviour
             int inCount = stepFlowEdges.Count(e => e.toNodeId == endNodes[0].nodeId);
             if (inCount != 1)
             {
-                result.AddError("E-05", $"End must have exactly one incoming StepFlow edge (actual={inCount}).");
+                result.AddError("E-05", $"End must have exactly one incoming StepFlow edge (actual={inCount}).", endNodes[0].nodeId);
             }
         }
 
@@ -749,7 +749,7 @@ public class CurriculumGraphService : MonoBehaviour
             int outCount = stepFlowEdges.Count(e => e.fromNodeId == step.nodeId);
             if (inCount > 1 || outCount > 1)
             {
-                result.AddError("E-04", $"Step '{step.nodeId}' has multiple incoming or outgoing StepFlow edges.");
+                result.AddError("E-04", $"Step '{step.nodeId}' has multiple incoming or outgoing StepFlow edges.", step.nodeId);
             }
         }
 
@@ -785,25 +785,25 @@ public class CurriculumGraphService : MonoBehaviour
             int bindCount = conditionBindEdges.Count(e => e.fromNodeId == condition.nodeId);
             if (bindCount != 1)
             {
-                result.AddError("E-07", $"Condition '{condition.nodeId}' must bind to exactly one Step (actual={bindCount}).");
+                result.AddError("E-07", $"Condition '{condition.nodeId}' must bind to exactly one Step (actual={bindCount}).", condition.nodeId);
             }
 
             if (string.IsNullOrWhiteSpace(condition.condition.objectAId) ||
                 string.IsNullOrWhiteSpace(condition.condition.objectBId))
             {
-                result.AddError("E-08", $"Condition '{condition.nodeId}' has unassigned A/B object.");
+                result.AddError("E-08", $"Condition '{condition.nodeId}' has unassigned A/B object.", condition.nodeId);
             }
             else
             {
                 if (condition.condition.objectAId == condition.condition.objectBId)
                 {
-                    result.AddError("E-09", $"Condition '{condition.nodeId}' cannot use the same object for A and B.");
+                    result.AddError("E-09", $"Condition '{condition.nodeId}' cannot use the same object for A and B.", condition.nodeId);
                 }
 
                 if (!placedObjectIds.Contains(condition.condition.objectAId) ||
                     !placedObjectIds.Contains(condition.condition.objectBId))
                 {
-                    result.AddError("E-10", $"Condition '{condition.nodeId}' references missing placed object id.");
+                    result.AddError("E-10", $"Condition '{condition.nodeId}' references missing placed object id.", condition.nodeId);
                 }
             }
         }
@@ -813,12 +813,12 @@ public class CurriculumGraphService : MonoBehaviour
             var conditions = GetConditionNodesForStep(step.nodeId);
             if (conditions.Count <= 0 || conditions.Count > MaxConditionsPerStep)
             {
-                result.AddError("E-06", $"Step '{step.nodeId}' condition count out of range (actual={conditions.Count}, allowed=1..{MaxConditionsPerStep}).");
+                result.AddError("E-06", $"Step '{step.nodeId}' condition count out of range (actual={conditions.Count}, allowed=1..{MaxConditionsPerStep}).", step.nodeId);
             }
 
             if (conditions.Count == MaxConditionsPerStep)
             {
-                result.AddWarning("W-01", $"Step '{step.nodeId}' reached max condition count.");
+                result.AddWarning("W-01", $"Step '{step.nodeId}' reached max condition count.", step.nodeId);
             }
 
             var duplicateKeys = conditions
@@ -829,7 +829,7 @@ public class CurriculumGraphService : MonoBehaviour
                 .ToList();
             if (duplicateKeys.Count > 0)
             {
-                result.AddError("E-06", $"Step '{step.nodeId}' has duplicate condition definitions.");
+                result.AddError("E-06", $"Step '{step.nodeId}' has duplicate condition definitions.", step.nodeId);
             }
 
             foreach (var condition in conditions)
@@ -930,21 +930,21 @@ public class GraphValidationResult
 
     public bool CanExport => errors.Count == 0;
 
-    public void AddError(string code, string message)
+    public void AddError(string code, string message, string nodeId = null)
     {
-        AddIssue(errors, code, message);
+        AddIssue(errors, code, message, nodeId);
     }
 
-    public void AddWarning(string code, string message)
+    public void AddWarning(string code, string message, string nodeId = null)
     {
-        AddIssue(warnings, code, message);
+        AddIssue(warnings, code, message, nodeId);
     }
 
-    void AddIssue(List<GraphValidationIssue> target, string code, string message)
+    void AddIssue(List<GraphValidationIssue> target, string code, string message, string nodeId)
     {
-        string key = code + "|" + message;
+        string key = code + "|" + message + "|" + nodeId;
         if (!keys.Add(key)) return;
-        target.Add(new GraphValidationIssue(code, message));
+        target.Add(new GraphValidationIssue(code, message, nodeId));
     }
 }
 
@@ -952,11 +952,13 @@ public class GraphValidationIssue
 {
     public readonly string code;
     public readonly string message;
+    public readonly string nodeId;
 
-    public GraphValidationIssue(string code, string message)
+    public GraphValidationIssue(string code, string message, string nodeId = null)
     {
         this.code = code;
         this.message = message;
+        this.nodeId = nodeId;
     }
 }
 

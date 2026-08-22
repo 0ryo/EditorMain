@@ -67,6 +67,8 @@ public class CatalogUI : MonoBehaviour
     const string CardCategoryBadgeName = "Badge_Category";
     const string CardCategoryLabelName = "LabelCategory";
     const string CardTechnicalLabelName = "LabelTechnicalId";
+    const string CardCategoryVisualName = "CategoryVisual";
+    const string CardCategoryVisualLabelName = "LabelCategoryVisual";
     string runtimeImportedTypeId;
     string runtimeImportedCardLabel;
     string runtimeImportedDescription;
@@ -638,6 +640,7 @@ public class CatalogUI : MonoBehaviour
 
         EnsureRuntimeEditModeButtons(panel);
         EnsureRuntimeSettingsButton(panel);
+        HintPanelController.Ensure(panel.root);
         EnsureRuntimeSettingsDialog(panel);
         EnsureRuntimeViewportStatusStrip(panel);
         EnsureEditModeDockSync(panel);
@@ -842,6 +845,7 @@ public class CatalogUI : MonoBehaviour
         }
 
         EnsureSettingsButtonAppearance(settingsButton);
+        settingsButton.transform.SetAsLastSibling();
     }
 
     void EnsureSettingsButtonAppearance(Button button)
@@ -2004,6 +2008,7 @@ public class CatalogUI : MonoBehaviour
 
         EnsureCategoryBadge(root);
         EnsureTechnicalIdLabel(root);
+        EnsureCategoryVisual(root);
     }
 
     static void LayoutMainCardLabel(RectTransform labelRect)
@@ -2013,7 +2018,7 @@ public class CatalogUI : MonoBehaviour
         labelRect.anchorMax = new Vector2(1f, 1f);
         labelRect.pivot = new Vector2(0f, 1f);
         labelRect.offsetMin = new Vector2(16f, -64f);
-        labelRect.offsetMax = new Vector2(-16f, -38f);
+        labelRect.offsetMax = new Vector2(-72f, -38f);
     }
 
     void SetCardLabel(GameObject root, string displayLabel, string typeId)
@@ -2037,12 +2042,15 @@ public class CatalogUI : MonoBehaviour
         var technical = root.transform.Find(CardTechnicalLabelName)?.GetComponent<TMP_Text>();
         if (technical != null) technical.text = typeId ?? string.Empty;
 
+        var categoryVisualLabel = root.transform.Find($"{CardCategoryVisualName}/{CardCategoryVisualLabelName}")?.GetComponent<TMP_Text>();
+        if (categoryVisualLabel != null) categoryVisualLabel.text = BuildCategoryVisualLabel(typeId);
+
         var tmps = root.GetComponentsInChildren<TMP_Text>(true);
         foreach (var tmp in tmps)
         {
             if (tmp == null) continue;
             if (IsUnderCardRemoveButton(tmp.transform)) continue;
-            if (tmp.transform == explicitMain || tmp == categoryLabel || tmp == technical) continue;
+            if (tmp.transform == explicitMain || tmp == categoryLabel || tmp == technical || tmp == categoryVisualLabel) continue;
             tmp.text = string.IsNullOrWhiteSpace(displayLabel) ? BuildDisplayName(typeId) : displayLabel;
             tmp.alignment = TextAlignmentOptions.MidlineLeft;
             if (tmp.rectTransform != null && tmp.rectTransform.parent == root.transform)
@@ -2112,8 +2120,48 @@ public class CatalogUI : MonoBehaviour
         rt.anchorMax = new Vector2(1f, 1f);
         rt.pivot = new Vector2(0f, 1f);
         rt.offsetMin = new Vector2(16f, -84f);
-        rt.offsetMax = new Vector2(-16f, -64f);
+        rt.offsetMax = new Vector2(-72f, -64f);
         return technical;
+    }
+
+    static RectTransform EnsureCategoryVisual(Transform root)
+    {
+        var visual = root.Find(CardCategoryVisualName) as RectTransform;
+        if (visual == null)
+        {
+            var visualGo = new GameObject(CardCategoryVisualName, typeof(RectTransform), typeof(Image));
+            visual = visualGo.GetComponent<RectTransform>();
+            visual.SetParent(root, false);
+        }
+
+        visual.anchorMin = new Vector2(1f, 1f);
+        visual.anchorMax = new Vector2(1f, 1f);
+        visual.pivot = new Vector2(1f, 1f);
+        visual.offsetMin = new Vector2(-56f, -56f);
+        visual.offsetMax = new Vector2(-16f, -16f);
+
+        var image = visual.GetComponent<Image>();
+        if (image == null) image = visual.gameObject.AddComponent<Image>();
+        image.color = DesignTokens.BgSecondary;
+        image.raycastTarget = false;
+
+        var label = visual.Find(CardCategoryVisualLabelName)?.GetComponent<TMP_Text>();
+        if (label == null)
+        {
+            var labelGo = new GameObject(CardCategoryVisualLabelName, typeof(RectTransform), typeof(TextMeshProUGUI));
+            labelGo.transform.SetParent(visual, false);
+            label = labelGo.GetComponent<TMP_Text>();
+        }
+
+        label.fontSize = DesignTokens.FontSizeSubheading;
+        label.color = DesignTokens.TextSecondary;
+        label.alignment = TextAlignmentOptions.Center;
+        label.raycastTarget = false;
+        label.rectTransform.anchorMin = Vector2.zero;
+        label.rectTransform.anchorMax = Vector2.one;
+        label.rectTransform.offsetMin = Vector2.zero;
+        label.rectTransform.offsetMax = Vector2.zero;
+        return visual;
     }
 
     static void EnsureCardOutline(Transform target)
@@ -2153,6 +2201,12 @@ public class CatalogUI : MonoBehaviour
         if (typeId.Contains("Env", StringComparison.OrdinalIgnoreCase)) return "\u74B0\u5883";
         if (typeId.Contains("Imported", StringComparison.OrdinalIgnoreCase)) return "\u8FFD\u52A0";
         return "\u305D\u306E\u4ED6";
+    }
+
+    static string BuildCategoryVisualLabel(string typeId)
+    {
+        string category = BuildCategoryLabel(typeId);
+        return string.IsNullOrWhiteSpace(category) ? "?" : category.Substring(0, 1);
     }
 
     static bool IsUnderCardRemoveButton(Transform target)

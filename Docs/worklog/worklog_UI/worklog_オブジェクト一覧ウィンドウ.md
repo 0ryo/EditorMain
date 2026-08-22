@@ -123,3 +123,9 @@
 ## 18. 追記（2026-06-29 / 既定カタログ復旧）
 - `CatalogUI` と `PlacementController` は registry 未設定または空の場合、`Assets/Data/DefaultRegistry.asset` を既定値として読み込む。
 - カタログのスクロール領域背景は `DesignTokens.BgPrimary` とし、`Surface` カードが背景に埋もれないようにする。
+
+## 19. 追記（2026-08-22 / カテゴリ補助表示）
+- カード右側に40x40の `CategoryVisual` を表示し、カテゴリ名の先頭1文字をneutral colorで示す。
+- カテゴリごとの多色装飾は行わず、既存のカテゴリバッジ、表示名、技術IDを主情報として維持する。
+- `CatalogUI` は既存Prefabへ `CategoryVisual` / `LabelCategoryVisual` をランタイム補完する。
+- `BuildUiPrefabs` と `DesignTokenApplier` も同じレイアウトを生成・維持する。

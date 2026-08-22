@@ -120,7 +120,12 @@ public class StepNodeUI : MonoBehaviour
     {
         if (conditionSummaryText == null || graphService == null || stepNode == null) return;
         int conditionCount = graphService.GetConditionCountForStep(stepNode.nodeId);
-        conditionSummaryText.text = $"\u6761\u4EF6: {conditionCount}";
+        conditionSummaryText.text = conditionCount <= 0
+            ? "\u6761\u4EF6\u3092\u8FFD\u52A0\u3057\u3066\u304F\u3060\u3055\u3044"
+            : $"\u6761\u4EF6: {conditionCount}";
+        conditionSummaryText.color = conditionCount <= 0
+            ? DesignTokens.TextTertiary
+            : DesignTokens.TextSecondary;
     }
 
     void RefreshEmbeddedConditions()

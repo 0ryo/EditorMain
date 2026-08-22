@@ -9,11 +9,14 @@ public class PlacementController : MonoBehaviour
         "Panel_Catalog",
         "Panel_Settings",
         "Panel_NewObjectSettings",
+        "Panel_Hints",
+        "Panel_SaveValidation",
         "NodeArea",
         "EditModeRow",
         "EditModeRow_Runtime",
         "Button_Settings",
-        "Button_Settings_Runtime"
+        "Button_Settings_Runtime",
+        "Button_Hints"
     };
 
     public PrefabRegistry registry;

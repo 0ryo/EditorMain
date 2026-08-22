@@ -8,6 +8,8 @@ using UnityEngine.UI;
 
 public class ObjectDetailPanel : MonoBehaviour
 {
+    [SerializeField] TMP_Text headerDisplayNameText;
+    [SerializeField] TMP_Text headerTechnicalIdText;
     [SerializeField] TMP_Text textPrefabLabel;
     [SerializeField] TMP_InputField inputObjectName;
     [SerializeField] TMP_InputField inputDescription;
@@ -26,6 +28,7 @@ public class ObjectDetailPanel : MonoBehaviour
     ScenarioGraphUI scenarioGraphUI;
     ConditionNodeUI usageConditionTemplateCache;
     RectTransform rt;
+    CanvasGroup panelCanvasGroup;
     PlacedObject currentPo;
 
     Vector2 restOffsetMin;
@@ -44,7 +47,7 @@ public class ObjectDetailPanel : MonoBehaviour
     const string UsageTemplateName = "UsageNodeBlock_Template";
     const string UsageBlockBodyName = "Text_UsageNodeBody";
     const string UsageRowLabel = "\u4F7F\u7528\u4E2D\u30CE\u30FC\u30C9";
-    const string UnusedLabel = "\u672A\u4F7F\u7528";
+    const string UnusedLabel = "\u3053\u306E\u30AA\u30D6\u30B8\u30A7\u30AF\u30C8\u306F\u307E\u3060\u624B\u9806\u3067\u4F7F\u308F\u308C\u3066\u3044\u307E\u305B\u3093";
     const string UnsetLabel = "\u672A\u8A2D\u5B9A";
     const string DescriptionPlaceholder = "\u8AAC\u660E\u3092\u5165\u529B...";
     const string DescriptionPhraseMiddle = "\u3092";
@@ -65,8 +68,12 @@ public class ObjectDetailPanel : MonoBehaviour
     void Start()
     {
         rt = (RectTransform)transform;
+        EnsurePolishedHierarchy();
         restOffsetMin = rt.offsetMin;
         restOffsetMax = rt.offsetMax;
+        panelCanvasGroup = GetComponent<CanvasGroup>();
+        if (panelCanvasGroup == null) panelCanvasGroup = gameObject.AddComponent<CanvasGroup>();
+        panelCanvasGroup.alpha = 1f;
 
         selectionService = FindFirstObjectByType<SelectionService>();
         catalogUI = FindFirstObjectByType<CatalogUI>();
@@ -86,6 +93,7 @@ public class ObjectDetailPanel : MonoBehaviour
 
         EnsureDescriptionInputField();
         EnsureUsageNodeSection();
+        EnsurePolishedHierarchy();
         if (usageNodeStyler == null)
         {
             usageNodeStyler = GetComponent<ObjectDetailConditionNodeStyler>();
@@ -167,7 +175,17 @@ public class ObjectDetailPanel : MonoBehaviour
 
         if (textPrefabLabel != null)
         {
-            textPrefabLabel.text = label;
+            textPrefabLabel.text = po.typeId ?? string.Empty;
+        }
+
+        if (headerDisplayNameText != null)
+        {
+            headerDisplayNameText.text = po.GetDisplayName();
+        }
+
+        if (headerTechnicalIdText != null)
+        {
+            headerTechnicalIdText.text = po.typeId ?? string.Empty;
         }
 
         if (inputObjectName != null)
@@ -202,6 +220,131 @@ public class ObjectDetailPanel : MonoBehaviour
         {
             inputObjectName.SetTextWithoutNotify(currentPo.GetDisplayName());
         }
+        if (headerDisplayNameText != null)
+        {
+            headerDisplayNameText.text = currentPo.GetDisplayName();
+        }
+    }
+
+    void EnsurePolishedHierarchy()
+    {
+        if (rt == null) return;
+
+        rt.offsetMin = new Vector2(-320f, rt.offsetMin.y);
+        rt.offsetMax = new Vector2(rt.offsetMax.x, -64f);
+
+        var header = transform.Find("Header") as RectTransform;
+        if (header != null)
+        {
+            header.anchorMin = new Vector2(0f, 1f);
+            header.anchorMax = new Vector2(1f, 1f);
+            header.offsetMin = new Vector2(16f, -72f);
+            header.offsetMax = new Vector2(-16f, -8f);
+
+            if (headerDisplayNameText == null)
+            {
+                headerDisplayNameText = header.Find("Text_DisplayName")?.GetComponent<TMP_Text>();
+                if (headerDisplayNameText == null) headerDisplayNameText = header.Find("Title")?.GetComponent<TMP_Text>();
+            }
+            if (headerDisplayNameText != null)
+            {
+                headerDisplayNameText.gameObject.name = "Text_DisplayName";
+                headerDisplayNameText.fontSize = DesignTokens.FontSizeSubheading;
+                headerDisplayNameText.color = DesignTokens.TextPrimary;
+                headerDisplayNameText.alignment = TextAlignmentOptions.MidlineLeft;
+                SetRect(headerDisplayNameText.rectTransform, Vector2.zero, Vector2.one, new Vector2(12f, 32f), new Vector2(-12f, -4f));
+            }
+
+            if (headerTechnicalIdText == null)
+            {
+                headerTechnicalIdText = header.Find("Text_TechnicalId")?.GetComponent<TMP_Text>();
+            }
+            if (headerTechnicalIdText == null)
+            {
+                var idGo = new GameObject("Text_TechnicalId", typeof(RectTransform), typeof(TextMeshProUGUI));
+                var idRt = idGo.GetComponent<RectTransform>();
+                idRt.SetParent(header, false);
+                headerTechnicalIdText = idGo.GetComponent<TMP_Text>();
+            }
+            headerTechnicalIdText.fontSize = DesignTokens.FontSizeCaption;
+            headerTechnicalIdText.color = DesignTokens.TextSecondary;
+            headerTechnicalIdText.alignment = TextAlignmentOptions.MidlineLeft;
+            headerTechnicalIdText.raycastTarget = false;
+            SetRect(headerTechnicalIdText.rectTransform, Vector2.zero, Vector2.one, new Vector2(12f, 4f), new Vector2(-12f, -36f));
+        }
+
+        var scroll = transform.Find("Scroll_Detail") as RectTransform;
+        if (scroll != null)
+        {
+            scroll.offsetMax = new Vector2(scroll.offsetMax.x, -88f);
+        }
+
+        var content = transform.Find("Scroll_Detail/Viewport/Content");
+        if (content == null) return;
+
+        var basicSection = EnsureSectionLabel(content, "Section_Basic", "\u57FA\u672C\u60C5\u5831");
+        var prefabRow = content.Find("Row_PrefabLabel");
+        if (prefabRow != null)
+        {
+            PlaceBefore(basicSection, prefabRow);
+            var label = prefabRow.Find("Label")?.GetComponent<TMP_Text>();
+            if (label != null) label.text = "\u6280\u8853ID";
+        }
+
+        var descriptionRow = content.Find("Row_Description");
+        if (descriptionRow != null)
+        {
+            var descriptionSection = EnsureSectionLabel(content, "Section_Description", "\u8AAC\u660E");
+            PlaceBefore(descriptionSection, descriptionRow);
+        }
+
+        var usageRow = content.Find(UsageRowName);
+        if (usageRow != null)
+        {
+            var usageSection = EnsureSectionLabel(content, "Section_Usage", "\u4F7F\u7528\u4E2D\u306E\u6761\u4EF6");
+            PlaceBefore(usageSection, usageRow);
+        }
+    }
+
+    static void PlaceBefore(Transform item, Transform target)
+    {
+        if (item == null || target == null || item.parent != target.parent) return;
+        int targetIndex = target.GetSiblingIndex();
+        if (item.GetSiblingIndex() < targetIndex) targetIndex--;
+        item.SetSiblingIndex(Mathf.Max(0, targetIndex));
+    }
+
+    static RectTransform EnsureSectionLabel(Transform content, string objectName, string value)
+    {
+        var section = content.Find(objectName) as RectTransform;
+        if (section == null)
+        {
+            var go = new GameObject(objectName, typeof(RectTransform), typeof(TextMeshProUGUI), typeof(LayoutElement));
+            section = go.GetComponent<RectTransform>();
+            section.SetParent(content, false);
+        }
+
+        var text = section.GetComponent<TMP_Text>();
+        text.text = value;
+        text.fontSize = DesignTokens.FontSizeSubheading;
+        text.color = DesignTokens.TextPrimary;
+        text.alignment = TextAlignmentOptions.MidlineLeft;
+        text.margin = new Vector4(16f, 8f, 16f, 0f);
+        text.raycastTarget = false;
+
+        var layout = section.GetComponent<LayoutElement>();
+        layout.minHeight = 48f;
+        layout.preferredHeight = 48f;
+        return section;
+    }
+
+    static void SetRect(RectTransform rect, Vector2 anchorMin, Vector2 anchorMax, Vector2 offsetMin, Vector2 offsetMax)
+    {
+        if (rect == null) return;
+        rect.anchorMin = anchorMin;
+        rect.anchorMax = anchorMax;
+        rect.offsetMin = offsetMin;
+        rect.offsetMax = offsetMax;
     }
 
     void OnDescriptionInputEndEdit(string value)
@@ -801,6 +944,12 @@ public class ObjectDetailPanel : MonoBehaviour
 
         rt.offsetMin = new Vector2(restOffsetMin.x + panelWidth, restOffsetMin.y);
         rt.offsetMax = new Vector2(restOffsetMax.x + panelWidth, restOffsetMax.y);
+        if (panelCanvasGroup != null)
+        {
+            panelCanvasGroup.alpha = 0f;
+            panelCanvasGroup.interactable = true;
+            panelCanvasGroup.blocksRaycasts = true;
+        }
 
         while (elapsed < SlideDuration)
         {
@@ -811,11 +960,13 @@ public class ObjectDetailPanel : MonoBehaviour
             float shift = Mathf.Lerp(panelWidth, 0f, eased);
             rt.offsetMin = new Vector2(restOffsetMin.x + shift, restOffsetMin.y);
             rt.offsetMax = new Vector2(restOffsetMax.x + shift, restOffsetMax.y);
+            if (panelCanvasGroup != null) panelCanvasGroup.alpha = eased;
             yield return null;
         }
 
         rt.offsetMin = restOffsetMin;
         rt.offsetMax = restOffsetMax;
+        if (panelCanvasGroup != null) panelCanvasGroup.alpha = 1f;
         slideCoroutine = null;
     }
 
@@ -824,6 +975,12 @@ public class ObjectDetailPanel : MonoBehaviour
         float panelWidth = restOffsetMax.x - restOffsetMin.x;
         float elapsed = 0f;
         float startShift = rt.offsetMin.x - restOffsetMin.x;
+        float startAlpha = panelCanvasGroup != null ? panelCanvasGroup.alpha : 1f;
+        if (panelCanvasGroup != null)
+        {
+            panelCanvasGroup.interactable = false;
+            panelCanvasGroup.blocksRaycasts = false;
+        }
 
         while (elapsed < SlideDuration)
         {
@@ -834,11 +991,13 @@ public class ObjectDetailPanel : MonoBehaviour
             float shift = Mathf.Lerp(startShift, panelWidth, eased);
             rt.offsetMin = new Vector2(restOffsetMin.x + shift, restOffsetMin.y);
             rt.offsetMax = new Vector2(restOffsetMax.x + shift, restOffsetMax.y);
+            if (panelCanvasGroup != null) panelCanvasGroup.alpha = Mathf.Lerp(startAlpha, 0f, eased);
             yield return null;
         }
 
         rt.offsetMin = restOffsetMin;
         rt.offsetMax = restOffsetMax;
+        if (panelCanvasGroup != null) panelCanvasGroup.alpha = 1f;
         slideCoroutine = null;
         gameObject.SetActive(false);
     }

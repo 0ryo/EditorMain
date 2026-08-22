@@ -340,3 +340,14 @@
 - `ConditionNodeUI` の見出しを `条件 n` に統一する。
 - `BuildUiPrefabs` の Step node template も `手順 1` で生成する。
 - `CurriculumGraphService` の新規Stepタイトルと保存JSONの required action 名も `手順 n` とする。
+
+## 38. 2026-08-22 Remaining UI Polish
+- 空の手順ノードは `条件を追加してください` を表示する。
+- Catalogの横リサイズ境界とScenario graphの縦リサイズ境界は、細いグリップ線と方向カーソルで操作可能範囲を示す。
+- Scenario graphは編集中に `要確認: n件` の短い状態だけを表示し、保存操作時に詳細な問題一覧を開く。
+- 問題一覧の関連nodeId付き項目を選ぶと、該当ノードまたはConditionを格納するStepへ表示を移す。
+- Object detailは表示名と技術IDをheaderに表示し、`基本情報` / `説明` / `使用中の条件` のsectionに分ける。
+- Object detailの未使用時は `このオブジェクトはまだ手順で使われていません` と表示し、200msのslide＋fadeで開閉する。
+- Object detailは画面上端64pxを空け、globalの `設定` と `ヒント` を隠さない。
+- Global操作として `ヒント` を追加し、内容差し替え可能なplaceholder panelを開く。
+- Catalog card右側にneutral colorのcategory fallback blockを表示する。

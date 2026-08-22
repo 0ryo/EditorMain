@@ -61,6 +61,7 @@ public class ScenarioGraphUI : MonoBehaviour
     [SerializeField] Button addConditionButton;
     [SerializeField] Button saveButton;
     [SerializeField] TMP_Text statusText;
+    [SerializeField] ScenarioValidationPanel validationPanel;
     [SerializeField] RectTransform nodeArea;
     [SerializeField] RectTransform graphContent;
     [SerializeField] RectTransform lineLayer;
@@ -184,6 +185,7 @@ public class ScenarioGraphUI : MonoBehaviour
         EnsureNodeAreaMask();
         EnsureGraphContent();
         EnsurePanZoomController();
+        validationPanel = ScenarioValidationPanel.Ensure(panelRoot != null ? panelRoot : transform as RectTransform, validationPanel);
 
         if (addConditionButton == null)
         {
@@ -1158,9 +1160,12 @@ public class ScenarioGraphUI : MonoBehaviour
         if (!validation.CanExport)
         {
             statusText.text = BuildValidationMessage(validation);
+            ShowValidationPanel(validation);
             Debug.LogWarning("[ScenarioGraph] Export blocked: validation errors.");
             return;
         }
+
+        validationPanel?.Hide();
 
         ScenarioExport export;
         try
@@ -1189,6 +1194,7 @@ public class ScenarioGraphUI : MonoBehaviour
             ? $"保存しました（警告 {validation.warnings.Count} 件）: Assets/Exports/{fileName}"
             : $"保存しました: Assets/Exports/{fileName}";
         Debug.Log("[ScenarioGraph] " + statusText.text);
+        validationPanel?.Hide();
         saveButton.interactable = true;
     }
 
@@ -1197,12 +1203,21 @@ public class ScenarioGraphUI : MonoBehaviour
         if (graph == null || saveButton == null || statusText == null) return;
 
         var validation = graph.ValidateGraph();
-        saveButton.interactable = validation.CanExport;
+        saveButton.interactable = true;
 
         if (!validation.CanExport)
         {
-            statusText.text = BuildValidationMessage(validation);
+            statusText.text = $"\u8981\u78BA\u8A8D: {validation.errors.Count}\u4EF6";
+            if (validationPanel != null && validationPanel.IsVisible)
+            {
+                ShowValidationPanel(validation);
+            }
             return;
+        }
+
+        if (validationPanel != null && validationPanel.IsVisible)
+        {
+            validationPanel.Hide();
         }
 
         if (validation.warnings.Count > 0)
@@ -1215,10 +1230,7 @@ public class ScenarioGraphUI : MonoBehaviour
             return;
         }
 
-        if (string.IsNullOrWhiteSpace(statusText.text))
-        {
-            statusText.text = "保存できます";
-        }
+        statusText.text = "保存できます";
     }
 
     void ApplyRoundedTheme()
@@ -1243,6 +1255,47 @@ public class ScenarioGraphUI : MonoBehaviour
     {
         if (!isActiveAndEnabled) return;
         RebuildAll();
+    }
+
+    void ShowValidationPanel(GraphValidationResult validation)
+    {
+        if (validationPanel == null)
+        {
+            validationPanel = ScenarioValidationPanel.Ensure(panelRoot != null ? panelRoot : transform as RectTransform);
+        }
+
+        validationPanel?.Show(validation, GetFriendlyValidationMessage, FocusNode);
+    }
+
+    void FocusNode(string nodeId)
+    {
+        if (string.IsNullOrWhiteSpace(nodeId)) return;
+        if (!nodeUIs.TryGetValue(nodeId, out var binding) || binding == null || binding.root == null)
+        {
+            var node = graph != null ? graph.FindNode(nodeId) : null;
+            if (node == null || node.nodeType != ScenarioNodeType.Condition) return;
+
+            var bindEdge = graph.curriculum.edges.FirstOrDefault(edge =>
+                edge.edgeType == ScenarioEdgeType.ConditionBind && edge.fromNodeId == nodeId);
+            if (bindEdge == null ||
+                !nodeUIs.TryGetValue(bindEdge.toNodeId, out binding) ||
+                binding == null ||
+                binding.root == null)
+            {
+                return;
+            }
+        }
+
+        validationPanel?.Hide();
+        panZoomController?.FocusContentPoint(binding.root.anchoredPosition);
+    }
+
+    static string GetFriendlyValidationMessage(GraphValidationIssue issue)
+    {
+        if (issue == null) return string.Empty;
+        if (ErrorMessages.TryGetValue(issue.code, out var errorMessage)) return errorMessage;
+        if (WarningMessages.TryGetValue(issue.code, out var warningMessage)) return warningMessage;
+        return issue.message;
     }
 
     static string BuildValidationMessage(GraphValidationResult validation)
