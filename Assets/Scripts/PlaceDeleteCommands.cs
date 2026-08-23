@@ -77,6 +77,11 @@ public class DuplicateObjectCommand : IEditorCommand, IDiscardableEditorCommand 
             }
 
             placed.ForceNewId();
+            var editState=instance.GetComponent<PlacedObjectEditState>();
+            if (editState!=null){
+                editState.SetLocked(false);
+                editState.SetVisible(true);
+            }
             PlacedObjectPickability.EnsurePickable(placed, true);
         }
 

@@ -8,6 +8,9 @@ public static class PlacedObjectPickability
     {
         if (placed == null) return false;
 
+        var editState = placed.GetComponent<PlacedObjectEditState>();
+        if (editState != null && (editState.Locked || editState.Hidden)) return false;
+
         var root = placed.transform;
         if (root == null) return false;
 

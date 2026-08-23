@@ -105,6 +105,9 @@ public sealed class ViewportCameraToolbar : MonoBehaviour
         AttachGuide(
             parent.Find("Button_Hints")?.GetComponent<Button>(),
             "ヒント：操作方法の一覧を3Dビュー中央に表示します");
+        AttachGuide(
+            parent.Find("Button_Outliner")?.GetComponent<Button>(),
+            "一覧：配置済みオブジェクトを検索・選択・表示・固定します");
         AttachGuide(openButton, "カメラ操作を開閉します");
     }
 

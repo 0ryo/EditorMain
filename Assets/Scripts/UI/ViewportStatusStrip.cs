@@ -99,6 +99,7 @@ public class ViewportStatusStrip : MonoBehaviour
         targetText = FindOrCreateText("Text_Target", "\u9078\u629E\u306A\u3057", DesignTokens.TextPrimary, 300f, TextAlignmentOptions.MidlineLeft);
         toastText = FindOrCreateText("Text_Toast", "", DesignTokens.TextSecondary, 240f, TextAlignmentOptions.MidlineLeft);
         debugText = FindOrCreateText("Text_Debug", "", DesignTokens.TextSecondary, 360f, TextAlignmentOptions.MidlineLeft);
+        ViewportOutliner.Ensure(transform);
         ViewportCameraToolbar.Ensure(transform);
         PositionStrip();
     }
