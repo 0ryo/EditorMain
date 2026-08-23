@@ -261,7 +261,7 @@ Match: 0.5
 
 | Token | Value | Notes |
 |---|---|---|
-| `corner-radius` | 8 | **Uniform across all components.** Do not vary per element |
+| `corner-radius` | 6 | **Uniform across all components.** Do not vary per element |
 | `transition-duration` | 150ms | State transitions such as hover / press |
 | `min-touch-target` | 44 × 44 | Minimum size for touch / click targets |
 
