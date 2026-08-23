@@ -48,7 +48,7 @@ public class SelectionService : MonoBehaviour
 
         AutoFixPickabilityIfNeeded();
 
-        if (Current != null && Current.gameObject == null)
+        if (Current != null && !Current.gameObject.activeInHierarchy)
         {
             Select(null);
         }
@@ -189,9 +189,8 @@ public class SelectionService : MonoBehaviour
         var placed = created.GetComponent<PlacedObject>();
         if (placed == null) placed = created.AddComponent<PlacedObject>();
 
-        placed.Init(typeId);
+        placed.InitType(typeId);
         PlacedObjectPickability.EnsurePickable(placed, true);
-        Select(placed);
         return created;
     }
 
