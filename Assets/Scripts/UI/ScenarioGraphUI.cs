@@ -15,6 +15,10 @@ public class ScenarioGraphUI : MonoBehaviour
     const string StartNodeLabel = "開始";
     const string EndNodeLabel = "終了";
     const string EmptyGraphGuide = "「+ 手順」からシナリオを作成してください";
+    const float GraphContentMinWidth = 6000f;
+    const float GraphContentMinHeight = 6000f;
+    const float NodeLayoutGap = 64f;
+    const int MaxLayoutColumns = 8;
 
     static readonly System.Collections.Generic.Dictionary<string, string> ErrorMessages = new System.Collections.Generic.Dictionary<string, string>
     {
@@ -373,16 +377,18 @@ public class ScenarioGraphUI : MonoBehaviour
             graphContent.anchorMin = new Vector2(0.5f, 0.5f);
             graphContent.anchorMax = new Vector2(0.5f, 0.5f);
             graphContent.pivot = new Vector2(0.5f, 0.5f);
-            graphContent.sizeDelta = new Vector2(4200f, 2400f);
+            graphContent.sizeDelta = new Vector2(GraphContentMinWidth, GraphContentMinHeight);
             graphContent.anchoredPosition = Vector2.zero;
         }
 
-        if (graphContent.rect.width < 1f || graphContent.rect.height < 1f)
+        if (graphContent.rect.width < GraphContentMinWidth || graphContent.rect.height < GraphContentMinHeight)
         {
             graphContent.anchorMin = new Vector2(0.5f, 0.5f);
             graphContent.anchorMax = new Vector2(0.5f, 0.5f);
             graphContent.pivot = new Vector2(0.5f, 0.5f);
-            graphContent.sizeDelta = new Vector2(4200f, 2400f);
+            graphContent.sizeDelta = new Vector2(
+                Mathf.Max(GraphContentMinWidth, graphContent.rect.width),
+                Mathf.Max(GraphContentMinHeight, graphContent.rect.height));
             graphContent.anchoredPosition = Vector2.zero;
         }
 
@@ -546,6 +552,11 @@ public class ScenarioGraphUI : MonoBehaviour
             nodePositions[pair.Key] = pair.Value.root.anchoredPosition;
         }
 
+        foreach (var staleNodeId in nodePositions.Keys.Where(nodeId => graph.FindNode(nodeId) == null).ToArray())
+        {
+            nodePositions.Remove(staleNodeId);
+        }
+
         var nodeParent = GetNodeParent();
         if (nodeParent == null)
         {
@@ -631,48 +642,89 @@ public class ScenarioGraphUI : MonoBehaviour
     Dictionary<string, Vector2> BuildDefaultNodePositions()
     {
         var defaults = new Dictionary<string, Vector2>();
-
+        var flowNodes = new List<ScenarioNode>();
         var start = graph.GetStartNode();
-        if (start != null) defaults[start.nodeId] = new Vector2(-620f, 120f);
+        if (start != null) flowNodes.Add(start);
 
         var orderedSteps = graph.GetDisplayOrderedSteps();
         for (int i = 0; i < orderedSteps.Count; i++)
         {
             if (orderedSteps[i] == null || string.IsNullOrWhiteSpace(orderedSteps[i].nodeId)) continue;
-            defaults[orderedSteps[i].nodeId] = new Vector2(-320f + (i * 280f), 120f);
+            flowNodes.Add(orderedSteps[i]);
         }
 
         var end = graph.GetEndNode();
-        if (end != null)
+        if (end != null) flowNodes.Add(end);
+
+        var unboundConditions = graph.GetNodes(ScenarioNodeType.Condition)
+            .Where(condition => condition != null &&
+                                !string.IsNullOrWhiteSpace(condition.nodeId) &&
+                                !graph.IsConditionBoundToStep(condition.nodeId))
+            .OrderBy(condition => condition.nodeId)
+            .ToList();
+
+        Vector2 flowSize = GetLargestTemplateSize(
+            new Component[] { startNodeTemplate, stepNodeTemplate, endNodeTemplate },
+            new Vector2(390f, 220f));
+        Vector2 conditionSize = GetLargestTemplateSize(
+            new Component[] { conditionNodeTemplate },
+            new Vector2(390f, 180f));
+        float flowSpacingX = flowSize.x + NodeLayoutGap;
+        float flowSpacingY = flowSize.y + NodeLayoutGap;
+        int flowRows = Mathf.Max(1, Mathf.CeilToInt(flowNodes.Count / (float)MaxLayoutColumns));
+        float flowCenterY = unboundConditions.Count > 0 ? 220f : 0f;
+        float flowTopY = flowCenterY + ((flowRows - 1) * flowSpacingY * 0.5f);
+
+        for (int row = 0; row < flowRows; row++)
         {
-            defaults[end.nodeId] = new Vector2(-320f + (orderedSteps.Count * 280f) + 280f, 120f);
+            int rowStartIndex = row * MaxLayoutColumns;
+            int rowCount = Mathf.Min(MaxLayoutColumns, flowNodes.Count - rowStartIndex);
+            float rowStartX = -((rowCount - 1) * flowSpacingX * 0.5f);
+            for (int column = 0; column < rowCount; column++)
+            {
+                var node = flowNodes[rowStartIndex + column];
+                defaults[node.nodeId] = new Vector2(
+                    rowStartX + (column * flowSpacingX),
+                    flowTopY - (row * flowSpacingY));
+            }
         }
 
-        var slotByStep = new Dictionary<string, int>();
-        int unbound = 0;
-        foreach (var condition in graph.GetNodes(ScenarioNodeType.Condition))
+        if (unboundConditions.Count == 0) return defaults;
+
+        float conditionSpacingX = conditionSize.x + NodeLayoutGap;
+        float conditionSpacingY = conditionSize.y + NodeLayoutGap;
+        float flowBottomY = flowTopY - ((flowRows - 1) * flowSpacingY);
+        float conditionTopY = flowBottomY - (flowSize.y * 0.5f) - (conditionSize.y * 0.5f) - NodeLayoutGap;
+        int conditionRows = Mathf.CeilToInt(unboundConditions.Count / (float)MaxLayoutColumns);
+        for (int row = 0; row < conditionRows; row++)
         {
-            if (condition == null || string.IsNullOrWhiteSpace(condition.nodeId)) continue;
-            if (graph.IsConditionBoundToStep(condition.nodeId)) continue;
-
-            var bindEdge = graph.curriculum.edges.FirstOrDefault(e =>
-                e.edgeType == ScenarioEdgeType.ConditionBind &&
-                e.fromNodeId == condition.nodeId);
-
-            if (bindEdge != null && defaults.TryGetValue(bindEdge.toNodeId, out var stepPos))
+            int rowStartIndex = row * MaxLayoutColumns;
+            int rowCount = Mathf.Min(MaxLayoutColumns, unboundConditions.Count - rowStartIndex);
+            float rowStartX = -((rowCount - 1) * conditionSpacingX * 0.5f);
+            for (int column = 0; column < rowCount; column++)
             {
-                if (!slotByStep.TryGetValue(bindEdge.toNodeId, out int slot)) slot = 0;
-                defaults[condition.nodeId] = new Vector2(stepPos.x, -40f - (slot * 120f));
-                slotByStep[bindEdge.toNodeId] = slot + 1;
-            }
-            else
-            {
-                defaults[condition.nodeId] = new Vector2(-620f + (unbound % 3) * 240f, -60f - (unbound / 3) * 120f);
-                unbound++;
+                var condition = unboundConditions[rowStartIndex + column];
+                defaults[condition.nodeId] = new Vector2(
+                    rowStartX + (column * conditionSpacingX),
+                    conditionTopY - (row * conditionSpacingY));
             }
         }
 
         return defaults;
+    }
+
+    static Vector2 GetLargestTemplateSize(IEnumerable<Component> templates, Vector2 fallback)
+    {
+        var size = fallback;
+        foreach (var template in templates)
+        {
+            var rect = template != null ? template.transform as RectTransform : null;
+            if (rect == null) continue;
+            size.x = Mathf.Max(size.x, rect.rect.width, rect.sizeDelta.x);
+            size.y = Mathf.Max(size.y, rect.rect.height, rect.sizeDelta.y);
+        }
+
+        return size;
     }
 
     void InstantiateStartNode(ScenarioNode node, Dictionary<string, Vector2> defaults)
@@ -785,7 +837,7 @@ public class ScenarioGraphUI : MonoBehaviour
         }
         else if (defaults.TryGetValue(node.nodeId, out var fallback))
         {
-            root.anchoredPosition = fallback;
+            root.anchoredPosition = FindAvailableNodePosition(node.nodeId, root, fallback);
         }
         else
         {
@@ -793,6 +845,7 @@ public class ScenarioGraphUI : MonoBehaviour
         }
 
         root.anchoredPosition = ClampNodePosition(root, root.anchoredPosition);
+        nodePositions[node.nodeId] = root.anchoredPosition;
 
         nodeUIs[node.nodeId] = new NodeUiBinding
         {
@@ -803,6 +856,33 @@ public class ScenarioGraphUI : MonoBehaviour
         };
 
         ConfigureNodeDragCallbacks(node.nodeId, node.nodeType, root);
+    }
+
+    Vector2 FindAvailableNodePosition(string nodeId, RectTransform root, Vector2 preferred)
+    {
+        float verticalStep = Mathf.Max(1f, root.rect.height, root.sizeDelta.y) + NodeLayoutGap;
+        for (int rowOffset = 0; rowOffset < 24; rowOffset++)
+        {
+            var candidate = ClampNodePosition(root, preferred + (Vector2.down * verticalStep * rowOffset));
+            if (!IsNodePositionOccupied(nodeId, root, candidate)) return candidate;
+        }
+
+        return preferred;
+    }
+
+    bool IsNodePositionOccupied(string nodeId, RectTransform root, Vector2 candidate)
+    {
+        float width = Mathf.Max(1f, root.rect.width, root.sizeDelta.x);
+        float height = Mathf.Max(1f, root.rect.height, root.sizeDelta.y);
+        foreach (var pair in nodePositions)
+        {
+            if (pair.Key == nodeId) continue;
+            if (Mathf.Abs(pair.Value.x - candidate.x) >= width + NodeLayoutGap) continue;
+            if (Mathf.Abs(pair.Value.y - candidate.y) >= height + NodeLayoutGap) continue;
+            return true;
+        }
+
+        return false;
     }
 
     void ConfigureNodeDragCallbacks(string nodeId, ScenarioNodeType nodeType, RectTransform root)
