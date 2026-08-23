@@ -54,15 +54,20 @@ public class PlacementExportService : MonoBehaviour
         }
 
         string dir = Path.Combine(Application.dataPath, "Exports");
-        Directory.CreateDirectory(dir);
-
         string safeProjectName = ExportFileNameUtility.SanitizeProjectName(projectName, "MyProject");
         string fileName = $"{safeProjectName}-placement.json";
         string path = Path.Combine(dir, fileName);
 
         string json = JsonUtility.ToJson(data, true);
-        File.WriteAllText(path, json);
-
-        Debug.Log($"[Export] Saved: Assets/Exports/{fileName} (count={data.objects.Count})");
+        try
+        {
+            ExportFileWriter.WriteAllTextWithBackup(path, json);
+            Debug.Log($"[Export] Saved: Assets/Exports/{fileName} (count={data.objects.Count})");
+        }
+        catch (System.Exception ex)
+        {
+            Debug.LogError($"[Export] Save failed: {ex.Message}");
+            Debug.LogException(ex);
+        }
     }
 }

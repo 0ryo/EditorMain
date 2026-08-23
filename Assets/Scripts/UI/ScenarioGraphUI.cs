@@ -1307,11 +1307,16 @@ public class ScenarioGraphUI : MonoBehaviour
         string safeProjectName = ExportFileNameUtility.SanitizeProjectName(export.projectName, "VRCourseEditor");
         string fileName = $"{safeProjectName}-curriculum.json";
         string finalPath = Path.Combine(exportDir, fileName);
-        string tempPath = finalPath + ".tmp";
-
-        File.WriteAllText(tempPath, JsonUtility.ToJson(export, true));
-        if (File.Exists(finalPath)) File.Replace(tempPath, finalPath, null);
-        else File.Move(tempPath, finalPath);
+        try
+        {
+            ExportFileWriter.WriteAllTextWithBackup(finalPath, JsonUtility.ToJson(export, true));
+        }
+        catch (System.Exception ex)
+        {
+            statusText.text = $"保存失敗: {ex.Message}";
+            Debug.LogException(ex);
+            return;
+        }
 
         statusText.text = validation.warnings.Count > 0
             ? $"保存しました（警告 {validation.warnings.Count} 件）: Assets/Exports/{fileName}"
