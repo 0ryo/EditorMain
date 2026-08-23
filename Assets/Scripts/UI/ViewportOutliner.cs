@@ -16,12 +16,17 @@ public sealed class ViewportOutliner : MonoBehaviour
     [SerializeField] TMP_InputField searchInput;
     [SerializeField] TMP_Text countText;
     [SerializeField] RectTransform listRoot;
+    [SerializeField] Button visibilityButton;
+    [SerializeField] Button lockButton;
+    [SerializeField] Button duplicateButton;
+    [SerializeField] Button deleteButton;
 
     RectTransform panelRect;
     CanvasGroup panelCanvasGroup;
     SelectionService selectionService;
     PlacementController placementController;
     CommandStack commandStack;
+    PlacedObject activeObject;
     bool displayNameBound;
     bool showingOutliner;
     int lastObjectSignature;
@@ -172,6 +177,18 @@ public sealed class ViewportOutliner : MonoBehaviour
             searchInput.onValueChanged.RemoveListener(HandleSearchChanged);
             searchInput.onValueChanged.AddListener(HandleSearchChanged);
         }
+
+        Wire(visibilityButton, ToggleActiveVisibility);
+        Wire(lockButton, ToggleActiveLock);
+        Wire(duplicateButton, DuplicateActiveObject);
+        Wire(deleteButton, DeleteActiveObject);
+    }
+
+    static void Wire(Button button, UnityEngine.Events.UnityAction action)
+    {
+        if (button == null) return;
+        button.onClick.RemoveListener(action);
+        button.onClick.AddListener(action);
     }
 
     void ShowCatalog()
@@ -208,6 +225,7 @@ public sealed class ViewportOutliner : MonoBehaviour
 
         ApplyTabVisual(catalogTabButton, !showingOutliner);
         ApplyTabVisual(outlinerTabButton, showingOutliner);
+        RefreshActionButtons();
         if (tabsRoot != null) tabsRoot.SetAsLastSibling();
     }
 
@@ -263,6 +281,7 @@ public sealed class ViewportOutliner : MonoBehaviour
 
     void HandleSelectionChanged(PlacedObject _)
     {
+        activeObject = _;
         RebuildList();
     }
 
@@ -297,6 +316,12 @@ public sealed class ViewportOutliner : MonoBehaviour
         placedObjects.RemoveAll(placed => placed == null || !placed.gameObject.scene.IsValid());
         placedObjects.Sort(ComparePlacedObjects);
 
+        if (activeObject != null && !placedObjects.Contains(activeObject)) activeObject = null;
+        if (activeObject == null && selectionService != null && placedObjects.Contains(selectionService.Current))
+        {
+            activeObject = selectionService.Current;
+        }
+
         string query = searchInput != null ? searchInput.text?.Trim() : string.Empty;
         int matchCount = 0;
         foreach (var placed in placedObjects)
@@ -323,13 +348,14 @@ public sealed class ViewportOutliner : MonoBehaviour
         }
 
         lastObjectSignature = CalculateObjectSignature();
+        RefreshActionButtons();
     }
 
     void CreateObjectRow(PlacedObject placed)
     {
         var row = CreateRect("Row_" + SafeName(placed.Id), listRoot);
         var rowImage = row.gameObject.AddComponent<Image>();
-        bool selected = selectionService != null && selectionService.Current == placed;
+        bool selected = activeObject == placed;
         rowImage.color = selected ? DesignTokens.BadgeBg(DesignTokens.Accent) : DesignTokens.Surface;
 
         var layout = row.gameObject.AddComponent<HorizontalLayoutGroup>();
@@ -354,26 +380,52 @@ public sealed class ViewportOutliner : MonoBehaviour
         if (string.IsNullOrWhiteSpace(displayName)) displayName = placed.name;
 
         var selectButton = CreateListButton(row, "Button_Select", prefix + displayName, 0f, true);
-        selectButton.interactable = !editState.Hidden && !editState.Locked;
-        selectButton.onClick.AddListener(() => SelectPlacedObject(placed, editState));
-
-        var visibilityButton = CreateListButton(row, "Button_Visibility", editState.Hidden ? "表示" : "隠す", 48f, false);
-        visibilityButton.onClick.AddListener(() => ToggleVisibility(placed, editState));
-
-        var lockButton = CreateListButton(row, "Button_Lock", editState.Locked ? "解除" : "固定", 48f, false);
-        lockButton.onClick.AddListener(() => ToggleLock(placed, editState));
+        selectButton.onClick.AddListener(() => ActivatePlacedObject(placed, editState));
 
         UiRoundedTheme.ApplyToHierarchy(row, DesignTokens.CornerRadius);
     }
 
-    void SelectPlacedObject(PlacedObject placed, PlacedObjectEditState editState)
+    void ActivatePlacedObject(PlacedObject placed, PlacedObjectEditState editState)
     {
-        if (placed == null || editState == null || editState.Hidden || editState.Locked) return;
-        selectionService?.Select(placed);
+        if (placed == null || editState == null) return;
+
+        if (!editState.Hidden && !editState.Locked)
+        {
+            selectionService?.Select(placed);
+        }
+        else if (selectionService != null && selectionService.Current != null)
+        {
+            selectionService.Select(null);
+        }
+
+        activeObject = placed;
+        RebuildList();
     }
 
-    void ToggleVisibility(PlacedObject placed, PlacedObjectEditState editState)
+    void RefreshActionButtons()
     {
+        var target = activeObject;
+        var editState = target != null ? target.GetComponent<PlacedObjectEditState>() : null;
+        bool hasTarget = target != null && editState != null;
+
+        if (visibilityButton != null)
+        {
+            visibilityButton.interactable = hasTarget;
+            SetButtonLabel(visibilityButton, hasTarget && editState.Hidden ? "表示" : "隠す");
+        }
+        if (lockButton != null)
+        {
+            lockButton.interactable = hasTarget;
+            SetButtonLabel(lockButton, hasTarget && editState.Locked ? "解除" : "固定");
+        }
+        if (duplicateButton != null) duplicateButton.interactable = hasTarget;
+        if (deleteButton != null) deleteButton.interactable = hasTarget;
+    }
+
+    void ToggleActiveVisibility()
+    {
+        var placed = activeObject;
+        var editState = placed != null ? placed.GetComponent<PlacedObjectEditState>() : null;
         if (placed == null || editState == null) return;
 
         bool willHide = !editState.Hidden;
@@ -382,11 +434,14 @@ public sealed class ViewportOutliner : MonoBehaviour
             selectionService.Select(null);
         }
         editState.SetVisible(!willHide);
+        activeObject = placed;
         RebuildList();
     }
 
-    void ToggleLock(PlacedObject placed, PlacedObjectEditState editState)
+    void ToggleActiveLock()
     {
+        var placed = activeObject;
+        var editState = placed != null ? placed.GetComponent<PlacedObjectEditState>() : null;
         if (placed == null || editState == null) return;
 
         bool willLock = !editState.Locked;
@@ -395,7 +450,55 @@ public sealed class ViewportOutliner : MonoBehaviour
             selectionService.Select(null);
         }
         editState.SetLocked(willLock);
+        activeObject = placed;
         RebuildList();
+    }
+
+    void DuplicateActiveObject()
+    {
+        if (activeObject == null) return;
+
+        var command = new DuplicateObjectCommand(activeObject.gameObject, new Vector3(0.2f, 0f, 0.2f));
+        bool succeeded = CommandService.I != null && CommandService.I.Stack != null
+            ? CommandService.I.Stack.Execute(command)
+            : command.Do();
+        if (!succeeded || command.Result == null) return;
+
+        activeObject = command.Result;
+        selectionService?.Select(activeObject);
+        RebuildList();
+    }
+
+    void DeleteActiveObject()
+    {
+        if (activeObject == null) return;
+
+        var target = activeObject;
+        var command = new DeleteObjectCommand(target.gameObject, target.TypeId, InstantiatePlacedForUndo);
+        bool succeeded = CommandService.I != null && CommandService.I.Stack != null
+            ? CommandService.I.Stack.Execute(command)
+            : command.Do();
+        if (!succeeded) return;
+
+        if (selectionService != null && selectionService.Current == target) selectionService.Select(null);
+        activeObject = null;
+        RebuildList();
+    }
+
+    GameObject InstantiatePlacedForUndo(string typeId)
+    {
+        if (placementController == null || !placementController.TryGetPrefab(typeId, out var prefab) || prefab == null)
+        {
+            return null;
+        }
+
+        var created = Instantiate(prefab);
+        if (!created.activeSelf) created.SetActive(true);
+        var placed = created.GetComponent<PlacedObject>();
+        if (placed == null) placed = created.AddComponent<PlacedObject>();
+        placed.InitType(typeId);
+        PlacedObjectPickability.EnsurePickable(placed, true);
+        return created;
     }
 
     int CalculateObjectSignature()
@@ -482,8 +585,24 @@ public sealed class ViewportOutliner : MonoBehaviour
         var search = CreateSearchInput(panel);
         SetRect(search.transform as RectTransform, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0f, -82f), new Vector2(0f, -42f));
 
+        var actionBar = CreateRect("Actions_Outliner", panel);
+        SetRect(actionBar, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0f, -130f), new Vector2(0f, -90f));
+        var actionLayout = actionBar.gameObject.AddComponent<HorizontalLayoutGroup>();
+        actionLayout.spacing = 4f;
+        actionLayout.childControlWidth = true;
+        actionLayout.childControlHeight = true;
+        actionLayout.childForceExpandWidth = true;
+        actionLayout.childForceExpandHeight = true;
+
+        var visibility = CreateActionButton(actionBar, "Button_Visibility", "隠す");
+        var lockButton = CreateActionButton(actionBar, "Button_Lock", "固定");
+        var duplicate = CreateActionButton(actionBar, "Button_Duplicate", "複製");
+        var delete = CreateActionButton(actionBar, "Button_DeleteObject", "削除");
+        var deleteImage = delete.GetComponent<Image>();
+        if (deleteImage != null) deleteImage.color = DesignTokens.BadgeBg(DesignTokens.Error);
+
         var list = CreateScrollList(panel);
-        SetRect(list, Vector2.zero, Vector2.one, Vector2.zero, new Vector2(0f, -92f));
+        SetRect(list, Vector2.zero, Vector2.one, Vector2.zero, new Vector2(0f, -140f));
 
         var outliner = panel.gameObject.AddComponent<ViewportOutliner>();
         outliner.catalogPanel = catalog;
@@ -495,6 +614,10 @@ public sealed class ViewportOutliner : MonoBehaviour
         outliner.searchInput = search;
         outliner.countText = count;
         outliner.listRoot = list.Find("Viewport/Content") as RectTransform;
+        outliner.visibilityButton = visibility;
+        outliner.lockButton = lockButton;
+        outliner.duplicateButton = duplicate;
+        outliner.deleteButton = delete;
 
         UiRoundedTheme.ApplyToHierarchy(tabs, DesignTokens.CornerRadius);
         UiRoundedTheme.ApplyToHierarchy(panel, DesignTokens.CornerRadius);
@@ -593,6 +716,16 @@ public sealed class ViewportOutliner : MonoBehaviour
         return button;
     }
 
+    static Button CreateActionButton(RectTransform parent, string objectName, string labelValue)
+    {
+        var button = CreateButton(objectName, parent, labelValue, DesignTokens.BgSecondary);
+        var element = button.gameObject.AddComponent<LayoutElement>();
+        element.minWidth = 40f;
+        element.flexibleWidth = 1f;
+        element.minHeight = 36f;
+        return button;
+    }
+
     static RectTransform CreateRect(string objectName, Transform parent)
     {
         var go = new GameObject(objectName, typeof(RectTransform));
@@ -625,6 +758,12 @@ public sealed class ViewportOutliner : MonoBehaviour
         label.alignment = TextAlignmentOptions.Center;
         SetRect(label.rectTransform, Vector2.zero, Vector2.one, new Vector2(6f, 0f), new Vector2(-6f, 0f));
         return button;
+    }
+
+    static void SetButtonLabel(Button button, string value)
+    {
+        var label = button != null ? button.GetComponentInChildren<TMP_Text>(true) : null;
+        if (label != null) label.text = value;
     }
 
     static void SetRect(RectTransform rect, Vector2 anchorMin, Vector2 anchorMax, Vector2 offsetMin, Vector2 offsetMax)
