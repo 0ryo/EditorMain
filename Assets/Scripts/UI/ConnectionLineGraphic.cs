@@ -172,11 +172,11 @@ public class ConnectionLineGraphic : MaskableGraphic, IPointerEnterHandler, IPoi
         labelRt.anchorMin = new Vector2(0.5f, 0.5f);
         labelRt.anchorMax = new Vector2(0.5f, 0.5f);
         labelRt.pivot = new Vector2(0.5f, 0.5f);
-        labelRt.sizeDelta = new Vector2(52f, 22f);
+        labelRt.sizeDelta = new Vector2(140f, 22f);
         labelRt.anchoredPosition = Vector2.zero;
 
         hoverDeleteLabel = labelGo.GetComponent<TextMeshProUGUI>();
-        hoverDeleteLabel.text = "\u524A\u9664";
+        hoverDeleteLabel.text = "\u7DDA\u3092\u30AF\u30EA\u30C3\u30AF\u3067\u524A\u9664";
         hoverDeleteLabel.fontSize = 12;
         hoverDeleteLabel.alignment = TextAlignmentOptions.Center;
         hoverDeleteLabel.color = DesignTokens.Error;
