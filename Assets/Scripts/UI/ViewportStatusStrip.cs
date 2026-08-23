@@ -5,15 +5,17 @@ using UnityEngine.UI;
 public class ViewportStatusStrip : MonoBehaviour
 {
     const float StripHeight = 40f;
-    const float StripTop = -64f;
-    const float StripLeftMargin = 24f;
+    const float StripTop = -12f;
+    const float StripLeftMargin = 12f;
     const float StripMaxWidth = 1120f;
-    const float StripRightMargin = 24f;
+    const float StripRightMargin = 12f;
     const float ToastDuration = 2.2f;
 
     [SerializeField] RectTransform stripRoot;
     [SerializeField] RectTransform catalogPanel;
     [SerializeField] RectTransform scenarioPanel;
+    [SerializeField] RectTransform editModePanel;
+    [SerializeField] RectTransform hintButtonPanel;
     [SerializeField] TMP_Text modeText;
     [SerializeField] TMP_Text targetText;
     [SerializeField] TMP_Text toastText;
@@ -27,6 +29,7 @@ public class ViewportStatusStrip : MonoBehaviour
     string lastPlacementTypeId;
     string toastMessage;
     float toastUntil;
+    readonly Vector3[] worldCorners = new Vector3[4];
 
     void Awake()
     {
@@ -135,6 +138,16 @@ public class ViewportStatusStrip : MonoBehaviour
         {
             var foundScenario = transform.Find("Panel_ScenarioGraph") as RectTransform;
             if (foundScenario != null) scenarioPanel = foundScenario;
+        }
+
+        if (editModePanel == null)
+        {
+            editModePanel = transform.Find("EditModeRow") as RectTransform;
+        }
+
+        if (hintButtonPanel == null)
+        {
+            hintButtonPanel = transform.Find("Button_Hints") as RectTransform;
         }
 
         if (catalogUI == null) catalogUI = FindFirstObjectByType<CatalogUI>();
@@ -340,9 +353,33 @@ public class ViewportStatusStrip : MonoBehaviour
             : DesignTokens.CatalogDefaultWidth;
 
         float left = catalogWidth + StripLeftMargin;
-        float width = Mathf.Min(StripMaxWidth, Mathf.Max(320f, canvasWidth - left - StripRightMargin));
+        if (TryGetHorizontalBounds(rootRt, editModePanel, out _, out var editModeRight))
+        {
+            left = editModeRight + StripLeftMargin;
+        }
+
+        float right = canvasWidth - StripRightMargin;
+        if (TryGetHorizontalBounds(rootRt, hintButtonPanel, out var hintLeft, out _))
+        {
+            right = hintLeft - StripRightMargin;
+        }
+
+        float width = Mathf.Min(StripMaxWidth, Mathf.Max(0f, right - left));
         stripRoot.sizeDelta = new Vector2(width, StripHeight);
         stripRoot.anchoredPosition = new Vector2(left, StripTop);
+    }
+
+    bool TryGetHorizontalBounds(RectTransform rootRt, RectTransform target, out float left, out float right)
+    {
+        left = 0f;
+        right = 0f;
+        if (rootRt == null || target == null || !target.gameObject.activeInHierarchy) return false;
+
+        target.GetWorldCorners(worldCorners);
+        float rootLeft = rootRt.rect.xMin;
+        left = rootRt.InverseTransformPoint(worldCorners[0]).x - rootLeft;
+        right = rootRt.InverseTransformPoint(worldCorners[2]).x - rootLeft;
+        return true;
     }
 
     static void EnsureThinOutline(Transform target)
