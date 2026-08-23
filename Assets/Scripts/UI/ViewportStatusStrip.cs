@@ -84,6 +84,7 @@ public class ViewportStatusStrip : MonoBehaviour
         image.raycastTarget = false;
 
         EnsureThinOutline(stripRoot);
+        UiRoundedTheme.ApplyToHierarchy(stripRoot, DesignTokens.CornerRadius);
 
         var layout = stripRoot.GetComponent<HorizontalLayoutGroup>();
         if (layout == null) layout = stripRoot.gameObject.AddComponent<HorizontalLayoutGroup>();
@@ -304,11 +305,7 @@ public class ViewportStatusStrip : MonoBehaviour
             ? $"Cam {FormatVector(cam.transform.position)} / Zoom {(cam.orthographic ? cam.orthographicSize : cam.transform.position.magnitude):0.0}"
             : "Cam none";
 
-        string placementText = placementController != null && !string.IsNullOrWhiteSpace(placementController.LastDebugMessage)
-            ? " | " + placementController.LastDebugMessage
-            : string.Empty;
-
-        debugText.text = cameraText + placementText;
+        debugText.text = cameraText;
     }
 
     static string FormatVector(Vector3 value)

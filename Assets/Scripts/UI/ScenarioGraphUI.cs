@@ -1325,7 +1325,7 @@ public class ScenarioGraphUI : MonoBehaviour
         if (graph == null || saveButton == null || statusText == null) return;
 
         var validation = graph.ValidateGraph();
-        saveButton.interactable = true;
+        saveButton.interactable = validation.CanExport;
 
         if (!validation.CanExport)
         {
