@@ -737,7 +737,7 @@ public class ScenarioGraphUI : MonoBehaviour
         ui.onCompleteConnectorDrag = CompleteConnectorDrag;
         ui.onCancelConnectorDrag = () => CancelConnectorDrag(clearStatus: true);
         ui.onClickDelete = OnClickDeleteNode;
-        ui.onClickEmbeddedConditionDelete = OnClickDeleteNode;
+        ui.onClickEmbeddedConditionDelete = OnClickExtractEmbeddedCondition;
         ui.onChanged = RefreshValidationStatus;
         ui.embeddedConditionTemplate = conditionNodeTemplate;
 
@@ -1045,6 +1045,23 @@ public class ScenarioGraphUI : MonoBehaviour
             graph.RemoveNode(nodeId);
             return graph.FindNode(nodeId) == null;
         });
+        statusText.text = string.Empty;
+    }
+
+    void OnClickExtractEmbeddedCondition(string nodeId)
+    {
+        if (string.IsNullOrWhiteSpace(nodeId)) return;
+
+        bool extracted = graph.ExecuteCommand("Unbind condition", () =>
+            graph.TryUnbindConditionFromStep(nodeId));
+        if (!extracted) return;
+
+        var defaults = BuildDefaultNodePositions();
+        if (defaults.TryGetValue(nodeId, out var extractedPosition))
+        {
+            nodePositions[nodeId] = extractedPosition;
+        }
+
         statusText.text = string.Empty;
     }
 

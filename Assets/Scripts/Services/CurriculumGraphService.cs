@@ -466,6 +466,20 @@ public class CurriculumGraphService : MonoBehaviour
         return !string.IsNullOrWhiteSpace(GetConditionBoundStepNodeId(conditionNodeId));
     }
 
+    public bool TryUnbindConditionFromStep(string conditionNodeId)
+    {
+        EnsureGraphInitialized();
+        if (string.IsNullOrWhiteSpace(conditionNodeId)) return false;
+
+        var conditionNode = FindNode(conditionNodeId);
+        if (conditionNode == null || conditionNode.nodeType != ScenarioNodeType.Condition) return false;
+
+        int removed = curriculum.edges.RemoveAll(e =>
+            e.edgeType == ScenarioEdgeType.ConditionBind &&
+            e.fromNodeId == conditionNodeId);
+        return removed > 0;
+    }
+
     public bool TryBindConditionToStep(string conditionNodeId, string stepNodeId, out string reason)
     {
         reason = null;
