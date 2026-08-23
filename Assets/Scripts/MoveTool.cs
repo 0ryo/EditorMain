@@ -61,6 +61,13 @@ public class MoveTool : MonoBehaviour
     Material gizmoLineMaterial;
     Mesh gizmoConeMesh;
     bool gizmoInitialized;
+    PlacedObject gizmoVisualTarget;
+    Vector3 gizmoVisualPosition;
+    Quaternion gizmoVisualRotation;
+    Vector3 gizmoVisualScale;
+    GizmoDragMode gizmoVisualDragMode = GizmoDragMode.None;
+    GizmoAxis gizmoVisualAxis = GizmoAxis.None;
+    bool gizmoVisualDirty = true;
 
     GizmoDragMode activeGizmoDragMode;
     GizmoAxis activeGizmoAxis = GizmoAxis.None;
@@ -426,6 +433,20 @@ public class MoveTool : MonoBehaviour
             return;
         }
 
+        var current = sel != null ? sel.Current : null;
+        var currentTransform = current != null ? current.transform : null;
+        bool transformChanged = currentTransform != null &&
+                                (currentTransform.position != gizmoVisualPosition ||
+                                 currentTransform.rotation != gizmoVisualRotation ||
+                                 currentTransform.lossyScale != gizmoVisualScale);
+        bool stateChanged = current != gizmoVisualTarget ||
+                            activeGizmoDragMode != gizmoVisualDragMode ||
+                            activeGizmoAxis != gizmoVisualAxis;
+        if (!gizmoVisualDirty && !transformChanged && !stateChanged && gizmoRoot.gameObject.activeSelf)
+        {
+            return;
+        }
+
         if (!TryGetSelectionCenterAndAxisLength(out var center, out var axisLength))
         {
             SetGizmoVisible(false);
@@ -481,6 +502,14 @@ public class MoveTool : MonoBehaviour
         {
             UpdateRotateArcVisual(i, center, objectRotation, arcRadius, arcLineWidth, arcColliderThickness);
         }
+
+        gizmoVisualTarget = current;
+        gizmoVisualPosition = currentTransform.position;
+        gizmoVisualRotation = currentTransform.rotation;
+        gizmoVisualScale = currentTransform.lossyScale;
+        gizmoVisualDragMode = activeGizmoDragMode;
+        gizmoVisualAxis = activeGizmoAxis;
+        gizmoVisualDirty = false;
     }
 
     void EnsureGizmo()
@@ -586,6 +615,7 @@ public class MoveTool : MonoBehaviour
         if (gizmoRoot.gameObject.activeSelf != visible)
         {
             gizmoRoot.gameObject.SetActive(visible);
+            if (!visible) gizmoVisualDirty = true;
         }
     }
 

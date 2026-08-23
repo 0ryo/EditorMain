@@ -21,6 +21,13 @@ public class SelectionOutline : MonoBehaviour
     float dragStartScreenDistance;
     Material runtimeLineMaterial;
     Texture2D scaleCursorTexture;
+    Bounds cachedLocalBounds;
+    bool localBoundsDirty = true;
+    bool outlineDirty = true;
+    bool transformSnapshotValid;
+    Vector3 lastWorldPosition;
+    Quaternion lastWorldRotation;
+    Vector3 lastWorldScale;
 
     void Update()
     {
@@ -29,18 +36,23 @@ public class SelectionOutline : MonoBehaviour
             EnsureLines(0);
             ResetScaleState();
             SetScaleCursor(false);
+            transformSnapshotValid = false;
             return;
         }
 
         UpdateOutline();
-        UpdateScaleCursor();
         HandleScaleDrag();
+        UpdateOutline();
+        UpdateScaleCursor();
     }
 
     public void ShowFor(GameObject t)
     {
         target = t;
         ResetScaleState();
+        localBoundsDirty = true;
+        outlineDirty = true;
+        transformSnapshotValid = false;
 
         if (target == null)
         {
@@ -49,7 +61,7 @@ public class SelectionOutline : MonoBehaviour
             return;
         }
 
-        UpdateOutline();
+        UpdateOutline(force: true);
     }
 
     public bool ShouldConsumeSelectionClick()
@@ -141,6 +153,7 @@ public class SelectionOutline : MonoBehaviour
 
         var scaled = dragStartScale * ratio;
         target.transform.localScale = ClampScale(scaled, minScaleAxis);
+        outlineDirty = true;
     }
 
     void CommitScaleIfNeeded()
@@ -202,22 +215,29 @@ public class SelectionOutline : MonoBehaviour
         }
     }
 
-    void UpdateOutline()
+    void UpdateOutline(bool force = false)
     {
         if (target == null) return;
 
-        var bounds = CalculateTargetLocalBounds();
+        var targetTransform = target.transform;
+        bool transformChanged = !transformSnapshotValid ||
+                                targetTransform.position != lastWorldPosition ||
+                                targetTransform.rotation != lastWorldRotation ||
+                                targetTransform.lossyScale != lastWorldScale;
+        if (!force && !outlineDirty && !transformChanged) return;
+
+        var bounds = GetTargetLocalBounds();
         Vector3 min = bounds.min;
         Vector3 max = bounds.max;
 
-        corners[0] = target.transform.TransformPoint(new Vector3(min.x, min.y, min.z));
-        corners[1] = target.transform.TransformPoint(new Vector3(max.x, min.y, min.z));
-        corners[2] = target.transform.TransformPoint(new Vector3(max.x, min.y, max.z));
-        corners[3] = target.transform.TransformPoint(new Vector3(min.x, min.y, max.z));
-        corners[4] = target.transform.TransformPoint(new Vector3(min.x, max.y, min.z));
-        corners[5] = target.transform.TransformPoint(new Vector3(max.x, max.y, min.z));
-        corners[6] = target.transform.TransformPoint(new Vector3(max.x, max.y, max.z));
-        corners[7] = target.transform.TransformPoint(new Vector3(min.x, max.y, max.z));
+        corners[0] = targetTransform.TransformPoint(new Vector3(min.x, min.y, min.z));
+        corners[1] = targetTransform.TransformPoint(new Vector3(max.x, min.y, min.z));
+        corners[2] = targetTransform.TransformPoint(new Vector3(max.x, min.y, max.z));
+        corners[3] = targetTransform.TransformPoint(new Vector3(min.x, min.y, max.z));
+        corners[4] = targetTransform.TransformPoint(new Vector3(min.x, max.y, min.z));
+        corners[5] = targetTransform.TransformPoint(new Vector3(max.x, max.y, min.z));
+        corners[6] = targetTransform.TransformPoint(new Vector3(max.x, max.y, max.z));
+        corners[7] = targetTransform.TransformPoint(new Vector3(min.x, max.y, max.z));
 
         edges[0, 0] = corners[0]; edges[0, 1] = corners[1];
         edges[1, 0] = corners[1]; edges[1, 1] = corners[2];
@@ -238,6 +258,21 @@ public class SelectionOutline : MonoBehaviour
             lines[i].SetPosition(0, edges[i, 0]);
             lines[i].SetPosition(1, edges[i, 1]);
         }
+
+        lastWorldPosition = targetTransform.position;
+        lastWorldRotation = targetTransform.rotation;
+        lastWorldScale = targetTransform.lossyScale;
+        transformSnapshotValid = true;
+        outlineDirty = false;
+    }
+
+    Bounds GetTargetLocalBounds()
+    {
+        if (!localBoundsDirty) return cachedLocalBounds;
+
+        cachedLocalBounds = CalculateTargetLocalBounds();
+        localBoundsDirty = false;
+        return cachedLocalBounds;
     }
 
     Bounds CalculateTargetLocalBounds()
@@ -282,7 +317,7 @@ public class SelectionOutline : MonoBehaviour
         centerScreen = default;
         if (target == null) return false;
 
-        var centerWorld = target.transform.TransformPoint(CalculateTargetLocalBounds().center);
+        var centerWorld = target.transform.TransformPoint(GetTargetLocalBounds().center);
         var screen = cam.WorldToScreenPoint(centerWorld);
         if (screen.z <= 0f) return false;
 
