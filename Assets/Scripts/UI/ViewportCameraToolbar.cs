@@ -26,6 +26,7 @@ public sealed class ViewportCameraToolbar : MonoBehaviour
     RectTransform toolbarRect;
     CanvasGroup toolbarCanvasGroup;
     bool expanded;
+    RectTransform activeHintTarget;
     readonly Vector3[] worldCorners = new Vector3[4];
 
     public static ViewportCameraToolbar Ensure(Transform parent)
@@ -38,6 +39,7 @@ public sealed class ViewportCameraToolbar : MonoBehaviour
 
         toolbar.ResolveReferences();
         toolbar.WireButtons();
+        toolbar.EnsureViewportButtonGuides(parent);
         toolbar.PositionDockedElements();
         toolbar.RefreshState();
         return toolbar;
@@ -56,6 +58,7 @@ public sealed class ViewportCameraToolbar : MonoBehaviour
     {
         ResolveReferences();
         PositionDockedElements();
+        PositionHintForTarget();
         RefreshState();
     }
 
@@ -78,6 +81,40 @@ public sealed class ViewportCameraToolbar : MonoBehaviour
 
         if (toolbarRect == null) toolbarRect = transform as RectTransform;
         if (toolbarCanvasGroup == null) toolbarCanvasGroup = GetComponent<CanvasGroup>();
+    }
+
+    void EnsureViewportButtonGuides(Transform parent)
+    {
+        if (parent == null) return;
+
+        var editModeRow = parent.Find("EditModeRow") ?? parent.Find("EditModeRow_Runtime");
+        AttachGuide(
+            editModeRow?.Find("Button_ModeBrowse")?.GetComponent<Button>(),
+            "閲覧モード：オブジェクトを選択して内容を確認します");
+        AttachGuide(
+            editModeRow?.Find("Button_ModeTransform")?.GetComponent<Button>(),
+            "移動モード：ギズモまたはW/A/S/D・矢印キーで位置を調整します");
+        AttachGuide(
+            editModeRow?.Find("Button_ModeScale")?.GetComponent<Button>(),
+            "スケールモード：選択したオブジェクトの大きさを調整します");
+
+        var settings = parent.Find("Button_Settings") ?? parent.Find("Button_Settings_Runtime");
+        AttachGuide(
+            settings?.GetComponent<Button>(),
+            "設定：視点感度や位置・角度の吸着間隔を変更します");
+        AttachGuide(
+            parent.Find("Button_Hints")?.GetComponent<Button>(),
+            "ヒント：操作方法の一覧を3Dビュー中央に表示します");
+        AttachGuide(openButton, "カメラ操作を開閉します");
+    }
+
+    void AttachGuide(Button button, string message)
+    {
+        if (button == null) return;
+        var trigger = button.GetComponent<ViewportToolbarHintTrigger>();
+        if (trigger == null) trigger = button.gameObject.AddComponent<ViewportToolbarHintTrigger>();
+        trigger.Owner = this;
+        trigger.Message = message;
     }
 
     void WireButtons()
@@ -159,25 +196,22 @@ public sealed class ViewportCameraToolbar : MonoBehaviour
     void RefreshOpenButtonVisual()
     {
         var image = openButton != null ? openButton.GetComponent<Image>() : null;
-        if (image != null) image.color = expanded ? DesignTokens.Accent : DesignTokens.Surface;
+        if (image != null) image.color = DesignTokens.Surface;
 
-        var iconImages = openButton != null ? openButton.GetComponentsInChildren<Image>(true) : null;
-        if (iconImages == null) return;
-        foreach (var iconImage in iconImages)
+        var outline = openButton != null ? openButton.GetComponent<Outline>() : null;
+        if (outline != null)
         {
-            if (iconImage == null || iconImage.gameObject == openButton.gameObject) continue;
-            bool isLens = iconImage.gameObject.name == "Icon_CameraLens";
-            iconImage.color = isLens
-                ? expanded ? DesignTokens.Accent : DesignTokens.Surface
-                : expanded ? DesignTokens.Surface : DesignTokens.TextPrimary;
+            outline.effectColor = expanded ? DesignTokens.Accent : DesignTokens.Divider;
         }
     }
 
-    internal void ShowHint(string message)
+    internal void ShowHint(string message, RectTransform target = null)
     {
         bool visible = !string.IsNullOrWhiteSpace(message);
+        activeHintTarget = visible ? target : null;
         if (hintText != null) hintText.text = visible ? message : string.Empty;
         if (hintRoot != null) hintRoot.gameObject.SetActive(visible);
+        if (visible) PositionHintForTarget();
     }
 
     void PositionDockedElements()
@@ -202,11 +236,28 @@ public sealed class ViewportCameraToolbar : MonoBehaviour
         float toolbarTopOffset = cameraTopOffset - 40f - DockGap;
         SetTopRightRect(toolbarRect, new Vector2(548f, 44f), new Vector2(rightOffset, toolbarTopOffset));
 
-        if (hintRoot != null)
-        {
-            float hintTopOffset = toolbarTopOffset - 44f - 4f;
-            SetTopRightRect(hintRoot, new Vector2(420f, 32f), new Vector2(rightOffset, hintTopOffset));
-        }
+    }
+
+    void PositionHintForTarget()
+    {
+        var parentRect = transform.parent as RectTransform;
+        if (parentRect == null || hintRoot == null || activeHintTarget == null) return;
+
+        hintRoot.sizeDelta = new Vector2(420f, 32f);
+        activeHintTarget.GetWorldCorners(worldCorners);
+        Vector3 bottomLeft = parentRect.InverseTransformPoint(worldCorners[0]);
+        Vector3 topRight = parentRect.InverseTransformPoint(worldCorners[2]);
+        float halfWidth = hintRoot.sizeDelta.x * 0.5f;
+        float centerX = Mathf.Clamp(
+            (bottomLeft.x + topRight.x) * 0.5f,
+            parentRect.rect.xMin + halfWidth + 8f,
+            parentRect.rect.xMax - halfWidth - 8f);
+        float topY = bottomLeft.y - 4f;
+
+        hintRoot.anchorMin = new Vector2(0f, 1f);
+        hintRoot.anchorMax = new Vector2(0f, 1f);
+        hintRoot.pivot = new Vector2(0.5f, 1f);
+        hintRoot.anchoredPosition = new Vector2(centerX - parentRect.rect.xMin, topY - parentRect.rect.yMax);
     }
 
     static void SetTopRightRect(RectTransform rect, Vector2 size, Vector2 position)
@@ -280,16 +331,28 @@ public sealed class ViewportCameraToolbar : MonoBehaviour
         var button = go.GetComponent<Button>();
         button.targetGraphic = image;
 
-        var body = CreateIconPart("Icon_CameraBody", rect, new Vector2(23f, 15f), new Vector2(0f, -1f));
-        CreateIconPart("Icon_CameraTop", rect, new Vector2(9f, 4f), new Vector2(-4f, 8f));
-        var lens = CreateIconPart("Icon_CameraLens", body.rectTransform, new Vector2(7f, 7f), Vector2.zero);
-        lens.color = DesignTokens.Surface;
+        UiRoundedTheme.ApplyToHierarchy(go.transform, DesignTokens.CornerRadius);
+        var iconSprite = Resources.Load<Sprite>("UI/Icons/icon_camera");
+        if (iconSprite != null)
+        {
+            var icon = CreateIconPart("Icon_Camera", rect, new Vector2(30f, 26f), Vector2.zero);
+            icon.sprite = iconSprite;
+            icon.preserveAspect = true;
+            icon.color = Color.white;
+        }
+        else
+        {
+            var body = CreateIconPart("Icon_CameraBody", rect, new Vector2(23f, 15f), new Vector2(0f, -1f));
+            CreateIconPart("Icon_CameraTop", rect, new Vector2(9f, 4f), new Vector2(-4f, 8f));
+            var lens = CreateIconPart("Icon_CameraLens", body.rectTransform, new Vector2(7f, 7f), Vector2.zero);
+            lens.color = DesignTokens.Surface;
+            UiRoundedTheme.ApplyCircleToElement(lens);
+            Debug.LogWarning("[ViewportCameraToolbar] Camera icon sprite was not found. Using the fallback icon.");
+        }
 
         var hintTrigger = go.AddComponent<ViewportToolbarHintTrigger>();
         hintTrigger.Owner = toolbar;
         hintTrigger.Message = "カメラ操作を開閉します";
-        UiRoundedTheme.ApplyToHierarchy(go.transform, DesignTokens.CornerRadius);
-        UiRoundedTheme.ApplyCircleToElement(lens);
         return button;
     }
 
@@ -388,7 +451,7 @@ public sealed class ViewportToolbarHintTrigger : MonoBehaviour, IPointerEnterHan
 
     public void OnPointerEnter(PointerEventData eventData)
     {
-        (Owner ?? GetComponentInParent<ViewportCameraToolbar>())?.ShowHint(Message);
+        (Owner ?? GetComponentInParent<ViewportCameraToolbar>())?.ShowHint(Message, transform as RectTransform);
     }
 
     public void OnPointerExit(PointerEventData eventData)
