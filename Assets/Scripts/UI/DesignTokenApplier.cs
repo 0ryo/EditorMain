@@ -381,7 +381,9 @@ public static class DesignTokenApplier
         if (scaler == null) return;
 
         scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-        scaler.referenceResolution = ReferenceResolution;
+        var scaleController = canvas.GetComponent<UiScaleController>();
+        float uiScale = scaleController != null ? Mathf.Clamp(scaleController.Scale, 0.8f, 1.4f) : 1f;
+        scaler.referenceResolution = ReferenceResolution / uiScale;
         scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
         scaler.matchWidthOrHeight = 0.5f;
         canvas.pixelPerfect = true;

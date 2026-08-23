@@ -40,6 +40,8 @@ public class CatalogUI : MonoBehaviour
     [SerializeField] TMP_Text settingsGridSnapValueText;
     [SerializeField] Slider settingsRotationSnapSlider;
     [SerializeField] TMP_Text settingsRotationSnapValueText;
+    [SerializeField] Slider settingsUiScaleSlider;
+    [SerializeField] TMP_Text settingsUiScaleValueText;
     [SerializeField] Button settingsIntegrationLinkButton;
     [SerializeField] Button settingsRevertButton;
     [SerializeField] Button settingsApplyButton;
@@ -97,7 +99,10 @@ public class CatalogUI : MonoBehaviour
     float settingsPendingRotationSnap = EditSnapSettings.DefaultRotationDegrees;
     bool settingsCommittedSnapEnabled = true;
     bool settingsPendingSnapEnabled = true;
+    float settingsCommittedUiScale = 1f;
+    float settingsPendingUiScale = 1f;
     bool settingsSnapBindingInitialized;
+    UiScaleController settingsUiScaleController;
     bool settingsHasPendingChanges;
     bool settingsInitializingUi;
     SettingsTab activeSettingsTab = SettingsTab.General;
@@ -517,6 +522,12 @@ public class CatalogUI : MonoBehaviour
         {
             settingsRotationSnapSlider.onValueChanged.RemoveListener(OnSettingsRotationSnapChanged);
             settingsRotationSnapSlider.onValueChanged.AddListener(OnSettingsRotationSnapChanged);
+        }
+
+        if (settingsUiScaleSlider != null)
+        {
+            settingsUiScaleSlider.onValueChanged.RemoveListener(OnSettingsUiScaleChanged);
+            settingsUiScaleSlider.onValueChanged.AddListener(OnSettingsUiScaleChanged);
         }
 
         if (settingsIntegrationLinkButton != null)
@@ -1001,6 +1012,12 @@ public class CatalogUI : MonoBehaviour
         var rotationValueTr = overlayRt.Find("Window/Content/Content_General/RotationSnapRow/Text_RotationSnapValue");
         if (rotationValueTr != null) settingsRotationSnapValueText = rotationValueTr.GetComponent<TMP_Text>();
 
+        var uiScaleSliderTr = overlayRt.Find("Window/Content/Content_General/UiScaleRow/Slider_UiScale");
+        if (uiScaleSliderTr != null) settingsUiScaleSlider = uiScaleSliderTr.GetComponent<Slider>();
+
+        var uiScaleValueTr = overlayRt.Find("Window/Content/Content_General/UiScaleRow/Text_UiScaleValue");
+        if (uiScaleValueTr != null) settingsUiScaleValueText = uiScaleValueTr.GetComponent<TMP_Text>();
+
         var linkTr = overlayRt.Find("Window/Content/Content_Integration/Button_WebLink");
         if (linkTr != null) settingsIntegrationLinkButton = linkTr.GetComponent<Button>();
 
@@ -1039,7 +1056,7 @@ public class CatalogUI : MonoBehaviour
         windowRt.anchorMin = new Vector2(0.5f, 0.5f);
         windowRt.anchorMax = new Vector2(0.5f, 0.5f);
         windowRt.pivot = new Vector2(0.5f, 0.5f);
-        windowRt.sizeDelta = new Vector2(760f, 460f);
+        windowRt.sizeDelta = new Vector2(760f, 560f);
         windowRt.anchoredPosition = Vector2.zero;
 
         var windowImage = windowRt.GetComponent<Image>();
@@ -1139,9 +1156,11 @@ public class CatalogUI : MonoBehaviour
 
         EnsureSettingsCameraBinding();
         EnsureSettingsSnapBinding();
+        EnsureSettingsUiScaleBinding();
         settingsPendingSensitivityScale = Mathf.Clamp(settingsPendingSensitivityScale, 0.2f, 2.5f);
         settingsPendingGridSnap = Mathf.Clamp(settingsPendingGridSnap, 0.05f, 1f);
         settingsPendingRotationSnap = Mathf.Clamp(settingsPendingRotationSnap, 1f, 90f);
+        settingsPendingUiScale = Mathf.Clamp(settingsPendingUiScale, 0.8f, 1.4f);
 
         if (settingsSensitivitySlider != null)
         {
@@ -1162,6 +1181,13 @@ public class CatalogUI : MonoBehaviour
             settingsRotationSnapSlider.minValue = 1f;
             settingsRotationSnapSlider.maxValue = 90f;
             settingsRotationSnapSlider.wholeNumbers = true;
+        }
+
+        if (settingsUiScaleSlider != null)
+        {
+            settingsUiScaleSlider.minValue = 0.8f;
+            settingsUiScaleSlider.maxValue = 1.4f;
+            settingsUiScaleSlider.wholeNumbers = false;
         }
 
         if (settingsAccountUserNameText != null)
@@ -1198,8 +1224,13 @@ public class CatalogUI : MonoBehaviour
         {
             settingsRotationSnapSlider.SetValueWithoutNotify(settingsPendingRotationSnap);
         }
+        if (settingsUiScaleSlider != null)
+        {
+            settingsUiScaleSlider.SetValueWithoutNotify(settingsPendingUiScale);
+        }
         UpdateSensitivityValueText(settingsPendingSensitivityScale);
         UpdateSnapValueTexts();
+        UpdateUiScaleValueText(settingsPendingUiScale);
         settingsInitializingUi = false;
         RefreshSettingsDirtyState();
 
@@ -1391,6 +1422,26 @@ public class CatalogUI : MonoBehaviour
         ConfigureSettingsSliderRect(settingsRotationSnapSlider, 90f);
         settingsRotationSnapValueText = FindOrCreateSettingsText(rotationRow, "Text_RotationSnapValue", "15°");
         ConfigureSettingsValueText(settingsRotationSnapValueText);
+
+        var uiScaleTitle = FindOrCreateSettingsText(contentRt, "Text_UiScaleTitle", "UIの大きさ");
+        uiScaleTitle.fontSize = 16;
+        uiScaleTitle.alignment = TextAlignmentOptions.MidlineLeft;
+        uiScaleTitle.color = DesignTokens.TextPrimary;
+        var uiScaleTitleRt = uiScaleTitle.rectTransform;
+        uiScaleTitleRt.anchorMin = new Vector2(0f, 1f);
+        uiScaleTitleRt.anchorMax = new Vector2(1f, 1f);
+        uiScaleTitleRt.offsetMin = new Vector2(24f, -408f);
+        uiScaleTitleRt.offsetMax = new Vector2(-24f, -376f);
+
+        var uiScaleRow = FindOrCreateSettingsRect(contentRt, "UiScaleRow");
+        uiScaleRow.anchorMin = new Vector2(0f, 1f);
+        uiScaleRow.anchorMax = new Vector2(1f, 1f);
+        uiScaleRow.offsetMin = new Vector2(24f, -464f);
+        uiScaleRow.offsetMax = new Vector2(-24f, -424f);
+        settingsUiScaleSlider = EnsureSettingsSlider(uiScaleRow, settingsUiScaleSlider, "Slider_UiScale");
+        ConfigureSettingsSliderRect(settingsUiScaleSlider, 90f);
+        settingsUiScaleValueText = FindOrCreateSettingsText(uiScaleRow, "Text_UiScaleValue", "100%");
+        ConfigureSettingsValueText(settingsUiScaleValueText);
     }
 
     void EnsureIntegrationSettingsContent(RectTransform contentRt)
@@ -2628,6 +2679,18 @@ public class CatalogUI : MonoBehaviour
         ApplySnapSettings(settingsCommittedGridSnap, settingsCommittedRotationSnap, settingsCommittedSnapEnabled);
     }
 
+    void EnsureSettingsUiScaleBinding()
+    {
+        if (settingsUiScaleController == null)
+        {
+            settingsUiScaleController = UiScaleController.Ensure(transform.root);
+        }
+
+        if (settingsUiScaleController == null) return;
+        settingsCommittedUiScale = settingsUiScaleController.Scale;
+        settingsPendingUiScale = settingsCommittedUiScale;
+    }
+
     void OnSettingsSensitivityChanged(float sliderValue)
     {
         float clamped = Mathf.Clamp(sliderValue, 0.2f, 2.5f);
@@ -2657,6 +2720,14 @@ public class CatalogUI : MonoBehaviour
     {
         settingsPendingRotationSnap = Mathf.Clamp(Mathf.Round(value), 1f, 90f);
         UpdateSnapValueTexts();
+        if (settingsInitializingUi) return;
+        RefreshSettingsDirtyState();
+    }
+
+    void OnSettingsUiScaleChanged(float value)
+    {
+        settingsPendingUiScale = Mathf.Clamp(value, 0.8f, 1.4f);
+        UpdateUiScaleValueText(settingsPendingUiScale);
         if (settingsInitializingUi) return;
         RefreshSettingsDirtyState();
     }
@@ -2691,6 +2762,21 @@ public class CatalogUI : MonoBehaviour
         }
     }
 
+    void UpdateUiScaleValueText(float scale)
+    {
+        if (settingsUiScaleValueText == null) return;
+        settingsUiScaleValueText.text = $"{Mathf.RoundToInt(scale * 100f)}%";
+    }
+
+    void ApplyUiScale(float scale)
+    {
+        if (settingsUiScaleController == null)
+        {
+            settingsUiScaleController = UiScaleController.Ensure(transform.root);
+        }
+        settingsUiScaleController?.Apply(scale);
+    }
+
     void ApplySnapSettings(float gridSize, float rotationDegrees, bool enabled)
     {
         EditSnapSettings.Configure(gridSize, rotationDegrees, enabled);
@@ -2716,6 +2802,7 @@ public class CatalogUI : MonoBehaviour
             !Mathf.Approximately(settingsPendingSensitivityScale, settingsCommittedSensitivityScale) ||
             !Mathf.Approximately(settingsPendingGridSnap, settingsCommittedGridSnap) ||
             !Mathf.Approximately(settingsPendingRotationSnap, settingsCommittedRotationSnap) ||
+            !Mathf.Approximately(settingsPendingUiScale, settingsCommittedUiScale) ||
             settingsPendingSnapEnabled != settingsCommittedSnapEnabled;
         SetSettingsDirty(dirty);
     }
@@ -2745,6 +2832,7 @@ public class CatalogUI : MonoBehaviour
         settingsPendingGridSnap = settingsCommittedGridSnap;
         settingsPendingRotationSnap = settingsCommittedRotationSnap;
         settingsPendingSnapEnabled = settingsCommittedSnapEnabled;
+        settingsPendingUiScale = settingsCommittedUiScale;
         settingsInitializingUi = true;
         if (settingsSensitivitySlider != null)
         {
@@ -2762,8 +2850,13 @@ public class CatalogUI : MonoBehaviour
         {
             settingsRotationSnapSlider.SetValueWithoutNotify(settingsCommittedRotationSnap);
         }
+        if (settingsUiScaleSlider != null)
+        {
+            settingsUiScaleSlider.SetValueWithoutNotify(settingsCommittedUiScale);
+        }
         UpdateSensitivityValueText(settingsCommittedSensitivityScale);
         UpdateSnapValueTexts();
+        UpdateUiScaleValueText(settingsCommittedUiScale);
         settingsInitializingUi = false;
         SetSettingsDirty(false);
     }
@@ -2774,8 +2867,10 @@ public class CatalogUI : MonoBehaviour
         settingsCommittedGridSnap = settingsPendingGridSnap;
         settingsCommittedRotationSnap = settingsPendingRotationSnap;
         settingsCommittedSnapEnabled = settingsPendingSnapEnabled;
+        settingsCommittedUiScale = settingsPendingUiScale;
         ApplySensitivityScaleToCamera(settingsCommittedSensitivityScale);
         ApplySnapSettings(settingsCommittedGridSnap, settingsCommittedRotationSnap, settingsCommittedSnapEnabled);
+        ApplyUiScale(settingsCommittedUiScale);
         SetSettingsDirty(false);
         CloseSettingsPanel();
     }
