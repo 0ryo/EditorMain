@@ -100,6 +100,7 @@ public class ViewportStatusStrip : MonoBehaviour
         toastText = FindOrCreateText("Text_Toast", "", DesignTokens.TextSecondary, 240f, TextAlignmentOptions.MidlineLeft);
         debugText = FindOrCreateText("Text_Debug", "", DesignTokens.TextSecondary, 360f, TextAlignmentOptions.MidlineLeft);
         ViewportOutliner.Ensure(transform);
+        ObjectTransformPanel.Ensure(transform);
         ViewportCameraToolbar.Ensure(transform);
         PositionStrip();
     }

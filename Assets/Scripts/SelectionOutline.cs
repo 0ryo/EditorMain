@@ -18,6 +18,8 @@ public class SelectionOutline : MonoBehaviour
     bool isScaling;
     bool scaleCursorActive;
     Vector3 dragStartScale;
+    Vector3 dragStartPosition;
+    Vector3 dragStartCenterWorld;
     float dragStartScreenDistance;
     Material runtimeLineMaterial;
     Texture2D scaleCursorTexture;
@@ -131,6 +133,8 @@ public class SelectionOutline : MonoBehaviour
         if (nearestDistance > handlePickRadiusPixels) return;
 
         dragStartScale = target.transform.localScale;
+        dragStartPosition = target.transform.position;
+        dragStartCenterWorld = target.transform.TransformPoint(GetTargetLocalBounds().center);
         dragStartScreenDistance = Vector2.Distance(centerScreen, nearestCorner);
         if (dragStartScreenDistance <= 0.001f) return;
 
@@ -153,6 +157,11 @@ public class SelectionOutline : MonoBehaviour
 
         var scaled = dragStartScale * ratio;
         target.transform.localScale = ClampScale(scaled, minScaleAxis);
+        if (TransformToolSettings.PivotMode == TransformPivotMode.Center)
+        {
+            Vector3 currentCenterWorld = target.transform.TransformPoint(GetTargetLocalBounds().center);
+            target.transform.position += dragStartCenterWorld - currentCenterWorld;
+        }
         outlineDirty = true;
     }
 
@@ -166,13 +175,30 @@ public class SelectionOutline : MonoBehaviour
 
         var endScale = ClampScale(target.transform.localScale, minScaleAxis);
         target.transform.localScale = endScale;
+        var endPosition = target.transform.position;
 
-        if ((endScale - dragStartScale).sqrMagnitude > 0.000001f)
+        bool scaleChanged = (endScale - dragStartScale).sqrMagnitude > 0.000001f;
+        bool positionChanged = (endPosition - dragStartPosition).sqrMagnitude > 0.000001f;
+        if (scaleChanged || positionChanged)
         {
-            if (CommandService.I != null)
+            if (CommandService.I != null && CommandService.I.Stack != null)
             {
-                var cmd = new ScaleObjectCommand(target, dragStartScale, endScale);
-                CommandService.I.Stack.Execute(cmd);
+                var scaleCommand = new ScaleObjectCommand(target, dragStartScale, endScale);
+                if (scaleChanged && positionChanged)
+                {
+                    CommandService.I.Stack.ExecuteTransaction(
+                        "Scale around center",
+                        new MoveObjectCommand(target, dragStartPosition, endPosition),
+                        scaleCommand);
+                }
+                else if (positionChanged)
+                {
+                    CommandService.I.Stack.Execute(new MoveObjectCommand(target, dragStartPosition, endPosition));
+                }
+                else
+                {
+                    CommandService.I.Stack.Execute(scaleCommand);
+                }
             }
 
             LogDebug($"Scale drag committed. target={target.name}, from={dragStartScale}, to={endScale}");
@@ -185,6 +211,8 @@ public class SelectionOutline : MonoBehaviour
     {
         isScaling = false;
         dragStartScale = Vector3.one;
+        dragStartPosition = Vector3.zero;
+        dragStartCenterWorld = Vector3.zero;
         dragStartScreenDistance = 0f;
     }
 
@@ -317,7 +345,9 @@ public class SelectionOutline : MonoBehaviour
         centerScreen = default;
         if (target == null) return false;
 
-        var centerWorld = target.transform.TransformPoint(GetTargetLocalBounds().center);
+        var centerWorld = TransformToolSettings.PivotMode == TransformPivotMode.Pivot
+            ? target.transform.position
+            : target.transform.TransformPoint(GetTargetLocalBounds().center);
         var screen = cam.WorldToScreenPoint(centerWorld);
         if (screen.z <= 0f) return false;
 

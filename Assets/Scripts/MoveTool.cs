@@ -67,6 +67,7 @@ public class MoveTool : MonoBehaviour
     Vector3 gizmoVisualScale;
     GizmoDragMode gizmoVisualDragMode = GizmoDragMode.None;
     GizmoAxis gizmoVisualAxis = GizmoAxis.None;
+    int gizmoVisualSettingsRevision = -1;
     bool gizmoVisualDirty = true;
 
     GizmoDragMode activeGizmoDragMode;
@@ -441,7 +442,8 @@ public class MoveTool : MonoBehaviour
                                  currentTransform.lossyScale != gizmoVisualScale);
         bool stateChanged = current != gizmoVisualTarget ||
                             activeGizmoDragMode != gizmoVisualDragMode ||
-                            activeGizmoAxis != gizmoVisualAxis;
+                            activeGizmoAxis != gizmoVisualAxis ||
+                            gizmoVisualSettingsRevision != TransformToolSettings.Revision;
         if (!gizmoVisualDirty && !transformChanged && !stateChanged && gizmoRoot.gameObject.activeSelf)
         {
             return;
@@ -509,6 +511,7 @@ public class MoveTool : MonoBehaviour
         gizmoVisualScale = currentTransform.lossyScale;
         gizmoVisualDragMode = activeGizmoDragMode;
         gizmoVisualAxis = activeGizmoAxis;
+        gizmoVisualSettingsRevision = TransformToolSettings.Revision;
         gizmoVisualDirty = false;
     }
 
@@ -659,7 +662,9 @@ public class MoveTool : MonoBehaviour
             bounds.Encapsulate(renderers[i].bounds);
         }
 
-        center = bounds.center;
+        center = TransformToolSettings.PivotMode == TransformPivotMode.Pivot
+            ? target.transform.position
+            : bounds.center;
         float maxExtent = Mathf.Max(bounds.extents.x, bounds.extents.y, bounds.extents.z);
         axisLength = Mathf.Max(gizmoMinAxisLength, maxExtent * 2f * gizmoAxisLengthMultiplier);
         return true;
@@ -714,7 +719,10 @@ public class MoveTool : MonoBehaviour
             _ => Vector3.right
         };
 
-        return (rotation * localAxis).normalized;
+        var axisRotation = TransformToolSettings.CoordinateSpace == TransformCoordinateSpace.Local
+            ? rotation
+            : Quaternion.identity;
+        return (axisRotation * localAxis).normalized;
     }
 
     float GetScaledGizmoLineWidth(float axisLength)
