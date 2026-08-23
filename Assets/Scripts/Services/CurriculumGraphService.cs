@@ -270,6 +270,24 @@ public class CurriculumGraphService : MonoBehaviour
 
     public bool TryAddEdge(string fromNodeId, string toNodeId, out string reason)
     {
+        if (!CanAddEdge(fromNodeId, toNodeId, out reason)) return false;
+
+        var fromNode = FindNode(fromNodeId);
+        var toNode = FindNode(toNodeId);
+        TryInferEdgeType(fromNode, toNode, out var edgeType);
+
+        curriculum.edges.Add(new ScenarioEdge
+        {
+            fromNodeId = fromNodeId,
+            toNodeId = toNodeId,
+            edgeType = edgeType
+        });
+
+        return true;
+    }
+
+    public bool CanAddEdge(string fromNodeId, string toNodeId, out string reason)
+    {
         reason = null;
         EnsureGraphInitialized();
 
@@ -309,19 +327,7 @@ public class CurriculumGraphService : MonoBehaviour
             return false;
         }
 
-        if (!CanAddEdge(edgeType, fromNode, toNode, out reason))
-        {
-            return false;
-        }
-
-        curriculum.edges.Add(new ScenarioEdge
-        {
-            fromNodeId = fromNodeId,
-            toNodeId = toNodeId,
-            edgeType = edgeType
-        });
-
-        return true;
+        return CanAddEdge(edgeType, fromNode, toNode, out reason);
     }
 
     static bool TryInferEdgeType(ScenarioNode fromNode, ScenarioNode toNode, out ScenarioEdgeType edgeType)

@@ -124,6 +124,7 @@ public class ScenarioGraphUI : MonoBehaviour
 
     readonly Dictionary<string, NodeUiBinding> nodeUIs = new Dictionary<string, NodeUiBinding>();
     readonly Dictionary<string, Vector2> nodePositions = new Dictionary<string, Vector2>();
+    readonly Dictionary<Graphic, Color> connectorBaseColors = new Dictionary<Graphic, Color>();
     readonly List<ConnectionLineGraphic> lines = new List<ConnectionLineGraphic>();
     NodeAreaPanZoomController panZoomController;
     Outline validationFocusOutline;
@@ -146,6 +147,7 @@ public class ScenarioGraphUI : MonoBehaviour
     {
         if (graph != null) graph.GraphChanged -= OnGraphChanged;
         if (validationPanel != null) validationPanel.Hidden -= ClearValidationFocus;
+        ClearConnectionCandidates();
     }
 
     void Start()
@@ -1089,6 +1091,7 @@ public class ScenarioGraphUI : MonoBehaviour
     void OnClickOutputConnector(string fromNodeId)
     {
         linkingFromNodeId = fromNodeId;
+        ShowConnectionCandidates(fromNodeId);
         statusText.text = "入力コネクタをクリックして接続";
         Debug.Log($"[ScenarioGraphUI] Click connect start from={fromNodeId}");
     }
@@ -1099,6 +1102,7 @@ public class ScenarioGraphUI : MonoBehaviour
 
         TryConnectNodes(linkingFromNodeId, toNodeId, "click");
         linkingFromNodeId = null;
+        ClearConnectionCandidates();
     }
 
     void OnClickDeleteNode(string nodeId)
@@ -1113,6 +1117,7 @@ public class ScenarioGraphUI : MonoBehaviour
         if (linkingFromNodeId == nodeId)
         {
             linkingFromNodeId = null;
+            ClearConnectionCandidates();
         }
 
         graph.ExecuteCommand("Delete scenario node", () =>
@@ -1160,11 +1165,19 @@ public class ScenarioGraphUI : MonoBehaviour
         statusText.text = string.Empty;
     }
 
-    void TryConnectNodes(string fromNodeId, string toNodeId, string mode)
+    bool TryConnectNodes(string fromNodeId, string toNodeId, string mode)
     {
-        if (string.IsNullOrWhiteSpace(fromNodeId) || string.IsNullOrWhiteSpace(toNodeId)) return;
+        if (string.IsNullOrWhiteSpace(fromNodeId) || string.IsNullOrWhiteSpace(toNodeId)) return false;
 
         string reason = null;
+        if (!graph.CanAddEdge(fromNodeId, toNodeId, out reason))
+        {
+            string friendly = ConnectReasonMessages.TryGetValue(reason, out var msg) ? msg : reason;
+            statusText.text = $"接続できません: {friendly}";
+            Debug.LogWarning($"[ScenarioGraphUI] Connect rejected before command mode={mode} from={fromNodeId} to={toNodeId} reason={reason}");
+            return false;
+        }
+
         bool connected = graph.ExecuteCommand("Connect scenario nodes", () =>
             graph.TryAddEdge(fromNodeId, toNodeId, out reason));
         if (!connected)
@@ -1172,11 +1185,12 @@ public class ScenarioGraphUI : MonoBehaviour
             string friendly = ConnectReasonMessages.TryGetValue(reason, out var msg) ? msg : reason;
             statusText.text = $"接続できません: {friendly}";
             Debug.LogWarning($"[ScenarioGraphUI] Connect rejected mode={mode} from={fromNodeId} to={toNodeId} reason={reason}");
-            return;
+            return false;
         }
 
         statusText.text = string.Empty;
         Debug.Log($"[ScenarioGraphUI] Connect success mode={mode} from={fromNodeId} to={toNodeId}");
+        return true;
     }
 
     void BeginConnectorDrag(string fromNodeId, Vector2 screenPosition)
@@ -1187,6 +1201,7 @@ public class ScenarioGraphUI : MonoBehaviour
 
         draggingFromNodeId = fromNodeId;
         linkingFromNodeId = null;
+        ShowConnectionCandidates(fromNodeId);
         EnsureDragPreview(fromUi.outputConnector);
         UpdateDragPreviewPosition(screenPosition);
         statusText.text = "入力コネクタへドラッグしてドロップ";
@@ -1207,13 +1222,14 @@ public class ScenarioGraphUI : MonoBehaviour
             return;
         }
 
-        TryConnectNodes(fromNodeId, toNodeId, "drag");
-        CancelConnectorDrag(clearStatus: true);
+        bool connected = TryConnectNodes(fromNodeId, toNodeId, "drag");
+        CancelConnectorDrag(clearStatus: connected);
     }
 
     void CancelConnectorDrag(bool clearStatus)
     {
         draggingFromNodeId = null;
+        ClearConnectionCandidates();
 
         if (dragPreviewLine != null) Destroy(dragPreviewLine.gameObject);
         if (dragPreviewTarget != null) Destroy(dragPreviewTarget.gameObject);
@@ -1307,6 +1323,33 @@ public class ScenarioGraphUI : MonoBehaviour
             ConfigureLineGraphic(line, ConnectionLineColor, 8f, raycastTarget: true);
             lines.Add(line);
         }
+    }
+
+    void ShowConnectionCandidates(string fromNodeId)
+    {
+        ClearConnectionCandidates();
+        if (graph == null || string.IsNullOrWhiteSpace(fromNodeId)) return;
+
+        foreach (var pair in nodeUIs)
+        {
+            var connector = pair.Value?.inputConnector;
+            if (connector == null || !connector.gameObject.activeInHierarchy) continue;
+
+            var graphic = connector.GetComponent<Graphic>();
+            if (graphic == null) continue;
+            connectorBaseColors[graphic] = graphic.color;
+            bool canConnect = graph.CanAddEdge(fromNodeId, pair.Key, out _);
+            graphic.color = canConnect ? DesignTokens.Success : DesignTokens.Error;
+        }
+    }
+
+    void ClearConnectionCandidates()
+    {
+        foreach (var pair in connectorBaseColors)
+        {
+            if (pair.Key != null) pair.Key.color = pair.Value;
+        }
+        connectorBaseColors.Clear();
     }
 
     void RebuildAndResetView()
