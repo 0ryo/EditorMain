@@ -110,6 +110,7 @@ public class SelectionService : MonoBehaviour
         }
 
         if (Current == null) return;
+        if (EditWorkspace.IsTypingIntoInputField()) return;
 
         if (Input.GetKeyDown(KeyCode.Delete))
         {

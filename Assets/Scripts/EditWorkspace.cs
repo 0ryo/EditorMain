@@ -80,10 +80,11 @@ public static class EditWorkspace
         var selected = EventSystem.current.currentSelectedGameObject;
         if (selected == null) return false;
 
-        return selected.GetComponent<InputField>() != null ||
-               selected.GetComponentInParent<InputField>() != null ||
-               selected.GetComponent<TMP_InputField>() != null ||
-               selected.GetComponentInParent<TMP_InputField>() != null;
+        var legacyInput = selected.GetComponent<InputField>() ?? selected.GetComponentInParent<InputField>();
+        if (legacyInput != null && legacyInput.isFocused) return true;
+
+        var tmpInput = selected.GetComponent<TMP_InputField>() ?? selected.GetComponentInParent<TMP_InputField>();
+        return tmpInput != null && tmpInput.isFocused;
     }
 
     static bool IsNamedBlockingUiRect(string objectName, string[] blockingNames)

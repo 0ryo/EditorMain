@@ -7,6 +7,7 @@ public class RotateTool : MonoBehaviour {
     void Update() {
         if (EditModeService.I==null || EditModeService.I.Mode != EditMode.Transform) return;
         if (sel.Current == null) return;
+        if (EditWorkspace.IsTypingIntoInputField()) return;
 
         if (Input.GetKeyDown(KeyCode.Q))  Add(stepDeg);
         if (Input.GetKeyDown(KeyCode.E))  Add(-stepDeg); // Eで逆回転でも可（好みで）

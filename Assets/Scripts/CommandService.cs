@@ -5,6 +5,8 @@ public class CommandService : MonoBehaviour {
     public CommandStack Stack = new();
     void Awake(){ I=this; }
     void Update(){
+        if (EditWorkspace.IsTypingIntoInputField()) return;
+
         bool primaryModifier =
             Input.GetKey(KeyCode.LeftControl) ||
             Input.GetKey(KeyCode.RightControl) ||

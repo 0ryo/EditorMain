@@ -168,6 +168,7 @@ public class MoveTool : MonoBehaviour
     void HandleKeyboardNudgeMove()
     {
         if (sel == null || sel.Current == null) return;
+        if (EditWorkspace.IsTypingIntoInputField()) return;
 
         Vector3 nudge = Vector3.zero;
         bool modifierPressed =

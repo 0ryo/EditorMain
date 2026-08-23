@@ -1,7 +1,5 @@
 using System;
 using UnityEngine;
-using UnityEngine.EventSystems;
-using UnityEngine.UI;
 
 public enum EditMode
 {
@@ -43,7 +41,7 @@ public class EditModeService : MonoBehaviour
     void Update()
     {
         if (!Input.GetKeyDown(enterTransformModeKey)) return;
-        if (IsTypingIntoInputField()) return;
+        if (EditWorkspace.IsTypingIntoInputField()) return;
 
         SetMode(EditMode.Transform);
     }
@@ -55,14 +53,4 @@ public class EditModeService : MonoBehaviour
         ModeChanged?.Invoke(mode);
     }
 
-    static bool IsTypingIntoInputField()
-    {
-        if (EventSystem.current == null) return false;
-
-        var selected = EventSystem.current.currentSelectedGameObject;
-        if (selected == null) return false;
-
-        if (selected.GetComponent<InputField>() != null) return true;
-        return selected.GetComponentInParent<InputField>() != null;
-    }
 }
