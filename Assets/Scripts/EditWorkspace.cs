@@ -73,6 +73,13 @@ public static class EditWorkspace
                  current != null;
                  current = current.parent)
             {
+                if (current.GetComponent<EditorUiInputBlocker>() != null)
+                {
+                    blockingUiName = current.name;
+                    UiRaycastResults.Clear();
+                    return true;
+                }
+
                 if (!IsNamedBlockingUiRect(current.name, blockingNames)) continue;
 
                 blockingUiName = current.name;
@@ -110,4 +117,8 @@ public static class EditWorkspace
 
         return false;
     }
+}
+
+public sealed class EditorUiInputBlocker : MonoBehaviour
+{
 }

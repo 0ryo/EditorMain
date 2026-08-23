@@ -105,6 +105,28 @@ public static class EditInput
 #endif
     }
 
+    public static bool RightPressed()
+    {
+#if ENABLE_LEGACY_INPUT_MANAGER
+        return Input.GetMouseButton(1);
+#elif ENABLE_INPUT_SYSTEM
+        return Mouse.current != null && Mouse.current.rightButton.isPressed;
+#else
+        return false;
+#endif
+    }
+
+    public static bool RightPressedThisFrame()
+    {
+#if ENABLE_LEGACY_INPUT_MANAGER
+        return Input.GetMouseButtonDown(1);
+#elif ENABLE_INPUT_SYSTEM
+        return Mouse.current != null && Mouse.current.rightButton.wasPressedThisFrame;
+#else
+        return false;
+#endif
+    }
+
     public static bool ShiftPressed()
     {
 #if ENABLE_LEGACY_INPUT_MANAGER

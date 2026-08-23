@@ -36,6 +36,13 @@ public class EditorCameraController : MonoBehaviour
     bool hasPreviousMousePosition;
     float nextDiagnosticLogTime;
 
+    public enum ViewPreset
+    {
+        Front,
+        Right,
+        Top
+    }
+
     void Awake()
     {
         NormalizeZoomSensitivity();
@@ -59,12 +66,13 @@ public class EditorCameraController : MonoBehaviour
         Vector2 mousePosition = EditInput.MousePosition;
         float scrollY = EditInput.ScrollY;
         bool middlePressed = EditInput.MiddlePressed();
+        bool rightPressed = EditInput.RightPressed();
         bool shiftPressed = EditInput.ShiftPressed();
         bool overNodeArea = EditWorkspace.TryGetBlockingUiName(mousePosition, NodeAreaUiNames, out _);
 
         if (typingBlocked)
         {
-            if (middlePressed || Mathf.Abs(scrollY) > 0.0001f)
+            if (middlePressed || rightPressed || Mathf.Abs(scrollY) > 0.0001f)
             {
                 LogDiagnostics("Input ignored because a text field is focused", true, Vector2.zero, scrollY);
             }
@@ -78,14 +86,16 @@ public class EditorCameraController : MonoBehaviour
         }
 
         HandleZoom(scrollY);
+        HandleViewShortcuts();
 
-        if (!middlePressed)
+        bool navigationPressed = middlePressed || rightPressed;
+        if (!navigationPressed)
         {
             RememberMousePosition(mousePosition);
             return;
         }
 
-        if (EditInput.MiddlePressedThisFrame() || !hasPreviousMousePosition)
+        if (EditInput.MiddlePressedThisFrame() || EditInput.RightPressedThisFrame() || !hasPreviousMousePosition)
         {
             RememberMousePosition(mousePosition);
             LogDiagnostics("Middle drag started", true, Vector2.zero, scrollY);
@@ -143,9 +153,10 @@ public class EditorCameraController : MonoBehaviour
     {
         EnsureCameraRig();
         pivot.position = Vector3.zero;
-        pivot.rotation = Quaternion.identity;
-        transform.localPosition = EditWorkspace.DefaultCameraPosition;
-        transform.LookAt(pivot.position, Vector3.up);
+        float distance = EditWorkspace.DefaultCameraPosition.magnitude;
+        pitch = Mathf.Atan2(EditWorkspace.DefaultCameraPosition.y, -EditWorkspace.DefaultCameraPosition.z) * Mathf.Rad2Deg;
+        yaw = 0f;
+        ApplyRigPose(distance);
 
         if (cachedCamera != null)
         {
@@ -155,6 +166,142 @@ public class EditorCameraController : MonoBehaviour
             cachedCamera.farClipPlane = 1000f;
             SyncOrthographicCameraDistance(cachedCamera.orthographicSize);
         }
+    }
+
+    public bool FocusSelected()
+    {
+        var selection = FindFirstObjectByType<SelectionService>();
+        return selection != null && FocusOn(selection.Current);
+    }
+
+    public bool FocusOn(PlacedObject placedObject)
+    {
+        if (placedObject == null) return false;
+
+        EnsureCameraRig();
+        var renderers = placedObject.GetComponentsInChildren<Renderer>(true);
+        Bounds bounds = new Bounds(placedObject.transform.position, Vector3.one);
+        bool hasBounds = false;
+        foreach (var renderer in renderers)
+        {
+            if (renderer == null) continue;
+            if (!hasBounds)
+            {
+                bounds = renderer.bounds;
+                hasBounds = true;
+            }
+            else
+            {
+                bounds.Encapsulate(renderer.bounds);
+            }
+        }
+
+        pivot.position = hasBounds ? bounds.center : placedObject.transform.position;
+        float radius = Mathf.Max(0.5f, hasBounds ? bounds.extents.magnitude : 0.5f);
+
+        if (cachedCamera != null && cachedCamera.orthographic)
+        {
+            cachedCamera.orthographicSize = Mathf.Clamp(radius * 1.35f, minOrthographicSize, maxOrthographicSize);
+            SyncOrthographicCameraDistance(cachedCamera.orthographicSize);
+        }
+        else
+        {
+            float halfFov = cachedCamera != null ? cachedCamera.fieldOfView * 0.5f * Mathf.Deg2Rad : 30f * Mathf.Deg2Rad;
+            float distance = Mathf.Clamp((radius / Mathf.Tan(halfFov)) * 1.25f, minDistance, maxDistance);
+            SetCameraDistance(distance);
+        }
+
+        return true;
+    }
+
+    public void SetViewPreset(ViewPreset preset)
+    {
+        EnsureCameraRig();
+        float distance = Mathf.Clamp(transform.localPosition.magnitude, minDistance, maxDistance);
+        switch (preset)
+        {
+            case ViewPreset.Right:
+                pitch = 0f;
+                yaw = -90f;
+                break;
+            case ViewPreset.Top:
+                pitch = 89f;
+                yaw = 0f;
+                break;
+            default:
+                pitch = 0f;
+                yaw = 0f;
+                break;
+        }
+
+        ApplyRigPose(distance);
+    }
+
+    public bool ToggleProjection()
+    {
+        EnsureCameraRig();
+        if (cachedCamera == null) return false;
+
+        if (cachedCamera.orthographic)
+        {
+            float targetDistance = Mathf.Clamp(
+                cachedCamera.orthographicSize / Mathf.Tan(cachedCamera.fieldOfView * 0.5f * Mathf.Deg2Rad),
+                minDistance,
+                maxDistance);
+            cachedCamera.orthographic = false;
+            SetCameraDistance(targetDistance);
+        }
+        else
+        {
+            float distance = Mathf.Max(minDistance, transform.localPosition.magnitude);
+            cachedCamera.orthographic = true;
+            cachedCamera.orthographicSize = Mathf.Clamp(
+                distance * Mathf.Tan(cachedCamera.fieldOfView * 0.5f * Mathf.Deg2Rad),
+                minOrthographicSize,
+                maxOrthographicSize);
+            SyncOrthographicCameraDistance(cachedCamera.orthographicSize);
+        }
+
+        return cachedCamera.orthographic;
+    }
+
+    public bool IsOrthographic
+    {
+        get
+        {
+            EnsureCameraRig();
+            return cachedCamera != null && cachedCamera.orthographic;
+        }
+    }
+
+    void HandleViewShortcuts()
+    {
+        bool controlOrCommand =
+            Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl) ||
+            Input.GetKey(KeyCode.LeftCommand) || Input.GetKey(KeyCode.RightCommand);
+        if (controlOrCommand) return;
+
+        if (Input.GetKeyDown(KeyCode.F)) FocusSelected();
+        if (Input.GetKeyDown(KeyCode.Home)) ResetToDefaultView();
+        if (Input.GetKeyDown(KeyCode.Alpha1) || Input.GetKeyDown(KeyCode.Keypad1)) SetViewPreset(ViewPreset.Front);
+        if (Input.GetKeyDown(KeyCode.Alpha3) || Input.GetKeyDown(KeyCode.Keypad3)) SetViewPreset(ViewPreset.Right);
+        if (Input.GetKeyDown(KeyCode.Alpha7) || Input.GetKeyDown(KeyCode.Keypad7)) SetViewPreset(ViewPreset.Top);
+        if (Input.GetKeyDown(KeyCode.O)) ToggleProjection();
+    }
+
+    void ApplyRigPose(float distance)
+    {
+        ApplyPivotRotation();
+        transform.localRotation = Quaternion.identity;
+        transform.localPosition = Vector3.back * Mathf.Clamp(distance, minDistance, maxDistance);
+    }
+
+    void SetCameraDistance(float distance)
+    {
+        Vector3 direction = transform.localPosition.sqrMagnitude > 0.0001f
+            ? transform.localPosition.normalized
+            : Vector3.back;
+        transform.localPosition = direction * Mathf.Clamp(distance, minDistance, maxDistance);
     }
 
     void ApplySensitivityFloor()
