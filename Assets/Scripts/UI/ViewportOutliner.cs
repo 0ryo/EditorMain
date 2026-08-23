@@ -7,13 +7,12 @@ using UnityEngine.UI;
 public sealed class ViewportOutliner : MonoBehaviour
 {
     const string PanelName = "Panel_Outliner";
-    const string OpenButtonName = "Button_Outliner";
-    const float PanelWidth = 320f;
-    const float PanelMaxHeight = 420f;
-    const float DockGap = 8f;
+    const string TabsName = "Tabs_CatalogMode";
 
-    [SerializeField] Button openButton;
-    [SerializeField] Button closeButton;
+    [SerializeField] RectTransform catalogPanel;
+    [SerializeField] RectTransform tabsRoot;
+    [SerializeField] Button catalogTabButton;
+    [SerializeField] Button outlinerTabButton;
     [SerializeField] TMP_InputField searchInput;
     [SerializeField] TMP_Text countText;
     [SerializeField] RectTransform listRoot;
@@ -24,22 +23,26 @@ public sealed class ViewportOutliner : MonoBehaviour
     PlacementController placementController;
     CommandStack commandStack;
     bool displayNameBound;
-    bool expanded;
+    bool showingOutliner;
     int lastObjectSignature;
     float nextSignatureCheck;
-    readonly Vector3[] worldCorners = new Vector3[4];
 
-    public static ViewportOutliner Ensure(Transform parent)
+    public static ViewportOutliner Ensure(Transform uiRoot)
     {
-        if (parent == null) return null;
+        if (uiRoot == null) return null;
 
-        var found = parent.Find(PanelName);
+        var catalog = uiRoot.Find("Panel_Catalog") as RectTransform;
+        if (catalog == null) return null;
+
+        var found = catalog.Find(PanelName);
         var outliner = found != null ? found.GetComponent<ViewportOutliner>() : null;
-        if (outliner == null) outliner = Build(parent);
+        if (outliner == null) outliner = Build(catalog);
 
+        outliner.catalogPanel = catalog;
         outliner.ResolveReferences();
         outliner.WireUi();
-        outliner.PositionDockedElements();
+        outliner.ApplyCatalogLayout();
+        outliner.RefreshTabContent();
         outliner.RebuildList();
         return outliner;
     }
@@ -48,6 +51,7 @@ public sealed class ViewportOutliner : MonoBehaviour
     {
         panelRect = transform as RectTransform;
         panelCanvasGroup = GetComponent<CanvasGroup>();
+        if (catalogPanel == null) catalogPanel = transform.parent as RectTransform;
         ResolveReferences();
         WireUi();
     }
@@ -55,15 +59,18 @@ public sealed class ViewportOutliner : MonoBehaviour
     void Start()
     {
         ResolveReferences();
+        ApplyCatalogLayout();
+        RefreshTabContent();
         RebuildList();
     }
 
     void LateUpdate()
     {
         ResolveReferences();
-        PositionDockedElements();
+        ApplyCatalogLayout();
+        RefreshTabContent();
 
-        if (!expanded || Time.unscaledTime < nextSignatureCheck) return;
+        if (!showingOutliner || Time.unscaledTime < nextSignatureCheck) return;
         nextSignatureCheck = Time.unscaledTime + 0.5f;
         int signature = CalculateObjectSignature();
         if (signature != lastObjectSignature) RebuildList();
@@ -85,11 +92,19 @@ public sealed class ViewportOutliner : MonoBehaviour
     {
         if (panelRect == null) panelRect = transform as RectTransform;
         if (panelCanvasGroup == null) panelCanvasGroup = GetComponent<CanvasGroup>();
+        if (catalogPanel == null) catalogPanel = transform.parent as RectTransform;
 
-        var parent = transform.parent;
-        if (openButton == null && parent != null)
+        if (tabsRoot == null && catalogPanel != null)
         {
-            openButton = parent.Find(OpenButtonName)?.GetComponent<Button>();
+            tabsRoot = catalogPanel.Find(TabsName) as RectTransform;
+        }
+        if (catalogTabButton == null && tabsRoot != null)
+        {
+            catalogTabButton = tabsRoot.Find("Tab_Place")?.GetComponent<Button>();
+        }
+        if (outlinerTabButton == null && tabsRoot != null)
+        {
+            outlinerTabButton = tabsRoot.Find("Tab_Outliner")?.GetComponent<Button>();
         }
 
         var nextSelection = FindFirstObjectByType<SelectionService>();
@@ -140,16 +155,16 @@ public sealed class ViewportOutliner : MonoBehaviour
 
     void WireUi()
     {
-        if (openButton != null)
+        if (catalogTabButton != null)
         {
-            openButton.onClick.RemoveListener(ToggleExpanded);
-            openButton.onClick.AddListener(ToggleExpanded);
+            catalogTabButton.onClick.RemoveListener(ShowCatalog);
+            catalogTabButton.onClick.AddListener(ShowCatalog);
         }
 
-        if (closeButton != null)
+        if (outlinerTabButton != null)
         {
-            closeButton.onClick.RemoveListener(Close);
-            closeButton.onClick.AddListener(Close);
+            outlinerTabButton.onClick.RemoveListener(ShowOutliner);
+            outlinerTabButton.onClick.AddListener(ShowOutliner);
         }
 
         if (searchInput != null)
@@ -159,37 +174,86 @@ public sealed class ViewportOutliner : MonoBehaviour
         }
     }
 
-    void ToggleExpanded()
+    void ShowCatalog()
     {
-        SetExpanded(!expanded);
+        showingOutliner = false;
+        RefreshTabContent();
     }
 
-    void Close()
+    void ShowOutliner()
     {
-        SetExpanded(false);
+        showingOutliner = true;
+        RebuildList();
+        RefreshTabContent();
     }
 
-    void SetExpanded(bool value)
+    void RefreshTabContent()
     {
-        expanded = value;
+        if (catalogPanel == null) return;
+
+        SetCatalogElementActive("Header", false);
+        SetCatalogElementActive("SearchRow", !showingOutliner);
+        SetCatalogElementActive("SearchRow_Runtime", !showingOutliner);
+        SetCatalogElementActive("Text_Status", !showingOutliner);
+        SetCatalogElementActive("Scroll_Catalog", !showingOutliner);
+        SetCatalogElementActive("Button_AddObjectBottom", !showingOutliner);
+        SetCatalogElementActive("Button_AddObjectBottom_Runtime", !showingOutliner);
+
         if (panelCanvasGroup != null)
         {
-            panelCanvasGroup.alpha = expanded ? 1f : 0f;
-            panelCanvasGroup.interactable = expanded;
-            panelCanvasGroup.blocksRaycasts = expanded;
+            panelCanvasGroup.alpha = showingOutliner ? 1f : 0f;
+            panelCanvasGroup.interactable = showingOutliner;
+            panelCanvasGroup.blocksRaycasts = showingOutliner;
         }
 
-        RefreshOpenButtonVisual();
-        if (!expanded) return;
-
-        RebuildList();
-        transform.SetAsLastSibling();
+        ApplyTabVisual(catalogTabButton, !showingOutliner);
+        ApplyTabVisual(outlinerTabButton, showingOutliner);
+        if (tabsRoot != null) tabsRoot.SetAsLastSibling();
     }
 
-    void RefreshOpenButtonVisual()
+    void SetCatalogElementActive(string objectName, bool active)
     {
-        var outline = openButton != null ? openButton.GetComponent<Outline>() : null;
-        if (outline != null) outline.effectColor = expanded ? DesignTokens.Accent : DesignTokens.Divider;
+        var target = catalogPanel != null ? catalogPanel.Find(objectName) : null;
+        if (target != null && target.gameObject.activeSelf != active) target.gameObject.SetActive(active);
+    }
+
+    static void ApplyTabVisual(Button button, bool active)
+    {
+        if (button == null) return;
+        var image = button.GetComponent<Image>();
+        if (image != null) image.color = active ? DesignTokens.Surface : DesignTokens.BgSecondary;
+        var label = button.GetComponentInChildren<TMP_Text>(true);
+        if (label != null) label.color = active ? DesignTokens.Accent : DesignTokens.TextSecondary;
+        var outline = button.GetComponent<Outline>();
+        if (outline != null) outline.effectColor = active ? DesignTokens.Accent : DesignTokens.Divider;
+    }
+
+    void ApplyCatalogLayout()
+    {
+        if (catalogPanel == null || panelRect == null) return;
+
+        if (tabsRoot != null)
+        {
+            SetRect(tabsRoot, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(10f, -50f), new Vector2(-10f, -10f));
+        }
+
+        PositionCatalogElement("SearchRow", new Vector2(10f, -98f), new Vector2(-10f, -58f));
+        PositionCatalogElement("SearchRow_Runtime", new Vector2(10f, -98f), new Vector2(-10f, -58f));
+        PositionCatalogElement("Text_Status", new Vector2(14f, -122f), new Vector2(-14f, -102f));
+
+        var scroll = catalogPanel.Find("Scroll_Catalog") as RectTransform;
+        if (scroll != null)
+        {
+            SetRect(scroll, Vector2.zero, Vector2.one, new Vector2(8f, 56f), new Vector2(-8f, -128f));
+        }
+
+        SetRect(panelRect, Vector2.zero, Vector2.one, new Vector2(8f, 8f), new Vector2(-8f, -58f));
+    }
+
+    void PositionCatalogElement(string objectName, Vector2 offsetMin, Vector2 offsetMax)
+    {
+        var rect = catalogPanel != null ? catalogPanel.Find(objectName) as RectTransform : null;
+        if (rect != null) SetRect(rect, new Vector2(0f, 1f), new Vector2(1f, 1f), offsetMin, offsetMax);
     }
 
     void HandleSearchChanged(string _)
@@ -234,22 +298,22 @@ public sealed class ViewportOutliner : MonoBehaviour
         placedObjects.Sort(ComparePlacedObjects);
 
         string query = searchInput != null ? searchInput.text?.Trim() : string.Empty;
-        int visibleCount = 0;
+        int matchCount = 0;
         foreach (var placed in placedObjects)
         {
             if (!MatchesSearch(placed, query)) continue;
             CreateObjectRow(placed);
-            visibleCount++;
+            matchCount++;
         }
 
         if (countText != null)
         {
             countText.text = string.IsNullOrWhiteSpace(query)
-                ? placedObjects.Count.ToString()
-                : $"{visibleCount}/{placedObjects.Count}";
+                ? $"配置済み {placedObjects.Count}件"
+                : $"検索結果 {matchCount}/{placedObjects.Count}件";
         }
 
-        if (visibleCount == 0)
+        if (matchCount == 0)
         {
             var empty = CreateText("Text_Empty", listRoot, "該当するオブジェクトはありません", DesignTokens.FontSizeCaption, DesignTokens.TextSecondary);
             empty.alignment = TextAlignmentOptions.Center;
@@ -284,7 +348,7 @@ public sealed class ViewportOutliner : MonoBehaviour
         var editState = placed.GetComponent<PlacedObjectEditState>();
         if (editState == null) editState = placed.gameObject.AddComponent<PlacedObjectEditState>();
 
-        string prefix = editState.Hidden ? "[非表示] " : editState.Locked ? "[固定] " : string.Empty;
+        string prefix = editState.Hidden ? "○  " : editState.Locked ? "◆  " : "●  ";
         string displayName = placed.GetDisplayName();
         if (string.IsNullOrWhiteSpace(displayName)) displayName = placed.Id;
         if (string.IsNullOrWhiteSpace(displayName)) displayName = placed.name;
@@ -332,61 +396,6 @@ public sealed class ViewportOutliner : MonoBehaviour
         }
         editState.SetLocked(willLock);
         RebuildList();
-    }
-
-    void PositionDockedElements()
-    {
-        var root = transform.parent as RectTransform;
-        var openRect = openButton != null ? openButton.transform as RectTransform : null;
-        if (root == null || panelRect == null || openRect == null) return;
-
-        float left = root.rect.xMin + DesignTokens.CatalogDefaultWidth + 12f;
-        float top = root.rect.yMax - 60f;
-        var editModeRow = root.Find("EditModeRow") as RectTransform ?? root.Find("EditModeRow_Runtime") as RectTransform;
-        if (TryGetVisibleBounds(root, editModeRow, out var modeLeft, out _, out var modeBottom, out _))
-        {
-            left = modeLeft;
-            top = modeBottom - DockGap;
-        }
-
-        left = Mathf.Clamp(left, root.rect.xMin + 8f, root.rect.xMax - 88f);
-        SetTopLeftRect(openRect, new Vector2(80f, 40f), new Vector2(left - root.rect.xMin, top - root.rect.yMax));
-
-        float panelTop = top - 40f - DockGap;
-        float bottomLimit = root.rect.yMin + 12f;
-        var scenario = root.Find("Panel_ScenarioGraph") as RectTransform;
-        if (TryGetVisibleBounds(root, scenario, out _, out _, out _, out var scenarioTop))
-        {
-            bottomLimit = Mathf.Max(bottomLimit, scenarioTop + 12f);
-        }
-
-        float height = Mathf.Clamp(panelTop - bottomLimit, 180f, PanelMaxHeight);
-        float panelLeft = Mathf.Clamp(left, root.rect.xMin + 8f, root.rect.xMax - PanelWidth - 8f);
-        SetTopLeftRect(panelRect, new Vector2(PanelWidth, height), new Vector2(panelLeft - root.rect.xMin, panelTop - root.rect.yMax));
-    }
-
-    bool TryGetVisibleBounds(
-        RectTransform root,
-        RectTransform target,
-        out float left,
-        out float right,
-        out float bottom,
-        out float top)
-    {
-        left = right = bottom = top = 0f;
-        if (root == null || target == null || !target.gameObject.activeInHierarchy) return false;
-
-        var canvasGroup = target.GetComponent<CanvasGroup>();
-        if (canvasGroup != null && canvasGroup.alpha <= 0.01f) return false;
-
-        target.GetWorldCorners(worldCorners);
-        Vector3 bottomLeft = root.InverseTransformPoint(worldCorners[0]);
-        Vector3 topRight = root.InverseTransformPoint(worldCorners[2]);
-        left = bottomLeft.x;
-        right = topRight.x;
-        bottom = bottomLeft.y;
-        top = topRight.y;
-        return right > left && top > bottom;
     }
 
     int CalculateObjectSignature()
@@ -440,80 +449,69 @@ public sealed class ViewportOutliner : MonoBehaviour
         return value.Replace('/', '_').Replace('\\', '_').Replace(' ', '_');
     }
 
-    static void SetTopLeftRect(RectTransform rect, Vector2 size, Vector2 position)
+    static ViewportOutliner Build(RectTransform catalog)
     {
-        if (rect == null) return;
-        rect.anchorMin = new Vector2(0f, 1f);
-        rect.anchorMax = new Vector2(0f, 1f);
-        rect.pivot = new Vector2(0f, 1f);
-        rect.sizeDelta = size;
-        rect.anchoredPosition = position;
-    }
+        var tabs = CreateRect(TabsName, catalog);
+        var tabsLayout = tabs.gameObject.AddComponent<HorizontalLayoutGroup>();
+        tabsLayout.spacing = 8f;
+        tabsLayout.childControlWidth = true;
+        tabsLayout.childControlHeight = true;
+        tabsLayout.childForceExpandWidth = true;
+        tabsLayout.childForceExpandHeight = true;
 
-    static ViewportOutliner Build(Transform parent)
-    {
-        var panel = CreateRect(PanelName, parent);
+        var placeTab = CreateButton("Tab_Place", tabs, "配置", DesignTokens.Surface);
+        var placeTabLayout = placeTab.gameObject.AddComponent<LayoutElement>();
+        placeTabLayout.flexibleWidth = 1f;
+        placeTab.gameObject.AddComponent<Outline>().effectDistance = new Vector2(1f, -1f);
+
+        var outlinerTab = CreateButton("Tab_Outliner", tabs, "一覧", DesignTokens.BgSecondary);
+        var outlinerTabLayout = outlinerTab.gameObject.AddComponent<LayoutElement>();
+        outlinerTabLayout.flexibleWidth = 1f;
+        outlinerTab.gameObject.AddComponent<Outline>().effectDistance = new Vector2(1f, -1f);
+
+        var panel = CreateRect(PanelName, catalog);
         var panelImage = panel.gameObject.AddComponent<Image>();
-        panelImage.color = DesignTokens.Surface;
-        var outline = panel.gameObject.AddComponent<Outline>();
-        outline.effectColor = DesignTokens.Divider;
-        outline.effectDistance = new Vector2(1f, -1f);
+        panelImage.color = DesignTokens.BgPrimary;
+        panelImage.raycastTarget = false;
         var canvasGroup = panel.gameObject.AddComponent<CanvasGroup>();
         panel.gameObject.AddComponent<EditorUiInputBlocker>();
 
-        var title = CreateText("Text_Title", panel, "配置済みオブジェクト", DesignTokens.FontSizeSubheading, DesignTokens.TextPrimary);
-        SetRect(title.rectTransform, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(16f, -48f), new Vector2(-92f, -8f));
-
-        var count = CreateText("Text_Count", panel, "0", DesignTokens.FontSizeCaption, DesignTokens.TextSecondary);
-        count.alignment = TextAlignmentOptions.Center;
-        SetRect(count.rectTransform, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-88f, -44f), new Vector2(-48f, -12f));
-
-        var close = CreateButton("Button_Close", panel, "×", DesignTokens.BgSecondary);
-        SetRect(close.transform as RectTransform, Vector2.one, Vector2.one, new Vector2(-44f, -44f), new Vector2(-8f, -8f));
+        var count = CreateText("Text_Count", panel, "配置済み 0件", DesignTokens.FontSizeCaption, DesignTokens.TextSecondary);
+        SetRect(count.rectTransform, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(8f, -34f), new Vector2(-8f, -6f));
 
         var search = CreateSearchInput(panel);
-        SetRect(search.transform as RectTransform, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(16f, -100f), new Vector2(-16f, -60f));
+        SetRect(search.transform as RectTransform, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0f, -82f), new Vector2(0f, -42f));
 
         var list = CreateScrollList(panel);
-        SetRect(list, Vector2.zero, Vector2.one, new Vector2(16f, 16f), new Vector2(-16f, -112f));
+        SetRect(list, Vector2.zero, Vector2.one, Vector2.zero, new Vector2(0f, -92f));
 
         var outliner = panel.gameObject.AddComponent<ViewportOutliner>();
+        outliner.catalogPanel = catalog;
         outliner.panelRect = panel;
         outliner.panelCanvasGroup = canvasGroup;
-        outliner.openButton = CreateOpenButton(parent);
-        outliner.closeButton = close;
+        outliner.tabsRoot = tabs;
+        outliner.catalogTabButton = placeTab;
+        outliner.outlinerTabButton = outlinerTab;
         outliner.searchInput = search;
         outliner.countText = count;
         outliner.listRoot = list.Find("Viewport/Content") as RectTransform;
 
+        UiRoundedTheme.ApplyToHierarchy(tabs, DesignTokens.CornerRadius);
         UiRoundedTheme.ApplyToHierarchy(panel, DesignTokens.CornerRadius);
-        outliner.SetExpanded(false);
         return outliner;
-    }
-
-    static Button CreateOpenButton(Transform parent)
-    {
-        var button = CreateButton(OpenButtonName, parent, "一覧", DesignTokens.Surface);
-        var rect = button.transform as RectTransform;
-        var outline = button.gameObject.AddComponent<Outline>();
-        outline.effectColor = DesignTokens.Divider;
-        outline.effectDistance = new Vector2(1f, -1f);
-        button.gameObject.AddComponent<EditorUiInputBlocker>();
-        UiRoundedTheme.ApplyToHierarchy(rect, DesignTokens.CornerRadius);
-        return button;
     }
 
     static TMP_InputField CreateSearchInput(Transform parent)
     {
         var root = CreateRect("Input_OutlinerSearch", parent);
         var image = root.gameObject.AddComponent<Image>();
-        image.color = DesignTokens.BgSecondary;
+        image.color = DesignTokens.Surface;
 
         var viewport = CreateRect("Text Area", root);
         viewport.gameObject.AddComponent<RectMask2D>();
         SetRect(viewport, Vector2.zero, Vector2.one, new Vector2(12f, 4f), new Vector2(-12f, -4f));
 
-        var placeholder = CreateText("Placeholder", viewport, "名前・IDで検索", DesignTokens.FontSizeBody, DesignTokens.TextTertiary);
+        var placeholder = CreateText("Placeholder", viewport, "配置済みを検索...", DesignTokens.FontSizeBody, DesignTokens.TextTertiary);
         placeholder.fontStyle = FontStyles.Italic;
         SetRect(placeholder.rectTransform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
 
@@ -543,7 +541,7 @@ public sealed class ViewportOutliner : MonoBehaviour
         viewportImage.color = Color.clear;
         viewportImage.raycastTarget = true;
         viewport.gameObject.AddComponent<RectMask2D>();
-        SetRect(viewport, Vector2.zero, Vector2.one, new Vector2(4f, 4f), new Vector2(-4f, -4f));
+        SetRect(viewport, Vector2.zero, Vector2.one, new Vector2(2f, 2f), new Vector2(-2f, -2f));
 
         var content = CreateRect("Content", viewport);
         content.anchorMin = new Vector2(0f, 1f);
@@ -567,7 +565,6 @@ public sealed class ViewportOutliner : MonoBehaviour
         scroll.horizontal = false;
         scroll.vertical = true;
         scroll.scrollSensitivity = 24f;
-        UiRoundedTheme.ApplyToHierarchy(root, DesignTokens.CornerRadius);
         return root;
     }
 
@@ -578,7 +575,7 @@ public sealed class ViewportOutliner : MonoBehaviour
         element.minHeight = 36f;
         if (flexible)
         {
-            element.minWidth = 80f;
+            element.minWidth = 72f;
             element.flexibleWidth = 1f;
         }
         else
