@@ -144,22 +144,23 @@ public class SelectionService : MonoBehaviour
 
         if ((controlKey || commandKey) && Input.GetKeyDown(KeyCode.D))
         {
-            var dup = Instantiate(
+            var duplicateCmd = new DuplicateObjectCommand(
                 Current.gameObject,
-                Current.transform.position + new Vector3(0.2f, 0f, 0.2f),
-                Current.transform.rotation
+                new Vector3(0.2f, 0f, 0.2f)
             );
 
-            var po = dup.GetComponent<PlacedObject>();
-            if (po == null) po = dup.AddComponent<PlacedObject>();
-
-            if (string.IsNullOrEmpty(po.typeId))
+            if (CommandService.I != null && CommandService.I.Stack != null)
             {
-                po.typeId = Current.typeId;
+                CommandService.I.Stack.Execute(duplicateCmd);
+            }
+            else
+            {
+                duplicateCmd.Do();
+                LogWarning("Duplicate applied without undo because CommandService is missing.");
             }
 
-            po.ForceNewId();
-            PlacedObjectPickability.EnsurePickable(po, true);
+            var po = duplicateCmd.Result;
+            if (po == null) return;
 
             Select(po);
             return;

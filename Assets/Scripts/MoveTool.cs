@@ -193,7 +193,19 @@ public class MoveTool : MonoBehaviour
 
         if (nudge != Vector3.zero)
         {
-            sel.Current.transform.position += nudge;
+            var target = sel.Current.gameObject;
+            var from = target.transform.position;
+            var to = from + nudge;
+
+            if (CommandService.I != null && CommandService.I.Stack != null)
+            {
+                CommandService.I.Stack.Execute(new MoveObjectCommand(target, from, to));
+            }
+            else
+            {
+                target.transform.position = to;
+                LogDebug("Keyboard move applied without undo because CommandService is missing.");
+            }
         }
     }
 

@@ -28,6 +28,54 @@ public class PlaceObjectCommand : IEditorCommand, IDiscardableEditorCommand {
     public void Discard(){ if (instance!=null && !instance.activeSelf) GameObject.Destroy(instance); }
 }
 
+public class DuplicateObjectCommand : IEditorCommand, IDiscardableEditorCommand {
+    readonly GameObject source;
+    readonly Vector3 pos;
+    readonly Quaternion rot;
+    readonly string sourceName;
+    GameObject instance;
+    PlacedObject placed;
+
+    public string Label => "Duplicate " + sourceName;
+    public PlacedObject Result => placed;
+
+    public DuplicateObjectCommand(GameObject source, Vector3 offset){
+        this.source=source;
+        sourceName=source!=null ? source.name : "obj";
+        if (source!=null){
+            pos=source.transform.position+offset;
+            rot=source.transform.rotation;
+        }
+    }
+
+    public void Do(){
+        if (instance==null){
+            if (source==null){
+                Debug.LogWarning("[DuplicateObjectCommand] Source object is missing.");
+                return;
+            }
+
+            instance=GameObject.Instantiate(source, pos, rot);
+            placed=instance.GetComponent<PlacedObject>();
+            if (placed==null) placed=instance.AddComponent<PlacedObject>();
+
+            var sourcePlaced=source.GetComponent<PlacedObject>();
+            if (string.IsNullOrEmpty(placed.typeId) && sourcePlaced!=null){
+                placed.typeId=sourcePlaced.typeId;
+            }
+
+            placed.ForceNewId();
+            PlacedObjectPickability.EnsurePickable(placed, true);
+        }
+
+        instance.SetActive(true);
+        instance.transform.SetPositionAndRotation(pos, rot);
+    }
+
+    public void Undo(){ if (instance!=null) instance.SetActive(false); }
+    public void Discard(){ if (instance!=null && !instance.activeSelf) GameObject.Destroy(instance); }
+}
+
 public class DeleteObjectCommand : IEditorCommand, IDiscardableEditorCommand {
     GameObject target;
     Transform parent;
