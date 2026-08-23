@@ -13,6 +13,8 @@ public class ScenarioValidationPanel : MonoBehaviour
     const float MinWidth = 320f;
     const float MinHeight = 240f;
     const float ViewportMargin = 16f;
+    const float MinimizedWidth = 180f;
+    const float MinimizedHeight = 44f;
 
     [SerializeField] TMP_Text titleText;
     [SerializeField] TMP_Text summaryText;
@@ -20,8 +22,10 @@ public class ScenarioValidationPanel : MonoBehaviour
     [SerializeField] Button issueButtonTemplate;
     [SerializeField] Button closeButton;
     bool applyingResponsiveLayout;
+    bool isMinimized;
 
     public bool IsVisible => gameObject.activeSelf;
+    public event Action Hidden;
 
     public static ScenarioValidationPanel Ensure(RectTransform parent, ScenarioValidationPanel existing = null)
     {
@@ -121,9 +125,10 @@ public class ScenarioValidationPanel : MonoBehaviour
         Func<GraphValidationIssue, string> getFriendlyMessage,
         Action<string> onNodeRequested)
     {
+        bool preserveMinimizedState = gameObject.activeSelf && isMinimized;
         ResolveReferences();
         if (validation == null || issueListRoot == null || issueButtonTemplate == null) return;
-        ApplyResponsiveLayout();
+        if (!preserveMinimizedState) RestoreIssueList();
 
         ClearItems();
         int errorCount = validation.errors.Count;
@@ -142,11 +147,31 @@ public class ScenarioValidationPanel : MonoBehaviour
 
         gameObject.SetActive(true);
         transform.SetAsLastSibling();
+        if (preserveMinimizedState) MinimizeForFocus();
     }
 
     public void Hide()
     {
+        if (!gameObject.activeSelf) return;
+        isMinimized = false;
         gameObject.SetActive(false);
+        Hidden?.Invoke();
+    }
+
+    public void MinimizeForFocus()
+    {
+        isMinimized = true;
+        SetExpandedContentVisible(false);
+        SetCloseButtonLabel("問題一覧に戻る");
+        ApplyMinimizedLayout();
+    }
+
+    public void RestoreIssueList()
+    {
+        isMinimized = false;
+        SetExpandedContentVisible(true);
+        SetCloseButtonLabel("閉じる");
+        ApplyResponsiveLayout();
     }
 
     int AddItems(
@@ -185,7 +210,11 @@ public class ScenarioValidationPanel : MonoBehaviour
             if (canFocus)
             {
                 string capturedNodeId = issue.nodeId;
-                button.onClick.AddListener(() => onNodeRequested(capturedNodeId));
+                button.onClick.AddListener(() =>
+                {
+                    onNodeRequested(capturedNodeId);
+                    MinimizeForFocus();
+                });
             }
         }
 
@@ -221,14 +250,30 @@ public class ScenarioValidationPanel : MonoBehaviour
     void WireCloseButton()
     {
         if (closeButton == null) return;
-        closeButton.onClick.RemoveListener(Hide);
-        closeButton.onClick.AddListener(Hide);
+        closeButton.onClick.RemoveListener(OnClickClose);
+        closeButton.onClick.AddListener(OnClickClose);
+    }
+
+    void OnClickClose()
+    {
+        if (isMinimized)
+        {
+            RestoreIssueList();
+            return;
+        }
+
+        Hide();
     }
 
     void ApplyResponsiveLayout()
     {
         if (applyingResponsiveLayout) return;
         if (!(transform is RectTransform root) || !(root.parent is RectTransform parent)) return;
+        if (isMinimized)
+        {
+            ApplyMinimizedLayout();
+            return;
+        }
 
         var parentRect = parent.rect;
         float availableWidth = Mathf.Max(0f, parentRect.width - (ViewportMargin * 2f));
@@ -246,7 +291,51 @@ public class ScenarioValidationPanel : MonoBehaviour
         root.pivot = new Vector2(0.5f, 0.5f);
         root.sizeDelta = new Vector2(width, height);
         root.anchoredPosition = Vector2.zero;
+        if (closeButton != null)
+        {
+            SetRect(
+                closeButton.transform as RectTransform,
+                new Vector2(1f, 1f),
+                new Vector2(1f, 1f),
+                new Vector2(-104f, -64f),
+                new Vector2(-24f, -24f));
+        }
         applyingResponsiveLayout = false;
+    }
+
+    void ApplyMinimizedLayout()
+    {
+        if (applyingResponsiveLayout) return;
+        if (!(transform is RectTransform root)) return;
+
+        applyingResponsiveLayout = true;
+        root.anchorMin = Vector2.one;
+        root.anchorMax = Vector2.one;
+        root.pivot = Vector2.one;
+        root.sizeDelta = new Vector2(MinimizedWidth, MinimizedHeight);
+        root.anchoredPosition = new Vector2(-ViewportMargin, -ViewportMargin);
+        if (closeButton != null)
+        {
+            SetRect(closeButton.transform as RectTransform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+        }
+        applyingResponsiveLayout = false;
+    }
+
+    void SetExpandedContentVisible(bool visible)
+    {
+        if (titleText != null) titleText.gameObject.SetActive(visible);
+        if (summaryText != null) summaryText.gameObject.SetActive(visible);
+        var scrollRoot = issueListRoot != null && issueListRoot.parent != null
+            ? issueListRoot.parent.parent
+            : null;
+        if (scrollRoot != null) scrollRoot.gameObject.SetActive(visible);
+    }
+
+    void SetCloseButtonLabel(string value)
+    {
+        if (closeButton == null) return;
+        var label = closeButton.GetComponentInChildren<TMP_Text>(true);
+        if (label != null) label.text = value;
     }
 
     void ClearItems()

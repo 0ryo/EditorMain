@@ -126,6 +126,7 @@ public class ScenarioGraphUI : MonoBehaviour
     readonly Dictionary<string, Vector2> nodePositions = new Dictionary<string, Vector2>();
     readonly List<ConnectionLineGraphic> lines = new List<ConnectionLineGraphic>();
     NodeAreaPanZoomController panZoomController;
+    Outline validationFocusOutline;
 
     void Awake()
     {
@@ -138,11 +139,13 @@ public class ScenarioGraphUI : MonoBehaviour
         EnsureGraphService();
         graph.GraphChanged -= OnGraphChanged;
         graph.GraphChanged += OnGraphChanged;
+        BindValidationPanelEvents();
     }
 
     void OnDisable()
     {
         if (graph != null) graph.GraphChanged -= OnGraphChanged;
+        if (validationPanel != null) validationPanel.Hidden -= ClearValidationFocus;
     }
 
     void Start()
@@ -222,6 +225,7 @@ public class ScenarioGraphUI : MonoBehaviour
         EnsureGraphContent();
         EnsurePanZoomController();
         validationPanel = ScenarioValidationPanel.Ensure(panelRoot != null ? panelRoot : transform as RectTransform, validationPanel);
+        BindValidationPanelEvents();
 
         if (addConditionButton == null)
         {
@@ -1494,8 +1498,33 @@ public class ScenarioGraphUI : MonoBehaviour
             }
         }
 
-        validationPanel?.Hide();
+        HighlightValidationFocus(binding.root);
         panZoomController?.FocusContentPoint(binding.root.anchoredPosition);
+    }
+
+    void BindValidationPanelEvents()
+    {
+        if (validationPanel == null) return;
+        validationPanel.Hidden -= ClearValidationFocus;
+        validationPanel.Hidden += ClearValidationFocus;
+    }
+
+    void HighlightValidationFocus(RectTransform nodeRoot)
+    {
+        ClearValidationFocus();
+        if (nodeRoot == null || nodeRoot.GetComponent<Graphic>() == null) return;
+
+        validationFocusOutline = nodeRoot.gameObject.AddComponent<Outline>();
+        validationFocusOutline.effectColor = DesignTokens.Warning;
+        validationFocusOutline.effectDistance = new Vector2(3f, -3f);
+        validationFocusOutline.useGraphicAlpha = false;
+    }
+
+    void ClearValidationFocus()
+    {
+        if (validationFocusOutline == null) return;
+        Destroy(validationFocusOutline);
+        validationFocusOutline = null;
     }
 
     static string GetFriendlyValidationMessage(GraphValidationIssue issue)
