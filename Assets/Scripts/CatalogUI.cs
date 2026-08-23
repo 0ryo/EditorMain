@@ -40,6 +40,8 @@ public class CatalogUI : MonoBehaviour
     [SerializeField] Button settingsApplyButton;
     [SerializeField] TMP_Text settingsAccountUserNameText;
     [SerializeField] TMP_Text settingsAccountEmailText;
+    [SerializeField] bool integrationSettingsAvailable;
+    [SerializeField] bool accountSettingsAvailable;
     [SerializeField] RectTransform newObjectSettingsPanel;
     [SerializeField] TMP_InputField newObjectNameInput;
     [SerializeField] TMP_InputField newObjectDescriptionInput;
@@ -2313,6 +2315,22 @@ public class CatalogUI : MonoBehaviour
 
     void RefreshSettingsTabs()
     {
+        if ((activeSettingsTab == SettingsTab.Integration && !integrationSettingsAvailable) ||
+            (activeSettingsTab == SettingsTab.Account && !accountSettingsAvailable))
+        {
+            activeSettingsTab = SettingsTab.General;
+        }
+
+        if (settingsTabIntegrationButton != null)
+        {
+            settingsTabIntegrationButton.gameObject.SetActive(integrationSettingsAvailable);
+        }
+
+        if (settingsTabAccountButton != null)
+        {
+            settingsTabAccountButton.gameObject.SetActive(accountSettingsAvailable);
+        }
+
         if (settingsGeneralContent != null)
         {
             settingsGeneralContent.gameObject.SetActive(activeSettingsTab == SettingsTab.General);
@@ -2320,17 +2338,25 @@ public class CatalogUI : MonoBehaviour
 
         if (settingsIntegrationContent != null)
         {
-            settingsIntegrationContent.gameObject.SetActive(activeSettingsTab == SettingsTab.Integration);
+            settingsIntegrationContent.gameObject.SetActive(
+                integrationSettingsAvailable && activeSettingsTab == SettingsTab.Integration);
         }
 
         if (settingsAccountContent != null)
         {
-            settingsAccountContent.gameObject.SetActive(activeSettingsTab == SettingsTab.Account);
+            settingsAccountContent.gameObject.SetActive(
+                accountSettingsAvailable && activeSettingsTab == SettingsTab.Account);
         }
 
         ApplySettingsTabVisual(settingsTabGeneralButton, activeSettingsTab == SettingsTab.General);
-        ApplySettingsTabVisual(settingsTabIntegrationButton, activeSettingsTab == SettingsTab.Integration);
-        ApplySettingsTabVisual(settingsTabAccountButton, activeSettingsTab == SettingsTab.Account);
+        if (integrationSettingsAvailable)
+        {
+            ApplySettingsTabVisual(settingsTabIntegrationButton, activeSettingsTab == SettingsTab.Integration);
+        }
+        if (accountSettingsAvailable)
+        {
+            ApplySettingsTabVisual(settingsTabAccountButton, activeSettingsTab == SettingsTab.Account);
+        }
     }
 
     void ApplySettingsTabVisual(Button button, bool isActive)
