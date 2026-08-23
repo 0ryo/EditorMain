@@ -8,12 +8,18 @@ public class ScenarioValidationPanel : MonoBehaviour
 {
     const string PanelName = "Panel_SaveValidation";
     const string RuntimeItemPrefix = "ValidationItem_";
+    const float PreferredWidth = 560f;
+    const float PreferredHeight = 360f;
+    const float MinWidth = 320f;
+    const float MinHeight = 240f;
+    const float ViewportMargin = 16f;
 
     [SerializeField] TMP_Text titleText;
     [SerializeField] TMP_Text summaryText;
     [SerializeField] RectTransform issueListRoot;
     [SerializeField] Button issueButtonTemplate;
     [SerializeField] Button closeButton;
+    bool applyingResponsiveLayout;
 
     public bool IsVisible => gameObject.activeSelf;
 
@@ -30,6 +36,7 @@ public class ScenarioValidationPanel : MonoBehaviour
             {
                 foundPanel.ResolveReferences();
                 foundPanel.WireCloseButton();
+                foundPanel.ApplyResponsiveLayout();
                 return foundPanel;
             }
         }
@@ -103,6 +110,7 @@ public class ScenarioValidationPanel : MonoBehaviour
         panel.issueButtonTemplate = template;
         panel.closeButton = close;
         panel.WireCloseButton();
+        panel.ApplyResponsiveLayout();
         root.SetAsLastSibling();
         root.gameObject.SetActive(false);
         return panel;
@@ -115,6 +123,7 @@ public class ScenarioValidationPanel : MonoBehaviour
     {
         ResolveReferences();
         if (validation == null || issueListRoot == null || issueButtonTemplate == null) return;
+        ApplyResponsiveLayout();
 
         ClearItems();
         int errorCount = validation.errors.Count;
@@ -187,6 +196,17 @@ public class ScenarioValidationPanel : MonoBehaviour
     {
         ResolveReferences();
         WireCloseButton();
+        ApplyResponsiveLayout();
+    }
+
+    void OnEnable()
+    {
+        ApplyResponsiveLayout();
+    }
+
+    void OnRectTransformDimensionsChange()
+    {
+        ApplyResponsiveLayout();
     }
 
     void ResolveReferences()
@@ -203,6 +223,30 @@ public class ScenarioValidationPanel : MonoBehaviour
         if (closeButton == null) return;
         closeButton.onClick.RemoveListener(Hide);
         closeButton.onClick.AddListener(Hide);
+    }
+
+    void ApplyResponsiveLayout()
+    {
+        if (applyingResponsiveLayout) return;
+        if (!(transform is RectTransform root) || !(root.parent is RectTransform parent)) return;
+
+        var parentRect = parent.rect;
+        float availableWidth = Mathf.Max(0f, parentRect.width - (ViewportMargin * 2f));
+        float availableHeight = Mathf.Max(0f, parentRect.height - (ViewportMargin * 2f));
+        if (availableWidth <= 1f || availableHeight <= 1f) return;
+
+        float minWidth = Mathf.Min(MinWidth, availableWidth);
+        float minHeight = Mathf.Min(MinHeight, availableHeight);
+        float width = Mathf.Clamp(PreferredWidth, minWidth, availableWidth);
+        float height = Mathf.Clamp(PreferredHeight, minHeight, availableHeight);
+
+        applyingResponsiveLayout = true;
+        root.anchorMin = new Vector2(0.5f, 0.5f);
+        root.anchorMax = new Vector2(0.5f, 0.5f);
+        root.pivot = new Vector2(0.5f, 0.5f);
+        root.sizeDelta = new Vector2(width, height);
+        root.anchoredPosition = Vector2.zero;
+        applyingResponsiveLayout = false;
     }
 
     void ClearItems()
