@@ -51,15 +51,16 @@ public static class EditWorkspace
 
     public static Vector3 SnapPlacementPoint(Vector3 groundPoint, float gridSize, float yOffset)
     {
+        _ = yOffset; // 旧Prefabとのserialized互換用。Y位置は配置後にrenderer boundsから決定する。
         if (!EditSnapSettings.ShouldSnap)
         {
-            return new Vector3(groundPoint.x, groundPoint.y + yOffset, groundPoint.z);
+            return new Vector3(groundPoint.x, GroundY, groundPoint.z);
         }
 
         float snap = Mathf.Max(0.0001f, gridSize);
         return new Vector3(
             Mathf.Round(groundPoint.x / snap) * snap,
-            groundPoint.y + yOffset,
+            GroundY,
             Mathf.Round(groundPoint.z / snap) * snap);
     }
 

@@ -3,6 +3,8 @@ using UnityEngine;
 public class PlaceObjectCommand : IEditorCommand, IDiscardableEditorCommand {
     string typeId; Vector3 pos; Quaternion rot;
     GameObject instance;
+    Vector3 resolvedPosition;
+    bool hasResolvedPosition;
     System.Func<string, GameObject> factory; // typeId→Instantiateする関数
     public string Label => "Place " + typeId;
 
@@ -22,7 +24,16 @@ public class PlaceObjectCommand : IEditorCommand, IDiscardableEditorCommand {
         }
 
         instance.SetActive(true);
-        instance.transform.SetPositionAndRotation(pos, rot);
+        if (hasResolvedPosition)
+        {
+            instance.transform.SetPositionAndRotation(resolvedPosition, rot);
+        }
+        else
+        {
+            instance.transform.SetPositionAndRotation(pos, rot);
+            PlacedObjectGrounding.AlignRendererBoundsToGround(instance, EditWorkspace.GroundY, out resolvedPosition);
+            hasResolvedPosition = true;
+        }
         return true;
     }
     public bool Undo(){ if (instance==null) return false; instance.SetActive(false); return true; }
