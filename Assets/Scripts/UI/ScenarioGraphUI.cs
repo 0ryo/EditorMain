@@ -14,6 +14,7 @@ public class ScenarioGraphUI : MonoBehaviour
     const string SaveLabel = "保存";
     const string StartNodeLabel = "開始";
     const string EndNodeLabel = "終了";
+    const string EmptyGraphGuide = "「+ 手順」からシナリオを作成してください";
 
     static readonly System.Collections.Generic.Dictionary<string, string> ErrorMessages = new System.Collections.Generic.Dictionary<string, string>
     {
@@ -144,15 +145,6 @@ public class ScenarioGraphUI : MonoBehaviour
     {
         cornerRadius = DesignTokens.CornerRadius;
         graph.EnsureGraphInitialized();
-        if (graph.GetNodes(ScenarioNodeType.Step).Count == 0)
-        {
-            var defaultStep = graph.AddStep();
-            var defaultCondition = graph.GetNodes(ScenarioNodeType.Condition).FirstOrDefault() ?? graph.AddCondition();
-            if (!graph.IsConditionBoundToStep(defaultCondition.nodeId))
-            {
-                graph.TryBindConditionToStep(defaultCondition.nodeId, defaultStep.nodeId, out _);
-            }
-        }
 
         if (projectNameInput != null)
         {
@@ -1329,6 +1321,14 @@ public class ScenarioGraphUI : MonoBehaviour
     void RefreshValidationStatus()
     {
         if (graph == null || saveButton == null || statusText == null) return;
+
+        if (graph.GetNodes(ScenarioNodeType.Step).Count == 0)
+        {
+            saveButton.interactable = false;
+            statusText.text = EmptyGraphGuide;
+            validationPanel?.Hide();
+            return;
+        }
 
         var validation = graph.ValidateGraph();
         saveButton.interactable = validation.CanExport;
