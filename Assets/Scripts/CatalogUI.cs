@@ -13,6 +13,8 @@ using UnityEditor;
 
 public class CatalogUI : MonoBehaviour
 {
+    const string EditorMainScenePath = "Assets/EditorMain.unity";
+
     [SerializeField] PrefabRegistry registry;
     [SerializeField] PlacementController placementController;
     [SerializeField] RectTransform content;
@@ -105,6 +107,12 @@ public class CatalogUI : MonoBehaviour
 
     void Start()
     {
+        if (!ValidateRuntimeScene())
+        {
+            enabled = false;
+            return;
+        }
+
         cornerRadius = DesignTokens.CornerRadius;
         EnsureSingleEventSystem();
         EnsureRuntimeBindings();
@@ -118,6 +126,30 @@ public class CatalogUI : MonoBehaviour
         ApplyRoundedTheme();
         DesignTokenApplier.ApplyCatalogPanel(transform);
         RefreshModeButtons();
+    }
+
+    bool ValidateRuntimeScene()
+    {
+        var scene = gameObject.scene;
+        if (scene.IsValid() &&
+            string.Equals(scene.path, EditorMainScenePath, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        string loadedScene = scene.IsValid() && !string.IsNullOrWhiteSpace(scene.path)
+            ? scene.path
+            : scene.name;
+        string message =
+            $"[CatalogUI] Invalid editor composition in '{loadedScene}'. Open {EditorMainScenePath}; runtime services were not created.";
+        if (statusText != null)
+        {
+            statusText.text = $"構成エラー: {EditorMainScenePath} を開いてください";
+            statusText.color = DesignTokens.Error;
+        }
+
+        Debug.LogError(message, this);
+        return false;
     }
 
     void OnDestroy()
