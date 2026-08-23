@@ -303,12 +303,17 @@ public class ViewportStatusStrip : MonoBehaviour
 
         float gridSize = placementController != null
             ? Mathf.Max(0.0001f, placementController.gridSize)
-            : 0.1f;
+            : EditSnapSettings.GridSize;
+        string snapText = !EditSnapSettings.Enabled
+            ? "Snap OFF"
+            : EditSnapSettings.TemporarilyDisabled
+                ? "Snap OFF (Alt)"
+                : $"Grid {gridSize:0.##}m / Rot {EditSnapSettings.RotationDegrees:0.#}°";
 
         if (selectedObject != null)
         {
             debugText.text =
-                $"Grid {gridSize:0.##}m | Pos {FormatVector(selectedObject.transform.position)} | Scale {FormatVector(selectedObject.transform.localScale)}";
+                $"{snapText} | Pos {FormatVector(selectedObject.transform.position)} | Scale {FormatVector(selectedObject.transform.localScale)}";
             return;
         }
 
@@ -317,7 +322,7 @@ public class ViewportStatusStrip : MonoBehaviour
             ? $"Cam {FormatVector(cam.transform.position)} / Zoom {(cam.orthographic ? cam.orthographicSize : cam.transform.position.magnitude):0.0}"
             : "Cam none";
 
-        debugText.text = $"Grid {gridSize:0.##}m | {cameraText}";
+        debugText.text = $"{snapText} | {cameraText}";
     }
 
     static string FormatVector(Vector3 value)

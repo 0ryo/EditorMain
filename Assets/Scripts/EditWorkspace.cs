@@ -51,6 +51,11 @@ public static class EditWorkspace
 
     public static Vector3 SnapPlacementPoint(Vector3 groundPoint, float gridSize, float yOffset)
     {
+        if (!EditSnapSettings.ShouldSnap)
+        {
+            return new Vector3(groundPoint.x, groundPoint.y + yOffset, groundPoint.z);
+        }
+
         float snap = Mathf.Max(0.0001f, gridSize);
         return new Vector3(
             Mathf.Round(groundPoint.x / snap) * snap,

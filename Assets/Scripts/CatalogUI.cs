@@ -35,6 +35,11 @@ public class CatalogUI : MonoBehaviour
     [SerializeField] RectTransform settingsAccountContent;
     [SerializeField] Slider settingsSensitivitySlider;
     [SerializeField] TMP_Text settingsSensitivityValueText;
+    [SerializeField] Toggle settingsSnapEnabledToggle;
+    [SerializeField] Slider settingsGridSnapSlider;
+    [SerializeField] TMP_Text settingsGridSnapValueText;
+    [SerializeField] Slider settingsRotationSnapSlider;
+    [SerializeField] TMP_Text settingsRotationSnapValueText;
     [SerializeField] Button settingsIntegrationLinkButton;
     [SerializeField] Button settingsRevertButton;
     [SerializeField] Button settingsApplyButton;
@@ -86,6 +91,13 @@ public class CatalogUI : MonoBehaviour
     float settingsBaseOrthographicZoomSpeed = -1f;
     float settingsCommittedSensitivityScale = 1f;
     float settingsPendingSensitivityScale = 1f;
+    float settingsCommittedGridSnap = EditSnapSettings.DefaultGridSize;
+    float settingsPendingGridSnap = EditSnapSettings.DefaultGridSize;
+    float settingsCommittedRotationSnap = EditSnapSettings.DefaultRotationDegrees;
+    float settingsPendingRotationSnap = EditSnapSettings.DefaultRotationDegrees;
+    bool settingsCommittedSnapEnabled = true;
+    bool settingsPendingSnapEnabled = true;
+    bool settingsSnapBindingInitialized;
     bool settingsHasPendingChanges;
     bool settingsInitializingUi;
     SettingsTab activeSettingsTab = SettingsTab.General;
@@ -487,6 +499,24 @@ public class CatalogUI : MonoBehaviour
         {
             settingsSensitivitySlider.onValueChanged.RemoveListener(OnSettingsSensitivityChanged);
             settingsSensitivitySlider.onValueChanged.AddListener(OnSettingsSensitivityChanged);
+        }
+
+        if (settingsSnapEnabledToggle != null)
+        {
+            settingsSnapEnabledToggle.onValueChanged.RemoveListener(OnSettingsSnapEnabledChanged);
+            settingsSnapEnabledToggle.onValueChanged.AddListener(OnSettingsSnapEnabledChanged);
+        }
+
+        if (settingsGridSnapSlider != null)
+        {
+            settingsGridSnapSlider.onValueChanged.RemoveListener(OnSettingsGridSnapChanged);
+            settingsGridSnapSlider.onValueChanged.AddListener(OnSettingsGridSnapChanged);
+        }
+
+        if (settingsRotationSnapSlider != null)
+        {
+            settingsRotationSnapSlider.onValueChanged.RemoveListener(OnSettingsRotationSnapChanged);
+            settingsRotationSnapSlider.onValueChanged.AddListener(OnSettingsRotationSnapChanged);
         }
 
         if (settingsIntegrationLinkButton != null)
@@ -956,6 +986,21 @@ public class CatalogUI : MonoBehaviour
         var sliderValueTr = overlayRt.Find("Window/Content/Content_General/SliderRow/Text_SensitivityValue");
         if (sliderValueTr != null) settingsSensitivityValueText = sliderValueTr.GetComponent<TMP_Text>();
 
+        var snapToggleTr = overlayRt.Find("Window/Content/Content_General/SnapToggleRow/Toggle_SnapEnabled");
+        if (snapToggleTr != null) settingsSnapEnabledToggle = snapToggleTr.GetComponent<Toggle>();
+
+        var gridSliderTr = overlayRt.Find("Window/Content/Content_General/GridSnapRow/Slider_GridSnap");
+        if (gridSliderTr != null) settingsGridSnapSlider = gridSliderTr.GetComponent<Slider>();
+
+        var gridValueTr = overlayRt.Find("Window/Content/Content_General/GridSnapRow/Text_GridSnapValue");
+        if (gridValueTr != null) settingsGridSnapValueText = gridValueTr.GetComponent<TMP_Text>();
+
+        var rotationSliderTr = overlayRt.Find("Window/Content/Content_General/RotationSnapRow/Slider_RotationSnap");
+        if (rotationSliderTr != null) settingsRotationSnapSlider = rotationSliderTr.GetComponent<Slider>();
+
+        var rotationValueTr = overlayRt.Find("Window/Content/Content_General/RotationSnapRow/Text_RotationSnapValue");
+        if (rotationValueTr != null) settingsRotationSnapValueText = rotationValueTr.GetComponent<TMP_Text>();
+
         var linkTr = overlayRt.Find("Window/Content/Content_Integration/Button_WebLink");
         if (linkTr != null) settingsIntegrationLinkButton = linkTr.GetComponent<Button>();
 
@@ -1093,12 +1138,30 @@ public class CatalogUI : MonoBehaviour
         BindSettingsReferences(overlayRt);
 
         EnsureSettingsCameraBinding();
+        EnsureSettingsSnapBinding();
         settingsPendingSensitivityScale = Mathf.Clamp(settingsPendingSensitivityScale, 0.2f, 2.5f);
+        settingsPendingGridSnap = Mathf.Clamp(settingsPendingGridSnap, 0.05f, 1f);
+        settingsPendingRotationSnap = Mathf.Clamp(settingsPendingRotationSnap, 1f, 90f);
 
         if (settingsSensitivitySlider != null)
         {
             settingsSensitivitySlider.minValue = 0.2f;
             settingsSensitivitySlider.maxValue = 2.5f;
+        }
+
+
+        if (settingsGridSnapSlider != null)
+        {
+            settingsGridSnapSlider.minValue = 0.05f;
+            settingsGridSnapSlider.maxValue = 1f;
+            settingsGridSnapSlider.wholeNumbers = false;
+        }
+
+        if (settingsRotationSnapSlider != null)
+        {
+            settingsRotationSnapSlider.minValue = 1f;
+            settingsRotationSnapSlider.maxValue = 90f;
+            settingsRotationSnapSlider.wholeNumbers = true;
         }
 
         if (settingsAccountUserNameText != null)
@@ -1123,9 +1186,22 @@ public class CatalogUI : MonoBehaviour
         {
             settingsSensitivitySlider.SetValueWithoutNotify(settingsPendingSensitivityScale);
         }
+        if (settingsSnapEnabledToggle != null)
+        {
+            settingsSnapEnabledToggle.SetIsOnWithoutNotify(settingsPendingSnapEnabled);
+        }
+        if (settingsGridSnapSlider != null)
+        {
+            settingsGridSnapSlider.SetValueWithoutNotify(settingsPendingGridSnap);
+        }
+        if (settingsRotationSnapSlider != null)
+        {
+            settingsRotationSnapSlider.SetValueWithoutNotify(settingsPendingRotationSnap);
+        }
         UpdateSensitivityValueText(settingsPendingSensitivityScale);
+        UpdateSnapValueTexts();
         settingsInitializingUi = false;
-        SetSettingsDirty(!Mathf.Approximately(settingsPendingSensitivityScale, settingsCommittedSensitivityScale));
+        RefreshSettingsDirtyState();
 
         EnsureSettingsOverlayCloseHandler(overlayRt, windowRt);
 
@@ -1248,6 +1324,73 @@ public class CatalogUI : MonoBehaviour
         valueRt.anchorMax = new Vector2(1f, 1f);
         valueRt.offsetMin = new Vector2(-84f, 0f);
         valueRt.offsetMax = new Vector2(0f, 0f);
+
+        var snapTitle = FindOrCreateSettingsText(contentRt, "Text_SnapTitle", "スナップ");
+        snapTitle.fontSize = 16;
+        snapTitle.alignment = TextAlignmentOptions.MidlineLeft;
+        snapTitle.color = DesignTokens.TextPrimary;
+        var snapTitleRt = snapTitle.rectTransform;
+        snapTitleRt.anchorMin = new Vector2(0f, 1f);
+        snapTitleRt.anchorMax = new Vector2(1f, 1f);
+        snapTitleRt.offsetMin = new Vector2(24f, -168f);
+        snapTitleRt.offsetMax = new Vector2(-24f, -136f);
+
+        var snapToggleRow = FindOrCreateSettingsRect(contentRt, "SnapToggleRow");
+        snapToggleRow.anchorMin = new Vector2(0f, 1f);
+        snapToggleRow.anchorMax = new Vector2(1f, 1f);
+        snapToggleRow.offsetMin = new Vector2(24f, -216f);
+        snapToggleRow.offsetMax = new Vector2(-24f, -176f);
+        settingsSnapEnabledToggle = EnsureSettingsToggle(snapToggleRow, settingsSnapEnabledToggle, "Toggle_SnapEnabled");
+
+        var snapToggleLabel = FindOrCreateSettingsText(snapToggleRow, "Text_SnapEnabled", "スナップを使用（Altキーを押している間は一時解除）");
+        snapToggleLabel.fontSize = 14;
+        snapToggleLabel.alignment = TextAlignmentOptions.MidlineLeft;
+        snapToggleLabel.color = DesignTokens.TextPrimary;
+        var snapToggleLabelRt = snapToggleLabel.rectTransform;
+        snapToggleLabelRt.anchorMin = Vector2.zero;
+        snapToggleLabelRt.anchorMax = Vector2.one;
+        snapToggleLabelRt.offsetMin = new Vector2(48f, 0f);
+        snapToggleLabelRt.offsetMax = Vector2.zero;
+
+        var gridLabel = FindOrCreateSettingsText(contentRt, "Text_GridSnapLabel", "グリッド幅");
+        gridLabel.fontSize = 14;
+        gridLabel.alignment = TextAlignmentOptions.MidlineLeft;
+        gridLabel.color = DesignTokens.TextSecondary;
+        var gridLabelRt = gridLabel.rectTransform;
+        gridLabelRt.anchorMin = new Vector2(0f, 1f);
+        gridLabelRt.anchorMax = new Vector2(1f, 1f);
+        gridLabelRt.offsetMin = new Vector2(24f, -248f);
+        gridLabelRt.offsetMax = new Vector2(-24f, -220f);
+
+        var gridRow = FindOrCreateSettingsRect(contentRt, "GridSnapRow");
+        gridRow.anchorMin = new Vector2(0f, 1f);
+        gridRow.anchorMax = new Vector2(1f, 1f);
+        gridRow.offsetMin = new Vector2(24f, -292f);
+        gridRow.offsetMax = new Vector2(-24f, -252f);
+        settingsGridSnapSlider = EnsureSettingsSlider(gridRow, settingsGridSnapSlider, "Slider_GridSnap");
+        ConfigureSettingsSliderRect(settingsGridSnapSlider, 90f);
+        settingsGridSnapValueText = FindOrCreateSettingsText(gridRow, "Text_GridSnapValue", "0.10 m");
+        ConfigureSettingsValueText(settingsGridSnapValueText);
+
+        var rotationLabel = FindOrCreateSettingsText(contentRt, "Text_RotationSnapLabel", "回転の刻み");
+        rotationLabel.fontSize = 14;
+        rotationLabel.alignment = TextAlignmentOptions.MidlineLeft;
+        rotationLabel.color = DesignTokens.TextSecondary;
+        var rotationLabelRt = rotationLabel.rectTransform;
+        rotationLabelRt.anchorMin = new Vector2(0f, 1f);
+        rotationLabelRt.anchorMax = new Vector2(1f, 1f);
+        rotationLabelRt.offsetMin = new Vector2(24f, -324f);
+        rotationLabelRt.offsetMax = new Vector2(-24f, -296f);
+
+        var rotationRow = FindOrCreateSettingsRect(contentRt, "RotationSnapRow");
+        rotationRow.anchorMin = new Vector2(0f, 1f);
+        rotationRow.anchorMax = new Vector2(1f, 1f);
+        rotationRow.offsetMin = new Vector2(24f, -368f);
+        rotationRow.offsetMax = new Vector2(-24f, -328f);
+        settingsRotationSnapSlider = EnsureSettingsSlider(rotationRow, settingsRotationSnapSlider, "Slider_RotationSnap");
+        ConfigureSettingsSliderRect(settingsRotationSnapSlider, 90f);
+        settingsRotationSnapValueText = FindOrCreateSettingsText(rotationRow, "Text_RotationSnapValue", "15°");
+        ConfigureSettingsValueText(settingsRotationSnapValueText);
     }
 
     void EnsureIntegrationSettingsContent(RectTransform contentRt)
@@ -1376,6 +1519,73 @@ public class CatalogUI : MonoBehaviour
         slider.targetGraphic = handleImage;
         slider.direction = Slider.Direction.LeftToRight;
         return slider;
+    }
+
+    Toggle EnsureSettingsToggle(RectTransform parent, Toggle toggle, string objectName)
+    {
+        if (parent == null) return toggle;
+
+        if (toggle == null)
+        {
+            var found = parent.Find(objectName);
+            if (found != null) toggle = found.GetComponent<Toggle>();
+        }
+
+        if (toggle == null)
+        {
+            var root = new GameObject(objectName, typeof(RectTransform), typeof(Image), typeof(Toggle));
+            var rootRt = root.GetComponent<RectTransform>();
+            rootRt.SetParent(parent, false);
+            toggle = root.GetComponent<Toggle>();
+        }
+
+        var rect = toggle.transform as RectTransform;
+        rect.anchorMin = new Vector2(0f, 0.5f);
+        rect.anchorMax = new Vector2(0f, 0.5f);
+        rect.pivot = new Vector2(0f, 0.5f);
+        rect.sizeDelta = new Vector2(36f, 36f);
+        rect.anchoredPosition = Vector2.zero;
+
+        var background = toggle.GetComponent<Image>();
+        if (background == null) background = toggle.gameObject.AddComponent<Image>();
+        background.color = DesignTokens.BgSecondary;
+
+        var checkmarkRt = FindOrCreateSettingsRect(toggle.transform, "Checkmark");
+        checkmarkRt.anchorMin = new Vector2(0.5f, 0.5f);
+        checkmarkRt.anchorMax = new Vector2(0.5f, 0.5f);
+        checkmarkRt.pivot = new Vector2(0.5f, 0.5f);
+        checkmarkRt.sizeDelta = new Vector2(22f, 22f);
+        checkmarkRt.anchoredPosition = Vector2.zero;
+        var checkmark = checkmarkRt.GetComponent<Image>();
+        if (checkmark == null) checkmark = checkmarkRt.gameObject.AddComponent<Image>();
+        checkmark.color = DesignTokens.Accent;
+
+        toggle.targetGraphic = background;
+        toggle.graphic = checkmark;
+        return toggle;
+    }
+
+    static void ConfigureSettingsSliderRect(Slider slider, float valueWidth)
+    {
+        var rect = slider != null ? slider.transform as RectTransform : null;
+        if (rect == null) return;
+        rect.anchorMin = Vector2.zero;
+        rect.anchorMax = Vector2.one;
+        rect.offsetMin = Vector2.zero;
+        rect.offsetMax = new Vector2(-valueWidth, 0f);
+    }
+
+    static void ConfigureSettingsValueText(TMP_Text text)
+    {
+        if (text == null) return;
+        text.fontSize = 14;
+        text.alignment = TextAlignmentOptions.MidlineRight;
+        text.color = DesignTokens.TextSecondary;
+        var rect = text.rectTransform;
+        rect.anchorMin = new Vector2(1f, 0f);
+        rect.anchorMax = Vector2.one;
+        rect.offsetMin = new Vector2(-84f, 0f);
+        rect.offsetMax = Vector2.zero;
     }
 
     TMP_Text FindOrCreateSettingsText(Transform parent, string objectName, string defaultText)
@@ -2392,6 +2602,32 @@ public class CatalogUI : MonoBehaviour
         settingsBaseOrthographicZoomSpeed = settingsCameraController.orthographicZoomSpeed;
     }
 
+    void EnsureSettingsSnapBinding()
+    {
+        if (settingsSnapBindingInitialized) return;
+
+        if (placementController == null)
+        {
+            placementController = FindFirstObjectByType<PlacementController>();
+        }
+
+        var moveTool = FindFirstObjectByType<MoveTool>();
+        settingsCommittedGridSnap = placementController != null
+            ? Mathf.Max(0.05f, placementController.gridSize)
+            : moveTool != null
+                ? Mathf.Max(0.05f, moveTool.gridSize)
+                : EditSnapSettings.DefaultGridSize;
+        settingsCommittedRotationSnap = moveTool != null
+            ? Mathf.Clamp(moveTool.rotateSnapDegrees, 1f, 90f)
+            : EditSnapSettings.DefaultRotationDegrees;
+        settingsCommittedSnapEnabled = EditSnapSettings.Enabled;
+        settingsPendingGridSnap = settingsCommittedGridSnap;
+        settingsPendingRotationSnap = settingsCommittedRotationSnap;
+        settingsPendingSnapEnabled = settingsCommittedSnapEnabled;
+        settingsSnapBindingInitialized = true;
+        ApplySnapSettings(settingsCommittedGridSnap, settingsCommittedRotationSnap, settingsCommittedSnapEnabled);
+    }
+
     void OnSettingsSensitivityChanged(float sliderValue)
     {
         float clamped = Mathf.Clamp(sliderValue, 0.2f, 2.5f);
@@ -2399,7 +2635,30 @@ public class CatalogUI : MonoBehaviour
         UpdateSensitivityValueText(clamped);
 
         if (settingsInitializingUi) return;
-        SetSettingsDirty(!Mathf.Approximately(settingsPendingSensitivityScale, settingsCommittedSensitivityScale));
+        RefreshSettingsDirtyState();
+    }
+
+    void OnSettingsSnapEnabledChanged(bool enabled)
+    {
+        settingsPendingSnapEnabled = enabled;
+        if (settingsInitializingUi) return;
+        RefreshSettingsDirtyState();
+    }
+
+    void OnSettingsGridSnapChanged(float value)
+    {
+        settingsPendingGridSnap = Mathf.Clamp(value, 0.05f, 1f);
+        UpdateSnapValueTexts();
+        if (settingsInitializingUi) return;
+        RefreshSettingsDirtyState();
+    }
+
+    void OnSettingsRotationSnapChanged(float value)
+    {
+        settingsPendingRotationSnap = Mathf.Clamp(Mathf.Round(value), 1f, 90f);
+        UpdateSnapValueTexts();
+        if (settingsInitializingUi) return;
+        RefreshSettingsDirtyState();
     }
 
     void UpdateSensitivityValueText(float scale)
@@ -2417,6 +2676,48 @@ public class CatalogUI : MonoBehaviour
         settingsCameraController.panSpeed = settingsBasePanSpeed * scale;
         settingsCameraController.zoomSpeed = settingsBaseZoomSpeed * scale;
         settingsCameraController.orthographicZoomSpeed = settingsBaseOrthographicZoomSpeed * scale;
+    }
+
+    void UpdateSnapValueTexts()
+    {
+        if (settingsGridSnapValueText != null)
+        {
+            settingsGridSnapValueText.text = $"{settingsPendingGridSnap:0.00} m";
+        }
+
+        if (settingsRotationSnapValueText != null)
+        {
+            settingsRotationSnapValueText.text = $"{settingsPendingRotationSnap:0}°";
+        }
+    }
+
+    void ApplySnapSettings(float gridSize, float rotationDegrees, bool enabled)
+    {
+        EditSnapSettings.Configure(gridSize, rotationDegrees, enabled);
+
+        if (placementController == null)
+        {
+            placementController = FindFirstObjectByType<PlacementController>();
+        }
+        if (placementController != null) placementController.gridSize = EditSnapSettings.GridSize;
+
+        var moveTools = FindObjectsByType<MoveTool>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        foreach (var moveTool in moveTools)
+        {
+            if (moveTool == null) continue;
+            moveTool.gridSize = EditSnapSettings.GridSize;
+            moveTool.rotateSnapDegrees = EditSnapSettings.RotationDegrees;
+        }
+    }
+
+    void RefreshSettingsDirtyState()
+    {
+        bool dirty =
+            !Mathf.Approximately(settingsPendingSensitivityScale, settingsCommittedSensitivityScale) ||
+            !Mathf.Approximately(settingsPendingGridSnap, settingsCommittedGridSnap) ||
+            !Mathf.Approximately(settingsPendingRotationSnap, settingsCommittedRotationSnap) ||
+            settingsPendingSnapEnabled != settingsCommittedSnapEnabled;
+        SetSettingsDirty(dirty);
     }
 
     void SetSettingsDirty(bool dirty)
@@ -2441,12 +2742,28 @@ public class CatalogUI : MonoBehaviour
     void DiscardPendingSettingsChanges()
     {
         settingsPendingSensitivityScale = settingsCommittedSensitivityScale;
+        settingsPendingGridSnap = settingsCommittedGridSnap;
+        settingsPendingRotationSnap = settingsCommittedRotationSnap;
+        settingsPendingSnapEnabled = settingsCommittedSnapEnabled;
         settingsInitializingUi = true;
         if (settingsSensitivitySlider != null)
         {
             settingsSensitivitySlider.SetValueWithoutNotify(settingsCommittedSensitivityScale);
         }
+        if (settingsSnapEnabledToggle != null)
+        {
+            settingsSnapEnabledToggle.SetIsOnWithoutNotify(settingsCommittedSnapEnabled);
+        }
+        if (settingsGridSnapSlider != null)
+        {
+            settingsGridSnapSlider.SetValueWithoutNotify(settingsCommittedGridSnap);
+        }
+        if (settingsRotationSnapSlider != null)
+        {
+            settingsRotationSnapSlider.SetValueWithoutNotify(settingsCommittedRotationSnap);
+        }
         UpdateSensitivityValueText(settingsCommittedSensitivityScale);
+        UpdateSnapValueTexts();
         settingsInitializingUi = false;
         SetSettingsDirty(false);
     }
@@ -2454,7 +2771,11 @@ public class CatalogUI : MonoBehaviour
     void OnClickSettingsApply()
     {
         settingsCommittedSensitivityScale = settingsPendingSensitivityScale;
+        settingsCommittedGridSnap = settingsPendingGridSnap;
+        settingsCommittedRotationSnap = settingsPendingRotationSnap;
+        settingsCommittedSnapEnabled = settingsPendingSnapEnabled;
         ApplySensitivityScaleToCamera(settingsCommittedSensitivityScale);
+        ApplySnapSettings(settingsCommittedGridSnap, settingsCommittedRotationSnap, settingsCommittedSnapEnabled);
         SetSettingsDirty(false);
         CloseSettingsPanel();
     }

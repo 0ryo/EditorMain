@@ -289,7 +289,7 @@ public class MoveTool : MonoBehaviour
             float projection = Vector2.Dot(EditInput.MousePosition - gizmoDragStartCenterScreen, gizmoDragAxisScreenDir);
             float deltaWorld = (projection - gizmoDragStartPointerProjection) * gizmoDragWorldPerPixel;
 
-            if (gridSize > 0.0001f)
+            if (EditSnapSettings.ShouldSnap && gridSize > 0.0001f)
             {
                 deltaWorld = Mathf.Round(deltaWorld / gridSize) * gridSize;
             }
@@ -307,7 +307,7 @@ public class MoveTool : MonoBehaviour
             if (currentVector.sqrMagnitude < 0.00001f) return;
 
             float angleDelta = Vector3.SignedAngle(gizmoRotationStartVector, currentVector.normalized, axisDir);
-            if (rotateSnapDegrees > 0.001f)
+            if (EditSnapSettings.ShouldSnap && rotateSnapDegrees > 0.001f)
             {
                 angleDelta = Mathf.Round(angleDelta / rotateSnapDegrees) * rotateSnapDegrees;
             }

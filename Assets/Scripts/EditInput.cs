@@ -138,4 +138,16 @@ public static class EditInput
         return false;
 #endif
     }
+
+    public static bool AltPressed()
+    {
+#if ENABLE_LEGACY_INPUT_MANAGER
+        return Input.GetKey(KeyCode.LeftAlt) || Input.GetKey(KeyCode.RightAlt);
+#elif ENABLE_INPUT_SYSTEM
+        return Keyboard.current != null &&
+            (Keyboard.current.leftAltKey.isPressed || Keyboard.current.rightAltKey.isPressed);
+#else
+        return false;
+#endif
+    }
 }
