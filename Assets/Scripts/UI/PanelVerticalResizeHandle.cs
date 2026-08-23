@@ -3,6 +3,10 @@ using UnityEngine.EventSystems;
 
 public class PanelVerticalResizeHandle : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler, IPointerEnterHandler, IPointerExitHandler
 {
+    const float HitAreaHeight = 20f;
+    const float GripWidth = 72f;
+    const float GripHeight = 3f;
+
     public RectTransform targetPanel;
     public float minHeight = DesignTokens.ScenarioMinHeight;
     public float maxHeight = DesignTokens.ScenarioMaxHeight;
@@ -30,6 +34,7 @@ public class PanelVerticalResizeHandle : MonoBehaviour, IBeginDragHandler, IDrag
         ApplyDefaultLimits();
         rootCanvas = targetPanel.GetComponentInParent<Canvas>();
         isDragging = true;
+        SetHandleHighlight(true);
         UiResizeCursor.SetVertical();
     }
 
@@ -49,18 +54,21 @@ public class PanelVerticalResizeHandle : MonoBehaviour, IBeginDragHandler, IDrag
     public void OnEndDrag(PointerEventData eventData)
     {
         isDragging = false;
+        SetHandleHighlight(pointerInside);
         if (!pointerInside) UiResizeCursor.Reset();
     }
 
     public void OnPointerEnter(PointerEventData eventData)
     {
         pointerInside = true;
+        SetHandleHighlight(true);
         UiResizeCursor.SetVertical();
     }
 
     public void OnPointerExit(PointerEventData eventData)
     {
         pointerInside = false;
+        SetHandleHighlight(isDragging);
         if (!isDragging) UiResizeCursor.Reset();
     }
 
@@ -68,6 +76,7 @@ public class PanelVerticalResizeHandle : MonoBehaviour, IBeginDragHandler, IDrag
     {
         pointerInside = false;
         isDragging = false;
+        SetHandleHighlight(false);
         UiResizeCursor.Reset();
     }
 
@@ -82,8 +91,16 @@ public class PanelVerticalResizeHandle : MonoBehaviour, IBeginDragHandler, IDrag
         var root = transform as RectTransform;
         if (root == null) return;
 
+        root.anchorMin = new Vector2(0f, 1f);
+        root.anchorMax = new Vector2(1f, 1f);
+        root.pivot = new Vector2(0.5f, 0.5f);
+        root.offsetMin = new Vector2(root.offsetMin.x, -HitAreaHeight * 0.5f);
+        root.offsetMax = new Vector2(root.offsetMax.x, HitAreaHeight * 0.5f);
+
         var image = GetComponent<UnityEngine.UI.Image>();
-        if (image != null) image.color = DesignTokens.BgPrimary;
+        if (image == null) image = gameObject.AddComponent<UnityEngine.UI.Image>();
+        image.color = DesignTokens.BgPrimary;
+        image.raycastTarget = true;
 
         var grip = root.Find("Grip") as RectTransform;
         if (grip == null)
@@ -97,11 +114,27 @@ public class PanelVerticalResizeHandle : MonoBehaviour, IBeginDragHandler, IDrag
         grip.anchorMax = new Vector2(0.5f, 0.5f);
         grip.pivot = new Vector2(0.5f, 0.5f);
         grip.anchoredPosition = Vector2.zero;
-        grip.sizeDelta = new Vector2(64f, 2f);
+        grip.sizeDelta = new Vector2(GripWidth, GripHeight);
 
         var gripImage = grip.GetComponent<UnityEngine.UI.Image>();
         gripImage.color = DesignTokens.Divider;
         gripImage.raycastTarget = false;
+    }
+
+    void SetHandleHighlight(bool highlighted)
+    {
+        var image = GetComponent<UnityEngine.UI.Image>();
+        if (image != null)
+        {
+            image.color = highlighted ? DesignTokens.BgTertiary : DesignTokens.BgPrimary;
+        }
+
+        var grip = transform.Find("Grip");
+        var gripImage = grip != null ? grip.GetComponent<UnityEngine.UI.Image>() : null;
+        if (gripImage != null)
+        {
+            gripImage.color = highlighted ? DesignTokens.Accent : DesignTokens.Divider;
+        }
     }
 }
 
