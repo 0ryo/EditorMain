@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -9,6 +10,7 @@ public static class EditWorkspace
     public static readonly Vector3 DefaultCameraPosition = new Vector3(0f, 6f, -10f);
 
     static readonly Plane GroundPlane = new Plane(Vector3.up, new Vector3(0f, GroundY, 0f));
+    static readonly List<RaycastResult> UiRaycastResults = new List<RaycastResult>();
 
     public static Camera ResolveCamera(Camera preferred = null)
     {
@@ -59,17 +61,27 @@ public static class EditWorkspace
     public static bool TryGetBlockingUiName(Vector2 screenPosition, string[] blockingNames, out string blockingUiName)
     {
         blockingUiName = null;
-        if (blockingNames == null || blockingNames.Length == 0) return false;
+        var eventSystem = EventSystem.current;
+        if (eventSystem == null || blockingNames == null || blockingNames.Length == 0) return false;
 
-        foreach (var rect in Object.FindObjectsByType<RectTransform>(FindObjectsInactive.Exclude, FindObjectsSortMode.None))
+        UiRaycastResults.Clear();
+        eventSystem.RaycastAll(new PointerEventData(eventSystem) { position = screenPosition }, UiRaycastResults);
+
+        foreach (var result in UiRaycastResults)
         {
-            if (rect == null || !IsNamedBlockingUiRect(rect.name, blockingNames)) continue;
-            if (!RectTransformUtility.RectangleContainsScreenPoint(rect, screenPosition, null)) continue;
+            for (var current = result.gameObject != null ? result.gameObject.transform : null;
+                 current != null;
+                 current = current.parent)
+            {
+                if (!IsNamedBlockingUiRect(current.name, blockingNames)) continue;
 
-            blockingUiName = rect.name;
-            return true;
+                blockingUiName = current.name;
+                UiRaycastResults.Clear();
+                return true;
+            }
         }
 
+        UiRaycastResults.Clear();
         return false;
     }
 
