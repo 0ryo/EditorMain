@@ -9,7 +9,7 @@ public class PlaceObjectCommand : IEditorCommand, IDiscardableEditorCommand {
     public PlaceObjectCommand(string typeId, Vector3 pos, Quaternion rot, System.Func<string,GameObject> factory){
         this.typeId=typeId; this.pos=pos; this.rot=rot; this.factory=factory;
     }
-    public void Do()  {
+    public bool Do()  {
         if (instance == null)
         {
             instance = factory != null ? factory(typeId) : null;
@@ -18,13 +18,14 @@ public class PlaceObjectCommand : IEditorCommand, IDiscardableEditorCommand {
         if (instance == null)
         {
             Debug.LogWarning($"[PlaceObjectCommand] Factory returned null for typeId={typeId}");
-            return;
+            return false;
         }
 
         instance.SetActive(true);
         instance.transform.SetPositionAndRotation(pos, rot);
+        return true;
     }
-    public void Undo(){ if (instance!=null) instance.SetActive(false); }
+    public bool Undo(){ if (instance==null) return false; instance.SetActive(false); return true; }
     public void Discard(){ if (instance!=null && !instance.activeSelf) GameObject.Destroy(instance); }
 }
 
@@ -48,11 +49,11 @@ public class DuplicateObjectCommand : IEditorCommand, IDiscardableEditorCommand 
         }
     }
 
-    public void Do(){
+    public bool Do(){
         if (instance==null){
             if (source==null){
                 Debug.LogWarning("[DuplicateObjectCommand] Source object is missing.");
-                return;
+                return false;
             }
 
             instance=GameObject.Instantiate(source, pos, rot);
@@ -70,9 +71,10 @@ public class DuplicateObjectCommand : IEditorCommand, IDiscardableEditorCommand 
 
         instance.SetActive(true);
         instance.transform.SetPositionAndRotation(pos, rot);
+        return true;
     }
 
-    public void Undo(){ if (instance!=null) instance.SetActive(false); }
+    public bool Undo(){ if (instance==null) return false; instance.SetActive(false); return true; }
     public void Discard(){ if (instance!=null && !instance.activeSelf) GameObject.Destroy(instance); }
 }
 
@@ -109,8 +111,8 @@ public class DeleteObjectCommand : IEditorCommand, IDiscardableEditorCommand {
             }
         }
     }
-    public void Do()  { if (target!=null) target.SetActive(false); }
-    public void Undo(){
+    public bool Do()  { if (target==null) return false; target.SetActive(false); return true; }
+    public bool Undo(){
         if (target==null)
         {
             target = factory != null ? factory(typeId) : null;
@@ -119,7 +121,7 @@ public class DeleteObjectCommand : IEditorCommand, IDiscardableEditorCommand {
         if (target == null)
         {
             Debug.LogWarning($"[DeleteObjectCommand] Factory returned null for typeId={typeId}");
-            return;
+            return false;
         }
 
         target.transform.SetParent(parent, true);
@@ -137,6 +139,7 @@ public class DeleteObjectCommand : IEditorCommand, IDiscardableEditorCommand {
         }
 
         target.SetActive(wasActiveSelf);
+        return true;
     }
     public void Discard(){ if (target!=null && !target.activeSelf) GameObject.Destroy(target); }
 }
