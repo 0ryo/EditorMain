@@ -6,6 +6,16 @@ public class HintPanelController : MonoBehaviour
 {
     const string ButtonName = "Button_Hints";
     const string PanelName = "Panel_Hints";
+    const string HintBody =
+        "視点操作\n" +
+        "・右ドラッグ または 中ドラッグ: 回転\n" +
+        "・Shift + 右/中ドラッグ: 平行移動　ホイール: ズーム\n" +
+        "・F: 選択へ　1/3/7: 正面/右/上　O: 平行/透視　Home: 初期化\n\n" +
+        "オブジェクト編集\n" +
+        "・W/A/S/D または 矢印: グリッド幅ずつ移動\n" +
+        "・Delete: 削除　Ctrl/Cmd + D: 複製\n" +
+        "・Altを押している間: 配置・移動・回転スナップを一時解除\n\n" +
+        "各ボタンにポインターを重ねると、その操作の説明を確認できます。";
 
     [SerializeField] Button openButton;
     [SerializeField] Button closeButton;
@@ -23,6 +33,7 @@ public class HintPanelController : MonoBehaviour
 
         controller.EnsureOpenButton(parent);
         controller.WireButtons();
+        controller.RefreshContent();
         UiRoundedTheme.ApplyToHierarchy(controller.transform, DesignTokens.CornerRadius);
         if (controller.openButton != null)
         {
@@ -37,6 +48,7 @@ public class HintPanelController : MonoBehaviour
     {
         EnsureOpenButton(transform.parent);
         WireButtons();
+        RefreshContent();
     }
 
     void EnsureOpenButton(Transform parent)
@@ -86,13 +98,33 @@ public class HintPanelController : MonoBehaviour
         gameObject.SetActive(false);
     }
 
+    void RefreshContent()
+    {
+        var rect = transform as RectTransform;
+        if (rect != null)
+        {
+            rect.sizeDelta = new Vector2(560f, 420f);
+        }
+
+        var title = transform.Find("Text_Title")?.GetComponent<TMP_Text>();
+        if (title != null) title.text = "操作ヒント";
+
+        var body = transform.Find("Text_Body")?.GetComponent<TMP_Text>();
+        if (body == null) return;
+        body.text = HintBody;
+        body.fontSize = DesignTokens.FontSizeBody;
+        body.color = DesignTokens.TextSecondary;
+        body.alignment = TextAlignmentOptions.TopLeft;
+        body.enableWordWrapping = true;
+    }
+
     static HintPanelController BuildPanel(Transform parent)
     {
         var root = CreateRect(PanelName, parent);
         root.anchorMin = new Vector2(0.5f, 0.5f);
         root.anchorMax = new Vector2(0.5f, 0.5f);
         root.pivot = new Vector2(0.5f, 0.5f);
-        root.sizeDelta = new Vector2(480f, 280f);
+        root.sizeDelta = new Vector2(560f, 420f);
         root.anchoredPosition = Vector2.zero;
 
         var image = root.gameObject.AddComponent<Image>();
@@ -101,10 +133,10 @@ public class HintPanelController : MonoBehaviour
         outline.effectColor = DesignTokens.Divider;
         outline.effectDistance = new Vector2(1f, -1f);
 
-        var title = CreateText("Text_Title", root, "\u30D2\u30F3\u30C8", DesignTokens.FontSizeHeading, DesignTokens.TextPrimary);
+        var title = CreateText("Text_Title", root, "操作ヒント", DesignTokens.FontSizeHeading, DesignTokens.TextPrimary);
         SetRect(title.rectTransform, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(24f, -64f), new Vector2(-24f, -24f));
 
-        var body = CreateText("Text_Body", root, "\u30D2\u30F3\u30C8\u306F\u6E96\u5099\u4E2D\u3067\u3059\u3002", DesignTokens.FontSizeBody, DesignTokens.TextSecondary);
+        var body = CreateText("Text_Body", root, HintBody, DesignTokens.FontSizeBody, DesignTokens.TextSecondary);
         body.alignment = TextAlignmentOptions.TopLeft;
         body.enableWordWrapping = true;
         SetRect(body.rectTransform, Vector2.zero, Vector2.one, new Vector2(24f, 80f), new Vector2(-24f, -88f));
