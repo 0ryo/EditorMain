@@ -6,7 +6,10 @@ using UnityEngine.UI;
 public sealed class ViewportCameraToolbar : MonoBehaviour
 {
     const string RootName = "Panel_CameraToolbar";
+    const string OpenButtonName = "Button_CameraTools";
+    const float DockGap = 8f;
 
+    [SerializeField] Button openButton;
     [SerializeField] Button focusButton;
     [SerializeField] Button frontButton;
     [SerializeField] Button rightButton;
@@ -14,11 +17,16 @@ public sealed class ViewportCameraToolbar : MonoBehaviour
     [SerializeField] Button projectionButton;
     [SerializeField] Button resetButton;
     [SerializeField] TMP_Text projectionLabel;
-    [SerializeField] GameObject hintRoot;
+    [SerializeField] RectTransform hintRoot;
     [SerializeField] TMP_Text hintText;
 
     EditorCameraController cameraController;
     SelectionService selectionService;
+    RectTransform settingsButtonRect;
+    RectTransform toolbarRect;
+    CanvasGroup toolbarCanvasGroup;
+    bool expanded;
+    readonly Vector3[] worldCorners = new Vector3[4];
 
     public static ViewportCameraToolbar Ensure(Transform parent)
     {
@@ -26,19 +34,19 @@ public sealed class ViewportCameraToolbar : MonoBehaviour
 
         var found = parent.Find(RootName);
         var toolbar = found != null ? found.GetComponent<ViewportCameraToolbar>() : null;
-        if (toolbar == null)
-        {
-            toolbar = Build(parent);
-        }
+        if (toolbar == null) toolbar = Build(parent);
 
         toolbar.ResolveReferences();
         toolbar.WireButtons();
+        toolbar.PositionDockedElements();
         toolbar.RefreshState();
         return toolbar;
     }
 
     void Awake()
     {
+        toolbarRect = transform as RectTransform;
+        toolbarCanvasGroup = GetComponent<CanvasGroup>();
         ResolveReferences();
         WireButtons();
         RefreshState();
@@ -47,6 +55,7 @@ public sealed class ViewportCameraToolbar : MonoBehaviour
     void LateUpdate()
     {
         ResolveReferences();
+        PositionDockedElements();
         RefreshState();
     }
 
@@ -54,10 +63,26 @@ public sealed class ViewportCameraToolbar : MonoBehaviour
     {
         if (cameraController == null) cameraController = FindFirstObjectByType<EditorCameraController>();
         if (selectionService == null) selectionService = FindFirstObjectByType<SelectionService>();
+
+        var parent = transform.parent;
+        if (openButton == null && parent != null)
+        {
+            openButton = parent.Find(OpenButtonName)?.GetComponent<Button>();
+        }
+
+        if (settingsButtonRect == null && parent != null)
+        {
+            settingsButtonRect = parent.Find("Button_Settings") as RectTransform;
+            if (settingsButtonRect == null) settingsButtonRect = parent.Find("Button_Settings_Runtime") as RectTransform;
+        }
+
+        if (toolbarRect == null) toolbarRect = transform as RectTransform;
+        if (toolbarCanvasGroup == null) toolbarCanvasGroup = GetComponent<CanvasGroup>();
     }
 
     void WireButtons()
     {
+        Wire(openButton, ToggleExpanded);
         Wire(focusButton, FocusSelected);
         Wire(frontButton, () => SetPreset(EditorCameraController.ViewPreset.Front));
         Wire(rightButton, () => SetPreset(EditorCameraController.ViewPreset.Right));
@@ -71,6 +96,25 @@ public sealed class ViewportCameraToolbar : MonoBehaviour
         if (button == null) return;
         button.onClick.RemoveAllListeners();
         button.onClick.AddListener(action);
+    }
+
+    void ToggleExpanded()
+    {
+        SetExpanded(!expanded);
+    }
+
+    void SetExpanded(bool value)
+    {
+        expanded = value;
+        if (toolbarCanvasGroup != null)
+        {
+            toolbarCanvasGroup.alpha = expanded ? 1f : 0f;
+            toolbarCanvasGroup.interactable = expanded;
+            toolbarCanvasGroup.blocksRaycasts = expanded;
+        }
+
+        if (!expanded) ShowHint(string.Empty);
+        RefreshOpenButtonVisual();
     }
 
     void FocusSelected()
@@ -98,6 +142,7 @@ public sealed class ViewportCameraToolbar : MonoBehaviour
     void RefreshState()
     {
         bool hasCamera = cameraController != null;
+        if (openButton != null) openButton.interactable = hasCamera;
         if (focusButton != null) focusButton.interactable = hasCamera && selectionService != null && selectionService.Current != null;
         if (frontButton != null) frontButton.interactable = hasCamera;
         if (rightButton != null) rightButton.interactable = hasCamera;
@@ -111,23 +156,80 @@ public sealed class ViewportCameraToolbar : MonoBehaviour
         }
     }
 
+    void RefreshOpenButtonVisual()
+    {
+        var image = openButton != null ? openButton.GetComponent<Image>() : null;
+        if (image != null) image.color = expanded ? DesignTokens.Accent : DesignTokens.Surface;
+
+        var iconImages = openButton != null ? openButton.GetComponentsInChildren<Image>(true) : null;
+        if (iconImages == null) return;
+        foreach (var iconImage in iconImages)
+        {
+            if (iconImage == null || iconImage.gameObject == openButton.gameObject) continue;
+            bool isLens = iconImage.gameObject.name == "Icon_CameraLens";
+            iconImage.color = isLens
+                ? expanded ? DesignTokens.Accent : DesignTokens.Surface
+                : expanded ? DesignTokens.Surface : DesignTokens.TextPrimary;
+        }
+    }
+
     internal void ShowHint(string message)
     {
         bool visible = !string.IsNullOrWhiteSpace(message);
         if (hintText != null) hintText.text = visible ? message : string.Empty;
-        if (hintRoot != null) hintRoot.SetActive(visible);
+        if (hintRoot != null) hintRoot.gameObject.SetActive(visible);
+    }
+
+    void PositionDockedElements()
+    {
+        var parentRect = transform.parent as RectTransform;
+        var openRect = openButton != null ? openButton.transform as RectTransform : null;
+        if (parentRect == null || toolbarRect == null || openRect == null) return;
+
+        float right = parentRect.rect.xMax - 12f;
+        float settingsBottom = parentRect.rect.yMax - 52f;
+        if (settingsButtonRect != null && settingsButtonRect.gameObject.activeInHierarchy)
+        {
+            settingsButtonRect.GetWorldCorners(worldCorners);
+            right = parentRect.InverseTransformPoint(worldCorners[2]).x;
+            settingsBottom = parentRect.InverseTransformPoint(worldCorners[0]).y;
+        }
+
+        float rightOffset = right - parentRect.rect.xMax;
+        float cameraTopOffset = settingsBottom - parentRect.rect.yMax - DockGap;
+        SetTopRightRect(openRect, new Vector2(40f, 40f), new Vector2(rightOffset, cameraTopOffset));
+
+        float toolbarTopOffset = cameraTopOffset - 40f - DockGap;
+        SetTopRightRect(toolbarRect, new Vector2(548f, 44f), new Vector2(rightOffset, toolbarTopOffset));
+
+        if (hintRoot != null)
+        {
+            float hintTopOffset = toolbarTopOffset - 44f - 4f;
+            SetTopRightRect(hintRoot, new Vector2(420f, 32f), new Vector2(rightOffset, hintTopOffset));
+        }
+    }
+
+    static void SetTopRightRect(RectTransform rect, Vector2 size, Vector2 position)
+    {
+        if (rect == null) return;
+        rect.anchorMin = Vector2.one;
+        rect.anchorMax = Vector2.one;
+        rect.pivot = Vector2.one;
+        rect.sizeDelta = size;
+        rect.anchoredPosition = position;
     }
 
     static ViewportCameraToolbar Build(Transform parent)
     {
-        var root = new GameObject(RootName, typeof(RectTransform), typeof(Image), typeof(HorizontalLayoutGroup), typeof(EditorUiInputBlocker));
+        var root = new GameObject(
+            RootName,
+            typeof(RectTransform),
+            typeof(Image),
+            typeof(HorizontalLayoutGroup),
+            typeof(CanvasGroup),
+            typeof(EditorUiInputBlocker));
         var rect = root.GetComponent<RectTransform>();
         rect.SetParent(parent, false);
-        rect.anchorMin = new Vector2(0.5f, 1f);
-        rect.anchorMax = new Vector2(0.5f, 1f);
-        rect.pivot = new Vector2(0.5f, 1f);
-        rect.sizeDelta = new Vector2(548f, 44f);
-        rect.anchoredPosition = new Vector2(0f, -60f);
 
         var image = root.GetComponent<Image>();
         image.color = DesignTokens.Surface;
@@ -146,17 +248,65 @@ public sealed class ViewportCameraToolbar : MonoBehaviour
         layout.childForceExpandHeight = true;
 
         var toolbar = root.AddComponent<ViewportCameraToolbar>();
-        toolbar.focusButton = CreateButton(rect, "Button_FocusSelected", "選択へ  F", 88f, "選択中のオブジェクトを画面中央に表示します（F）");
-        toolbar.frontButton = CreateButton(rect, "Button_ViewFront", "Z  前", 64f, "正面ビューへ切り替えます（1）");
-        toolbar.rightButton = CreateButton(rect, "Button_ViewRight", "X  右", 64f, "右ビューへ切り替えます（3）");
-        toolbar.topButton = CreateButton(rect, "Button_ViewTop", "Y  上", 64f, "上面ビューへ切り替えます（7）");
-        toolbar.projectionButton = CreateButton(rect, "Button_Projection", "平行  O", 82f, "平行投影と透視投影を切り替えます（O）");
+        toolbar.toolbarRect = rect;
+        toolbar.toolbarCanvasGroup = root.GetComponent<CanvasGroup>();
+        toolbar.openButton = CreateOpenButton(parent, toolbar);
+        toolbar.focusButton = CreateButton(rect, "Button_FocusSelected", "選択へ  F", 88f, "選択中のオブジェクトを画面中央に表示します（F）", toolbar);
+        toolbar.frontButton = CreateButton(rect, "Button_ViewFront", "Z  前", 64f, "正面ビューへ切り替えます（1）", toolbar);
+        toolbar.rightButton = CreateButton(rect, "Button_ViewRight", "X  右", 64f, "右ビューへ切り替えます（3）", toolbar);
+        toolbar.topButton = CreateButton(rect, "Button_ViewTop", "Y  上", 64f, "上面ビューへ切り替えます（7）", toolbar);
+        toolbar.projectionButton = CreateButton(rect, "Button_Projection", "平行  O", 82f, "平行投影と透視投影を切り替えます（O）", toolbar);
         toolbar.projectionLabel = toolbar.projectionButton.GetComponentInChildren<TMP_Text>(true);
-        toolbar.resetButton = CreateButton(rect, "Button_ResetCamera", "初期  Home", 100f, "カメラを初期位置へ戻します（Home）");
+        toolbar.resetButton = CreateButton(rect, "Button_ResetCamera", "初期  Home", 100f, "カメラを初期位置へ戻します（Home）", toolbar);
         CreateHint(parent, toolbar);
 
         UiRoundedTheme.ApplyToHierarchy(root.transform, DesignTokens.CornerRadius);
+        toolbar.SetExpanded(false);
         return toolbar;
+    }
+
+    static Button CreateOpenButton(Transform parent, ViewportCameraToolbar toolbar)
+    {
+        var go = new GameObject(OpenButtonName, typeof(RectTransform), typeof(Image), typeof(Button), typeof(EditorUiInputBlocker));
+        var rect = go.GetComponent<RectTransform>();
+        rect.SetParent(parent, false);
+
+        var image = go.GetComponent<Image>();
+        image.color = DesignTokens.Surface;
+        var outline = go.AddComponent<Outline>();
+        outline.effectColor = DesignTokens.Divider;
+        outline.effectDistance = new Vector2(1f, -1f);
+
+        var button = go.GetComponent<Button>();
+        button.targetGraphic = image;
+
+        var body = CreateIconPart("Icon_CameraBody", rect, new Vector2(23f, 15f), new Vector2(0f, -1f));
+        CreateIconPart("Icon_CameraTop", rect, new Vector2(9f, 4f), new Vector2(-4f, 8f));
+        var lens = CreateIconPart("Icon_CameraLens", body.rectTransform, new Vector2(7f, 7f), Vector2.zero);
+        lens.color = DesignTokens.Surface;
+
+        var hintTrigger = go.AddComponent<ViewportToolbarHintTrigger>();
+        hintTrigger.Owner = toolbar;
+        hintTrigger.Message = "カメラ操作を開閉します";
+        UiRoundedTheme.ApplyToHierarchy(go.transform, DesignTokens.CornerRadius);
+        UiRoundedTheme.ApplyCircleToElement(lens);
+        return button;
+    }
+
+    static Image CreateIconPart(string name, Transform parent, Vector2 size, Vector2 position)
+    {
+        var go = new GameObject(name, typeof(RectTransform), typeof(Image));
+        var rect = go.GetComponent<RectTransform>();
+        rect.SetParent(parent, false);
+        rect.anchorMin = new Vector2(0.5f, 0.5f);
+        rect.anchorMax = new Vector2(0.5f, 0.5f);
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.sizeDelta = size;
+        rect.anchoredPosition = position;
+        var image = go.GetComponent<Image>();
+        image.color = DesignTokens.TextPrimary;
+        image.raycastTarget = false;
+        return image;
     }
 
     static void CreateHint(Transform parent, ViewportCameraToolbar toolbar)
@@ -164,11 +314,6 @@ public sealed class ViewportCameraToolbar : MonoBehaviour
         var root = new GameObject("Tooltip_CameraToolbar", typeof(RectTransform), typeof(Image));
         var rect = root.GetComponent<RectTransform>();
         rect.SetParent(parent, false);
-        rect.anchorMin = new Vector2(0.5f, 1f);
-        rect.anchorMax = new Vector2(0.5f, 1f);
-        rect.pivot = new Vector2(0.5f, 1f);
-        rect.sizeDelta = new Vector2(420f, 32f);
-        rect.anchoredPosition = new Vector2(0f, -108f);
 
         var image = root.GetComponent<Image>();
         image.color = DesignTokens.Surface;
@@ -191,13 +336,13 @@ public sealed class ViewportCameraToolbar : MonoBehaviour
         toolbar.hintText.color = DesignTokens.TextPrimary;
         toolbar.hintText.alignment = TextAlignmentOptions.Center;
         toolbar.hintText.raycastTarget = false;
-        toolbar.hintRoot = root;
+        toolbar.hintRoot = rect;
 
         UiRoundedTheme.ApplyToHierarchy(root.transform, DesignTokens.CornerRadius);
         root.SetActive(false);
     }
 
-    static Button CreateButton(RectTransform parent, string objectName, string labelValue, float width, string hint)
+    static Button CreateButton(RectTransform parent, string objectName, string labelValue, float width, string hint, ViewportCameraToolbar toolbar)
     {
         var go = new GameObject(objectName, typeof(RectTransform), typeof(Image), typeof(Button), typeof(LayoutElement));
         var rect = go.GetComponent<RectTransform>();
@@ -230,6 +375,7 @@ public sealed class ViewportCameraToolbar : MonoBehaviour
         label.raycastTarget = false;
 
         var hintTrigger = go.AddComponent<ViewportToolbarHintTrigger>();
+        hintTrigger.Owner = toolbar;
         hintTrigger.Message = hint;
         return button;
     }
@@ -237,15 +383,16 @@ public sealed class ViewportCameraToolbar : MonoBehaviour
 
 public sealed class ViewportToolbarHintTrigger : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
 {
+    public ViewportCameraToolbar Owner { get; set; }
     public string Message { get; set; }
 
     public void OnPointerEnter(PointerEventData eventData)
     {
-        GetComponentInParent<ViewportCameraToolbar>()?.ShowHint(Message);
+        (Owner ?? GetComponentInParent<ViewportCameraToolbar>())?.ShowHint(Message);
     }
 
     public void OnPointerExit(PointerEventData eventData)
     {
-        GetComponentInParent<ViewportCameraToolbar>()?.ShowHint(string.Empty);
+        (Owner ?? GetComponentInParent<ViewportCameraToolbar>())?.ShowHint(string.Empty);
     }
 }

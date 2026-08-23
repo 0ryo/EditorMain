@@ -1325,7 +1325,7 @@ public class CatalogUI : MonoBehaviour
         valueRt.offsetMin = new Vector2(-84f, 0f);
         valueRt.offsetMax = new Vector2(0f, 0f);
 
-        var snapTitle = FindOrCreateSettingsText(contentRt, "Text_SnapTitle", "スナップ");
+        var snapTitle = FindOrCreateSettingsText(contentRt, "Text_SnapTitle", "位置・角度の吸着（スナップ）");
         snapTitle.fontSize = 16;
         snapTitle.alignment = TextAlignmentOptions.MidlineLeft;
         snapTitle.color = DesignTokens.TextPrimary;
@@ -1342,7 +1342,7 @@ public class CatalogUI : MonoBehaviour
         snapToggleRow.offsetMax = new Vector2(-24f, -176f);
         settingsSnapEnabledToggle = EnsureSettingsToggle(snapToggleRow, settingsSnapEnabledToggle, "Toggle_SnapEnabled");
 
-        var snapToggleLabel = FindOrCreateSettingsText(snapToggleRow, "Text_SnapEnabled", "スナップを使用（Altキーを押している間は一時解除）");
+        var snapToggleLabel = FindOrCreateSettingsText(snapToggleRow, "Text_SnapEnabled", "一定間隔に自動で揃える（Altキーで一時解除）");
         snapToggleLabel.fontSize = 14;
         snapToggleLabel.alignment = TextAlignmentOptions.MidlineLeft;
         snapToggleLabel.color = DesignTokens.TextPrimary;

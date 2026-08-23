@@ -14,11 +14,13 @@ public class HintPanelController : MonoBehaviour
         "オブジェクト編集\n" +
         "・W/A/S/D または 矢印: グリッド幅ずつ移動\n" +
         "・Delete: 削除　Ctrl/Cmd + D: 複製\n" +
-        "・Altを押している間: 配置・移動・回転スナップを一時解除\n\n" +
+        "・スナップ: 位置や角度を設定した間隔に自動で揃える機能\n" +
+        "・Altを押している間: 配置・移動・回転のスナップを一時解除\n\n" +
         "各ボタンにポインターを重ねると、その操作の説明を確認できます。";
 
     [SerializeField] Button openButton;
     [SerializeField] Button closeButton;
+    readonly Vector3[] worldCorners = new Vector3[4];
 
     public static HintPanelController Ensure(Transform parent)
     {
@@ -34,6 +36,7 @@ public class HintPanelController : MonoBehaviour
         controller.EnsureOpenButton(parent);
         controller.WireButtons();
         controller.RefreshContent();
+        controller.PositionInViewport();
         UiRoundedTheme.ApplyToHierarchy(controller.transform, DesignTokens.CornerRadius);
         if (controller.openButton != null)
         {
@@ -49,6 +52,11 @@ public class HintPanelController : MonoBehaviour
         EnsureOpenButton(transform.parent);
         WireButtons();
         RefreshContent();
+    }
+
+    void LateUpdate()
+    {
+        PositionInViewport();
     }
 
     void EnsureOpenButton(Transform parent)
@@ -90,6 +98,7 @@ public class HintPanelController : MonoBehaviour
     public void Show()
     {
         gameObject.SetActive(true);
+        PositionInViewport();
         transform.SetAsLastSibling();
     }
 
@@ -103,7 +112,7 @@ public class HintPanelController : MonoBehaviour
         var rect = transform as RectTransform;
         if (rect != null)
         {
-            rect.sizeDelta = new Vector2(560f, 420f);
+            rect.sizeDelta = new Vector2(560f, 440f);
         }
 
         var title = transform.Find("Text_Title")?.GetComponent<TMP_Text>();
@@ -118,13 +127,73 @@ public class HintPanelController : MonoBehaviour
         body.enableWordWrapping = true;
     }
 
+    void PositionInViewport()
+    {
+        var root = transform.parent as RectTransform;
+        var rect = transform as RectTransform;
+        if (root == null || rect == null) return;
+
+        float left = root.rect.xMin;
+        float right = root.rect.xMax;
+        float bottom = root.rect.yMin;
+        float top = root.rect.yMax;
+
+        var catalog = root.Find("Panel_Catalog") as RectTransform;
+        if (TryGetVisibleBounds(root, catalog, out _, out var catalogRight, out _, out _))
+        {
+            left = Mathf.Max(left, catalogRight);
+        }
+
+        var detail = root.Find("Panel_Detail") as RectTransform;
+        if (TryGetVisibleBounds(root, detail, out var detailLeft, out _, out _, out _))
+        {
+            right = Mathf.Min(right, detailLeft);
+        }
+
+        var scenario = root.Find("Panel_ScenarioGraph") as RectTransform;
+        if (TryGetVisibleBounds(root, scenario, out _, out _, out _, out var scenarioTop))
+        {
+            bottom = Mathf.Max(bottom, scenarioTop);
+        }
+
+        Vector2 viewportCenter = new Vector2((left + right) * 0.5f, (bottom + top) * 0.5f);
+        rect.anchorMin = new Vector2(0.5f, 0.5f);
+        rect.anchorMax = new Vector2(0.5f, 0.5f);
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.anchoredPosition = viewportCenter - root.rect.center;
+    }
+
+    bool TryGetVisibleBounds(
+        RectTransform root,
+        RectTransform target,
+        out float left,
+        out float right,
+        out float bottom,
+        out float top)
+    {
+        left = right = bottom = top = 0f;
+        if (root == null || target == null || !target.gameObject.activeInHierarchy) return false;
+
+        var canvasGroup = target.GetComponent<CanvasGroup>();
+        if (canvasGroup != null && canvasGroup.alpha <= 0.01f) return false;
+
+        target.GetWorldCorners(worldCorners);
+        Vector3 bottomLeft = root.InverseTransformPoint(worldCorners[0]);
+        Vector3 topRight = root.InverseTransformPoint(worldCorners[2]);
+        left = bottomLeft.x;
+        right = topRight.x;
+        bottom = bottomLeft.y;
+        top = topRight.y;
+        return right > left && top > bottom;
+    }
+
     static HintPanelController BuildPanel(Transform parent)
     {
         var root = CreateRect(PanelName, parent);
         root.anchorMin = new Vector2(0.5f, 0.5f);
         root.anchorMax = new Vector2(0.5f, 0.5f);
         root.pivot = new Vector2(0.5f, 0.5f);
-        root.sizeDelta = new Vector2(560f, 420f);
+        root.sizeDelta = new Vector2(560f, 440f);
         root.anchoredPosition = Vector2.zero;
 
         var image = root.gameObject.AddComponent<Image>();

@@ -305,10 +305,10 @@ public class ViewportStatusStrip : MonoBehaviour
             ? Mathf.Max(0.0001f, placementController.gridSize)
             : EditSnapSettings.GridSize;
         string snapText = !EditSnapSettings.Enabled
-            ? "Snap OFF"
+            ? "吸着 OFF"
             : EditSnapSettings.TemporarilyDisabled
-                ? "Snap OFF (Alt)"
-                : $"Grid {gridSize:0.##}m / Rot {EditSnapSettings.RotationDegrees:0.#}°";
+                ? "吸着 一時解除 (Alt)"
+                : $"位置 {gridSize:0.##}m / 回転 {EditSnapSettings.RotationDegrees:0.#}°";
 
         if (selectedObject != null)
         {
