@@ -22,6 +22,9 @@ public class ConnectionLineGraphic : MaskableGraphic, IPointerEnterHandler, IPoi
 
     TextMeshProUGUI hoverDeleteLabel;
     bool isPointerOver;
+    bool hasEndpointSnapshot;
+    Vector2 lastFromPoint;
+    Vector2 lastToPoint;
 
     const float AaEdgeWidth = 2.5f; // アンチエイリアス用の端のぼかし幅
 
@@ -32,6 +35,9 @@ public class ConnectionLineGraphic : MaskableGraphic, IPointerEnterHandler, IPoi
 
         Vector2 fromPoint = WorldToLocalCenter(from);
         Vector2 toPoint = WorldToLocalCenter(to);
+        lastFromPoint = fromPoint;
+        lastToPoint = toPoint;
+        hasEndpointSnapshot = true;
 
         Vector2 direction = (toPoint - fromPoint).normalized;
         Vector2 normal = new Vector2(-direction.y, direction.x);
@@ -114,9 +120,16 @@ public class ConnectionLineGraphic : MaskableGraphic, IPointerEnterHandler, IPoi
         return rectTransform.InverseTransformPoint(worldCenter);
     }
 
-    void Update()
+    protected override void OnEnable()
     {
+        base.OnEnable();
+        hasEndpointSnapshot = false;
         SetVerticesDirty();
+    }
+
+    void LateUpdate()
+    {
+        RefreshGeometryIfEndpointsChanged();
         UpdateHoverDeleteLabelPosition();
     }
 
@@ -124,10 +137,36 @@ public class ConnectionLineGraphic : MaskableGraphic, IPointerEnterHandler, IPoi
     {
         base.OnDisable();
         isPointerOver = false;
+        hasEndpointSnapshot = false;
         if (hoverDeleteLabel != null)
         {
             hoverDeleteLabel.gameObject.SetActive(false);
         }
+    }
+
+    void RefreshGeometryIfEndpointsChanged()
+    {
+        if (from == null || to == null)
+        {
+            if (!hasEndpointSnapshot) return;
+            hasEndpointSnapshot = false;
+            SetVerticesDirty();
+            return;
+        }
+
+        Vector2 fromPoint = WorldToLocalCenter(from);
+        Vector2 toPoint = WorldToLocalCenter(to);
+        if (hasEndpointSnapshot &&
+            (fromPoint - lastFromPoint).sqrMagnitude <= 0.0001f &&
+            (toPoint - lastToPoint).sqrMagnitude <= 0.0001f)
+        {
+            return;
+        }
+
+        lastFromPoint = fromPoint;
+        lastToPoint = toPoint;
+        hasEndpointSnapshot = true;
+        SetVerticesDirty();
     }
 
     public void OnPointerEnter(PointerEventData eventData)
