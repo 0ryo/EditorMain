@@ -56,7 +56,8 @@ public class PlacementExportService : MonoBehaviour
         string dir = Path.Combine(Application.dataPath, "Exports");
         Directory.CreateDirectory(dir);
 
-        string fileName = $"{projectName}-placement.json";
+        string safeProjectName = ExportFileNameUtility.SanitizeProjectName(projectName, "MyProject");
+        string fileName = $"{safeProjectName}-placement.json";
         string path = Path.Combine(dir, fileName);
 
         string json = JsonUtility.ToJson(data, true);

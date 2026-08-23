@@ -1304,7 +1304,8 @@ public class ScenarioGraphUI : MonoBehaviour
         string exportDir = Path.Combine(Application.dataPath, "Exports");
         Directory.CreateDirectory(exportDir);
 
-        string fileName = $"{export.projectName}-curriculum.json";
+        string safeProjectName = ExportFileNameUtility.SanitizeProjectName(export.projectName, "VRCourseEditor");
+        string fileName = $"{safeProjectName}-curriculum.json";
         string finalPath = Path.Combine(exportDir, fileName);
         string tempPath = finalPath + ".tmp";
 
