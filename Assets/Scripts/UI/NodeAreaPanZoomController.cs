@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
 
@@ -37,6 +38,52 @@ public class NodeAreaPanZoomController : MonoBehaviour, IScrollHandler, IBeginDr
 
         float zoom = Mathf.Max(0.001f, content.localScale.x);
         content.anchoredPosition = -contentPoint * zoom;
+        ClampPan();
+    }
+
+    public void FitContent(IEnumerable<RectTransform> items, float padding = 80f)
+    {
+        ResolveDefaults();
+        if (!IsReady() || items == null) return;
+
+        bool hasBounds = false;
+        Vector2 min = Vector2.zero;
+        Vector2 max = Vector2.zero;
+        foreach (var item in items)
+        {
+            if (item == null || !item.gameObject.activeInHierarchy) continue;
+            Vector2 itemMin = item.anchoredPosition + item.rect.min;
+            Vector2 itemMax = item.anchoredPosition + item.rect.max;
+            if (!hasBounds)
+            {
+                min = itemMin;
+                max = itemMax;
+                hasBounds = true;
+            }
+            else
+            {
+                min = Vector2.Min(min, itemMin);
+                max = Vector2.Max(max, itemMax);
+            }
+        }
+
+        if (!hasBounds)
+        {
+            ResetView();
+            return;
+        }
+
+        Vector2 boundsSize = Vector2.Max(max - min, Vector2.one);
+        Vector2 available = new Vector2(
+            Mathf.Max(1f, viewport.rect.width - (padding * 2f)),
+            Mathf.Max(1f, viewport.rect.height - (padding * 2f)));
+        float zoom = Mathf.Clamp(
+            Mathf.Min(available.x / boundsSize.x, available.y / boundsSize.y),
+            minZoom,
+            maxZoom);
+        Vector2 center = (min + max) * 0.5f;
+        content.localScale = new Vector3(zoom, zoom, 1f);
+        content.anchoredPosition = -center * zoom;
         ClampPan();
     }
 

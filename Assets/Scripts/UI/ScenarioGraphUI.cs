@@ -19,6 +19,9 @@ public class ScenarioGraphUI : MonoBehaviour
     const float GraphContentMinHeight = 6000f;
     const float NodeLayoutGap = 64f;
     const int MaxLayoutColumns = 8;
+    const float MinimapWidth = 180f;
+    const float MinimapHeight = 110f;
+    const float MinimapPadding = 8f;
 
     static readonly System.Collections.Generic.Dictionary<string, string> ErrorMessages = new System.Collections.Generic.Dictionary<string, string>
     {
@@ -125,9 +128,16 @@ public class ScenarioGraphUI : MonoBehaviour
     readonly Dictionary<string, NodeUiBinding> nodeUIs = new Dictionary<string, NodeUiBinding>();
     readonly Dictionary<string, Vector2> nodePositions = new Dictionary<string, Vector2>();
     readonly Dictionary<Graphic, Color> connectorBaseColors = new Dictionary<Graphic, Color>();
+    readonly Dictionary<string, RectTransform> minimapNodeIndicators = new Dictionary<string, RectTransform>();
     readonly List<ConnectionLineGraphic> lines = new List<ConnectionLineGraphic>();
     NodeAreaPanZoomController panZoomController;
     Outline validationFocusOutline;
+    Button fitContentButton;
+    Button zoomResetButton;
+    Button autoLayoutButton;
+    RectTransform minimapRoot;
+    RectTransform minimapViewportIndicator;
+    Rect minimapContentBounds;
 
     void Awake()
     {
@@ -183,6 +193,11 @@ public class ScenarioGraphUI : MonoBehaviour
         }
 
         RefreshValidationStatus();
+    }
+
+    void LateUpdate()
+    {
+        RefreshMinimapViewport();
     }
 
     void OnRectTransformDimensionsChange()
@@ -430,6 +445,7 @@ public class ScenarioGraphUI : MonoBehaviour
         }
 
         panZoomController.Configure(nodeArea, graphContent);
+        EnsureViewportTools();
     }
 
     Transform GetNodeParent()
@@ -622,6 +638,7 @@ public class ScenarioGraphUI : MonoBehaviour
         ApplyRoundedTheme();
         DesignTokenApplier.ApplyNodeColors(GetNodeParent() as Transform);
         RefreshLines();
+        RebuildMinimapIndicators();
         RefreshValidationStatus();
         if (!string.IsNullOrEmpty(linkingFromNodeId))
         {
@@ -908,6 +925,7 @@ public class ScenarioGraphUI : MonoBehaviour
             drag.onDrag = () =>
             {
                 nodePositions[nodeId] = root.anchoredPosition;
+                RefreshMinimapNodes();
             };
             drag.onEndDrag = () =>
             {
@@ -988,6 +1006,7 @@ public class ScenarioGraphUI : MonoBehaviour
             binding.root.anchoredPosition = ClampNodePosition(binding.root, position);
             nodePositions[nodeId] = binding.root.anchoredPosition;
             RefreshLines();
+            RefreshMinimapNodes();
         }
 
         return true;
@@ -1051,6 +1070,7 @@ public class ScenarioGraphUI : MonoBehaviour
         if (moved)
         {
             RefreshLines();
+            RefreshMinimapNodes();
         }
     }
 
@@ -1356,6 +1376,288 @@ public class ScenarioGraphUI : MonoBehaviour
     {
         RebuildAll();
         panZoomController?.ResetView();
+    }
+
+    void EnsureViewportTools()
+    {
+        if (nodeArea == null) return;
+
+        var tools = nodeArea.Find("ViewportTools") as RectTransform;
+        if (tools == null)
+        {
+            var toolsGo = new GameObject("ViewportTools", typeof(RectTransform), typeof(HorizontalLayoutGroup));
+            tools = toolsGo.GetComponent<RectTransform>();
+            tools.SetParent(nodeArea, false);
+        }
+
+        tools.anchorMin = Vector2.one;
+        tools.anchorMax = Vector2.one;
+        tools.pivot = Vector2.one;
+        tools.anchoredPosition = new Vector2(-12f, -12f);
+        tools.sizeDelta = new Vector2(216f, 34f);
+        var layout = tools.GetComponent<HorizontalLayoutGroup>();
+        if (layout == null) layout = tools.gameObject.AddComponent<HorizontalLayoutGroup>();
+        layout.spacing = 6f;
+        layout.childControlWidth = true;
+        layout.childControlHeight = true;
+        layout.childForceExpandWidth = false;
+        layout.childForceExpandHeight = true;
+
+        fitContentButton = EnsureViewportButton(tools, "Button_FitContent", "全体");
+        zoomResetButton = EnsureViewportButton(tools, "Button_ZoomReset", "100%");
+        autoLayoutButton = EnsureViewportButton(tools, "Button_AutoLayout", "整列");
+
+        fitContentButton.onClick.RemoveAllListeners();
+        fitContentButton.onClick.AddListener(FitGraphToContent);
+        zoomResetButton.onClick.RemoveAllListeners();
+        zoomResetButton.onClick.AddListener(ResetGraphZoom);
+        autoLayoutButton.onClick.RemoveAllListeners();
+        autoLayoutButton.onClick.AddListener(AutoLayoutNodes);
+
+        minimapRoot = nodeArea.Find("ScenarioMinimap") as RectTransform;
+        if (minimapRoot == null)
+        {
+            var minimapGo = new GameObject("ScenarioMinimap", typeof(RectTransform), typeof(Image), typeof(Outline));
+            minimapRoot = minimapGo.GetComponent<RectTransform>();
+            minimapRoot.SetParent(nodeArea, false);
+        }
+
+        minimapRoot.anchorMin = new Vector2(1f, 0f);
+        minimapRoot.anchorMax = new Vector2(1f, 0f);
+        minimapRoot.pivot = new Vector2(1f, 0f);
+        minimapRoot.anchoredPosition = new Vector2(-12f, 12f);
+        minimapRoot.sizeDelta = new Vector2(MinimapWidth, MinimapHeight);
+        var minimapImage = minimapRoot.GetComponent<Image>();
+        if (minimapImage == null) minimapImage = minimapRoot.gameObject.AddComponent<Image>();
+        minimapImage.color = new Color(DesignTokens.BgSecondary.r, DesignTokens.BgSecondary.g, DesignTokens.BgSecondary.b, 0.94f);
+        minimapImage.raycastTarget = false;
+        var minimapOutline = minimapRoot.GetComponent<Outline>();
+        if (minimapOutline == null) minimapOutline = minimapRoot.gameObject.AddComponent<Outline>();
+        minimapOutline.effectColor = DesignTokens.Divider;
+        minimapOutline.effectDistance = new Vector2(1f, -1f);
+
+        var viewportTransform = minimapRoot.Find("Viewport") as RectTransform;
+        if (viewportTransform == null)
+        {
+            var viewportGo = new GameObject("Viewport", typeof(RectTransform), typeof(Image), typeof(Outline));
+            viewportTransform = viewportGo.GetComponent<RectTransform>();
+            viewportTransform.SetParent(minimapRoot, false);
+        }
+        minimapViewportIndicator = viewportTransform;
+        ConfigureMinimapChild(minimapViewportIndicator);
+        var viewportImage = minimapViewportIndicator.GetComponent<Image>();
+        if (viewportImage == null) viewportImage = minimapViewportIndicator.gameObject.AddComponent<Image>();
+        viewportImage.color = new Color(DesignTokens.Accent.r, DesignTokens.Accent.g, DesignTokens.Accent.b, 0.12f);
+        viewportImage.raycastTarget = false;
+        var viewportOutline = minimapViewportIndicator.GetComponent<Outline>();
+        if (viewportOutline == null) viewportOutline = minimapViewportIndicator.gameObject.AddComponent<Outline>();
+        viewportOutline.effectColor = DesignTokens.Accent;
+        viewportOutline.effectDistance = new Vector2(1f, -1f);
+
+        UiRoundedTheme.ApplyToHierarchy(tools, DesignTokens.CornerRadius);
+        UiRoundedTheme.ApplyToHierarchy(minimapRoot, DesignTokens.CornerRadius);
+        minimapRoot.SetAsLastSibling();
+        tools.SetAsLastSibling();
+    }
+
+    static Button EnsureViewportButton(RectTransform parent, string objectName, string labelText)
+    {
+        var found = parent.Find(objectName);
+        Button button = found != null ? found.GetComponent<Button>() : null;
+        if (button == null)
+        {
+            var go = new GameObject(objectName, typeof(RectTransform), typeof(Image), typeof(Button), typeof(LayoutElement));
+            go.transform.SetParent(parent, false);
+            button = go.GetComponent<Button>();
+        }
+
+        var image = button.GetComponent<Image>();
+        if (image == null) image = button.gameObject.AddComponent<Image>();
+        image.color = DesignTokens.Surface;
+        button.targetGraphic = image;
+        var element = button.GetComponent<LayoutElement>();
+        if (element == null) element = button.gameObject.AddComponent<LayoutElement>();
+        element.preferredWidth = 68f;
+        element.minHeight = 34f;
+
+        var label = button.GetComponentInChildren<TMP_Text>(true);
+        if (label == null)
+        {
+            var labelGo = new GameObject("Label", typeof(RectTransform), typeof(TextMeshProUGUI));
+            labelGo.transform.SetParent(button.transform, false);
+            label = labelGo.GetComponent<TMP_Text>();
+        }
+        SetRect(label.rectTransform, Vector2.zero, Vector2.one, new Vector2(4f, 0f), new Vector2(-4f, 0f));
+        label.text = labelText;
+        label.fontSize = DesignTokens.FontSizeCaption;
+        label.color = DesignTokens.TextPrimary;
+        label.alignment = TextAlignmentOptions.Center;
+        label.raycastTarget = false;
+        return button;
+    }
+
+    void FitGraphToContent()
+    {
+        panZoomController?.FitContent(nodeUIs.Values.Where(binding => binding?.root != null).Select(binding => binding.root));
+    }
+
+    void ResetGraphZoom()
+    {
+        panZoomController?.ResetView();
+    }
+
+    void AutoLayoutNodes()
+    {
+        var defaults = BuildDefaultNodePositions();
+        var commands = new List<IEditorCommand>();
+        foreach (var pair in nodeUIs)
+        {
+            if (pair.Value?.root == null || !defaults.TryGetValue(pair.Key, out var targetPosition)) continue;
+            targetPosition = ClampNodePosition(pair.Value.root, targetPosition);
+            Vector2 currentPosition = pair.Value.root.anchoredPosition;
+            if ((targetPosition - currentPosition).sqrMagnitude <= 0.01f) continue;
+            commands.Add(new NodePositionCommand(this, pair.Key, currentPosition, targetPosition));
+        }
+
+        if (commands.Count > 0)
+        {
+            if (CommandService.I != null && CommandService.I.Stack != null)
+            {
+                CommandService.I.Stack.ExecuteTransaction("Auto layout scenario nodes", commands.ToArray());
+            }
+            else
+            {
+                foreach (var command in commands) command.Do();
+            }
+        }
+
+        RefreshMinimapNodes();
+        FitGraphToContent();
+        if (statusText != null) statusText.text = "ノードを自動整列しました";
+    }
+
+    void RebuildMinimapIndicators()
+    {
+        foreach (var indicator in minimapNodeIndicators.Values)
+        {
+            if (indicator != null) Destroy(indicator.gameObject);
+        }
+        minimapNodeIndicators.Clear();
+        if (minimapRoot == null) return;
+
+        foreach (var pair in nodeUIs)
+        {
+            if (pair.Value?.root == null) continue;
+            var go = new GameObject($"Node_{pair.Key}", typeof(RectTransform), typeof(Image));
+            var indicator = go.GetComponent<RectTransform>();
+            indicator.SetParent(minimapRoot, false);
+            ConfigureMinimapChild(indicator);
+            var image = go.GetComponent<Image>();
+            image.color = pair.Value.nodeType switch
+            {
+                ScenarioNodeType.Start => DesignTokens.Success,
+                ScenarioNodeType.End => DesignTokens.Error,
+                ScenarioNodeType.Condition => DesignTokens.Warning,
+                _ => DesignTokens.Accent,
+            };
+            image.raycastTarget = false;
+            minimapNodeIndicators[pair.Key] = indicator;
+        }
+
+        if (minimapViewportIndicator != null) minimapViewportIndicator.SetAsLastSibling();
+        RefreshMinimapNodes();
+    }
+
+    void RefreshMinimapNodes()
+    {
+        if (minimapRoot == null || minimapNodeIndicators.Count == 0) return;
+
+        bool hasBounds = false;
+        Vector2 min = Vector2.zero;
+        Vector2 max = Vector2.zero;
+        foreach (var pair in nodeUIs)
+        {
+            var root = pair.Value?.root;
+            if (root == null) continue;
+            Vector2 nodeMin = root.anchoredPosition + root.rect.min;
+            Vector2 nodeMax = root.anchoredPosition + root.rect.max;
+            if (!hasBounds)
+            {
+                min = nodeMin;
+                max = nodeMax;
+                hasBounds = true;
+            }
+            else
+            {
+                min = Vector2.Min(min, nodeMin);
+                max = Vector2.Max(max, nodeMax);
+            }
+        }
+        if (!hasBounds) return;
+
+        min -= Vector2.one * 120f;
+        max += Vector2.one * 120f;
+        Vector2 center = (min + max) * 0.5f;
+        Vector2 size = Vector2.Max(max - min, new Vector2(800f, 480f));
+        minimapContentBounds = new Rect(center - (size * 0.5f), size);
+
+        foreach (var pair in minimapNodeIndicators)
+        {
+            if (!nodeUIs.TryGetValue(pair.Key, out var binding) || binding?.root == null || pair.Value == null) continue;
+            var root = binding.root;
+            Vector2 nodeMin = MapContentPointToMinimap(root.anchoredPosition + root.rect.min);
+            Vector2 nodeMax = MapContentPointToMinimap(root.anchoredPosition + root.rect.max);
+            pair.Value.anchoredPosition = (nodeMin + nodeMax) * 0.5f;
+            pair.Value.sizeDelta = new Vector2(
+                Mathf.Max(4f, nodeMax.x - nodeMin.x),
+                Mathf.Max(4f, nodeMax.y - nodeMin.y));
+        }
+
+        RefreshMinimapViewport();
+    }
+
+    void RefreshMinimapViewport()
+    {
+        if (minimapViewportIndicator == null || nodeArea == null || graphContent == null ||
+            minimapContentBounds.width <= 0f || minimapContentBounds.height <= 0f) return;
+
+        float zoom = Mathf.Max(0.001f, graphContent.localScale.x);
+        Vector2 center = -graphContent.anchoredPosition / zoom;
+        Vector2 halfSize = nodeArea.rect.size / (zoom * 2f);
+        Vector2 visibleMin = MapContentPointToMinimap(center - halfSize);
+        Vector2 visibleMax = MapContentPointToMinimap(center + halfSize);
+        float width = Mathf.Clamp(visibleMax.x - visibleMin.x, 4f, MinimapWidth - (MinimapPadding * 2f));
+        float height = Mathf.Clamp(visibleMax.y - visibleMin.y, 4f, MinimapHeight - (MinimapPadding * 2f));
+        float centerX = Mathf.Clamp((visibleMin.x + visibleMax.x) * 0.5f, MinimapPadding + (width * 0.5f), MinimapWidth - MinimapPadding - (width * 0.5f));
+        float centerY = Mathf.Clamp((visibleMin.y + visibleMax.y) * 0.5f, MinimapPadding + (height * 0.5f), MinimapHeight - MinimapPadding - (height * 0.5f));
+        minimapViewportIndicator.anchoredPosition = new Vector2(centerX, centerY);
+        minimapViewportIndicator.sizeDelta = new Vector2(width, height);
+    }
+
+    Vector2 MapContentPointToMinimap(Vector2 point)
+    {
+        float normalizedX = Mathf.InverseLerp(minimapContentBounds.xMin, minimapContentBounds.xMax, point.x);
+        float normalizedY = Mathf.InverseLerp(minimapContentBounds.yMin, minimapContentBounds.yMax, point.y);
+        return new Vector2(
+            Mathf.Lerp(MinimapPadding, MinimapWidth - MinimapPadding, normalizedX),
+            Mathf.Lerp(MinimapPadding, MinimapHeight - MinimapPadding, normalizedY));
+    }
+
+    static void ConfigureMinimapChild(RectTransform child)
+    {
+        child.anchorMin = Vector2.zero;
+        child.anchorMax = Vector2.zero;
+        child.pivot = new Vector2(0.5f, 0.5f);
+        child.localScale = Vector3.one;
+    }
+
+    static void SetRect(RectTransform rect, Vector2 anchorMin, Vector2 anchorMax, Vector2 offsetMin, Vector2 offsetMax)
+    {
+        if (rect == null) return;
+        rect.anchorMin = anchorMin;
+        rect.anchorMax = anchorMax;
+        rect.offsetMin = offsetMin;
+        rect.offsetMax = offsetMax;
     }
 
     void ConfigureLineGraphic(ConnectionLineGraphic line, Color color, float thickness, bool raycastTarget)
