@@ -196,6 +196,21 @@ public class CommandStack
         return Execute(new CompositeEditorCommand(label, commands));
     }
 
+    public bool RecordApplied(IEditorCommand command)
+    {
+        if (command == null)
+        {
+            ReportFailure("(null)", "Record", new ArgumentNullException(nameof(command)));
+            return false;
+        }
+
+        DiscardAll(redo);
+        undo.Add(command);
+        TrimToLimit(undo);
+        NotifyHistoryChanged();
+        return true;
+    }
+
     public bool Undo()
     {
         if (!CanUndo) return false;

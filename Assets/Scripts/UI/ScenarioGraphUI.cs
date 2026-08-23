@@ -86,6 +86,7 @@ public class ScenarioGraphUI : MonoBehaviour
     ConnectionLineGraphic dragPreviewLine;
     RectTransform dragPreviewTarget;
     float nextValidationPollTime;
+    bool graphRebuildRequested;
 
     class NodeUiBinding
     {
@@ -93,6 +94,27 @@ public class ScenarioGraphUI : MonoBehaviour
         public RectTransform root;
         public RectTransform inputConnector;
         public RectTransform outputConnector;
+    }
+
+    sealed class NodePositionCommand : IEditorCommand
+    {
+        readonly ScenarioGraphUI owner;
+        readonly string nodeId;
+        readonly Vector2 from;
+        readonly Vector2 to;
+
+        public string Label => "Move scenario node";
+
+        public NodePositionCommand(ScenarioGraphUI owner, string nodeId, Vector2 from, Vector2 to)
+        {
+            this.owner = owner;
+            this.nodeId = nodeId;
+            this.from = from;
+            this.to = to;
+        }
+
+        public bool Do() => owner != null && owner.SetNodePosition(nodeId, to);
+        public bool Undo() => owner != null && owner.SetNodePosition(nodeId, from);
     }
 
     readonly Dictionary<string, NodeUiBinding> nodeUIs = new Dictionary<string, NodeUiBinding>();
@@ -104,6 +126,18 @@ public class ScenarioGraphUI : MonoBehaviour
     {
         EnsureGraphService();
         ValidateAndBindReferences();
+    }
+
+    void OnEnable()
+    {
+        EnsureGraphService();
+        graph.GraphChanged -= OnGraphChanged;
+        graph.GraphChanged += OnGraphChanged;
+    }
+
+    void OnDisable()
+    {
+        if (graph != null) graph.GraphChanged -= OnGraphChanged;
     }
 
     void Start()
@@ -132,6 +166,12 @@ public class ScenarioGraphUI : MonoBehaviour
     void Update()
     {
         if (graph == null || !isActiveAndEnabled) return;
+        if (graphRebuildRequested)
+        {
+            graphRebuildRequested = false;
+            RebuildAll();
+            return;
+        }
         if (Time.unscaledTime < nextValidationPollTime) return;
 
         nextValidationPollTime = Time.unscaledTime + 0.5f;
@@ -204,8 +244,7 @@ public class ScenarioGraphUI : MonoBehaviour
         addStepButton.onClick.RemoveAllListeners();
         addStepButton.onClick.AddListener(() =>
         {
-            graph.AddStep();
-            RebuildAndResetView();
+            graph.ExecuteCommand("Add step", () => graph.AddStep() != null);
         });
 
         if (addConditionButton != null)
@@ -213,8 +252,7 @@ public class ScenarioGraphUI : MonoBehaviour
             addConditionButton.onClick.RemoveAllListeners();
             addConditionButton.onClick.AddListener(() =>
             {
-                graph.AddCondition();
-                RebuildAndResetView();
+                graph.ExecuteCommand("Add condition", () => graph.AddCondition() != null);
             });
         }
 
@@ -224,11 +262,25 @@ public class ScenarioGraphUI : MonoBehaviour
         projectNameInput.onEndEdit.RemoveAllListeners();
         projectNameInput.onEndEdit.AddListener(_ =>
         {
-            graph.curriculum.projectName = string.IsNullOrWhiteSpace(projectNameInput.text)
+            string projectName = string.IsNullOrWhiteSpace(projectNameInput.text)
                 ? "VRCourseEditor"
                 : projectNameInput.text.Trim();
-            RefreshValidationStatus();
+            graph.ExecuteCommand("Rename project", () =>
+            {
+                graph.curriculum.projectName = projectName;
+                return true;
+            });
         });
+    }
+
+    void OnGraphChanged()
+    {
+        if (!isActiveAndEnabled) return;
+        if (projectNameInput != null)
+        {
+            projectNameInput.SetTextWithoutNotify(graph.curriculum.projectName);
+        }
+        graphRebuildRequested = true;
     }
 
     void EnsureControlLabels()
@@ -492,6 +544,7 @@ public class ScenarioGraphUI : MonoBehaviour
 
     void RebuildAll()
     {
+        graphRebuildRequested = false;
         graph.RepairBrokenReferences();
         CancelConnectorDrag(clearStatus: false);
 
@@ -767,15 +820,27 @@ public class ScenarioGraphUI : MonoBehaviour
         void ConfigureDragHandler(NodeDragHandler drag, bool blockSelectableAtStart)
         {
             if (drag == null) return;
+            Vector2 dragStart = root.anchoredPosition;
             drag.target = root;
             drag.blockWhenPointerStartsOnSelectable = blockSelectableAtStart;
+            drag.onBeginDrag = () =>
+            {
+                dragStart = root.anchoredPosition;
+            };
             drag.onDrag = () =>
             {
                 nodePositions[nodeId] = root.anchoredPosition;
             };
             drag.onEndDrag = () =>
             {
-                nodePositions[nodeId] = root.anchoredPosition;
+                Vector2 dragEnd = root.anchoredPosition;
+                nodePositions[nodeId] = dragEnd;
+                if ((dragEnd - dragStart).sqrMagnitude > 0.01f &&
+                    CommandService.I != null && CommandService.I.Stack != null)
+                {
+                    CommandService.I.Stack.RecordApplied(
+                        new NodePositionCommand(this, nodeId, dragStart, dragEnd));
+                }
                 if (nodeType != ScenarioNodeType.Condition) return;
                 TryStoreConditionIntoNearbyStep(nodeId);
             };
@@ -816,7 +881,10 @@ public class ScenarioGraphUI : MonoBehaviour
         var stepNodeId = FindNearestStepNodeForCondition(conditionUi.root);
         if (string.IsNullOrWhiteSpace(stepNodeId)) return;
 
-        if (!graph.TryBindConditionToStep(conditionNodeId, stepNodeId, out var reason))
+        string reason = null;
+        bool bound = graph.ExecuteCommand("Bind condition", () =>
+            graph.TryBindConditionToStep(conditionNodeId, stepNodeId, out reason));
+        if (!bound)
         {
             if (statusText != null)
             {
@@ -830,7 +898,21 @@ public class ScenarioGraphUI : MonoBehaviour
         {
             statusText.text = string.Empty;
         }
-        RebuildAll();
+    }
+
+    bool SetNodePosition(string nodeId, Vector2 position)
+    {
+        if (string.IsNullOrWhiteSpace(nodeId) || graph == null || graph.FindNode(nodeId) == null) return false;
+
+        nodePositions[nodeId] = position;
+        if (nodeUIs.TryGetValue(nodeId, out var binding) && binding?.root != null)
+        {
+            binding.root.anchoredPosition = ClampNodePosition(binding.root, position);
+            nodePositions[nodeId] = binding.root.anchoredPosition;
+            RefreshLines();
+        }
+
+        return true;
     }
 
     string FindNearestStepNodeForCondition(RectTransform conditionRoot)
@@ -957,9 +1039,13 @@ public class ScenarioGraphUI : MonoBehaviour
             linkingFromNodeId = null;
         }
 
-        graph.RemoveNode(nodeId);
+        graph.ExecuteCommand("Delete scenario node", () =>
+        {
+            if (graph.FindNode(nodeId) == null) return false;
+            graph.RemoveNode(nodeId);
+            return graph.FindNode(nodeId) == null;
+        });
         statusText.text = string.Empty;
-        RebuildAll();
     }
 
     void OnClickConnectionPath(ConnectionLineGraphic line)
@@ -967,16 +1053,28 @@ public class ScenarioGraphUI : MonoBehaviour
         if (line == null) return;
         if (string.IsNullOrWhiteSpace(line.fromNodeId) || string.IsNullOrWhiteSpace(line.toNodeId)) return;
 
-        graph.RemoveEdge(line.fromNodeId, line.toNodeId, line.edgeType);
+        graph.ExecuteCommand("Delete scenario connection", () =>
+        {
+            bool exists = graph.curriculum.edges.Any(edge =>
+                edge.fromNodeId == line.fromNodeId &&
+                edge.toNodeId == line.toNodeId &&
+                edge.edgeType == line.edgeType);
+            if (!exists) return false;
+
+            graph.RemoveEdge(line.fromNodeId, line.toNodeId, line.edgeType);
+            return true;
+        });
         statusText.text = string.Empty;
-        RebuildAll();
     }
 
     void TryConnectNodes(string fromNodeId, string toNodeId, string mode)
     {
         if (string.IsNullOrWhiteSpace(fromNodeId) || string.IsNullOrWhiteSpace(toNodeId)) return;
 
-        if (!graph.TryAddEdge(fromNodeId, toNodeId, out var reason))
+        string reason = null;
+        bool connected = graph.ExecuteCommand("Connect scenario nodes", () =>
+            graph.TryAddEdge(fromNodeId, toNodeId, out reason));
+        if (!connected)
         {
             string friendly = ConnectReasonMessages.TryGetValue(reason, out var msg) ? msg : reason;
             statusText.text = $"接続できません: {friendly}";
@@ -986,7 +1084,6 @@ public class ScenarioGraphUI : MonoBehaviour
 
         statusText.text = string.Empty;
         Debug.Log($"[ScenarioGraphUI] Connect success mode={mode} from={fromNodeId} to={toNodeId}");
-        RebuildAll();
     }
 
     void BeginConnectorDrag(string fromNodeId, Vector2 screenPosition)
@@ -1152,9 +1249,17 @@ public class ScenarioGraphUI : MonoBehaviour
 
     void SaveScenarioExport()
     {
-        graph.curriculum.projectName = string.IsNullOrWhiteSpace(projectNameInput.text)
+        string projectName = string.IsNullOrWhiteSpace(projectNameInput.text)
             ? "VRCourseEditor"
             : projectNameInput.text.Trim();
+        if (!string.Equals(graph.curriculum.projectName, projectName, System.StringComparison.Ordinal))
+        {
+            graph.ExecuteCommand("Rename project", () =>
+            {
+                graph.curriculum.projectName = projectName;
+                return true;
+            });
+        }
 
         var validation = graph.ValidateGraph();
         if (!validation.CanExport)

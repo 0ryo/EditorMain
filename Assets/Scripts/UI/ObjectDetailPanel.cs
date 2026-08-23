@@ -846,7 +846,12 @@ public class ObjectDetailPanel : MonoBehaviour
     {
         if (string.IsNullOrWhiteSpace(nodeId) || graphService == null) return;
 
-        graphService.RemoveNode(nodeId);
+        graphService.ExecuteCommand("Delete condition", () =>
+        {
+            if (graphService.FindNode(nodeId) == null) return false;
+            graphService.RemoveNode(nodeId);
+            return graphService.FindNode(nodeId) == null;
+        });
         if (scenarioGraphUI != null)
         {
             scenarioGraphUI.RebuildFromExternalChange();

@@ -95,14 +95,16 @@ public class ConditionNodeUI : MonoBehaviour
             conditionNode.condition.objectBId,
             onAChanged: newId =>
             {
-                conditionNode.condition.objectAId = newId;
+                if (string.Equals(conditionNode.condition.objectAId, newId, StringComparison.Ordinal)) return;
+                if (!ExecuteConditionEdit("Set condition object A", data => data.objectAId = newId)) return;
                 UpdateNodeLabel();
                 RefreshWarning();
                 onChanged?.Invoke();
             },
             onBChanged: newId =>
             {
-                conditionNode.condition.objectBId = newId;
+                if (string.Equals(conditionNode.condition.objectBId, newId, StringComparison.Ordinal)) return;
+                if (!ExecuteConditionEdit("Set condition object B", data => data.objectBId = newId)) return;
                 UpdateNodeLabel();
                 RefreshWarning();
                 onChanged?.Invoke();
@@ -426,9 +428,26 @@ public class ConditionNodeUI : MonoBehaviour
         titleInput.SetTextWithoutNotify(NormalizeConditionTitle(conditionNode.condition.title));
         titleInput.onEndEdit.AddListener(value =>
         {
-            conditionNode.condition.title = NormalizeConditionTitle(value);
-            titleInput.SetTextWithoutNotify(conditionNode.condition.title);
+            string normalized = NormalizeConditionTitle(value);
+            if (string.Equals(conditionNode.condition.title, normalized, StringComparison.Ordinal)) return;
+            if (!ExecuteConditionEdit("Rename condition", data => data.title = normalized)) return;
+            titleInput.SetTextWithoutNotify(normalized);
             onChanged?.Invoke();
+        });
+    }
+
+    bool ExecuteConditionEdit(string label, Action<ConditionNodeData> mutation)
+    {
+        if (graphService == null || conditionNode == null || mutation == null) return false;
+
+        string nodeId = conditionNode.nodeId;
+        return graphService.ExecuteCommand(label, () =>
+        {
+            var target = graphService.FindNode(nodeId);
+            if (target == null || target.nodeType != ScenarioNodeType.Condition) return false;
+            if (target.condition == null) target.condition = new ConditionNodeData();
+            mutation(target.condition);
+            return true;
         });
     }
 
