@@ -300,12 +300,23 @@ public class ViewportStatusStrip : MonoBehaviour
     {
         if (debugText == null) return;
 
+        float gridSize = placementController != null
+            ? Mathf.Max(0.0001f, placementController.gridSize)
+            : 0.1f;
+
+        if (selectedObject != null)
+        {
+            debugText.text =
+                $"Grid {gridSize:0.##}m | Pos {FormatVector(selectedObject.transform.position)} | Scale {FormatVector(selectedObject.transform.localScale)}";
+            return;
+        }
+
         var cam = EditWorkspace.ResolveCamera();
         string cameraText = cam != null
             ? $"Cam {FormatVector(cam.transform.position)} / Zoom {(cam.orthographic ? cam.orthographicSize : cam.transform.position.magnitude):0.0}"
             : "Cam none";
 
-        debugText.text = cameraText;
+        debugText.text = $"Grid {gridSize:0.##}m | {cameraText}";
     }
 
     static string FormatVector(Vector3 value)
