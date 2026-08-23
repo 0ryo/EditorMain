@@ -3,7 +3,19 @@ using UnityEngine;
 public class CommandService : MonoBehaviour {
     public static CommandService I;
     public CommandStack Stack = new();
-    void Awake(){ I=this; }
+    void Awake(){
+        if (I != null && I != this){
+            Destroy(this);
+            return;
+        }
+
+        I = this;
+    }
+
+    void OnDestroy(){
+        if (I == this) I = null;
+    }
+
     void Update(){
         if (EditWorkspace.IsTypingIntoInputField()) return;
 

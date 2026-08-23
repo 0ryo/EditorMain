@@ -26,6 +26,12 @@ public class EditModeService : MonoBehaviour
 
     void Awake()
     {
+        if (I != null && I != this)
+        {
+            Destroy(this);
+            return;
+        }
+
         I = this;
         if (enterTransformModeKey == KeyCode.None)
         {
@@ -36,6 +42,11 @@ public class EditModeService : MonoBehaviour
         {
             Mode = EditMode.Transform;
         }
+    }
+
+    void OnDestroy()
+    {
+        if (I == this) I = null;
     }
 
     void Update()

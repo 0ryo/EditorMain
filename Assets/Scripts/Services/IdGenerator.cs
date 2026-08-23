@@ -8,10 +8,14 @@ public class IdGenerator : MonoBehaviour {
 
     private void Awake() {
         if (I != null && I != this) {
-            Destroy(gameObject);
+            Destroy(this);
             return;
         }
         I = this;
+    }
+
+    private void OnDestroy() {
+        if (I == this) I = null;
     }
 
     public string NewObjectId() {
