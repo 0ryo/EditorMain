@@ -11,12 +11,11 @@ public sealed class EditorProjectPanel : MonoBehaviour
     Transform uiRoot;
     EditorProjectService projectService;
     Button openButton;
+    Button saveProjectButton;
     RectTransform modal;
     TMP_InputField projectNameInput;
     TMP_Text statusText;
     RectTransform listContent;
-    Button loadLatestButton;
-    EditorProjectFileInfo latestProject;
     RectTransform confirmation;
     TMP_Text confirmationText;
     Action confirmedAction;
@@ -113,17 +112,18 @@ public sealed class EditorProjectPanel : MonoBehaviour
         SetRect(nameLabel.rectTransform, new Vector2(24f, -72f), new Vector2(160f, 24f));
         projectNameInput = CreateInput("Input_ProjectName", dialog, "VRCourseEditor");
         SetRect(projectNameInput.transform as RectTransform, new Vector2(24f, -98f), new Vector2(672f, 40f));
+        projectNameInput.onValueChanged.AddListener(_ => RefreshSaveButtonLabel());
+
+        saveProjectButton = CreateButton("Button_SaveProject", dialog, "名前を付けて保存", 168f, true);
+        SetRect(saveProjectButton.transform as RectTransform, new Vector2(24f, -154f), new Vector2(168f, 40f));
+        saveProjectButton.onClick.AddListener(SaveProject);
 
         var newButton = CreateButton("Button_NewProject", dialog, "新規", 96f);
-        SetRect(newButton.transform as RectTransform, new Vector2(24f, -154f), new Vector2(96f, 40f));
+        SetRect(newButton.transform as RectTransform, new Vector2(204f, -154f), new Vector2(96f, 40f));
         newButton.onClick.AddListener(RequestNewProject);
 
-        var saveButton = CreateButton("Button_SaveProject", dialog, "名前を付けて保存", 168f, true);
-        SetRect(saveButton.transform as RectTransform, new Vector2(132f, -154f), new Vector2(168f, 40f));
-        saveButton.onClick.AddListener(SaveProject);
-
-        var placementExportButton = CreateButton("Button_ExportPlacement", dialog, "配置JSON出力", 120f);
-        SetRect(placementExportButton.transform as RectTransform, new Vector2(312f, -154f), new Vector2(120f, 40f));
+        var placementExportButton = CreateButton("Button_ExportPlacement", dialog, "配置JSONエクスポート", 180f);
+        SetRect(placementExportButton.transform as RectTransform, new Vector2(324f, -154f), new Vector2(180f, 40f));
         placementExportButton.onClick.AddListener(ExportPlacement);
 
         var folderText = CreateText(
@@ -132,21 +132,13 @@ public sealed class EditorProjectPanel : MonoBehaviour
             "保存先: アプリの永続データ / Projects",
             DesignTokens.FontSizeCaption,
             DesignTokens.TextSecondary);
-        SetRect(folderText.rectTransform, new Vector2(444f, -158f), new Vector2(252f, 32f));
+        SetRect(folderText.rectTransform, new Vector2(24f, -202f), new Vector2(672f, 24f));
 
         statusText = CreateText("Text_Status", dialog, string.Empty, DesignTokens.FontSizeBody, DesignTokens.TextSecondary);
-        SetRect(statusText.rectTransform, new Vector2(24f, -208f), new Vector2(672f, 32f));
+        SetRect(statusText.rectTransform, new Vector2(24f, -228f), new Vector2(672f, 32f));
 
         var recentTitle = CreateText("Title_Recent", dialog, "保存済みプロジェクト", DesignTokens.FontSizeSubheading, DesignTokens.TextPrimary);
-        SetRect(recentTitle.rectTransform, new Vector2(24f, -250f), new Vector2(300f, 28f));
-
-        var refreshButton = CreateButton("Button_RefreshProjects", dialog, "更新", 72f);
-        SetTopRight(refreshButton.transform as RectTransform, new Vector2(-196f, -244f), new Vector2(72f, 36f));
-        refreshButton.onClick.AddListener(RefreshProjectList);
-
-        loadLatestButton = CreateButton("Button_LoadLatest", dialog, "最新を読込", 148f);
-        SetTopRight(loadLatestButton.transform as RectTransform, new Vector2(-24f, -244f), new Vector2(148f, 36f));
-        loadLatestButton.onClick.AddListener(LoadLatestProject);
+        SetRect(recentTitle.rectTransform, new Vector2(24f, -268f), new Vector2(300f, 28f));
 
         BuildProjectList(dialog);
         BuildConfirmation(dialog);
@@ -157,7 +149,7 @@ public sealed class EditorProjectPanel : MonoBehaviour
     void BuildProjectList(RectTransform dialog)
     {
         var scrollRoot = CreateRect("Scroll_Projects", dialog);
-        SetRect(scrollRoot, new Vector2(24f, -286f), new Vector2(672f, 300f));
+        SetRect(scrollRoot, new Vector2(24f, -304f), new Vector2(672f, 282f));
         var scrollImage = scrollRoot.gameObject.AddComponent<Image>();
         scrollImage.color = DesignTokens.BgPrimary;
         var scroll = scrollRoot.gameObject.AddComponent<ScrollRect>();
@@ -219,6 +211,7 @@ public sealed class EditorProjectPanel : MonoBehaviour
             ? graph.curriculum.projectName
             : projectService.CurrentProjectName;
         projectNameInput.SetTextWithoutNotify(string.IsNullOrWhiteSpace(name) ? "VRCourseEditor" : name);
+        RefreshSaveButtonLabel();
         statusText.text = string.Empty;
         HideConfirmation();
         RefreshProjectList();
@@ -260,6 +253,7 @@ public sealed class EditorProjectPanel : MonoBehaviour
     {
         projectService.Save(name, out var message);
         statusText.text = message;
+        RefreshSaveButtonLabel();
         HideConfirmation();
         RefreshProjectList();
     }
@@ -284,6 +278,7 @@ public sealed class EditorProjectPanel : MonoBehaviour
         {
             projectService.NewProject(GetProjectName(), out var message);
             statusText.text = message;
+            RefreshSaveButtonLabel();
             HideConfirmation();
         });
     }
@@ -297,15 +292,11 @@ public sealed class EditorProjectPanel : MonoBehaviour
             if (loaded)
             {
                 projectNameInput.SetTextWithoutNotify(projectService.CurrentProjectName);
+                RefreshSaveButtonLabel();
                 RefreshProjectList();
             }
             HideConfirmation();
         });
-    }
-
-    void LoadLatestProject()
-    {
-        if (latestProject != null) RequestLoad(latestProject);
     }
 
     void RefreshProjectList()
@@ -317,8 +308,6 @@ public sealed class EditorProjectPanel : MonoBehaviour
         }
 
         var projects = EditorProjectStore.ListProjects();
-        latestProject = projects.Count > 0 ? projects[0] : null;
-        if (loadLatestButton != null) loadLatestButton.interactable = latestProject != null;
         if (projects.Count == 0)
         {
             var empty = CreateText("Text_Empty", listContent, "保存済みプロジェクトはありません", DesignTokens.FontSizeBody, DesignTokens.TextSecondary);
@@ -363,6 +352,18 @@ public sealed class EditorProjectPanel : MonoBehaviour
         }
 
         SetListContentHeight(16f + projects.Count * 52f + Mathf.Max(0, projects.Count - 1) * DesignTokens.SpaceSm);
+    }
+
+    void RefreshSaveButtonLabel()
+    {
+        if (saveProjectButton == null || projectService == null) return;
+
+        bool hasCurrentFile = !string.IsNullOrWhiteSpace(projectService.CurrentProjectPath);
+        bool sameProjectName = string.Equals(
+            ExportFileNameUtility.SanitizeProjectName(GetProjectName(), "VRCourseEditor"),
+            ExportFileNameUtility.SanitizeProjectName(projectService.CurrentProjectName, "VRCourseEditor"),
+            StringComparison.OrdinalIgnoreCase);
+        SetButtonLabel(saveProjectButton, hasCurrentFile && sameProjectName ? "上書き保存" : "名前を付けて保存");
     }
 
     static void SetListItemRect(RectTransform rect, int index, float height)
@@ -456,6 +457,13 @@ public sealed class EditorProjectPanel : MonoBehaviour
         Stretch(label.rectTransform);
         label.alignment = TextAlignmentOptions.Center;
         return button;
+    }
+
+    static void SetButtonLabel(Button button, string labelValue)
+    {
+        if (button == null) return;
+        var label = button.GetComponentInChildren<TMP_Text>(true);
+        if (label != null) label.text = labelValue;
     }
 
     static TMP_InputField CreateInput(string objectName, Transform parent, string placeholderValue)
