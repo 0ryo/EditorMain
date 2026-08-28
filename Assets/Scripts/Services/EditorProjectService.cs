@@ -54,6 +54,10 @@ public sealed class EditorProjectService : MonoBehaviour
         autoSaveInterval = NormalizeAutoSaveInterval(PlayerPrefs.GetFloat(
             AutoSaveIntervalPlayerPrefsKey,
             DefaultAutoSaveIntervalSeconds));
+        if (!EditorProjectStore.TryPromoteRecoveryForExistingProject(out _, out var recoveryMigrationError))
+        {
+            Debug.LogWarning("[EditorProject] 旧形式の自動保存を移行できません: " + recoveryMigrationError);
+        }
         ResolveReferences();
         PlacedObject.OnDisplayNameChanged += OnPlacedObjectMetadataChanged;
         PlacedObjectEditState.StateChanged += OnPlacedObjectStateChanged;
@@ -574,6 +578,19 @@ public sealed class EditorProjectService : MonoBehaviour
         try
         {
             string fingerprint = BuildCurrentFingerprint();
+            if (!string.IsNullOrWhiteSpace(CurrentProjectPath))
+            {
+                CurrentProjectPath = EditorProjectStore.SaveAutomatic(
+                    Capture(CurrentProjectName),
+                    CurrentProjectPath);
+                EditorProjectStore.DeleteRecovery(out _);
+                EstablishCleanBaseline();
+                message = "自動保存しました。";
+                RecoveryChanged?.Invoke();
+                Debug.Log("[EditorProject] " + message);
+                return true;
+            }
+
             EditorProjectStore.SaveRecovery(Capture(graph.curriculum.projectName));
             lastRecoveryFingerprint = fingerprint;
             message = "復旧用の自動保存を更新しました。";

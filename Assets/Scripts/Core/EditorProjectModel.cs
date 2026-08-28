@@ -10,6 +10,7 @@ public sealed class EditorProjectFile
     public int schemaVersion = CurrentSchemaVersion;
     public string projectName = "VRCourseEditor";
     public string savedAtUtc;
+    public bool lastSaveWasAutomatic;
     public Curriculum curriculum = new Curriculum();
     public List<EditorProjectObject> objects = new List<EditorProjectObject>();
 }

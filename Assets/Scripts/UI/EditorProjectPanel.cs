@@ -384,15 +384,17 @@ public sealed class EditorProjectPanel : MonoBehaviour
             label.rectTransform.anchorMin = new Vector2(0f, 0f);
             label.rectTransform.anchorMax = new Vector2(1f, 1f);
             label.rectTransform.offsetMin = new Vector2(12f, 0f);
-            label.rectTransform.offsetMax = new Vector2(-180f, 0f);
+            label.rectTransform.offsetMax = new Vector2(-308f, 0f);
             label.alignment = TextAlignmentOptions.MidlineLeft;
 
-            var date = CreateText("Date", row, info.LastWriteTimeUtc.ToLocalTime().ToString("yyyy/MM/dd HH:mm"), DesignTokens.FontSizeCaption, DesignTokens.TextSecondary);
+            string savedAt = info.LastWriteTimeUtc.ToLocalTime().ToString("yyyy/MM/dd HH:mm");
+            string dateLabel = info.LastSaveWasAutomatic ? "自動保存：" + savedAt : savedAt;
+            var date = CreateText("Date", row, dateLabel, DesignTokens.FontSizeCaption, DesignTokens.TextSecondary);
             date.rectTransform.anchorMin = new Vector2(1f, 0f);
             date.rectTransform.anchorMax = new Vector2(1f, 1f);
             date.rectTransform.pivot = new Vector2(1f, 0.5f);
             date.rectTransform.anchoredPosition = new Vector2(-96f, 0f);
-            date.rectTransform.sizeDelta = new Vector2(150f, 52f);
+            date.rectTransform.sizeDelta = new Vector2(212f, 52f);
             date.alignment = TextAlignmentOptions.MidlineRight;
 
             var load = CreateButton("Button_Load", row, "読込", 72f);

@@ -20,12 +20,29 @@ public static class EditorProjectStore
         if (project == null) throw new ArgumentNullException(nameof(project));
 
         string safeName = ExportFileNameUtility.SanitizeProjectName(projectName, "VRCourseEditor");
+        string path = Path.Combine(ProjectsDirectory, safeName + FileSuffix);
+        return WriteProject(project, projectName, path, false);
+    }
+
+    public static string SaveAutomatic(EditorProjectFile project, string existingPath)
+    {
+        if (project == null) throw new ArgumentNullException(nameof(project));
+        if (string.IsNullOrWhiteSpace(existingPath)) throw new ArgumentException("保存先が空です。", nameof(existingPath));
+
+        string path = Path.GetFullPath(existingPath);
+        return WriteProject(project, project.projectName, path, true);
+    }
+
+    static string WriteProject(EditorProjectFile project, string projectName, string path, bool automatic)
+    {
         project.schemaVersion = EditorProjectFile.CurrentSchemaVersion;
-        project.projectName = string.IsNullOrWhiteSpace(projectName) ? safeName : projectName.Trim();
+        project.projectName = string.IsNullOrWhiteSpace(projectName)
+            ? ExportFileNameUtility.SanitizeProjectName(projectName, "VRCourseEditor")
+            : projectName.Trim();
         project.savedAtUtc = DateTime.UtcNow.ToString("O");
+        project.lastSaveWasAutomatic = automatic;
         EditorProjectMigration.Normalize(project);
 
-        string path = Path.Combine(ProjectsDirectory, safeName + FileSuffix);
         ExportFileWriter.WriteAllTextWithBackup(path, JsonUtility.ToJson(project, true));
         return path;
     }
@@ -59,6 +76,7 @@ public static class EditorProjectStore
 
         project.schemaVersion = EditorProjectFile.CurrentSchemaVersion;
         project.savedAtUtc = DateTime.UtcNow.ToString("O");
+        project.lastSaveWasAutomatic = true;
         EditorProjectMigration.Normalize(project);
         ExportFileWriter.WriteAllTextWithBackup(RecoveryPath, JsonUtility.ToJson(project, true));
         return RecoveryPath;
@@ -108,6 +126,32 @@ public static class EditorProjectStore
         }
     }
 
+    public static bool TryPromoteRecoveryForExistingProject(out bool promoted, out string error)
+    {
+        promoted = false;
+        error = null;
+
+        if (!TryGetRecovery(out _)) return true;
+        if (!TryLoad(RecoveryPath, out var recovery, out error)) return false;
+
+        string safeName = ExportFileNameUtility.SanitizeProjectName(recovery.projectName, "VRCourseEditor");
+        string projectPath = Path.Combine(ProjectsDirectory, safeName + FileSuffix);
+        if (!File.Exists(projectPath)) return true;
+
+        try
+        {
+            SaveAutomatic(recovery, projectPath);
+            if (!DeleteRecovery(out error)) return false;
+            promoted = true;
+            return true;
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            return false;
+        }
+    }
+
     public static IReadOnlyList<EditorProjectFileInfo> ListProjects()
     {
         try
@@ -117,10 +161,7 @@ public static class EditorProjectStore
             return Directory.GetFiles(ProjectsDirectory, "*" + FileSuffix, SearchOption.TopDirectoryOnly)
                 .Select(path => new FileInfo(path))
                 .OrderByDescending(info => info.LastWriteTimeUtc)
-                .Select(info => new EditorProjectFileInfo(
-                    info.FullName,
-                    RemoveSuffix(info.Name),
-                    info.LastWriteTimeUtc))
+                .Select(CreateProjectFileInfo)
                 .ToList();
         }
         catch (Exception ex)
@@ -128,6 +169,21 @@ public static class EditorProjectStore
             Debug.LogWarning("[EditorProjectStore] 一覧を取得できません: " + ex.Message);
             return Array.Empty<EditorProjectFileInfo>();
         }
+    }
+
+    static EditorProjectFileInfo CreateProjectFileInfo(FileInfo info)
+    {
+        bool lastSaveWasAutomatic = false;
+        if (TryLoad(info.FullName, out var project, out _) && project != null)
+        {
+            lastSaveWasAutomatic = project.lastSaveWasAutomatic;
+        }
+
+        return new EditorProjectFileInfo(
+            info.FullName,
+            RemoveSuffix(info.Name),
+            info.LastWriteTimeUtc,
+            lastSaveWasAutomatic);
     }
 
     static string RemoveSuffix(string fileName)
@@ -143,11 +199,17 @@ public sealed class EditorProjectFileInfo
     public string Path { get; }
     public string DisplayName { get; }
     public DateTime LastWriteTimeUtc { get; }
+    public bool LastSaveWasAutomatic { get; }
 
-    public EditorProjectFileInfo(string path, string displayName, DateTime lastWriteTimeUtc)
+    public EditorProjectFileInfo(
+        string path,
+        string displayName,
+        DateTime lastWriteTimeUtc,
+        bool lastSaveWasAutomatic = false)
     {
         Path = path;
         DisplayName = displayName;
         LastWriteTimeUtc = lastWriteTimeUtc;
+        LastSaveWasAutomatic = lastSaveWasAutomatic;
     }
 }
