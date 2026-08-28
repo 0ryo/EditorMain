@@ -42,6 +42,8 @@ public class CatalogUI : MonoBehaviour
     [SerializeField] TMP_Text settingsRotationSnapValueText;
     [SerializeField] Slider settingsUiScaleSlider;
     [SerializeField] TMP_Text settingsUiScaleValueText;
+    [SerializeField] Slider settingsAutoSaveIntervalSlider;
+    [SerializeField] TMP_Text settingsAutoSaveIntervalValueText;
     [SerializeField] Button settingsIntegrationLinkButton;
     [SerializeField] Button settingsRevertButton;
     [SerializeField] Button settingsApplyButton;
@@ -101,8 +103,11 @@ public class CatalogUI : MonoBehaviour
     bool settingsPendingSnapEnabled = true;
     float settingsCommittedUiScale = 1f;
     float settingsPendingUiScale = 1f;
+    float settingsCommittedAutoSaveInterval = EditorProjectService.DefaultAutoSaveIntervalSeconds;
+    float settingsPendingAutoSaveInterval = EditorProjectService.DefaultAutoSaveIntervalSeconds;
     bool settingsSnapBindingInitialized;
     UiScaleController settingsUiScaleController;
+    EditorProjectService settingsProjectService;
     bool settingsHasPendingChanges;
     bool settingsInitializingUi;
     SettingsTab activeSettingsTab = SettingsTab.General;
@@ -528,6 +533,12 @@ public class CatalogUI : MonoBehaviour
         {
             settingsUiScaleSlider.onValueChanged.RemoveListener(OnSettingsUiScaleChanged);
             settingsUiScaleSlider.onValueChanged.AddListener(OnSettingsUiScaleChanged);
+        }
+
+        if (settingsAutoSaveIntervalSlider != null)
+        {
+            settingsAutoSaveIntervalSlider.onValueChanged.RemoveListener(OnSettingsAutoSaveIntervalChanged);
+            settingsAutoSaveIntervalSlider.onValueChanged.AddListener(OnSettingsAutoSaveIntervalChanged);
         }
 
         if (settingsIntegrationLinkButton != null)
@@ -1018,6 +1029,12 @@ public class CatalogUI : MonoBehaviour
         var uiScaleValueTr = overlayRt.Find("Window/Content/Content_General/UiScaleRow/Text_UiScaleValue");
         if (uiScaleValueTr != null) settingsUiScaleValueText = uiScaleValueTr.GetComponent<TMP_Text>();
 
+        var autoSaveSliderTr = overlayRt.Find("Window/Content/Content_General/AutoSaveIntervalRow/Slider_AutoSaveInterval");
+        if (autoSaveSliderTr != null) settingsAutoSaveIntervalSlider = autoSaveSliderTr.GetComponent<Slider>();
+
+        var autoSaveValueTr = overlayRt.Find("Window/Content/Content_General/AutoSaveIntervalRow/Text_AutoSaveIntervalValue");
+        if (autoSaveValueTr != null) settingsAutoSaveIntervalValueText = autoSaveValueTr.GetComponent<TMP_Text>();
+
         var linkTr = overlayRt.Find("Window/Content/Content_Integration/Button_WebLink");
         if (linkTr != null) settingsIntegrationLinkButton = linkTr.GetComponent<Button>();
 
@@ -1056,7 +1073,7 @@ public class CatalogUI : MonoBehaviour
         windowRt.anchorMin = new Vector2(0.5f, 0.5f);
         windowRt.anchorMax = new Vector2(0.5f, 0.5f);
         windowRt.pivot = new Vector2(0.5f, 0.5f);
-        windowRt.sizeDelta = new Vector2(760f, 560f);
+        windowRt.sizeDelta = new Vector2(760f, 640f);
         windowRt.anchoredPosition = Vector2.zero;
 
         var windowImage = windowRt.GetComponent<Image>();
@@ -1157,10 +1174,15 @@ public class CatalogUI : MonoBehaviour
         EnsureSettingsCameraBinding();
         EnsureSettingsSnapBinding();
         EnsureSettingsUiScaleBinding();
+        EnsureSettingsAutoSaveBinding();
         settingsPendingSensitivityScale = Mathf.Clamp(settingsPendingSensitivityScale, 0.2f, 2.5f);
         settingsPendingGridSnap = Mathf.Clamp(settingsPendingGridSnap, 0.05f, 1f);
         settingsPendingRotationSnap = Mathf.Clamp(settingsPendingRotationSnap, 1f, 90f);
         settingsPendingUiScale = Mathf.Clamp(settingsPendingUiScale, 0.8f, 1.4f);
+        settingsPendingAutoSaveInterval = Mathf.Clamp(
+            Mathf.Round(settingsPendingAutoSaveInterval),
+            EditorProjectService.MinAutoSaveIntervalSeconds,
+            EditorProjectService.MaxAutoSaveIntervalSeconds);
 
         if (settingsSensitivitySlider != null)
         {
@@ -1188,6 +1210,13 @@ public class CatalogUI : MonoBehaviour
             settingsUiScaleSlider.minValue = 0.8f;
             settingsUiScaleSlider.maxValue = 1.4f;
             settingsUiScaleSlider.wholeNumbers = false;
+        }
+
+        if (settingsAutoSaveIntervalSlider != null)
+        {
+            settingsAutoSaveIntervalSlider.minValue = EditorProjectService.MinAutoSaveIntervalSeconds;
+            settingsAutoSaveIntervalSlider.maxValue = EditorProjectService.MaxAutoSaveIntervalSeconds;
+            settingsAutoSaveIntervalSlider.wholeNumbers = true;
         }
 
         if (settingsAccountUserNameText != null)
@@ -1228,9 +1257,14 @@ public class CatalogUI : MonoBehaviour
         {
             settingsUiScaleSlider.SetValueWithoutNotify(settingsPendingUiScale);
         }
+        if (settingsAutoSaveIntervalSlider != null)
+        {
+            settingsAutoSaveIntervalSlider.SetValueWithoutNotify(settingsPendingAutoSaveInterval);
+        }
         UpdateSensitivityValueText(settingsPendingSensitivityScale);
         UpdateSnapValueTexts();
         UpdateUiScaleValueText(settingsPendingUiScale);
+        UpdateAutoSaveIntervalValueText(settingsPendingAutoSaveInterval);
         settingsInitializingUi = false;
         RefreshSettingsDirtyState();
 
@@ -1442,6 +1476,32 @@ public class CatalogUI : MonoBehaviour
         ConfigureSettingsSliderRect(settingsUiScaleSlider, 90f);
         settingsUiScaleValueText = FindOrCreateSettingsText(uiScaleRow, "Text_UiScaleValue", "100%");
         ConfigureSettingsValueText(settingsUiScaleValueText);
+
+        var autoSaveTitle = FindOrCreateSettingsText(contentRt, "Text_AutoSaveIntervalTitle", "編集後の自動保存");
+        autoSaveTitle.fontSize = 16;
+        autoSaveTitle.alignment = TextAlignmentOptions.MidlineLeft;
+        autoSaveTitle.color = DesignTokens.TextPrimary;
+        var autoSaveTitleRt = autoSaveTitle.rectTransform;
+        autoSaveTitleRt.anchorMin = new Vector2(0f, 1f);
+        autoSaveTitleRt.anchorMax = new Vector2(1f, 1f);
+        autoSaveTitleRt.offsetMin = new Vector2(24f, -508f);
+        autoSaveTitleRt.offsetMax = new Vector2(-24f, -476f);
+
+        var autoSaveRow = FindOrCreateSettingsRect(contentRt, "AutoSaveIntervalRow");
+        autoSaveRow.anchorMin = new Vector2(0f, 1f);
+        autoSaveRow.anchorMax = new Vector2(1f, 1f);
+        autoSaveRow.offsetMin = new Vector2(24f, -564f);
+        autoSaveRow.offsetMax = new Vector2(-24f, -524f);
+        settingsAutoSaveIntervalSlider = EnsureSettingsSlider(
+            autoSaveRow,
+            settingsAutoSaveIntervalSlider,
+            "Slider_AutoSaveInterval");
+        ConfigureSettingsSliderRect(settingsAutoSaveIntervalSlider, 90f);
+        settingsAutoSaveIntervalValueText = FindOrCreateSettingsText(
+            autoSaveRow,
+            "Text_AutoSaveIntervalValue",
+            "5秒");
+        ConfigureSettingsValueText(settingsAutoSaveIntervalValueText);
     }
 
     void EnsureIntegrationSettingsContent(RectTransform contentRt)
@@ -2691,6 +2751,18 @@ public class CatalogUI : MonoBehaviour
         settingsPendingUiScale = settingsCommittedUiScale;
     }
 
+    void EnsureSettingsAutoSaveBinding()
+    {
+        if (settingsProjectService == null)
+        {
+            settingsProjectService = EditorProjectService.Ensure(transform.root);
+        }
+
+        if (settingsProjectService == null) return;
+        settingsCommittedAutoSaveInterval = settingsProjectService.AutoSaveIntervalSeconds;
+        settingsPendingAutoSaveInterval = settingsCommittedAutoSaveInterval;
+    }
+
     void OnSettingsSensitivityChanged(float sliderValue)
     {
         float clamped = Mathf.Clamp(sliderValue, 0.2f, 2.5f);
@@ -2732,6 +2804,17 @@ public class CatalogUI : MonoBehaviour
         RefreshSettingsDirtyState();
     }
 
+    void OnSettingsAutoSaveIntervalChanged(float value)
+    {
+        settingsPendingAutoSaveInterval = Mathf.Clamp(
+            Mathf.Round(value),
+            EditorProjectService.MinAutoSaveIntervalSeconds,
+            EditorProjectService.MaxAutoSaveIntervalSeconds);
+        UpdateAutoSaveIntervalValueText(settingsPendingAutoSaveInterval);
+        if (settingsInitializingUi) return;
+        RefreshSettingsDirtyState();
+    }
+
     void UpdateSensitivityValueText(float scale)
     {
         if (settingsSensitivityValueText == null) return;
@@ -2766,6 +2849,12 @@ public class CatalogUI : MonoBehaviour
     {
         if (settingsUiScaleValueText == null) return;
         settingsUiScaleValueText.text = $"{Mathf.RoundToInt(scale * 100f)}%";
+    }
+
+    void UpdateAutoSaveIntervalValueText(float seconds)
+    {
+        if (settingsAutoSaveIntervalValueText == null) return;
+        settingsAutoSaveIntervalValueText.text = $"{Mathf.RoundToInt(seconds)}秒";
     }
 
     void ApplyUiScale(float scale)
@@ -2803,6 +2892,7 @@ public class CatalogUI : MonoBehaviour
             !Mathf.Approximately(settingsPendingGridSnap, settingsCommittedGridSnap) ||
             !Mathf.Approximately(settingsPendingRotationSnap, settingsCommittedRotationSnap) ||
             !Mathf.Approximately(settingsPendingUiScale, settingsCommittedUiScale) ||
+            !Mathf.Approximately(settingsPendingAutoSaveInterval, settingsCommittedAutoSaveInterval) ||
             settingsPendingSnapEnabled != settingsCommittedSnapEnabled;
         SetSettingsDirty(dirty);
     }
@@ -2833,6 +2923,7 @@ public class CatalogUI : MonoBehaviour
         settingsPendingRotationSnap = settingsCommittedRotationSnap;
         settingsPendingSnapEnabled = settingsCommittedSnapEnabled;
         settingsPendingUiScale = settingsCommittedUiScale;
+        settingsPendingAutoSaveInterval = settingsCommittedAutoSaveInterval;
         settingsInitializingUi = true;
         if (settingsSensitivitySlider != null)
         {
@@ -2854,9 +2945,14 @@ public class CatalogUI : MonoBehaviour
         {
             settingsUiScaleSlider.SetValueWithoutNotify(settingsCommittedUiScale);
         }
+        if (settingsAutoSaveIntervalSlider != null)
+        {
+            settingsAutoSaveIntervalSlider.SetValueWithoutNotify(settingsCommittedAutoSaveInterval);
+        }
         UpdateSensitivityValueText(settingsCommittedSensitivityScale);
         UpdateSnapValueTexts();
         UpdateUiScaleValueText(settingsCommittedUiScale);
+        UpdateAutoSaveIntervalValueText(settingsCommittedAutoSaveInterval);
         settingsInitializingUi = false;
         SetSettingsDirty(false);
     }
@@ -2868,9 +2964,11 @@ public class CatalogUI : MonoBehaviour
         settingsCommittedRotationSnap = settingsPendingRotationSnap;
         settingsCommittedSnapEnabled = settingsPendingSnapEnabled;
         settingsCommittedUiScale = settingsPendingUiScale;
+        settingsCommittedAutoSaveInterval = settingsPendingAutoSaveInterval;
         ApplySensitivityScaleToCamera(settingsCommittedSensitivityScale);
         ApplySnapSettings(settingsCommittedGridSnap, settingsCommittedRotationSnap, settingsCommittedSnapEnabled);
         ApplyUiScale(settingsCommittedUiScale);
+        settingsProjectService?.SetAutoSaveInterval(settingsCommittedAutoSaveInterval);
         SetSettingsDirty(false);
         CloseSettingsPanel();
     }

@@ -7,6 +7,11 @@ using UnityEngine;
 public sealed class EditorProjectService : MonoBehaviour
 {
     const float SelectedObjectPollInterval = 0.2f;
+    const string AutoSaveIntervalPlayerPrefsKey = "SkillSync.Editor.AutoSaveIntervalSeconds";
+
+    public const float DefaultAutoSaveIntervalSeconds = 5f;
+    public const float MinAutoSaveIntervalSeconds = 1f;
+    public const float MaxAutoSaveIntervalSeconds = 120f;
 
     public event Action<string, bool> StatusChanged;
     public event Action<bool> DirtyChanged;
@@ -15,8 +20,9 @@ public sealed class EditorProjectService : MonoBehaviour
     public string CurrentProjectPath { get; private set; }
     public string CurrentProjectName { get; private set; } = "VRCourseEditor";
     public bool IsDirty { get; private set; }
+    public float AutoSaveIntervalSeconds => autoSaveInterval;
 
-    [SerializeField, Min(5f)] float autoSaveInterval = 30f;
+    [SerializeField, Min(MinAutoSaveIntervalSeconds)] float autoSaveInterval = DefaultAutoSaveIntervalSeconds;
 
     CurriculumGraphService graph;
     PlacementController placementController;
@@ -45,9 +51,28 @@ public sealed class EditorProjectService : MonoBehaviour
 
     void Awake()
     {
+        autoSaveInterval = NormalizeAutoSaveInterval(PlayerPrefs.GetFloat(
+            AutoSaveIntervalPlayerPrefsKey,
+            DefaultAutoSaveIntervalSeconds));
         ResolveReferences();
         PlacedObject.OnDisplayNameChanged += OnPlacedObjectMetadataChanged;
         PlacedObjectEditState.StateChanged += OnPlacedObjectStateChanged;
+    }
+
+    public void SetAutoSaveInterval(float seconds)
+    {
+        autoSaveInterval = NormalizeAutoSaveInterval(seconds);
+        PlayerPrefs.SetFloat(AutoSaveIntervalPlayerPrefsKey, autoSaveInterval);
+        PlayerPrefs.Save();
+        nextAutoSaveAt = Time.unscaledTime + autoSaveInterval;
+    }
+
+    static float NormalizeAutoSaveInterval(float seconds)
+    {
+        return Mathf.Clamp(
+            Mathf.Round(seconds),
+            MinAutoSaveIntervalSeconds,
+            MaxAutoSaveIntervalSeconds);
     }
 
     void Start()
