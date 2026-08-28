@@ -15,6 +15,8 @@ public sealed class EditorProjectPanel : MonoBehaviour
     TMP_InputField projectNameInput;
     TMP_Text statusText;
     RectTransform listContent;
+    Button loadLatestButton;
+    EditorProjectFileInfo latestProject;
     RectTransform confirmation;
     TMP_Text confirmationText;
     Action confirmedAction;
@@ -138,6 +140,14 @@ public sealed class EditorProjectPanel : MonoBehaviour
         var recentTitle = CreateText("Title_Recent", dialog, "保存済みプロジェクト", DesignTokens.FontSizeSubheading, DesignTokens.TextPrimary);
         SetRect(recentTitle.rectTransform, new Vector2(24f, -250f), new Vector2(300f, 28f));
 
+        var refreshButton = CreateButton("Button_RefreshProjects", dialog, "更新", 72f);
+        SetTopRight(refreshButton.transform as RectTransform, new Vector2(-196f, -244f), new Vector2(72f, 36f));
+        refreshButton.onClick.AddListener(RefreshProjectList);
+
+        loadLatestButton = CreateButton("Button_LoadLatest", dialog, "最新を読込", 148f);
+        SetTopRight(loadLatestButton.transform as RectTransform, new Vector2(-24f, -244f), new Vector2(148f, 36f));
+        loadLatestButton.onClick.AddListener(LoadLatestProject);
+
         BuildProjectList(dialog);
         BuildConfirmation(dialog);
         UiRoundedTheme.ApplyToHierarchy(dialog, DesignTokens.CornerRadius);
@@ -156,8 +166,9 @@ public sealed class EditorProjectPanel : MonoBehaviour
         var viewport = CreateRect("Viewport", scrollRoot);
         Stretch(viewport);
         var viewportImage = viewport.gameObject.AddComponent<Image>();
-        viewportImage.color = new Color(1f, 1f, 1f, 0.001f);
-        viewport.gameObject.AddComponent<Mask>().showMaskGraphic = false;
+        viewportImage.color = Color.clear;
+        viewportImage.raycastTarget = true;
+        viewport.gameObject.AddComponent<RectMask2D>();
 
         listContent = CreateRect("Content", viewport);
         listContent.anchorMin = new Vector2(0f, 1f);
@@ -165,17 +176,10 @@ public sealed class EditorProjectPanel : MonoBehaviour
         listContent.pivot = new Vector2(0.5f, 1f);
         listContent.offsetMin = new Vector2(8f, 0f);
         listContent.offsetMax = new Vector2(-8f, 0f);
-        var layout = listContent.gameObject.AddComponent<VerticalLayoutGroup>();
-        layout.padding = new RectOffset(4, 4, 8, 8);
-        layout.spacing = DesignTokens.SpaceSm;
-        layout.childControlWidth = true;
-        layout.childControlHeight = true;
-        layout.childForceExpandWidth = true;
-        layout.childForceExpandHeight = false;
-        var fitter = listContent.gameObject.AddComponent<ContentSizeFitter>();
-        fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
         scroll.viewport = viewport;
         scroll.content = listContent;
+        scroll.vertical = true;
+        scroll.scrollSensitivity = 24f;
     }
 
     void BuildConfirmation(RectTransform dialog)
@@ -299,6 +303,11 @@ public sealed class EditorProjectPanel : MonoBehaviour
         });
     }
 
+    void LoadLatestProject()
+    {
+        if (latestProject != null) RequestLoad(latestProject);
+    }
+
     void RefreshProjectList()
     {
         if (listContent == null) return;
@@ -308,19 +317,22 @@ public sealed class EditorProjectPanel : MonoBehaviour
         }
 
         var projects = EditorProjectStore.ListProjects();
+        latestProject = projects.Count > 0 ? projects[0] : null;
+        if (loadLatestButton != null) loadLatestButton.interactable = latestProject != null;
         if (projects.Count == 0)
         {
             var empty = CreateText("Text_Empty", listContent, "保存済みプロジェクトはありません", DesignTokens.FontSizeBody, DesignTokens.TextSecondary);
             empty.alignment = TextAlignmentOptions.Center;
-            empty.gameObject.AddComponent<LayoutElement>().preferredHeight = 52f;
+            SetListItemRect(empty.rectTransform, 0, 52f);
+            SetListContentHeight(68f);
             return;
         }
 
-        foreach (var info in projects)
+        for (int index = 0; index < projects.Count; index++)
         {
+            var info = projects[index];
             var row = CreateRect("Project_" + info.DisplayName, listContent);
-            var rowLayout = row.gameObject.AddComponent<LayoutElement>();
-            rowLayout.preferredHeight = 52f;
+            SetListItemRect(row, index, 52f);
             var rowImage = row.gameObject.AddComponent<Image>();
             rowImage.color = DesignTokens.Surface;
 
@@ -349,6 +361,25 @@ public sealed class EditorProjectPanel : MonoBehaviour
             load.onClick.AddListener(() => RequestLoad(info));
             UiRoundedTheme.ApplyToHierarchy(row, DesignTokens.CornerRadius);
         }
+
+        SetListContentHeight(16f + projects.Count * 52f + Mathf.Max(0, projects.Count - 1) * DesignTokens.SpaceSm);
+    }
+
+    static void SetListItemRect(RectTransform rect, int index, float height)
+    {
+        float top = 8f + index * (height + DesignTokens.SpaceSm);
+        rect.anchorMin = new Vector2(0f, 1f);
+        rect.anchorMax = new Vector2(1f, 1f);
+        rect.pivot = new Vector2(0.5f, 1f);
+        rect.offsetMin = new Vector2(4f, -top - height);
+        rect.offsetMax = new Vector2(-4f, -top);
+    }
+
+    void SetListContentHeight(float height)
+    {
+        if (listContent == null) return;
+        listContent.sizeDelta = new Vector2(listContent.sizeDelta.x, Mathf.Max(0f, height));
+        listContent.anchoredPosition = new Vector2(listContent.anchoredPosition.x, 0f);
     }
 
     void ShowConfirmation(string message, Action action)
