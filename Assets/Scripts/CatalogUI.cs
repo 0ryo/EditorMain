@@ -3447,13 +3447,8 @@ public class CatalogUI : MonoBehaviour
 #if UNITY_EDITOR
     static string GetDefaultModelDirectory()
     {
-        var importedRoot = Path.Combine(Application.dataPath, "ImportedFbx");
-        if (!Directory.Exists(importedRoot))
-        {
-            Directory.CreateDirectory(importedRoot);
-        }
-
-        return importedRoot;
+        var documents = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+        return Directory.Exists(documents) ? documents : string.Empty;
     }
 
     static bool TryLoadFbxAsset(string absolutePath, out GameObject prefab, out string assetPath, out string errorMessage)
@@ -3518,17 +3513,14 @@ public class CatalogUI : MonoBehaviour
 
     static bool TryToAssetPath(string absolutePath, out string assetPath)
     {
-        assetPath = null;
-
-        var normalizedAbsolute = NormalizePath(Path.GetFullPath(absolutePath));
-        var normalizedDataPath = NormalizePath(Application.dataPath);
-        if (!normalizedAbsolute.StartsWith(normalizedDataPath, StringComparison.OrdinalIgnoreCase))
+        assetPath = NormalizePath(FileUtil.GetProjectRelativePath(Path.GetFullPath(absolutePath)));
+        if (string.IsNullOrWhiteSpace(assetPath) ||
+            (!assetPath.Equals("Assets", StringComparison.OrdinalIgnoreCase) &&
+             !assetPath.StartsWith("Assets/", StringComparison.OrdinalIgnoreCase)))
         {
+            assetPath = null;
             return false;
         }
-
-        var tail = normalizedAbsolute.Substring(normalizedDataPath.Length);
-        assetPath = "Assets" + tail;
         return true;
     }
 
