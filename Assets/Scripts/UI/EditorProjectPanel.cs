@@ -19,7 +19,11 @@ public sealed class EditorProjectPanel : MonoBehaviour
     RectTransform listContent;
     RectTransform confirmation;
     TMP_Text confirmationText;
+    Button confirmationCancelButton;
+    Button confirmationPrimaryButton;
+    Button confirmationSecondaryButton;
     Action confirmedAction;
+    Action secondaryConfirmedAction;
 #if !UNITY_EDITOR
     bool allowQuit;
 #endif
@@ -213,12 +217,16 @@ public sealed class EditorProjectPanel : MonoBehaviour
         confirmationText.rectTransform.offsetMax = new Vector2(-184f, 0f);
         confirmationText.alignment = TextAlignmentOptions.MidlineLeft;
 
-        var cancel = CreateButton("Button_Cancel", confirmation, "キャンセル", 80f);
-        SetTopRight(cancel.transform as RectTransform, new Vector2(-96f, -7f), new Vector2(88f, 40f));
-        cancel.onClick.AddListener(HideConfirmation);
-        var confirm = CreateButton("Button_Confirm", confirmation, "実行", 72f, true);
-        SetTopRight(confirm.transform as RectTransform, new Vector2(-12f, -7f), new Vector2(72f, 40f));
-        confirm.onClick.AddListener(ConfirmPendingAction);
+        confirmationCancelButton = CreateButton("Button_Cancel", confirmation, "キャンセル", 88f);
+        SetTopRight(confirmationCancelButton.transform as RectTransform, new Vector2(-96f, -7f), new Vector2(88f, 40f));
+        confirmationCancelButton.onClick.AddListener(HideConfirmation);
+        confirmationPrimaryButton = CreateButton("Button_Confirm", confirmation, "実行", 72f, true);
+        SetTopRight(confirmationPrimaryButton.transform as RectTransform, new Vector2(-12f, -7f), new Vector2(72f, 40f));
+        confirmationPrimaryButton.onClick.AddListener(ConfirmPendingAction);
+        confirmationSecondaryButton = CreateButton("Button_SecondaryConfirm", confirmation, "破棄して読込", 120f);
+        SetTopRight(confirmationSecondaryButton.transform as RectTransform, new Vector2(-140f, -7f), new Vector2(120f, 40f));
+        confirmationSecondaryButton.onClick.AddListener(ConfirmSecondaryPendingAction);
+        confirmationSecondaryButton.gameObject.SetActive(false);
         confirmation.gameObject.SetActive(false);
     }
 
@@ -308,18 +316,63 @@ public sealed class EditorProjectPanel : MonoBehaviour
 
     void RequestLoad(EditorProjectFileInfo info)
     {
-        ShowConfirmation($"現在の編集内容を閉じて「{info.DisplayName}」を読み込みます。", () =>
+        if (projectService.HasEditableContent())
         {
-            bool loaded = projectService.Load(info.Path, out var message);
-            statusText.text = message;
-            if (loaded)
-            {
-                projectNameInput.SetTextWithoutNotify(projectService.CurrentProjectName);
-                RefreshSaveButtonLabel();
-                RefreshProjectList();
-            }
+            ShowLoadConfirmation(
+                $"現在の内容を保存してから「{info.DisplayName}」を読み込みますか？",
+                () => SaveCurrentThenLoad(info),
+                () => LoadProjectNow(info));
+            return;
+        }
+
+        LoadProjectNow(info);
+    }
+
+    void SaveCurrentThenLoad(EditorProjectFileInfo info)
+    {
+        string currentName = GetProjectName();
+        string safeCurrentName = ExportFileNameUtility.SanitizeProjectName(currentName, "VRCourseEditor");
+        EditorProjectFileInfo nameCollision = null;
+        foreach (var savedProject in EditorProjectStore.ListProjects())
+        {
+            if (!string.Equals(savedProject.DisplayName, safeCurrentName, StringComparison.OrdinalIgnoreCase)) continue;
+            nameCollision = savedProject;
+            break;
+        }
+
+        bool collisionIsCurrentFile = nameCollision != null &&
+            !string.IsNullOrWhiteSpace(projectService.CurrentProjectPath) &&
+            string.Equals(projectService.CurrentProjectPath, nameCollision.Path, StringComparison.OrdinalIgnoreCase);
+        if (nameCollision != null && !collisionIsCurrentFile)
+        {
+            statusText.text = $"「{nameCollision.DisplayName}」は既に保存されています。現在の内容を保存する場合は別のプロジェクト名を入力してください。";
+            statusText.color = DesignTokens.Warning;
             HideConfirmation();
-        });
+            return;
+        }
+
+        if (!projectService.Save(currentName, out var saveMessage))
+        {
+            statusText.text = saveMessage;
+            HideConfirmation();
+            return;
+        }
+
+        LoadProjectNow(info);
+    }
+
+    void LoadProjectNow(EditorProjectFileInfo info)
+    {
+        bool loaded = projectService.Load(info.Path, out var message);
+        statusText.text = message;
+        if (loaded)
+        {
+            projectNameInput.SetTextWithoutNotify(projectService.CurrentProjectName);
+            RefreshSaveButtonLabel();
+            RefreshProjectList();
+            RefreshDirtyVisual();
+        }
+        HideConfirmation();
     }
 
     void RequestRecoveryLoad(EditorProjectFileInfo info)
@@ -483,7 +536,30 @@ public sealed class EditorProjectPanel : MonoBehaviour
     void ShowConfirmation(string message, Action action)
     {
         confirmedAction = action;
+        secondaryConfirmedAction = null;
         confirmationText.text = message;
+        confirmationText.rectTransform.offsetMax = new Vector2(-184f, 0f);
+        SetButtonLabel(confirmationPrimaryButton, "実行");
+        SetTopRight(confirmationPrimaryButton.transform as RectTransform, new Vector2(-12f, -7f), new Vector2(72f, 40f));
+        SetTopRight(confirmationCancelButton.transform as RectTransform, new Vector2(-96f, -7f), new Vector2(88f, 40f));
+        confirmationSecondaryButton.gameObject.SetActive(false);
+        confirmation.gameObject.SetActive(true);
+        confirmation.SetAsLastSibling();
+    }
+
+    void ShowLoadConfirmation(string message, Action saveAction, Action discardAction)
+    {
+        confirmedAction = saveAction;
+        secondaryConfirmedAction = discardAction;
+        confirmationText.text = message;
+        confirmationText.rectTransform.offsetMax = new Vector2(-356f, 0f);
+        SetButtonLabel(confirmationCancelButton, "キャンセル");
+        SetButtonLabel(confirmationSecondaryButton, "破棄して読込");
+        SetButtonLabel(confirmationPrimaryButton, "保存して読込");
+        SetTopRight(confirmationCancelButton.transform as RectTransform, new Vector2(-268f, -7f), new Vector2(88f, 40f));
+        SetTopRight(confirmationSecondaryButton.transform as RectTransform, new Vector2(-140f, -7f), new Vector2(120f, 40f));
+        SetTopRight(confirmationPrimaryButton.transform as RectTransform, new Vector2(-12f, -7f), new Vector2(120f, 40f));
+        confirmationSecondaryButton.gameObject.SetActive(true);
         confirmation.gameObject.SetActive(true);
         confirmation.SetAsLastSibling();
     }
@@ -495,9 +571,18 @@ public sealed class EditorProjectPanel : MonoBehaviour
         action?.Invoke();
     }
 
+    void ConfirmSecondaryPendingAction()
+    {
+        var action = secondaryConfirmedAction;
+        confirmedAction = null;
+        secondaryConfirmedAction = null;
+        action?.Invoke();
+    }
+
     void HideConfirmation()
     {
         confirmedAction = null;
+        secondaryConfirmedAction = null;
         if (confirmation != null) confirmation.gameObject.SetActive(false);
     }
 

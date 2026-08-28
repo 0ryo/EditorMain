@@ -166,6 +166,7 @@ public sealed class EditorProjectService : MonoBehaviour
             return Fail(readError, out message);
         }
 
+        RepairObjectIdsForLoad(project);
         if (!ValidateProject(project, out var validationError))
         {
             return Fail(validationError, out message);
@@ -295,18 +296,11 @@ public sealed class EditorProjectService : MonoBehaviour
     bool ValidateProject(EditorProjectFile project, out string error)
     {
         error = null;
-        var ids = new HashSet<string>(StringComparer.Ordinal);
         foreach (var item in project.objects)
         {
             if (item == null || string.IsNullOrWhiteSpace(item.id) || string.IsNullOrWhiteSpace(item.typeId))
             {
                 error = "IDまたは種類がない配置オブジェクトを含んでいます。";
-                return false;
-            }
-
-            if (!ids.Add(item.id))
-            {
-                error = $"配置オブジェクトIDが重複しています: {item.id}";
                 return false;
             }
 
@@ -318,6 +312,54 @@ public sealed class EditorProjectService : MonoBehaviour
         }
 
         return true;
+    }
+
+    static void RepairObjectIdsForLoad(EditorProjectFile project)
+    {
+        if (project?.objects == null) return;
+
+        var reservedOriginalIds = new HashSet<string>(StringComparer.Ordinal);
+        int nextSequence = 1;
+        foreach (var item in project.objects)
+        {
+            string id = item?.id?.Trim();
+            if (string.IsNullOrWhiteSpace(id)) continue;
+            reservedOriginalIds.Add(id);
+            if (id.StartsWith("obj-", StringComparison.Ordinal) &&
+                int.TryParse(id.Substring(4), out int sequence))
+            {
+                nextSequence = Mathf.Max(nextSequence, sequence + 1);
+            }
+        }
+
+        var usedIds = new HashSet<string>(StringComparer.Ordinal);
+        int repairedCount = 0;
+        foreach (var item in project.objects)
+        {
+            if (item == null) continue;
+
+            string originalId = item.id?.Trim();
+            if (!string.IsNullOrWhiteSpace(originalId) && usedIds.Add(originalId))
+            {
+                item.id = originalId;
+                continue;
+            }
+
+            string replacement;
+            do
+            {
+                replacement = $"obj-{nextSequence++:D4}";
+            }
+            while (reservedOriginalIds.Contains(replacement) || !usedIds.Add(replacement));
+
+            item.id = replacement;
+            repairedCount++;
+        }
+
+        if (repairedCount > 0)
+        {
+            Debug.LogWarning($"[EditorProject] 読み込み時に配置オブジェクトIDを{repairedCount}件修復しました。");
+        }
     }
 
     PlacedObject CreateStagedObject(EditorProjectObject item)
@@ -346,7 +388,7 @@ public sealed class EditorProjectService : MonoBehaviour
     {
         selectionService?.Select(null);
 
-        var current = FindObjectsByType<PlacedObject>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+        var current = FindObjectsByType<PlacedObject>(FindObjectsInactive.Include, FindObjectsSortMode.None);
         foreach (var placed in current)
         {
             if (placed == null || staged.Contains(placed)) continue;
@@ -373,6 +415,18 @@ public sealed class EditorProjectService : MonoBehaviour
 
         FindFirstObjectByType<ScenarioGraphUI>()?.RebuildFromExternalChange();
         CommandService.I?.Stack?.Clear();
+    }
+
+    public bool HasEditableContent()
+    {
+        ResolveReferences();
+        if (FindObjectsByType<PlacedObject>(FindObjectsInactive.Include, FindObjectsSortMode.None).Length > 0)
+        {
+            return true;
+        }
+
+        return graph?.curriculum?.nodes != null && graph.curriculum.nodes.Any(node =>
+            node != null && node.nodeType != ScenarioNodeType.Start && node.nodeType != ScenarioNodeType.End);
     }
 
     void ResolveReferences()
