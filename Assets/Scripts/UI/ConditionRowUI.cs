@@ -17,6 +17,7 @@ public class ConditionRowUI : MonoBehaviour
     static readonly Color DropdownTemplateBackground = DesignTokens.Surface;
 
     const string LabelUnset = "\u672A\u8A2D\u5B9A";
+    const string LabelMissingPrefix = "参照切れ: ";
     const string LabelParticleA = "\u3092";
     const string LabelParticleB = "\u306B\u8FD1\u3065\u3051\u308B";
 
@@ -57,8 +58,10 @@ public class ConditionRowUI : MonoBehaviour
     {
         if (dropdownA == null || dropdownB == null) return;
 
+        var displayOptions = BuildDisplayOptions(options, currentAId, currentBId);
+
         // 再描画用に引数を保持
-        lastOptions    = options;
+        lastOptions    = displayOptions;
         lastOnAChanged = onAChanged;
         lastOnBChanged = onBChanged;
 
@@ -73,16 +76,16 @@ public class ConditionRowUI : MonoBehaviour
         EnsureDropdownReferences(dropdownB);
 
         var labels = new List<string> { LabelUnset };
-        if (options != null)
+        if (displayOptions != null)
         {
-            foreach (var option in options)
+            foreach (var option in displayOptions)
             {
                 labels.Add(option.label);
             }
         }
 
-        RebindDropdown(dropdownA, labels, IdToIndex(options, currentAId), v => onAChanged?.Invoke(IndexToId(options, v)));
-        RebindDropdown(dropdownB, labels, IdToIndex(options, currentBId), v => onBChanged?.Invoke(IndexToId(options, v)));
+        RebindDropdown(dropdownA, labels, IdToIndex(displayOptions, currentAId), v => onAChanged?.Invoke(IndexToId(displayOptions, v)));
+        RebindDropdown(dropdownB, labels, IdToIndex(displayOptions, currentBId), v => onBChanged?.Invoke(IndexToId(displayOptions, v)));
 
         ApplyDropdownVisualStyle(dropdownA);
         ApplyDropdownVisualStyle(dropdownB);
@@ -91,6 +94,31 @@ public class ConditionRowUI : MonoBehaviour
         if (textAfterB != null) textAfterB.text = LabelParticleB;
         if (textAfterA != null) textAfterA.fontStyle = FontStyles.Bold;
         if (textAfterB != null) textAfterB.fontStyle = FontStyles.Bold;
+    }
+
+    static List<PlacedObjectOptionProvider.Option> BuildDisplayOptions(
+        List<PlacedObjectOptionProvider.Option> options,
+        string currentAId,
+        string currentBId)
+    {
+        var result = options != null
+            ? new List<PlacedObjectOptionProvider.Option>(options)
+            : new List<PlacedObjectOptionProvider.Option>();
+
+        AddMissingOption(result, currentAId);
+        AddMissingOption(result, currentBId);
+        return result;
+    }
+
+    static void AddMissingOption(List<PlacedObjectOptionProvider.Option> options, string id)
+    {
+        if (string.IsNullOrWhiteSpace(id) || options.Exists(option => option.id == id)) return;
+
+        options.Add(new PlacedObjectOptionProvider.Option
+        {
+            id = id,
+            label = LabelMissingPrefix + id
+        });
     }
 
     static void RebindDropdown(TMP_Dropdown dropdown, List<string> labels, int value, Action<int> onChanged)

@@ -543,66 +543,6 @@ public class CurriculumGraphService : MonoBehaviour
             .ToList();
     }
 
-    public bool RepairBrokenReferences()
-    {
-        EnsureGraphInitialized();
-
-        bool changed = RemoveEdgesPointingToMissingNodes();
-        var placedObjectIds = CollectPlacedObjectIds();
-        bool referenceChanged = false;
-
-        foreach (var conditionNode in curriculum.nodes.Where(n => n != null && n.nodeType == ScenarioNodeType.Condition))
-        {
-            if (!string.IsNullOrEmpty(conditionNode.condition.objectAId) &&
-                !placedObjectIds.Contains(conditionNode.condition.objectAId))
-            {
-                conditionNode.condition.objectAId = null;
-                referenceChanged = true;
-            }
-
-            if (!string.IsNullOrEmpty(conditionNode.condition.objectBId) &&
-                !placedObjectIds.Contains(conditionNode.condition.objectBId))
-            {
-                conditionNode.condition.objectBId = null;
-                referenceChanged = true;
-            }
-        }
-
-        return changed || referenceChanged;
-    }
-
-    bool RemoveEdgesPointingToMissingNodes()
-    {
-        var nodeIds = curriculum.nodes
-            .Where(n => n != null && !string.IsNullOrWhiteSpace(n.nodeId))
-            .Select(n => n.nodeId)
-            .ToHashSet();
-
-        int before = curriculum.edges.Count;
-        curriculum.edges.RemoveAll(e =>
-            string.IsNullOrWhiteSpace(e.fromNodeId) ||
-            string.IsNullOrWhiteSpace(e.toNodeId) ||
-            !nodeIds.Contains(e.fromNodeId) ||
-            !nodeIds.Contains(e.toNodeId));
-
-        return before != curriculum.edges.Count;
-    }
-
-    HashSet<string> CollectPlacedObjectIds()
-    {
-        var allPlaced = FindObjectsByType<PlacedObject>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
-        var ids = new HashSet<string>();
-        foreach (var placed in allPlaced)
-        {
-            if (placed == null) continue;
-            placed.EnsureHasId();
-            if (string.IsNullOrWhiteSpace(placed.id)) continue;
-            ids.Add(placed.id);
-        }
-
-        return ids;
-    }
-
     public List<ScenarioNode> GetConditionNodesForStep(string stepNodeId)
     {
         EnsureGraphInitialized();

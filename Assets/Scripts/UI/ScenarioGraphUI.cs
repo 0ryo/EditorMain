@@ -34,7 +34,7 @@ public class ScenarioGraphUI : MonoBehaviour
         { "E-07", "どのステップにも紐付いていない手順があります" },
         { "E-08", "オブジェクトが選択されていない手順があります" },
         { "E-09", "AとBに同じオブジェクトが設定されている手順があります" },
-        { "E-10", "手順で参照しているオブジェクトが削除されています" },
+        { "E-10", "参照オブジェクトがありません。別のオブジェクトへ差し替えるか、この条件を削除するか、オブジェクト削除をUndoしてください" },
         { "E-11", "データが不整合な状態です。編集をやり直してください" },
     };
 
@@ -93,8 +93,8 @@ public class ScenarioGraphUI : MonoBehaviour
     string draggingFromNodeId;
     ConnectionLineGraphic dragPreviewLine;
     RectTransform dragPreviewTarget;
-    float nextValidationPollTime;
     bool graphRebuildRequested;
+    bool validationRefreshRequested;
     string lastValidationUiSignature;
 
     class NodeUiBinding
@@ -142,6 +142,7 @@ public class ScenarioGraphUI : MonoBehaviour
     Coroutine validationFocusFlashCoroutine;
     Graphic validationFocusGraphic;
     Color validationFocusBaseColor;
+    CommandStack validationCommandStack;
     Button fitContentButton;
     Button zoomResetButton;
     Button autoLayoutButton;
@@ -160,12 +161,14 @@ public class ScenarioGraphUI : MonoBehaviour
         EnsureGraphService();
         graph.GraphChanged -= OnGraphChanged;
         graph.GraphChanged += OnGraphChanged;
+        BindValidationChangeSources();
         BindValidationPanelEvents();
     }
 
     void OnDisable()
     {
         if (graph != null) graph.GraphChanged -= OnGraphChanged;
+        UnbindValidationChangeSources();
         if (validationPanel != null) validationPanel.Hidden -= ClearValidationFocus;
         ClearValidationFocus();
         ClearConnectionCandidates();
@@ -182,6 +185,7 @@ public class ScenarioGraphUI : MonoBehaviour
         }
 
         RebuildAndResetView();
+        BindValidationChangeSources();
         DesignTokenApplier.ApplyScenarioPanel(panelRoot != null ? panelRoot : transform as RectTransform);
     }
 
@@ -194,15 +198,13 @@ public class ScenarioGraphUI : MonoBehaviour
             RebuildAll();
             return;
         }
-        if (Time.unscaledTime < nextValidationPollTime) return;
-
-        nextValidationPollTime = Time.unscaledTime + 0.5f;
-        if (graph.RepairBrokenReferences())
+        if (validationCommandStack == null)
         {
-            RebuildAll();
-            return;
+            BindValidationChangeSources();
         }
+        if (!validationRefreshRequested) return;
 
+        validationRefreshRequested = false;
         RefreshValidationStatus();
     }
 
@@ -309,6 +311,33 @@ public class ScenarioGraphUI : MonoBehaviour
             projectNameInput.SetTextWithoutNotify(graph.curriculum.projectName);
         }
         graphRebuildRequested = true;
+    }
+
+    void BindValidationChangeSources()
+    {
+        var nextStack = CommandService.I != null ? CommandService.I.Stack : null;
+        if (nextStack == validationCommandStack) return;
+
+        UnbindValidationChangeSources();
+        validationCommandStack = nextStack;
+        if (validationCommandStack != null)
+        {
+            validationCommandStack.HistoryChanged += RequestValidationRefresh;
+        }
+    }
+
+    void UnbindValidationChangeSources()
+    {
+        if (validationCommandStack != null)
+        {
+            validationCommandStack.HistoryChanged -= RequestValidationRefresh;
+        }
+        validationCommandStack = null;
+    }
+
+    void RequestValidationRefresh()
+    {
+        if (isActiveAndEnabled) validationRefreshRequested = true;
     }
 
     void EnsureControlLabels()
@@ -576,7 +605,7 @@ public class ScenarioGraphUI : MonoBehaviour
     void RebuildAll()
     {
         graphRebuildRequested = false;
-        graph.RepairBrokenReferences();
+        validationRefreshRequested = false;
         CancelConnectorDrag(clearStatus: false);
 
         foreach (var pair in nodeUIs)
