@@ -7,9 +7,13 @@ using UnityEngine;
 public static class EditorProjectStore
 {
     public const string FileSuffix = ".skillsync.json";
+    const string RecoveryDirectoryName = "Recovery";
+    const string RecoveryFileName = "autosave" + FileSuffix;
 
     public static string ProjectsDirectory =>
         Path.Combine(Application.persistentDataPath, "Projects");
+    public static string RecoveryPath =>
+        Path.Combine(ProjectsDirectory, RecoveryDirectoryName, RecoveryFileName);
 
     public static string Save(EditorProjectFile project, string projectName)
     {
@@ -45,6 +49,61 @@ public static class EditorProjectStore
         catch (Exception ex)
         {
             error = "プロジェクトを読み込めません: " + ex.Message;
+            return false;
+        }
+    }
+
+    public static string SaveRecovery(EditorProjectFile project)
+    {
+        if (project == null) throw new ArgumentNullException(nameof(project));
+
+        project.schemaVersion = EditorProjectFile.CurrentSchemaVersion;
+        project.savedAtUtc = DateTime.UtcNow.ToString("O");
+        EditorProjectMigration.Normalize(project);
+        ExportFileWriter.WriteAllTextWithBackup(RecoveryPath, JsonUtility.ToJson(project, true));
+        return RecoveryPath;
+    }
+
+    public static bool TryGetRecovery(out EditorProjectFileInfo info)
+    {
+        info = null;
+        try
+        {
+            if (!File.Exists(RecoveryPath)) return false;
+
+            var file = new FileInfo(RecoveryPath);
+            string displayName = "自動保存データ";
+            if (TryLoad(file.FullName, out var project, out _) && project != null &&
+                !string.IsNullOrWhiteSpace(project.projectName))
+            {
+                displayName = project.projectName;
+            }
+
+            info = new EditorProjectFileInfo(file.FullName, displayName, file.LastWriteTimeUtc);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Debug.LogWarning("[EditorProjectStore] 自動保存データを確認できません: " + ex.Message);
+            return false;
+        }
+    }
+
+    public static bool DeleteRecovery(out string error)
+    {
+        error = null;
+        try
+        {
+            if (File.Exists(RecoveryPath)) File.Delete(RecoveryPath);
+            string backupPath = RecoveryPath + ".bak";
+            if (File.Exists(backupPath)) File.Delete(backupPath);
+            string tempPath = RecoveryPath + ".tmp";
+            if (File.Exists(tempPath)) File.Delete(tempPath);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
             return false;
         }
     }

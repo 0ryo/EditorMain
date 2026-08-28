@@ -13,12 +13,16 @@ public sealed class EditorProjectPanel : MonoBehaviour
     Button openButton;
     Button saveProjectButton;
     RectTransform modal;
+    TMP_Text dialogTitleText;
     TMP_InputField projectNameInput;
     TMP_Text statusText;
     RectTransform listContent;
     RectTransform confirmation;
     TMP_Text confirmationText;
     Action confirmedAction;
+#if !UNITY_EDITOR
+    bool allowQuit;
+#endif
 
     public static EditorProjectPanel Ensure(Transform parent)
     {
@@ -43,7 +47,15 @@ public sealed class EditorProjectPanel : MonoBehaviour
 
     void OnDestroy()
     {
-        if (projectService != null) projectService.StatusChanged -= OnServiceStatusChanged;
+        if (projectService != null)
+        {
+            projectService.StatusChanged -= OnServiceStatusChanged;
+            projectService.DirtyChanged -= OnDirtyChanged;
+            projectService.RecoveryChanged -= OnRecoveryChanged;
+        }
+#if !UNITY_EDITOR
+        Application.wantsToQuit -= HandleWantsToQuit;
+#endif
     }
 
     void Build()
@@ -52,9 +64,17 @@ public sealed class EditorProjectPanel : MonoBehaviour
         projectService = EditorProjectService.Ensure(uiRoot);
         projectService.StatusChanged -= OnServiceStatusChanged;
         projectService.StatusChanged += OnServiceStatusChanged;
+        projectService.DirtyChanged -= OnDirtyChanged;
+        projectService.DirtyChanged += OnDirtyChanged;
+        projectService.RecoveryChanged -= OnRecoveryChanged;
+        projectService.RecoveryChanged += OnRecoveryChanged;
 
         BuildOpenButton();
         BuildModal();
+#if !UNITY_EDITOR
+        Application.wantsToQuit -= HandleWantsToQuit;
+        Application.wantsToQuit += HandleWantsToQuit;
+#endif
     }
 
     void BuildOpenButton()
@@ -101,8 +121,8 @@ public sealed class EditorProjectPanel : MonoBehaviour
         var dialogImage = dialog.gameObject.AddComponent<Image>();
         dialogImage.color = DesignTokens.Surface;
 
-        var title = CreateText("Title", dialog, "プロジェクト", DesignTokens.FontSizeHeading, DesignTokens.TextPrimary);
-        SetRect(title.rectTransform, new Vector2(24f, -20f), new Vector2(560f, 36f));
+        dialogTitleText = CreateText("Title", dialog, "プロジェクト", DesignTokens.FontSizeHeading, DesignTokens.TextPrimary);
+        SetRect(dialogTitleText.rectTransform, new Vector2(24f, -20f), new Vector2(560f, 36f));
 
         var close = CreateButton("Button_Close", dialog, "閉じる", 80f);
         SetTopRight(close.transform as RectTransform, new Vector2(-20f, -18f), new Vector2(80f, 36f));
@@ -143,6 +163,7 @@ public sealed class EditorProjectPanel : MonoBehaviour
         BuildProjectList(dialog);
         BuildConfirmation(dialog);
         UiRoundedTheme.ApplyToHierarchy(dialog, DesignTokens.CornerRadius);
+        RefreshDirtyVisual();
         modal.gameObject.SetActive(false);
     }
 
@@ -212,7 +233,9 @@ public sealed class EditorProjectPanel : MonoBehaviour
             : projectService.CurrentProjectName;
         projectNameInput.SetTextWithoutNotify(string.IsNullOrWhiteSpace(name) ? "VRCourseEditor" : name);
         RefreshSaveButtonLabel();
-        statusText.text = string.Empty;
+        RefreshDirtyVisual();
+        statusText.text = projectService.IsDirty ? "未保存の変更があります" : string.Empty;
+        statusText.color = projectService.IsDirty ? DesignTokens.Warning : DesignTokens.TextSecondary;
         HideConfirmation();
         RefreshProjectList();
         modal.gameObject.SetActive(true);
@@ -299,6 +322,32 @@ public sealed class EditorProjectPanel : MonoBehaviour
         });
     }
 
+    void RequestRecoveryLoad(EditorProjectFileInfo info)
+    {
+        ShowConfirmation($"現在の編集内容を閉じて「{info.DisplayName}」の自動保存を復元します。", () =>
+        {
+            bool loaded = projectService.LoadRecovery(out var message);
+            statusText.text = message;
+            if (loaded)
+            {
+                projectNameInput.SetTextWithoutNotify(projectService.CurrentProjectName);
+                RefreshSaveButtonLabel();
+                RefreshDirtyVisual();
+            }
+            HideConfirmation();
+        });
+    }
+
+    void RequestRecoveryDelete(EditorProjectFileInfo info)
+    {
+        ShowConfirmation($"「{info.DisplayName}」の自動保存データを破棄します。", () =>
+        {
+            projectService.DeleteRecovery(out var message);
+            statusText.text = message;
+            HideConfirmation();
+        });
+    }
+
     void RefreshProjectList()
     {
         if (listContent == null) return;
@@ -308,7 +357,13 @@ public sealed class EditorProjectPanel : MonoBehaviour
         }
 
         var projects = EditorProjectStore.ListProjects();
-        if (projects.Count == 0)
+        int rowIndex = 0;
+        if (EditorProjectStore.TryGetRecovery(out var recovery))
+        {
+            CreateRecoveryRow(recovery, rowIndex++);
+        }
+
+        if (projects.Count == 0 && rowIndex == 0)
         {
             var empty = CreateText("Text_Empty", listContent, "保存済みプロジェクトはありません", DesignTokens.FontSizeBody, DesignTokens.TextSecondary);
             empty.alignment = TextAlignmentOptions.Center;
@@ -321,7 +376,7 @@ public sealed class EditorProjectPanel : MonoBehaviour
         {
             var info = projects[index];
             var row = CreateRect("Project_" + info.DisplayName, listContent);
-            SetListItemRect(row, index, 52f);
+            SetListItemRect(row, rowIndex++, 52f);
             var rowImage = row.gameObject.AddComponent<Image>();
             rowImage.color = DesignTokens.Surface;
 
@@ -351,7 +406,47 @@ public sealed class EditorProjectPanel : MonoBehaviour
             UiRoundedTheme.ApplyToHierarchy(row, DesignTokens.CornerRadius);
         }
 
-        SetListContentHeight(16f + projects.Count * 52f + Mathf.Max(0, projects.Count - 1) * DesignTokens.SpaceSm);
+        SetListContentHeight(16f + rowIndex * 52f + Mathf.Max(0, rowIndex - 1) * DesignTokens.SpaceSm);
+    }
+
+    void CreateRecoveryRow(EditorProjectFileInfo info, int index)
+    {
+        var row = CreateRect("Project_Recovery", listContent);
+        SetListItemRect(row, index, 52f);
+        var rowImage = row.gameObject.AddComponent<Image>();
+        rowImage.color = DesignTokens.BadgeBg(DesignTokens.Warning);
+
+        var label = CreateText("Label", row, "自動保存: " + info.DisplayName, DesignTokens.FontSizeBody, DesignTokens.TextPrimary);
+        label.rectTransform.anchorMin = new Vector2(0f, 0f);
+        label.rectTransform.anchorMax = new Vector2(1f, 1f);
+        label.rectTransform.offsetMin = new Vector2(12f, 0f);
+        label.rectTransform.offsetMax = new Vector2(-312f, 0f);
+        label.alignment = TextAlignmentOptions.MidlineLeft;
+
+        var date = CreateText("Date", row, info.LastWriteTimeUtc.ToLocalTime().ToString("yyyy/MM/dd HH:mm"), DesignTokens.FontSizeCaption, DesignTokens.TextSecondary);
+        date.rectTransform.anchorMin = new Vector2(1f, 0f);
+        date.rectTransform.anchorMax = new Vector2(1f, 1f);
+        date.rectTransform.pivot = new Vector2(1f, 0.5f);
+        date.rectTransform.anchoredPosition = new Vector2(-168f, 0f);
+        date.rectTransform.sizeDelta = new Vector2(136f, 52f);
+        date.alignment = TextAlignmentOptions.MidlineRight;
+
+        var discard = CreateButton("Button_DiscardRecovery", row, "破棄", 64f);
+        var discardRect = discard.transform as RectTransform;
+        discardRect.anchorMin = discardRect.anchorMax = new Vector2(1f, 0.5f);
+        discardRect.pivot = new Vector2(1f, 0.5f);
+        discardRect.anchoredPosition = new Vector2(-88f, 0f);
+        discardRect.sizeDelta = new Vector2(64f, 36f);
+        discard.onClick.AddListener(() => RequestRecoveryDelete(info));
+
+        var restore = CreateButton("Button_RestoreRecovery", row, "復元", 72f, true);
+        var restoreRect = restore.transform as RectTransform;
+        restoreRect.anchorMin = restoreRect.anchorMax = new Vector2(1f, 0.5f);
+        restoreRect.pivot = new Vector2(1f, 0.5f);
+        restoreRect.anchoredPosition = new Vector2(-8f, 0f);
+        restoreRect.sizeDelta = new Vector2(72f, 36f);
+        restore.onClick.AddListener(() => RequestRecoveryLoad(info));
+        UiRoundedTheme.ApplyToHierarchy(row, DesignTokens.CornerRadius);
     }
 
     void RefreshSaveButtonLabel()
@@ -410,6 +505,64 @@ public sealed class EditorProjectPanel : MonoBehaviour
         statusText.text = message;
         statusText.color = succeeded ? DesignTokens.Success : DesignTokens.Error;
     }
+
+    void OnDirtyChanged(bool dirty)
+    {
+        RefreshDirtyVisual();
+        if (statusText == null || modal == null || !modal.gameObject.activeInHierarchy) return;
+
+        if (dirty)
+        {
+            statusText.text = "未保存の変更があります";
+            statusText.color = DesignTokens.Warning;
+        }
+        else if (string.Equals(statusText.text, "未保存の変更があります", StringComparison.Ordinal))
+        {
+            statusText.text = string.Empty;
+            statusText.color = DesignTokens.TextSecondary;
+        }
+    }
+
+    void OnRecoveryChanged()
+    {
+        if (listContent != null) RefreshProjectList();
+    }
+
+    void RefreshDirtyVisual()
+    {
+        bool dirty = projectService != null && projectService.IsDirty;
+        if (dialogTitleText != null)
+        {
+            dialogTitleText.text = dirty ? "プロジェクト  •  未保存" : "プロジェクト";
+            dialogTitleText.color = dirty ? DesignTokens.Warning : DesignTokens.TextPrimary;
+        }
+
+        if (openButton != null)
+        {
+            var label = openButton.GetComponentInChildren<TMP_Text>(true);
+            if (label != null)
+            {
+                label.text = dirty ? "プロジェクト  •" : "プロジェクト";
+                label.color = dirty ? DesignTokens.Warning : DesignTokens.TextPrimary;
+            }
+        }
+    }
+
+#if !UNITY_EDITOR
+    bool HandleWantsToQuit()
+    {
+        if (allowQuit || projectService == null || !projectService.IsDirty) return true;
+
+        projectService.SaveRecoveryNow(out _);
+        Open();
+        ShowConfirmation("未保存の変更があります。終了するときは復旧用の自動保存を残します。", () =>
+        {
+            allowQuit = true;
+            Application.Quit();
+        });
+        return false;
+    }
+#endif
 
     string GetProjectName()
     {

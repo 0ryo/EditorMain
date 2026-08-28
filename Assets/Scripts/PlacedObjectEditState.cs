@@ -4,6 +4,8 @@ using UnityEngine;
 
 public sealed class PlacedObjectEditState : MonoBehaviour
 {
+    public static event Action<PlacedObjectEditState> StateChanged;
+
     [SerializeField] bool locked;
     [SerializeField] bool hidden;
     [SerializeField] List<ColliderState> colliderStates = new();
@@ -75,6 +77,7 @@ public sealed class PlacedObjectEditState : MonoBehaviour
         if (locked == value) return;
         locked = value;
         RefreshColliderLock();
+        StateChanged?.Invoke(this);
     }
 
     public void SetVisible(bool value)
@@ -85,6 +88,7 @@ public sealed class PlacedObjectEditState : MonoBehaviour
         if (hidden) ApplyVisibility();
         else RestoreRenderers();
         RefreshColliderLock();
+        StateChanged?.Invoke(this);
     }
 
     void RefreshColliderLock()
