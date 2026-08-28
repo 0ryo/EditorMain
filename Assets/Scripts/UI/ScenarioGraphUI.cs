@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Collections;
 using System.Linq;
 using TMPro;
 using UnityEngine;
@@ -138,6 +139,9 @@ public class ScenarioGraphUI : MonoBehaviour
     readonly List<ConnectionLineGraphic> lines = new List<ConnectionLineGraphic>();
     NodeAreaPanZoomController panZoomController;
     Outline validationFocusOutline;
+    Coroutine validationFocusFlashCoroutine;
+    Graphic validationFocusGraphic;
+    Color validationFocusBaseColor;
     Button fitContentButton;
     Button zoomResetButton;
     Button autoLayoutButton;
@@ -163,6 +167,7 @@ public class ScenarioGraphUI : MonoBehaviour
     {
         if (graph != null) graph.GraphChanged -= OnGraphChanged;
         if (validationPanel != null) validationPanel.Hidden -= ClearValidationFocus;
+        ClearValidationFocus();
         ClearConnectionCandidates();
     }
 
@@ -247,7 +252,7 @@ public class ScenarioGraphUI : MonoBehaviour
         EnsureNodeAreaMask();
         EnsureGraphContent();
         EnsurePanZoomController();
-        validationPanel = ScenarioValidationPanel.Ensure(panelRoot != null ? panelRoot : transform as RectTransform, validationPanel);
+        validationPanel = ScenarioValidationPanel.Ensure(nodeArea, validationPanel);
         BindValidationPanelEvents();
 
         if (addConditionButton == null)
@@ -1832,7 +1837,7 @@ public class ScenarioGraphUI : MonoBehaviour
     {
         if (validationPanel == null)
         {
-            validationPanel = ScenarioValidationPanel.Ensure(panelRoot != null ? panelRoot : transform as RectTransform);
+            validationPanel = ScenarioValidationPanel.Ensure(nodeArea);
         }
 
         BindValidationPanelEvents();
@@ -1934,16 +1939,49 @@ public class ScenarioGraphUI : MonoBehaviour
         if (nodeRoot == null || nodeRoot.GetComponent<Graphic>() == null) return;
 
         validationFocusOutline = nodeRoot.gameObject.AddComponent<Outline>();
-        validationFocusOutline.effectColor = DesignTokens.Warning;
-        validationFocusOutline.effectDistance = new Vector2(3f, -3f);
+        validationFocusOutline.effectColor = DesignTokens.Accent;
+        validationFocusOutline.effectDistance = new Vector2(4f, -4f);
         validationFocusOutline.useGraphicAlpha = false;
+        validationFocusGraphic = nodeRoot.GetComponent<Graphic>();
+        if (validationFocusGraphic != null)
+        {
+            validationFocusBaseColor = validationFocusGraphic.color;
+            validationFocusFlashCoroutine = StartCoroutine(FlashValidationFocus(validationFocusGraphic));
+        }
+    }
+
+    IEnumerator FlashValidationFocus(Graphic graphic)
+    {
+        Color flashColor = Color.Lerp(validationFocusBaseColor, DesignTokens.Error, 0.22f);
+        for (int i = 0; i < 3; i++)
+        {
+            if (graphic == null) yield break;
+            graphic.color = flashColor;
+            yield return new WaitForSecondsRealtime(0.14f);
+            if (graphic == null) yield break;
+            graphic.color = validationFocusBaseColor;
+            yield return new WaitForSecondsRealtime(0.12f);
+        }
+        validationFocusFlashCoroutine = null;
     }
 
     void ClearValidationFocus()
     {
-        if (validationFocusOutline == null) return;
-        Destroy(validationFocusOutline);
-        validationFocusOutline = null;
+        if (validationFocusFlashCoroutine != null)
+        {
+            StopCoroutine(validationFocusFlashCoroutine);
+            validationFocusFlashCoroutine = null;
+        }
+        if (validationFocusGraphic != null)
+        {
+            validationFocusGraphic.color = validationFocusBaseColor;
+            validationFocusGraphic = null;
+        }
+        if (validationFocusOutline != null)
+        {
+            Destroy(validationFocusOutline);
+            validationFocusOutline = null;
+        }
     }
 
     static string GetFriendlyValidationMessage(GraphValidationIssue issue)

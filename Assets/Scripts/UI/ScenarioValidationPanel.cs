@@ -13,7 +13,7 @@ public class ScenarioValidationPanel : MonoBehaviour
     const float MinWidth = 320f;
     const float MinHeight = 240f;
     const float ViewportMargin = 16f;
-    const float MinimizedWidth = 360f;
+    const float MinimizedWidth = 448f;
     const float MinimizedHeight = 48f;
 
     [SerializeField] TMP_Text titleText;
@@ -24,6 +24,9 @@ public class ScenarioValidationPanel : MonoBehaviour
     [SerializeField] Button previousButton;
     [SerializeField] Button nextButton;
     [SerializeField] TMP_Text navigationText;
+    [SerializeField] TMP_Text compactStatusText;
+    [SerializeField] Image panelImage;
+    [SerializeField] Outline panelOutline;
     bool applyingResponsiveLayout;
     bool isMinimized;
     readonly List<GraphValidationIssue> navigableIssues = new List<GraphValidationIssue>();
@@ -37,8 +40,16 @@ public class ScenarioValidationPanel : MonoBehaviour
 
     public static ScenarioValidationPanel Ensure(RectTransform parent, ScenarioValidationPanel existing = null)
     {
-        if (existing != null) return existing;
         if (parent == null) return null;
+        if (existing != null)
+        {
+            if (existing.transform.parent != parent) existing.transform.SetParent(parent, false);
+            existing.ResolveReferences();
+            existing.EnsureNavigationControls();
+            existing.WireCloseButton();
+            existing.ApplyResponsiveLayout();
+            return existing;
+        }
 
         var found = parent.Find(PanelName);
         if (found != null)
@@ -122,6 +133,8 @@ public class ScenarioValidationPanel : MonoBehaviour
         panel.issueListRoot = content;
         panel.issueButtonTemplate = template;
         panel.closeButton = close;
+        panel.panelImage = rootImage;
+        panel.panelOutline = outline;
         panel.EnsureNavigationControls();
         panel.WireCloseButton();
         panel.ApplyResponsiveLayout();
@@ -149,7 +162,7 @@ public class ScenarioValidationPanel : MonoBehaviour
         int errorCount = validation.errors.Count;
         int warningCount = validation.warnings.Count;
         hasIssues = errorCount + warningCount > 0;
-        if (titleText != null) titleText.text = "シナリオの問題";
+        ApplySeverityStyle(errorCount, warningCount);
         if (summaryText != null)
         {
             summaryText.text = warningCount > 0
@@ -268,6 +281,9 @@ public class ScenarioValidationPanel : MonoBehaviour
         if (previousButton == null) previousButton = transform.Find("Button_PreviousIssue")?.GetComponent<Button>();
         if (nextButton == null) nextButton = transform.Find("Button_NextIssue")?.GetComponent<Button>();
         if (navigationText == null) navigationText = transform.Find("Text_IssuePosition")?.GetComponent<TMP_Text>();
+        if (compactStatusText == null) compactStatusText = transform.Find("Text_CompactStatus")?.GetComponent<TMP_Text>();
+        if (panelImage == null) panelImage = GetComponent<Image>();
+        if (panelOutline == null) panelOutline = GetComponent<Outline>();
     }
 
     void WireCloseButton()
@@ -298,6 +314,16 @@ public class ScenarioValidationPanel : MonoBehaviour
                 DesignTokens.FontSizeCaption,
                 DesignTokens.TextSecondary);
             navigationText.alignment = TextAlignmentOptions.Center;
+        }
+        if (compactStatusText == null)
+        {
+            compactStatusText = CreateText(
+                "Text_CompactStatus",
+                root,
+                "エラー 0件",
+                DesignTokens.FontSizeBody,
+                DesignTokens.Error);
+            compactStatusText.alignment = TextAlignmentOptions.MidlineLeft;
         }
 
         previousButton.onClick.RemoveListener(OnClickPreviousIssue);
@@ -383,6 +409,28 @@ public class ScenarioValidationPanel : MonoBehaviour
         }
     }
 
+    void ApplySeverityStyle(int errorCount, int warningCount)
+    {
+        Color semanticColor = errorCount > 0 ? DesignTokens.Error : DesignTokens.Warning;
+        if (titleText != null)
+        {
+            titleText.text = errorCount > 0 ? "シナリオエラー" : "シナリオの注意";
+            titleText.color = semanticColor;
+        }
+        if (summaryText != null) summaryText.color = semanticColor;
+        if (compactStatusText != null)
+        {
+            compactStatusText.text = errorCount > 0 ? $"エラー {errorCount}件" : $"注意 {warningCount}件";
+            compactStatusText.color = semanticColor;
+        }
+        if (panelImage != null) panelImage.color = Color.Lerp(DesignTokens.Surface, semanticColor, 0.08f);
+        if (panelOutline != null)
+        {
+            panelOutline.effectColor = semanticColor;
+            panelOutline.effectDistance = new Vector2(2f, -2f);
+        }
+    }
+
     void ApplyExpandedNavigationLayout()
     {
         if (previousButton == null || nextButton == null || navigationText == null) return;
@@ -454,15 +502,16 @@ public class ScenarioValidationPanel : MonoBehaviour
         if (!(transform is RectTransform root)) return;
 
         applyingResponsiveLayout = true;
-        root.anchorMin = Vector2.one;
-        root.anchorMax = Vector2.one;
-        root.pivot = Vector2.one;
+        root.anchorMin = new Vector2(0f, 1f);
+        root.anchorMax = new Vector2(0f, 1f);
+        root.pivot = new Vector2(0f, 1f);
         root.sizeDelta = new Vector2(MinimizedWidth, MinimizedHeight);
-        root.anchoredPosition = new Vector2(-ViewportMargin, -ViewportMargin);
-        SetRect(previousButton.transform as RectTransform, Vector2.zero, Vector2.one, new Vector2(8f, 4f), new Vector2(-312f, -4f));
-        SetRect(navigationText.rectTransform, Vector2.zero, Vector2.one, new Vector2(56f, 4f), new Vector2(-248f, -4f));
-        SetRect(nextButton.transform as RectTransform, Vector2.zero, Vector2.one, new Vector2(120f, 4f), new Vector2(-200f, -4f));
-        SetRect(closeButton.transform as RectTransform, Vector2.zero, Vector2.one, new Vector2(168f, 4f), new Vector2(-8f, -4f));
+        root.anchoredPosition = new Vector2(ViewportMargin, -ViewportMargin);
+        SetRect(compactStatusText.rectTransform, Vector2.zero, Vector2.one, new Vector2(12f, 4f), new Vector2(-336f, -4f));
+        SetRect(previousButton.transform as RectTransform, Vector2.zero, Vector2.one, new Vector2(120f, 4f), new Vector2(-288f, -4f));
+        SetRect(navigationText.rectTransform, Vector2.zero, Vector2.one, new Vector2(168f, 4f), new Vector2(-224f, -4f));
+        SetRect(nextButton.transform as RectTransform, Vector2.zero, Vector2.one, new Vector2(232f, 4f), new Vector2(-176f, -4f));
+        SetRect(closeButton.transform as RectTransform, Vector2.zero, Vector2.one, new Vector2(280f, 4f), new Vector2(-8f, -4f));
         applyingResponsiveLayout = false;
     }
 
@@ -470,6 +519,7 @@ public class ScenarioValidationPanel : MonoBehaviour
     {
         if (titleText != null) titleText.gameObject.SetActive(visible);
         if (summaryText != null) summaryText.gameObject.SetActive(visible);
+        if (compactStatusText != null) compactStatusText.gameObject.SetActive(!visible);
         var scrollRoot = issueListRoot != null && issueListRoot.parent != null
             ? issueListRoot.parent.parent
             : null;
