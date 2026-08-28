@@ -13,18 +13,26 @@ public class ScenarioValidationPanel : MonoBehaviour
     const float MinWidth = 320f;
     const float MinHeight = 240f;
     const float ViewportMargin = 16f;
-    const float MinimizedWidth = 180f;
-    const float MinimizedHeight = 44f;
+    const float MinimizedWidth = 360f;
+    const float MinimizedHeight = 48f;
 
     [SerializeField] TMP_Text titleText;
     [SerializeField] TMP_Text summaryText;
     [SerializeField] RectTransform issueListRoot;
     [SerializeField] Button issueButtonTemplate;
     [SerializeField] Button closeButton;
+    [SerializeField] Button previousButton;
+    [SerializeField] Button nextButton;
+    [SerializeField] TMP_Text navigationText;
     bool applyingResponsiveLayout;
     bool isMinimized;
+    readonly List<GraphValidationIssue> navigableIssues = new List<GraphValidationIssue>();
+    Action<string> nodeRequested;
+    int currentIssueIndex = -1;
+    bool hasIssues;
 
     public bool IsVisible => gameObject.activeSelf;
+    public bool HasNavigableIssues => navigableIssues.Count > 0;
     public event Action Hidden;
 
     public static ScenarioValidationPanel Ensure(RectTransform parent, ScenarioValidationPanel existing = null)
@@ -39,6 +47,7 @@ public class ScenarioValidationPanel : MonoBehaviour
             if (foundPanel != null)
             {
                 foundPanel.ResolveReferences();
+                foundPanel.EnsureNavigationControls();
                 foundPanel.WireCloseButton();
                 foundPanel.ApplyResponsiveLayout();
                 return foundPanel;
@@ -58,7 +67,7 @@ public class ScenarioValidationPanel : MonoBehaviour
         outline.effectColor = DesignTokens.Divider;
         outline.effectDistance = new Vector2(1f, -1f);
 
-        var title = CreateText("Text_Title", root, "\u4FDD\u5B58\u524D\u306B\u78BA\u8A8D\u3057\u3066\u304F\u3060\u3055\u3044", DesignTokens.FontSizeHeading, DesignTokens.TextPrimary);
+        var title = CreateText("Text_Title", root, "シナリオの問題", DesignTokens.FontSizeHeading, DesignTokens.TextPrimary);
         SetRect(title.rectTransform, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(24f, -56f), new Vector2(-112f, -24f));
 
         var close = CreateButton("Button_Close", root, "\u9589\u3058\u308B");
@@ -113,6 +122,7 @@ public class ScenarioValidationPanel : MonoBehaviour
         panel.issueListRoot = content;
         panel.issueButtonTemplate = template;
         panel.closeButton = close;
+        panel.EnsureNavigationControls();
         panel.WireCloseButton();
         panel.ApplyResponsiveLayout();
         root.SetAsLastSibling();
@@ -126,14 +136,20 @@ public class ScenarioValidationPanel : MonoBehaviour
         Action<string> onNodeRequested)
     {
         bool preserveMinimizedState = gameObject.activeSelf && isMinimized;
+        string currentIssueKey = GetCurrentIssueKey();
         ResolveReferences();
+        EnsureNavigationControls();
         if (validation == null || issueListRoot == null || issueButtonTemplate == null) return;
         if (!preserveMinimizedState) RestoreIssueList();
+
+        nodeRequested = onNodeRequested;
+        RebuildNavigableIssues(validation, currentIssueKey);
 
         ClearItems();
         int errorCount = validation.errors.Count;
         int warningCount = validation.warnings.Count;
-        if (titleText != null) titleText.text = "\u4FDD\u5B58\u524D\u306B\u78BA\u8A8D\u3057\u3066\u304F\u3060\u3055\u3044";
+        hasIssues = errorCount + warningCount > 0;
+        if (titleText != null) titleText.text = "シナリオの問題";
         if (summaryText != null)
         {
             summaryText.text = warningCount > 0
@@ -144,6 +160,7 @@ public class ScenarioValidationPanel : MonoBehaviour
         int index = 1;
         index = AddItems(validation.errors, index, getFriendlyMessage, onNodeRequested, true);
         AddItems(validation.warnings, index, getFriendlyMessage, onNodeRequested, false);
+        UpdateNavigationControls();
 
         gameObject.SetActive(true);
         transform.SetAsLastSibling();
@@ -162,7 +179,7 @@ public class ScenarioValidationPanel : MonoBehaviour
     {
         isMinimized = true;
         SetExpandedContentVisible(false);
-        SetCloseButtonLabel("問題一覧に戻る");
+        SetCloseButtonLabel("問題一覧");
         ApplyMinimizedLayout();
     }
 
@@ -170,7 +187,7 @@ public class ScenarioValidationPanel : MonoBehaviour
     {
         isMinimized = false;
         SetExpandedContentVisible(true);
-        SetCloseButtonLabel("閉じる");
+        SetCloseButtonLabel(hasIssues ? "最小化" : "閉じる");
         ApplyResponsiveLayout();
     }
 
@@ -212,6 +229,8 @@ public class ScenarioValidationPanel : MonoBehaviour
                 string capturedNodeId = issue.nodeId;
                 button.onClick.AddListener(() =>
                 {
+                    currentIssueIndex = navigableIssues.IndexOf(issue);
+                    UpdateNavigationControls();
                     onNodeRequested(capturedNodeId);
                     MinimizeForFocus();
                 });
@@ -224,6 +243,7 @@ public class ScenarioValidationPanel : MonoBehaviour
     void Awake()
     {
         ResolveReferences();
+        EnsureNavigationControls();
         WireCloseButton();
         ApplyResponsiveLayout();
     }
@@ -245,6 +265,9 @@ public class ScenarioValidationPanel : MonoBehaviour
         if (issueListRoot == null) issueListRoot = transform.Find("Scroll_Issues/Viewport/Content") as RectTransform;
         if (issueButtonTemplate == null) issueButtonTemplate = issueListRoot?.Find("ValidationItem_Template")?.GetComponent<Button>();
         if (closeButton == null) closeButton = transform.Find("Button_Close")?.GetComponent<Button>();
+        if (previousButton == null) previousButton = transform.Find("Button_PreviousIssue")?.GetComponent<Button>();
+        if (nextButton == null) nextButton = transform.Find("Button_NextIssue")?.GetComponent<Button>();
+        if (navigationText == null) navigationText = transform.Find("Text_IssuePosition")?.GetComponent<TMP_Text>();
     }
 
     void WireCloseButton()
@@ -254,11 +277,132 @@ public class ScenarioValidationPanel : MonoBehaviour
         closeButton.onClick.AddListener(OnClickClose);
     }
 
+    void EnsureNavigationControls()
+    {
+        if (!(transform is RectTransform root)) return;
+
+        if (previousButton == null)
+        {
+            previousButton = CreateButton("Button_PreviousIssue", root, "前");
+        }
+        if (nextButton == null)
+        {
+            nextButton = CreateButton("Button_NextIssue", root, "次");
+        }
+        if (navigationText == null)
+        {
+            navigationText = CreateText(
+                "Text_IssuePosition",
+                root,
+                "－ / 0",
+                DesignTokens.FontSizeCaption,
+                DesignTokens.TextSecondary);
+            navigationText.alignment = TextAlignmentOptions.Center;
+        }
+
+        previousButton.onClick.RemoveListener(OnClickPreviousIssue);
+        previousButton.onClick.AddListener(OnClickPreviousIssue);
+        nextButton.onClick.RemoveListener(OnClickNextIssue);
+        nextButton.onClick.AddListener(OnClickNextIssue);
+        if (isMinimized) ApplyMinimizedLayout();
+        else ApplyExpandedNavigationLayout();
+        UpdateNavigationControls();
+    }
+
+    void OnClickPreviousIssue()
+    {
+        NavigateIssue(-1);
+    }
+
+    void OnClickNextIssue()
+    {
+        NavigateIssue(1);
+    }
+
+    void NavigateIssue(int direction)
+    {
+        if (navigableIssues.Count == 0 || nodeRequested == null) return;
+        if (currentIssueIndex < 0)
+        {
+            currentIssueIndex = direction < 0 ? navigableIssues.Count - 1 : 0;
+        }
+        else
+        {
+            currentIssueIndex = (currentIssueIndex + direction + navigableIssues.Count) % navigableIssues.Count;
+        }
+
+        UpdateNavigationControls();
+        nodeRequested(navigableIssues[currentIssueIndex].nodeId);
+        MinimizeForFocus();
+    }
+
+    void RebuildNavigableIssues(GraphValidationResult validation, string currentIssueKey)
+    {
+        navigableIssues.Clear();
+        foreach (var issue in validation.errors)
+        {
+            if (!string.IsNullOrWhiteSpace(issue?.nodeId)) navigableIssues.Add(issue);
+        }
+        foreach (var issue in validation.warnings)
+        {
+            if (!string.IsNullOrWhiteSpace(issue?.nodeId)) navigableIssues.Add(issue);
+        }
+
+        currentIssueIndex = -1;
+        if (string.IsNullOrEmpty(currentIssueKey)) return;
+        for (int i = 0; i < navigableIssues.Count; i++)
+        {
+            if (!string.Equals(GetIssueKey(navigableIssues[i]), currentIssueKey, StringComparison.Ordinal)) continue;
+            currentIssueIndex = i;
+            break;
+        }
+    }
+
+    string GetCurrentIssueKey()
+    {
+        return currentIssueIndex >= 0 && currentIssueIndex < navigableIssues.Count
+            ? GetIssueKey(navigableIssues[currentIssueIndex])
+            : null;
+    }
+
+    static string GetIssueKey(GraphValidationIssue issue)
+    {
+        return issue == null ? null : issue.code + "|" + issue.nodeId;
+    }
+
+    void UpdateNavigationControls()
+    {
+        bool canNavigate = navigableIssues.Count > 0 && nodeRequested != null;
+        if (previousButton != null) previousButton.interactable = canNavigate;
+        if (nextButton != null) nextButton.interactable = canNavigate;
+        if (navigationText != null)
+        {
+            navigationText.text = currentIssueIndex >= 0
+                ? $"{currentIssueIndex + 1} / {navigableIssues.Count}"
+                : $"－ / {navigableIssues.Count}";
+        }
+    }
+
+    void ApplyExpandedNavigationLayout()
+    {
+        if (previousButton == null || nextButton == null || navigationText == null) return;
+        SetRect(previousButton.transform as RectTransform, Vector2.one, Vector2.one, new Vector2(-268f, -64f), new Vector2(-228f, -24f));
+        SetRect(navigationText.rectTransform, Vector2.one, Vector2.one, new Vector2(-220f, -64f), new Vector2(-160f, -24f));
+        SetRect(nextButton.transform as RectTransform, Vector2.one, Vector2.one, new Vector2(-152f, -64f), new Vector2(-112f, -24f));
+        if (titleText != null) titleText.rectTransform.offsetMax = new Vector2(-280f, -24f);
+    }
+
     void OnClickClose()
     {
         if (isMinimized)
         {
             RestoreIssueList();
+            return;
+        }
+
+        if (hasIssues)
+        {
+            MinimizeForFocus();
             return;
         }
 
@@ -300,6 +444,7 @@ public class ScenarioValidationPanel : MonoBehaviour
                 new Vector2(-104f, -64f),
                 new Vector2(-24f, -24f));
         }
+        ApplyExpandedNavigationLayout();
         applyingResponsiveLayout = false;
     }
 
@@ -314,10 +459,10 @@ public class ScenarioValidationPanel : MonoBehaviour
         root.pivot = Vector2.one;
         root.sizeDelta = new Vector2(MinimizedWidth, MinimizedHeight);
         root.anchoredPosition = new Vector2(-ViewportMargin, -ViewportMargin);
-        if (closeButton != null)
-        {
-            SetRect(closeButton.transform as RectTransform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
-        }
+        SetRect(previousButton.transform as RectTransform, Vector2.zero, Vector2.one, new Vector2(8f, 4f), new Vector2(-312f, -4f));
+        SetRect(navigationText.rectTransform, Vector2.zero, Vector2.one, new Vector2(56f, 4f), new Vector2(-248f, -4f));
+        SetRect(nextButton.transform as RectTransform, Vector2.zero, Vector2.one, new Vector2(120f, 4f), new Vector2(-200f, -4f));
+        SetRect(closeButton.transform as RectTransform, Vector2.zero, Vector2.one, new Vector2(168f, 4f), new Vector2(-8f, -4f));
         applyingResponsiveLayout = false;
     }
 

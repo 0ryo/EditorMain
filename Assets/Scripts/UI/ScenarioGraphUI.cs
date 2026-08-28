@@ -94,6 +94,7 @@ public class ScenarioGraphUI : MonoBehaviour
     RectTransform dragPreviewTarget;
     float nextValidationPollTime;
     bool graphRebuildRequested;
+    string lastValidationUiSignature;
 
     class NodeUiBinding
     {
@@ -101,6 +102,12 @@ public class ScenarioGraphUI : MonoBehaviour
         public RectTransform root;
         public RectTransform inputConnector;
         public RectTransform outputConnector;
+    }
+
+    sealed class NodeIssueCounts
+    {
+        public int errors;
+        public int warnings;
     }
 
     sealed class NodePositionCommand : IEditorCommand
@@ -1751,19 +1758,29 @@ public class ScenarioGraphUI : MonoBehaviour
         {
             saveButton.interactable = false;
             statusText.text = EmptyGraphGuide;
+            ClearNodeValidationIndicators();
+            lastValidationUiSignature = null;
             validationPanel?.Hide();
             return;
         }
 
         var validation = graph.ValidateGraph();
         saveButton.interactable = validation.CanExport;
+        RefreshNodeValidationIndicators(validation);
 
         if (!validation.CanExport)
         {
             statusText.text = $"\u8981\u78BA\u8A8D: {validation.errors.Count}\u4EF6";
-            if (validationPanel != null && validationPanel.IsVisible)
+            bool wasVisible = validationPanel != null && validationPanel.IsVisible;
+            string validationSignature = BuildValidationUiSignature(validation);
+            if (!wasVisible || !string.Equals(validationSignature, lastValidationUiSignature, System.StringComparison.Ordinal))
             {
                 ShowValidationPanel(validation);
+                lastValidationUiSignature = validationSignature;
+            }
+            if (!wasVisible && validationPanel != null)
+            {
+                validationPanel.MinimizeForFocus();
             }
             return;
         }
@@ -1772,6 +1789,7 @@ public class ScenarioGraphUI : MonoBehaviour
         {
             validationPanel.Hide();
         }
+        lastValidationUiSignature = null;
 
         if (validation.warnings.Count > 0)
         {
@@ -1817,30 +1835,90 @@ public class ScenarioGraphUI : MonoBehaviour
             validationPanel = ScenarioValidationPanel.Ensure(panelRoot != null ? panelRoot : transform as RectTransform);
         }
 
+        BindValidationPanelEvents();
         validationPanel?.Show(validation, GetFriendlyValidationMessage, FocusNode);
     }
 
     void FocusNode(string nodeId)
     {
         if (string.IsNullOrWhiteSpace(nodeId)) return;
-        if (!nodeUIs.TryGetValue(nodeId, out var binding) || binding == null || binding.root == null)
-        {
-            var node = graph != null ? graph.FindNode(nodeId) : null;
-            if (node == null || node.nodeType != ScenarioNodeType.Condition) return;
-
-            var bindEdge = graph.curriculum.edges.FirstOrDefault(edge =>
-                edge.edgeType == ScenarioEdgeType.ConditionBind && edge.fromNodeId == nodeId);
-            if (bindEdge == null ||
-                !nodeUIs.TryGetValue(bindEdge.toNodeId, out binding) ||
-                binding == null ||
-                binding.root == null)
-            {
-                return;
-            }
-        }
+        if (!TryResolveValidationBinding(nodeId, out var binding)) return;
 
         HighlightValidationFocus(binding.root);
         panZoomController?.FocusContentPoint(binding.root.anchoredPosition);
+    }
+
+    bool TryResolveValidationBinding(string nodeId, out NodeUiBinding binding)
+    {
+        binding = null;
+        if (string.IsNullOrWhiteSpace(nodeId)) return false;
+        if (nodeUIs.TryGetValue(nodeId, out binding) && binding != null && binding.root != null)
+        {
+            return true;
+        }
+
+        var node = graph != null ? graph.FindNode(nodeId) : null;
+        if (node == null || node.nodeType != ScenarioNodeType.Condition) return false;
+
+        var bindEdge = graph.curriculum.edges.FirstOrDefault(edge =>
+            edge.edgeType == ScenarioEdgeType.ConditionBind && edge.fromNodeId == nodeId);
+        return bindEdge != null &&
+            nodeUIs.TryGetValue(bindEdge.toNodeId, out binding) &&
+            binding != null &&
+            binding.root != null;
+    }
+
+    void RefreshNodeValidationIndicators(GraphValidationResult validation)
+    {
+        var countsByRoot = new Dictionary<RectTransform, NodeIssueCounts>();
+        if (validation != null)
+        {
+            foreach (var issue in validation.errors) AddNodeIssueCount(countsByRoot, issue, true);
+            foreach (var issue in validation.warnings) AddNodeIssueCount(countsByRoot, issue, false);
+        }
+
+        var visitedRoots = new HashSet<RectTransform>();
+        foreach (var binding in nodeUIs.Values)
+        {
+            var root = binding?.root;
+            if (root == null || !visitedRoots.Add(root)) continue;
+            countsByRoot.TryGetValue(root, out var counts);
+            var indicator = root.GetComponent<ScenarioNodeValidationIndicator>();
+            if (counts == null)
+            {
+                indicator?.SetCounts(0, 0);
+                continue;
+            }
+
+            if (indicator == null) indicator = root.gameObject.AddComponent<ScenarioNodeValidationIndicator>();
+            indicator.SetCounts(counts.errors, counts.warnings);
+        }
+    }
+
+    void AddNodeIssueCount(
+        Dictionary<RectTransform, NodeIssueCounts> countsByRoot,
+        GraphValidationIssue issue,
+        bool isError)
+    {
+        if (issue == null || !TryResolveValidationBinding(issue.nodeId, out var binding)) return;
+        if (!countsByRoot.TryGetValue(binding.root, out var counts))
+        {
+            counts = new NodeIssueCounts();
+            countsByRoot[binding.root] = counts;
+        }
+        if (isError) counts.errors++;
+        else counts.warnings++;
+    }
+
+    void ClearNodeValidationIndicators()
+    {
+        var visitedRoots = new HashSet<RectTransform>();
+        foreach (var binding in nodeUIs.Values)
+        {
+            var root = binding?.root;
+            if (root == null || !visitedRoots.Add(root)) continue;
+            root.GetComponent<ScenarioNodeValidationIndicator>()?.SetCounts(0, 0);
+        }
     }
 
     void BindValidationPanelEvents()
@@ -1874,6 +1952,16 @@ public class ScenarioGraphUI : MonoBehaviour
         if (ErrorMessages.TryGetValue(issue.code, out var errorMessage)) return errorMessage;
         if (WarningMessages.TryGetValue(issue.code, out var warningMessage)) return warningMessage;
         return issue.message;
+    }
+
+    static string BuildValidationUiSignature(GraphValidationResult validation)
+    {
+        if (validation == null) return string.Empty;
+        return string.Join(";", validation.errors.Select(issue =>
+                   $"E|{issue.code}|{issue.nodeId}|{issue.message}")) +
+               "#" +
+               string.Join(";", validation.warnings.Select(issue =>
+                   $"W|{issue.code}|{issue.nodeId}|{issue.message}"));
     }
 
     static string BuildValidationMessage(GraphValidationResult validation)
