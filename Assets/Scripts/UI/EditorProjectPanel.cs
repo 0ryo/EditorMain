@@ -123,7 +123,7 @@ public sealed class EditorProjectPanel : MonoBehaviour
         newButton.onClick.AddListener(RequestNewProject);
 
         var placementExportButton = CreateButton("Button_ExportPlacement", dialog, "配置JSONエクスポート", 180f);
-        SetRect(placementExportButton.transform as RectTransform, new Vector2(324f, -154f), new Vector2(180f, 40f));
+        SetTopRight(placementExportButton.transform as RectTransform, new Vector2(-24f, -154f), new Vector2(180f, 40f));
         placementExportButton.onClick.AddListener(ExportPlacement);
 
         var folderText = CreateText(
