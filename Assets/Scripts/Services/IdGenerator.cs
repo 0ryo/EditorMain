@@ -22,4 +22,10 @@ public class IdGenerator : MonoBehaviour {
         seq++;
         return $"obj-{seq:D4}";
     }
+
+    public void ReserveExistingObjectId(string objectId) {
+        if (string.IsNullOrWhiteSpace(objectId) || !objectId.StartsWith("obj-")) return;
+        if (!int.TryParse(objectId.Substring(4), out int existingSequence)) return;
+        if (existingSequence > seq) seq = existingSequence;
+    }
 }
