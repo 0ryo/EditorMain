@@ -1,5 +1,4 @@
 ﻿using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using TMPro;
 using UnityEngine;
@@ -11,7 +10,7 @@ public class ScenarioGraphUI : MonoBehaviour
     static readonly Color DragPreviewLineColor = new Color(DesignTokens.Accent.r, DesignTokens.Accent.g, DesignTokens.Accent.b, 0.9f);
     const string AddStepLabel = "+ 手順";
     const string AddConditionLabel = "+ 条件";
-    const string SaveLabel = "保存";
+    const string SaveLabel = "JSON出力";
     const string StartNodeLabel = "開始";
     const string EndNodeLabel = "終了";
     const string EmptyGraphGuide = "「+ 手順」からシナリオを作成してください";
@@ -1717,31 +1716,28 @@ public class ScenarioGraphUI : MonoBehaviour
         }
         catch (System.Exception ex)
         {
-            statusText.text = $"保存失敗: {ex.Message}";
+            statusText.text = $"JSON出力失敗: {ex.Message}";
             Debug.LogException(ex);
             return;
         }
 
-        string exportDir = Path.Combine(Application.dataPath, "Exports");
-        Directory.CreateDirectory(exportDir);
-
         string safeProjectName = ExportFileNameUtility.SanitizeProjectName(export.projectName, "VRCourseEditor");
         string fileName = $"{safeProjectName}-curriculum.json";
-        string finalPath = Path.Combine(exportDir, fileName);
+        string finalPath = RuntimeExportPathUtility.BuildPath(fileName);
         try
         {
             ExportFileWriter.WriteAllTextWithBackup(finalPath, JsonUtility.ToJson(export, true));
         }
         catch (System.Exception ex)
         {
-            statusText.text = $"保存失敗: {ex.Message}";
+            statusText.text = $"JSON出力失敗: {ex.Message}";
             Debug.LogException(ex);
             return;
         }
 
         statusText.text = validation.warnings.Count > 0
-            ? $"保存しました（警告 {validation.warnings.Count} 件）: Assets/Exports/{fileName}"
-            : $"保存しました: Assets/Exports/{fileName}";
+            ? $"JSON出力しました（警告 {validation.warnings.Count} 件）: Exports/{fileName}"
+            : $"JSON出力しました: Exports/{fileName}";
         Debug.Log("[ScenarioGraph] " + statusText.text);
         validationPanel?.Hide();
         saveButton.interactable = true;
@@ -1787,7 +1783,7 @@ public class ScenarioGraphUI : MonoBehaviour
             return;
         }
 
-        statusText.text = "保存できます";
+        statusText.text = "JSON出力できます";
     }
 
     void ApplyRoundedTheme()

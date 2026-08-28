@@ -1,4 +1,3 @@
-using System.IO;
 using System.Text;
 using UnityEngine;
 
@@ -31,6 +30,19 @@ public class PlacementExportService : MonoBehaviour
 
     public void ExportPlacementJson()
     {
+        if (TryExportPlacementJson(out var path, out var error))
+        {
+            Debug.Log($"[Export] Saved: {path}");
+            return;
+        }
+
+        Debug.LogError("[Export] Save failed: " + error);
+    }
+
+    public bool TryExportPlacementJson(out string path, out string error)
+    {
+        path = null;
+        error = null;
         var data = new PlacementExport
         {
             version = 1,
@@ -53,21 +65,20 @@ public class PlacementExportService : MonoBehaviour
             });
         }
 
-        string dir = Path.Combine(Application.dataPath, "Exports");
         string safeProjectName = ExportFileNameUtility.SanitizeProjectName(projectName, "MyProject");
         string fileName = $"{safeProjectName}-placement.json";
-        string path = Path.Combine(dir, fileName);
+        path = RuntimeExportPathUtility.BuildPath(fileName);
 
         string json = JsonUtility.ToJson(data, true);
         try
         {
             ExportFileWriter.WriteAllTextWithBackup(path, json);
-            Debug.Log($"[Export] Saved: Assets/Exports/{fileName} (count={data.objects.Count})");
+            return true;
         }
         catch (System.Exception ex)
         {
-            Debug.LogError($"[Export] Save failed: {ex.Message}");
-            Debug.LogException(ex);
+            error = ex.Message;
+            return false;
         }
     }
 }

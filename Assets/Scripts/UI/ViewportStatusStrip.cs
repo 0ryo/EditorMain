@@ -102,6 +102,7 @@ public class ViewportStatusStrip : MonoBehaviour
         ViewportOutliner.Ensure(transform);
         ObjectTransformPanel.Ensure(transform);
         ViewportCameraToolbar.Ensure(transform);
+        EditorProjectPanel.Ensure(transform);
         PositionStrip();
     }
 

@@ -42,6 +42,10 @@ public sealed class EditorProjectService : MonoBehaviour
             var project = Capture(projectName);
             CurrentProjectPath = EditorProjectStore.Save(project, project.projectName);
             CurrentProjectName = project.projectName;
+            if (!string.Equals(graph.curriculum.projectName, project.projectName, StringComparison.Ordinal))
+            {
+                graph.RestoreCommandSnapshot(JsonUtility.ToJson(project.curriculum));
+            }
             message = $"保存しました: {CurrentProjectName}";
             StatusChanged?.Invoke(message, true);
             Debug.Log($"[EditorProject] {message} ({CurrentProjectPath})");
@@ -93,6 +97,39 @@ public sealed class EditorProjectService : MonoBehaviour
             DestroyStaged(staged);
             Debug.LogException(ex);
             return Fail("読み込めません: " + ex.Message, out message);
+        }
+    }
+
+    public bool NewProject(string projectName, out string message)
+    {
+        ResolveReferences();
+        if (graph == null)
+        {
+            return Fail("シナリオデータが見つからないため新規作成できません。", out message);
+        }
+
+        string name = string.IsNullOrWhiteSpace(projectName) ? "VRCourseEditor" : projectName.Trim();
+        var project = new EditorProjectFile
+        {
+            projectName = name,
+            curriculum = new Curriculum { projectName = name },
+            objects = new List<EditorProjectObject>()
+        };
+
+        try
+        {
+            ReplaceCurrentProject(project, new List<PlacedObject>());
+            CurrentProjectPath = null;
+            CurrentProjectName = name;
+            message = $"新規プロジェクトを作成しました: {name}";
+            StatusChanged?.Invoke(message, true);
+            Debug.Log("[EditorProject] " + message);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Debug.LogException(ex);
+            return Fail("新規作成できません: " + ex.Message, out message);
         }
     }
 
