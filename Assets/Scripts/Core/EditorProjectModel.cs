@@ -117,7 +117,6 @@ public static class EditorProjectMigration
             item.displayName ??= string.Empty;
             item.description ??= string.Empty;
             if (item.rotation == default) item.rotation = Quaternion.identity;
-            if (item.scale == default) item.scale = Vector3.one;
         }
     }
 }
