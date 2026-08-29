@@ -12,9 +12,10 @@ public class StepNodeUI : MonoBehaviour
     const float EmbeddedWidthScale = 1.2f;
     const float FallbackNodeWidth = 390f;
     const float EmbeddedSpacing = 8f; // カード間のVLGスペーシング（区切り線の前後各8px）
-    const float EmbeddedListBottom = 18f;
     const float EmbeddedListSide = 0f;
-    const float EmbeddedVisibleSlotHeight = 76f;
+    const float EmbeddedContentPadding = 16f;
+    const float CollapsedContentEnd = 34f;
+    const float ExpandedContentEnd = 280f;
     const float EmbeddedFallbackHeight = 180f;
     const float EmbeddedFallbackWidth = 390f;
     const float HeaderLeft = 12f;
@@ -453,20 +454,31 @@ public class StepNodeUI : MonoBehaviour
         var root = transform as RectTransform;
         if (root != null)
         {
-            float extraHeight = Mathf.Max(0f, embeddedHeight - EmbeddedVisibleSlotHeight);
             var size = root.sizeDelta;
             float widthBase = baseNodeWidth > 1f ? baseNodeWidth : FallbackNodeWidth;
             size.x = embeddedCount > 0 ? widthBase * EmbeddedWidthScale : widthBase;
-            size.y = (detailsExpanded ? ExpandedBaseHeight : BaseHeight) + extraHeight;
+            float baseHeight = detailsExpanded ? ExpandedBaseHeight : BaseHeight;
+            float contentEnd = detailsExpanded ? ExpandedContentEnd : CollapsedContentEnd;
+            // Repeated cards always keep the same padding above and below the embedded region.
+            // The total list height already includes every card, divider, and inter-item gap.
+            float calculatedHeight = embeddedCount > 0
+                ? contentEnd
+                  + EmbeddedContentPadding
+                  + embeddedHeight
+                  + EmbeddedContentPadding
+                  + DragAreaBottom
+                : baseHeight;
+            size.y = Mathf.Max(baseHeight, calculatedHeight);
             root.sizeDelta = size;
         }
 
         if (conditionListRoot != null)
         {
+            float listBottom = DragAreaBottom + EmbeddedContentPadding;
             conditionListRoot.anchorMin = new Vector2(0f, 0f);
             conditionListRoot.anchorMax = new Vector2(1f, 0f);
-            conditionListRoot.offsetMin = new Vector2(EmbeddedListSide, EmbeddedListBottom);
-            conditionListRoot.offsetMax = new Vector2(-EmbeddedListSide, EmbeddedListBottom + embeddedHeight);
+            conditionListRoot.offsetMin = new Vector2(EmbeddedListSide, listBottom);
+            conditionListRoot.offsetMax = new Vector2(-EmbeddedListSide, listBottom + embeddedHeight);
         }
     }
 

@@ -146,6 +146,14 @@ public class ConditionRowUI : MonoBehaviour
         ForceRebuildDropdownLayout(dropdown);
     }
 
+    public static void PrepareDropdown(TMP_Dropdown dropdown)
+    {
+        if (dropdown == null) return;
+        EnsureDropdownReferences(dropdown);
+        ApplyDropdownVisualStyle(dropdown);
+        ForceRebuildDropdownLayout(dropdown);
+    }
+
     static void ApplyDropdownVisualStyle(TMP_Dropdown dropdown)
     {
         if (dropdown == null) return;
@@ -160,6 +168,8 @@ public class ConditionRowUI : MonoBehaviour
         {
             EnsureTextReadable(dropdown.captionText);
             dropdown.captionText.color = DesignTokens.TextPrimary;
+            dropdown.captionText.enableWordWrapping = false;
+            dropdown.captionText.overflowMode = TextOverflowModes.Ellipsis;
         }
 
         if (dropdown.template != null)
@@ -195,13 +205,16 @@ public class ConditionRowUI : MonoBehaviour
                     itemRt.anchorMax = new Vector2(1f, 1f);
                     itemRt.offsetMin = new Vector2(0f, itemRt.offsetMin.y);
                     itemRt.offsetMax = new Vector2(0f, itemRt.offsetMax.y);
-                    if (itemRt.sizeDelta.y < 24f) itemRt.sizeDelta = new Vector2(itemRt.sizeDelta.x, 24f);
+                    if (itemRt.sizeDelta.y < DesignTokens.DropdownItemH)
+                    {
+                        itemRt.sizeDelta = new Vector2(itemRt.sizeDelta.x, DesignTokens.DropdownItemH);
+                    }
                 }
 
                 var layout = item.GetComponent<LayoutElement>();
                 if (layout == null) layout = item.gameObject.AddComponent<LayoutElement>();
-                layout.minHeight = 24f;
-                layout.preferredHeight = 24f;
+                layout.minHeight = DesignTokens.DropdownItemH;
+                layout.preferredHeight = DesignTokens.DropdownItemH;
 
                 var itemImage = item.GetComponent<Image>();
                 if (itemImage != null) itemImage.color = DesignTokens.Surface;
@@ -219,6 +232,8 @@ public class ConditionRowUI : MonoBehaviour
                         txtRt.offsetMin = new Vector2(8f, 0f);
                         txtRt.offsetMax = new Vector2(-8f, 0f);
                         txt.alignment = TextAlignmentOptions.MidlineLeft;
+                        txt.enableWordWrapping = false;
+                        txt.overflowMode = TextOverflowModes.Ellipsis;
                         EnsureTextReadable(txt);
                         txt.color = DesignTokens.TextPrimary;
                     }
@@ -300,6 +315,8 @@ public class ConditionRowUI : MonoBehaviour
             EnsureTextReadable(dropdown.itemText);
             dropdown.itemText.color = DesignTokens.TextPrimary;
             dropdown.itemText.alignment = TextAlignmentOptions.MidlineLeft;
+            dropdown.itemText.enableWordWrapping = false;
+            dropdown.itemText.overflowMode = TextOverflowModes.Ellipsis;
             var rt = dropdown.itemText.rectTransform;
             rt.anchorMin = Vector2.zero;
             rt.anchorMax = Vector2.one;
@@ -346,6 +363,7 @@ public class ConditionRowUI : MonoBehaviour
 
             var fitter = content.GetComponent<ContentSizeFitter>();
             if (fitter == null) fitter = content.gameObject.AddComponent<ContentSizeFitter>();
+            fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
             fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
             for (int i = 0; i < content.childCount; i++)
@@ -354,8 +372,8 @@ public class ConditionRowUI : MonoBehaviour
                 if (child == null) continue;
                 var layout = child.GetComponent<LayoutElement>();
                 if (layout == null) layout = child.gameObject.AddComponent<LayoutElement>();
-                layout.minHeight = 24f;
-                layout.preferredHeight = 24f;
+                layout.minHeight = DesignTokens.DropdownItemH;
+                layout.preferredHeight = DesignTokens.DropdownItemH;
 
                 var label = child.Find("Item Label");
                 if (label != null)
@@ -443,9 +461,11 @@ public class DropdownOpenFixer : MonoBehaviour, IPointerClickHandler
             {
                 var le = toggle.GetComponent<LayoutElement>();
                 if (le == null) le = toggle.gameObject.AddComponent<LayoutElement>();
-                le.minHeight = 24f;
-                le.preferredHeight = 24f;
-                itemRt.sizeDelta = new Vector2(itemRt.sizeDelta.x, Mathf.Max(24f, itemRt.sizeDelta.y));
+                le.minHeight = DesignTokens.DropdownItemH;
+                le.preferredHeight = DesignTokens.DropdownItemH;
+                itemRt.sizeDelta = new Vector2(
+                    itemRt.sizeDelta.x,
+                    Mathf.Max(DesignTokens.DropdownItemH, itemRt.sizeDelta.y));
             }
 
             var label = toggle.transform.Find("Item Label");
@@ -468,8 +488,54 @@ public class DropdownOpenFixer : MonoBehaviour, IPointerClickHandler
         var listRt = list.transform as RectTransform;
         if (listRt != null)
         {
+            var dropdownRt = dropdown.transform as RectTransform;
+            if (dropdownRt != null && dropdownRt.rect.width > 1f)
+            {
+                listRt.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, dropdownRt.rect.width);
+            }
+
+            StretchDropdownListContent(listRt);
             listRt.SetAsLastSibling();
             LayoutRebuilder.ForceRebuildLayoutImmediate(listRt);
+        }
+    }
+
+    static void StretchDropdownListContent(RectTransform listRt)
+    {
+        var viewportRt = listRt.Find("Viewport") as RectTransform;
+        var contentRt = listRt.Find("Viewport/Content") as RectTransform;
+
+        if (viewportRt != null)
+        {
+            viewportRt.anchorMin = Vector2.zero;
+            viewportRt.anchorMax = Vector2.one;
+            viewportRt.offsetMin = new Vector2(0f, viewportRt.offsetMin.y);
+            viewportRt.offsetMax = new Vector2(0f, viewportRt.offsetMax.y);
+        }
+
+        if (contentRt == null) return;
+        contentRt.anchorMin = new Vector2(0f, 1f);
+        contentRt.anchorMax = new Vector2(1f, 1f);
+        contentRt.offsetMin = new Vector2(0f, contentRt.offsetMin.y);
+        contentRt.offsetMax = new Vector2(0f, contentRt.offsetMax.y);
+
+        for (int i = 0; i < contentRt.childCount; i++)
+        {
+            var itemRt = contentRt.GetChild(i) as RectTransform;
+            if (itemRt == null) continue;
+            itemRt.anchorMin = new Vector2(0f, 1f);
+            itemRt.anchorMax = new Vector2(1f, 1f);
+            itemRt.offsetMin = new Vector2(0f, itemRt.offsetMin.y);
+            itemRt.offsetMax = new Vector2(0f, itemRt.offsetMax.y);
+
+            var label = itemRt.Find("Item Label")?.GetComponent<TMP_Text>();
+            if (label == null) continue;
+            label.rectTransform.anchorMin = Vector2.zero;
+            label.rectTransform.anchorMax = Vector2.one;
+            label.rectTransform.offsetMin = new Vector2(12f, 0f);
+            label.rectTransform.offsetMax = new Vector2(-12f, 0f);
+            label.enableWordWrapping = false;
+            label.overflowMode = TextOverflowModes.Ellipsis;
         }
     }
 

@@ -7,7 +7,7 @@ using UnityEngine.UI;
 
 public class ConditionNodeUI : MonoBehaviour
 {
-    public const float PreferredHeight = 284f;
+    public const float PreferredHeight = 312f;
     const float HeaderLeft = 12f;
     const float HeaderRight = -44f;
     const float HeaderBottom = -28f;
@@ -20,6 +20,8 @@ public class ConditionNodeUI : MonoBehaviour
     const float RowGap = 8f;
     const float DropdownInsetY = 4f;
     const float RowVerticalInset = 6f;
+    const float ControlInset = AreaLeft + RowInset;
+    const float ParameterColumnGap = 16f;
 
     [Header("Basic")]
     public TMP_Text nodeIdText;
@@ -150,6 +152,7 @@ public class ConditionNodeUI : MonoBehaviour
             conditionTypeDropdown = Instantiate(conditionRow.dropdownA, transform);
             conditionTypeDropdown.gameObject.name = "Dropdown_ConditionType";
         }
+        ConditionRowUI.PrepareDropdown(conditionTypeDropdown);
 
         distanceInput = EnsureParameterInput(distanceInput, "Input_Distance", "距離 (m)");
         holdSecondsInput = EnsureParameterInput(holdSecondsInput, "Input_HoldSeconds", "保持 (秒)");
@@ -480,27 +483,60 @@ public class ConditionNodeUI : MonoBehaviour
 
         if (conditionTypeDropdown != null)
         {
-            SetTopStretchRect(conditionTypeDropdown.transform as RectTransform, AreaLeft, AreaRight, -76f, -40f);
+            SetTopStretchRect(
+                conditionTypeDropdown.transform as RectTransform,
+                ControlInset,
+                -ControlInset,
+                -86f,
+                -46f);
         }
 
         if (distanceInput != null)
         {
-            SetTopStretchRect(distanceInput.transform as RectTransform, AreaLeft, -202f, -136f, -102f);
+            SetTopHorizontalSegment(
+                distanceInput.transform as RectTransform,
+                0f,
+                0.5f,
+                ControlInset,
+                -(ParameterColumnGap * 0.5f),
+                -162f,
+                -122f);
         }
 
         if (holdSecondsInput != null)
         {
-            SetTopStretchRect(holdSecondsInput.transform as RectTransform, 202f, AreaRight, -136f, -102f);
+            SetTopHorizontalSegment(
+                holdSecondsInput.transform as RectTransform,
+                0.5f,
+                1f,
+                ParameterColumnGap * 0.5f,
+                -ControlInset,
+                -162f,
+                -122f);
         }
 
         if (distanceLabel != null)
         {
-            SetTopStretchRect(distanceLabel.rectTransform, AreaLeft, -202f, -100f, -80f);
+            SetTopHorizontalSegment(
+                distanceLabel.rectTransform,
+                0f,
+                0.5f,
+                ControlInset,
+                -(ParameterColumnGap * 0.5f),
+                -114f,
+                -94f);
         }
 
         if (holdSecondsLabel != null)
         {
-            SetTopStretchRect(holdSecondsLabel.rectTransform, 202f, AreaRight, -100f, -80f);
+            SetTopHorizontalSegment(
+                holdSecondsLabel.rectTransform,
+                0.5f,
+                1f,
+                ParameterColumnGap * 0.5f,
+                -ControlInset,
+                -114f,
+                -94f);
         }
 
         if (conditionRow == null) return;
@@ -512,7 +548,7 @@ public class ConditionNodeUI : MonoBehaviour
         var areaFitter = conditionArea.GetComponent<ContentSizeFitter>();
         if (areaFitter != null) areaFitter.enabled = false;
 
-        SetStretchRect(conditionArea, AreaLeft, AreaRight, AreaBottom, -142f);
+        SetStretchRect(conditionArea, AreaLeft, AreaRight, AreaBottom, -170f);
         ClearContainerVisual(conditionArea);
         LayoutConditionRow(conditionRow);
     }
@@ -625,6 +661,22 @@ public class ConditionNodeUI : MonoBehaviour
         if (rt == null) return;
         rt.anchorMin = new Vector2(0f, 1f);
         rt.anchorMax = new Vector2(1f, 1f);
+        rt.offsetMin = new Vector2(left, bottom);
+        rt.offsetMax = new Vector2(right, top);
+    }
+
+    static void SetTopHorizontalSegment(
+        RectTransform rt,
+        float anchorLeft,
+        float anchorRight,
+        float left,
+        float right,
+        float bottom,
+        float top)
+    {
+        if (rt == null) return;
+        rt.anchorMin = new Vector2(anchorLeft, 1f);
+        rt.anchorMax = new Vector2(anchorRight, 1f);
         rt.offsetMin = new Vector2(left, bottom);
         rt.offsetMax = new Vector2(right, top);
     }
