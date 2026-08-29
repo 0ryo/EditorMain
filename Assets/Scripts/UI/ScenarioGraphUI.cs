@@ -37,11 +37,12 @@ public class ScenarioGraphUI : MonoBehaviour
         { "E-09", "AとBに同じオブジェクトが設定されている手順があります" },
         { "E-10", "参照オブジェクトがありません。別のオブジェクトへ差し替えるか、この条件を削除するか、オブジェクト削除をUndoしてください" },
         { "E-11", "データが不整合な状態です。編集をやり直してください" },
+        { "E-12", "対応していない条件種別があります" },
     };
 
     static readonly System.Collections.Generic.Dictionary<string, string> WarningMessages = new System.Collections.Generic.Dictionary<string, string>
     {
-        { "W-01", "手順が上限（3件）に達しているステップがあります" },
+        { "W-01", "条件数が設定上限に達しているステップがあります" },
         { "W-02", "複数のステップで同じオブジェクトAが使われています" },
     };
 
@@ -57,7 +58,7 @@ public class ScenarioGraphUI : MonoBehaviour
         { "END_IN_LIMIT", "エンドノードはすでに接続済みです" },
         { "STEPFLOW_CYCLE", "接続すると経路が循環してしまいます" },
         { "CONDITION_BIND_LIMIT", "この手順はすでにステップに紐付いています" },
-        { "STEP_CONDITION_MAX", "このステップの手順は上限（3件）です" },
+        { "STEP_CONDITION_MAX", "このステップの条件数が設定上限に達しています" },
     };
 
     [Header("Services")]

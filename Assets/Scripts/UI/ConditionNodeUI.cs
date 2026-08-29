@@ -1,10 +1,13 @@
 using System;
+using System.Globalization;
+using System.Linq;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
 public class ConditionNodeUI : MonoBehaviour
 {
+    public const float PreferredHeight = 284f;
     const float HeaderLeft = 12f;
     const float HeaderRight = -44f;
     const float HeaderBottom = -28f;
@@ -23,6 +26,11 @@ public class ConditionNodeUI : MonoBehaviour
     public TMP_InputField titleInput;
     public GameObject warningIcon;
     public ConditionRowUI conditionRow;
+    public TMP_Dropdown conditionTypeDropdown;
+    public TMP_Text distanceLabel;
+    public TMP_Text holdSecondsLabel;
+    public TMP_InputField distanceInput;
+    public TMP_InputField holdSecondsInput;
 
     [Header("Connectors")]
     public Button outputConnector;
@@ -62,12 +70,15 @@ public class ConditionNodeUI : MonoBehaviour
 
         EnsureTitleInputReference();
         ConfigureTitleInput();
+        EnsureConditionEditorControls();
+        ConfigureConditionEditorControls();
         ConfigureConnectorDragHandlers();
         ConfigureDeleteButton();
         ApplyTask2VisualLayout();
         BindOptionChangeSources();
         RefreshConditionOptionsIfNeeded(force: true);
         ApplyTask2VisualLayout();
+        UpdateConditionLabels();
         RefreshWarning();
     }
 
@@ -118,6 +129,174 @@ public class ConditionNodeUI : MonoBehaviour
         if (!isActiveAndEnabled || conditionNode == null || graphService == null) return;
         RefreshConditionOptionsIfNeeded();
         RefreshWarning();
+    }
+
+    void EnsureConditionEditorControls()
+    {
+        var root = transform as RectTransform;
+        if (root != null && root.sizeDelta.y < PreferredHeight)
+        {
+            var size = root.sizeDelta;
+            size.y = PreferredHeight;
+            root.sizeDelta = size;
+        }
+
+        if (conditionTypeDropdown == null)
+        {
+            conditionTypeDropdown = transform.Find("Dropdown_ConditionType")?.GetComponent<TMP_Dropdown>();
+        }
+        if (conditionTypeDropdown == null && conditionRow != null && conditionRow.dropdownA != null)
+        {
+            conditionTypeDropdown = Instantiate(conditionRow.dropdownA, transform);
+            conditionTypeDropdown.gameObject.name = "Dropdown_ConditionType";
+        }
+
+        distanceInput = EnsureParameterInput(distanceInput, "Input_Distance", "距離 (m)");
+        holdSecondsInput = EnsureParameterInput(holdSecondsInput, "Input_HoldSeconds", "保持 (秒)");
+        distanceLabel = EnsureParameterLabel(distanceLabel, "Text_DistanceLabel", "距離 (m)");
+        holdSecondsLabel = EnsureParameterLabel(holdSecondsLabel, "Text_HoldSecondsLabel", "保持 (秒)");
+    }
+
+    TMP_Text EnsureParameterLabel(TMP_Text current, string objectName, string value)
+    {
+        if (current == null) current = transform.Find(objectName)?.GetComponent<TMP_Text>();
+        if (current == null)
+        {
+            var go = new GameObject(objectName, typeof(RectTransform), typeof(TextMeshProUGUI));
+            var rt = go.GetComponent<RectTransform>();
+            rt.SetParent(transform, false);
+            current = go.GetComponent<TextMeshProUGUI>();
+        }
+
+        current.text = value;
+        current.fontSize = DesignTokens.FontSizeCaption;
+        current.color = DesignTokens.TextSecondary;
+        current.alignment = TextAlignmentOptions.MidlineLeft;
+        current.raycastTarget = false;
+        return current;
+    }
+
+    TMP_InputField EnsureParameterInput(TMP_InputField current, string objectName, string placeholder)
+    {
+        if (current == null) current = transform.Find(objectName)?.GetComponent<TMP_InputField>();
+        if (current == null && titleInput != null)
+        {
+            current = Instantiate(titleInput, transform);
+            current.gameObject.name = objectName;
+        }
+        if (current == null) return null;
+
+        current.gameObject.SetActive(true);
+        current.readOnly = false;
+        current.interactable = true;
+        current.contentType = TMP_InputField.ContentType.DecimalNumber;
+        current.lineType = TMP_InputField.LineType.SingleLine;
+        if (current.placeholder is TMP_Text placeholderText)
+        {
+            placeholderText.text = placeholder;
+            placeholderText.color = DesignTokens.TextTertiary;
+        }
+        return current;
+    }
+
+    void ConfigureConditionEditorControls()
+    {
+        if (conditionNode?.condition == null) return;
+        ConditionTypeCatalog.Normalize(conditionNode.condition, graphService != null ? graphService.curriculum.rules : null);
+
+        if (conditionTypeDropdown != null)
+        {
+            var definitions = ConditionTypeCatalog.Definitions.ToList();
+            if (ConditionTypeCatalog.Find(conditionNode.condition.type) == null)
+            {
+                definitions.Insert(0, new ConditionTypeCatalog.Definition
+                {
+                    id = conditionNode.condition.type,
+                    label = $"未対応: {conditionNode.condition.type}",
+                    parameters = Array.Empty<ConditionTypeCatalog.ParameterDefinition>()
+                });
+            }
+            conditionTypeDropdown.onValueChanged.RemoveAllListeners();
+            conditionTypeDropdown.ClearOptions();
+            conditionTypeDropdown.AddOptions(definitions.Select(item => item.label).ToList());
+            int selectedIndex = 0;
+            for (int i = 0; i < definitions.Count; i++)
+            {
+                if (definitions[i].id == conditionNode.condition.type)
+                {
+                    selectedIndex = i;
+                    break;
+                }
+            }
+            conditionTypeDropdown.SetValueWithoutNotify(selectedIndex);
+            conditionTypeDropdown.RefreshShownValue();
+            conditionTypeDropdown.onValueChanged.AddListener(index =>
+            {
+                if (index < 0 || index >= definitions.Count) return;
+                string type = definitions[index].id;
+                if (conditionNode.condition.type == type) return;
+                if (!ExecuteConditionEdit("Set condition type", data =>
+                {
+                    data.type = type;
+                    ConditionTypeCatalog.Normalize(data, graphService.curriculum.rules);
+                })) return;
+                onChanged?.Invoke();
+            });
+        }
+
+        BindNumberParameter(
+            distanceInput,
+            ConditionTypeCatalog.DistanceKey,
+            "Set condition distance");
+        BindNumberParameter(
+            holdSecondsInput,
+            ConditionTypeCatalog.HoldSecondsKey,
+            "Set condition hold duration");
+
+        var activeDefinition = ConditionTypeCatalog.Find(conditionNode.condition.type);
+        bool usesDistance = activeDefinition?.parameters
+            .Any(item => item.key == ConditionTypeCatalog.DistanceKey) == true;
+        bool usesHold = activeDefinition?.parameters
+            .Any(item => item.key == ConditionTypeCatalog.HoldSecondsKey) == true;
+        if (distanceInput != null) distanceInput.gameObject.SetActive(usesDistance);
+        if (distanceLabel != null) distanceLabel.gameObject.SetActive(usesDistance);
+        if (holdSecondsInput != null) holdSecondsInput.gameObject.SetActive(usesHold);
+        if (holdSecondsLabel != null) holdSecondsLabel.gameObject.SetActive(usesHold);
+        UpdateConditionLabels();
+    }
+
+    void BindNumberParameter(TMP_InputField input, string key, string commandLabel)
+    {
+        if (input == null || conditionNode?.condition == null) return;
+        float current = ConditionTypeCatalog.GetNumber(conditionNode.condition, key);
+        input.onEndEdit.RemoveAllListeners();
+        input.SetTextWithoutNotify(current.ToString("0.###", CultureInfo.InvariantCulture));
+        input.onEndEdit.AddListener(value =>
+        {
+            if (!float.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed) &&
+                !float.TryParse(value, out parsed))
+            {
+                input.SetTextWithoutNotify(current.ToString("0.###", CultureInfo.InvariantCulture));
+                return;
+            }
+
+            if (Mathf.Approximately(current, parsed)) return;
+            if (!ExecuteConditionEdit(commandLabel, data => ConditionTypeCatalog.SetNumber(data, key, parsed)))
+            {
+                float normalized = ConditionTypeCatalog.GetNumber(conditionNode.condition, key, current);
+                input.SetTextWithoutNotify(normalized.ToString("0.###", CultureInfo.InvariantCulture));
+                return;
+            }
+            onChanged?.Invoke();
+        });
+    }
+
+    void UpdateConditionLabels()
+    {
+        if (conditionRow?.textAfterB == null || conditionNode?.condition == null) return;
+        conditionRow.textAfterB.text = conditionNode.condition.type == ConditionTypeCatalog.SnapHold
+            ? "に近づけて保持"
+            : "に近づける";
     }
 
     void RefreshConditionOptionsIfNeeded(bool force = false)
@@ -299,6 +478,31 @@ public class ConditionNodeUI : MonoBehaviour
             EnsureThinOutline(dragHandle);
         }
 
+        if (conditionTypeDropdown != null)
+        {
+            SetTopStretchRect(conditionTypeDropdown.transform as RectTransform, AreaLeft, AreaRight, -76f, -40f);
+        }
+
+        if (distanceInput != null)
+        {
+            SetTopStretchRect(distanceInput.transform as RectTransform, AreaLeft, -202f, -136f, -102f);
+        }
+
+        if (holdSecondsInput != null)
+        {
+            SetTopStretchRect(holdSecondsInput.transform as RectTransform, 202f, AreaRight, -136f, -102f);
+        }
+
+        if (distanceLabel != null)
+        {
+            SetTopStretchRect(distanceLabel.rectTransform, AreaLeft, -202f, -100f, -80f);
+        }
+
+        if (holdSecondsLabel != null)
+        {
+            SetTopStretchRect(holdSecondsLabel.rectTransform, 202f, AreaRight, -100f, -80f);
+        }
+
         if (conditionRow == null) return;
         var conditionArea = conditionRow.transform.parent as RectTransform;
         if (conditionArea == null) return;
@@ -308,7 +512,7 @@ public class ConditionNodeUI : MonoBehaviour
         var areaFitter = conditionArea.GetComponent<ContentSizeFitter>();
         if (areaFitter != null) areaFitter.enabled = false;
 
-        SetStretchRect(conditionArea, AreaLeft, AreaRight, AreaBottom, AreaTop);
+        SetStretchRect(conditionArea, AreaLeft, AreaRight, AreaBottom, -142f);
         ClearContainerVisual(conditionArea);
         LayoutConditionRow(conditionRow);
     }

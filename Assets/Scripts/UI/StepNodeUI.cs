@@ -472,13 +472,13 @@ public class StepNodeUI : MonoBehaviour
 
     float GetEmbeddedNodeHeight()
     {
-        if (embeddedConditionTemplate == null) return EmbeddedFallbackHeight;
+        if (embeddedConditionTemplate == null) return Mathf.Max(EmbeddedFallbackHeight, ConditionNodeUI.PreferredHeight);
 
         var templateRt = embeddedConditionTemplate.transform as RectTransform;
-        if (templateRt == null) return EmbeddedFallbackHeight;
-        if (templateRt.rect.height > 1f) return templateRt.rect.height;
-        if (templateRt.sizeDelta.y > 1f) return templateRt.sizeDelta.y;
-        return EmbeddedFallbackHeight;
+        if (templateRt == null) return Mathf.Max(EmbeddedFallbackHeight, ConditionNodeUI.PreferredHeight);
+        if (templateRt.rect.height > 1f) return Mathf.Max(templateRt.rect.height, ConditionNodeUI.PreferredHeight);
+        if (templateRt.sizeDelta.y > 1f) return Mathf.Max(templateRt.sizeDelta.y, ConditionNodeUI.PreferredHeight);
+        return Mathf.Max(EmbeddedFallbackHeight, ConditionNodeUI.PreferredHeight);
     }
 
     float GetEmbeddedNodeWidth()

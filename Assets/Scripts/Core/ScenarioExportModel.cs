@@ -4,7 +4,7 @@ using System.Collections.Generic;
 [Serializable]
 public class ScenarioExport
 {
-    public int version = 3;
+    public int version = 4;
     public string projectName = "VRCourseEditor";
     public ScenarioSettingsExport scenarioSettings = new ScenarioSettingsExport();
     public List<RequiredActionExport> requiredActions = new List<RequiredActionExport>();
@@ -37,4 +37,15 @@ public class ConditionExport
     public string aObjectId;
     public string bObjectId;
     public float holdSeconds = 1.0f;
+    public float distanceMeters = 0.1f;
+    public List<ConditionParameterExport> parameters = new List<ConditionParameterExport>();
+}
+
+[Serializable]
+public class ConditionParameterExport
+{
+    public string key;
+    public float numberValue;
+    public string textValue;
+    public bool boolValue;
 }

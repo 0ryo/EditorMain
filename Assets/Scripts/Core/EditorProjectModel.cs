@@ -5,7 +5,7 @@ using UnityEngine;
 [Serializable]
 public sealed class EditorProjectFile
 {
-    public const int CurrentSchemaVersion = 3;
+    public const int CurrentSchemaVersion = 4;
 
     public int schemaVersion = CurrentSchemaVersion;
     public string projectName = "VRCourseEditor";
@@ -89,6 +89,11 @@ public static class EditorProjectMigration
             MigrateV2ToV3(project);
         }
 
+        if (project.schemaVersion == 3)
+        {
+            MigrateV3ToV4(project);
+        }
+
         Normalize(project);
         project.schemaVersion = EditorProjectFile.CurrentSchemaVersion;
         return true;
@@ -108,6 +113,12 @@ public static class EditorProjectMigration
         project.schemaVersion = 3;
     }
 
+    static void MigrateV3ToV4(EditorProjectFile project)
+    {
+        if (project.curriculum != null) project.curriculum.schemaVersion = 4;
+        project.schemaVersion = 4;
+    }
+
     public static void Normalize(EditorProjectFile project)
     {
         if (project == null) return;
@@ -120,7 +131,11 @@ public static class EditorProjectMigration
         project.curriculum.rules ??= new RuleSet();
         project.curriculum.nodes ??= new List<ScenarioNode>();
         project.curriculum.edges ??= new List<ScenarioEdge>();
-        project.curriculum.schemaVersion = 3;
+        project.curriculum.schemaVersion = 4;
+        project.curriculum.rules.maxConditionsPerStep = Mathf.Clamp(
+            project.curriculum.rules.maxConditionsPerStep <= 0 ? 8 : project.curriculum.rules.maxConditionsPerStep,
+            1,
+            32);
         project.objects ??= new List<EditorProjectObject>();
 
         foreach (var node in project.curriculum.nodes)
@@ -132,6 +147,11 @@ public static class EditorProjectMigration
             node.step.supplement ??= string.Empty;
             node.step.caution ??= string.Empty;
             node.step.durationMinutes = Math.Max(0, node.step.durationMinutes);
+            node.condition ??= new ConditionNodeData();
+            if (node.nodeType == ScenarioNodeType.Condition)
+            {
+                ConditionTypeCatalog.Normalize(node.condition, project.curriculum.rules);
+            }
         }
 
         foreach (var item in project.objects)

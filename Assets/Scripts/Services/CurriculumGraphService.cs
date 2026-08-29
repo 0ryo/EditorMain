@@ -7,7 +7,6 @@ public class CurriculumGraphService : MonoBehaviour
 {
     const string StartNodeId = "start-0001";
     const string EndNodeId = "end-0001";
-    const int MaxConditionsPerStep = 3;
 
     public Curriculum curriculum = new Curriculum();
 
@@ -119,7 +118,12 @@ public class CurriculumGraphService : MonoBehaviour
             curriculum.edges = new List<ScenarioEdge>();
         }
 
-        curriculum.schemaVersion = 3;
+        curriculum.schemaVersion = 4;
+        curriculum.rules ??= new RuleSet();
+        curriculum.rules.maxConditionsPerStep = Mathf.Clamp(
+            curriculum.rules.maxConditionsPerStep <= 0 ? 8 : curriculum.rules.maxConditionsPerStep,
+            1,
+            32);
 
         EnsureTerminalNode(ScenarioNodeType.Start, StartNodeId);
         EnsureTerminalNode(ScenarioNodeType.End, EndNodeId);
@@ -165,6 +169,11 @@ public class CurriculumGraphService : MonoBehaviour
                 string.IsNullOrWhiteSpace(node.condition.title))
             {
                 node.condition.title = ConditionNodeData.DefaultTitle;
+            }
+
+            if (node.nodeType == ScenarioNodeType.Condition)
+            {
+                ConditionTypeCatalog.Normalize(node.condition, curriculum.rules);
             }
         }
     }
@@ -406,7 +415,7 @@ public class CurriculumGraphService : MonoBehaviour
         int stepConditionCount = curriculum.edges.Count(e =>
             e.edgeType == ScenarioEdgeType.ConditionBind &&
             e.toNodeId == toNode.nodeId);
-        if (stepConditionCount >= MaxConditionsPerStep)
+        if (stepConditionCount >= GetMaxConditionsPerStep())
         {
             reason = "STEP_CONDITION_MAX";
             return false;
@@ -567,10 +576,17 @@ public class CurriculumGraphService : MonoBehaviour
         return GetConditionNodesForStep(stepNodeId).Count;
     }
 
+    public int GetMaxConditionsPerStep()
+    {
+        EnsureGraphInitialized();
+        return Mathf.Clamp(curriculum.rules.maxConditionsPerStep, 1, 32);
+    }
+
     public bool IsConditionConfigured(ScenarioNode conditionNode)
     {
         if (conditionNode == null || conditionNode.nodeType != ScenarioNodeType.Condition) return false;
-        return !string.IsNullOrWhiteSpace(conditionNode.condition.objectAId) &&
+        return ConditionTypeCatalog.Find(conditionNode.condition.type) != null &&
+               !string.IsNullOrWhiteSpace(conditionNode.condition.objectAId) &&
                !string.IsNullOrWhiteSpace(conditionNode.condition.objectBId);
     }
 
@@ -579,7 +595,7 @@ public class CurriculumGraphService : MonoBehaviour
         if (stepNode == null || stepNode.nodeType != ScenarioNodeType.Step) return false;
 
         var conditions = GetConditionNodesForStep(stepNode.nodeId);
-        if (conditions.Count <= 0 || conditions.Count > MaxConditionsPerStep) return true;
+        if (conditions.Count <= 0 || conditions.Count > GetMaxConditionsPerStep()) return true;
         return conditions.Any(c => !IsConditionConfigured(c));
     }
 
@@ -834,6 +850,11 @@ public class CurriculumGraphService : MonoBehaviour
 
         foreach (var condition in conditionNodes)
         {
+            if (ConditionTypeCatalog.Find(condition.condition.type) == null)
+            {
+                result.AddError("E-12", $"Condition '{condition.nodeId}' has unsupported type '{condition.condition.type}'.", condition.nodeId);
+            }
+
             int bindCount = conditionBindEdges.Count(e => e.fromNodeId == condition.nodeId);
             if (bindCount != 1)
             {
@@ -863,18 +884,19 @@ public class CurriculumGraphService : MonoBehaviour
         foreach (var step in stepNodes)
         {
             var conditions = GetConditionNodesForStep(step.nodeId);
-            if (conditions.Count <= 0 || conditions.Count > MaxConditionsPerStep)
+            int maxConditions = GetMaxConditionsPerStep();
+            if (conditions.Count <= 0 || conditions.Count > maxConditions)
             {
-                result.AddError("E-06", $"Step '{step.nodeId}' condition count out of range (actual={conditions.Count}, allowed=1..{MaxConditionsPerStep}).", step.nodeId);
+                result.AddError("E-06", $"Step '{step.nodeId}' condition count out of range (actual={conditions.Count}, allowed=1..{maxConditions}).", step.nodeId);
             }
 
-            if (conditions.Count == MaxConditionsPerStep)
+            if (conditions.Count == maxConditions)
             {
-                result.AddWarning("W-01", $"Step '{step.nodeId}' reached max condition count.", step.nodeId);
+                result.AddWarning("W-01", $"このステップの条件数が設定上限（{maxConditions}件）に達しています。", step.nodeId);
             }
 
             var duplicateKeys = conditions
-                .Select(c => $"{c.condition.type}|{c.condition.objectAId}|{c.condition.objectBId}")
+                .Select(c => $"{c.condition.type}|{c.condition.objectAId}|{c.condition.objectBId}|{ConditionTypeCatalog.BuildParameterSignature(c.condition)}")
                 .GroupBy(k => k)
                 .Where(g => g.Count() > 1)
                 .Select(g => g.Key)
@@ -918,7 +940,7 @@ public class CurriculumGraphService : MonoBehaviour
 
         var export = new ScenarioExport
         {
-            version = 3,
+            version = 4,
             projectName = string.IsNullOrWhiteSpace(curriculum.projectName) ? "VRCourseEditor" : curriculum.projectName,
             scenarioSettings = new ScenarioSettingsExport
             {
@@ -943,12 +965,37 @@ public class CurriculumGraphService : MonoBehaviour
             var conditions = GetConditionNodesForStep(step.nodeId);
             foreach (var condition in conditions.OrderBy(c => c.nodeId))
             {
+                var conditionDefinition = ConditionTypeCatalog.Find(condition.condition.type);
+                if (conditionDefinition == null)
+                {
+                    throw new InvalidOperationException($"Scenario export failed: unsupported condition type '{condition.condition.type}'.");
+                }
+
                 action.conditions.Add(new ConditionExport
                 {
-                    type = "SnapHold",
+                    type = condition.condition.type,
                     aObjectId = condition.condition.objectAId,
                     bObjectId = condition.condition.objectBId,
-                    holdSeconds = export.scenarioSettings.holdSeconds
+                    holdSeconds = ConditionTypeCatalog.GetNumber(
+                        condition.condition,
+                        ConditionTypeCatalog.HoldSecondsKey,
+                        export.scenarioSettings.holdSeconds),
+                    distanceMeters = ConditionTypeCatalog.GetNumber(
+                        condition.condition,
+                        ConditionTypeCatalog.DistanceKey,
+                        export.scenarioSettings.snapDistance_m),
+                    parameters = condition.condition.parameters
+                        .Where(parameter => parameter != null)
+                        .Where(parameter => conditionDefinition.parameters
+                            .Any(definition => definition.key == parameter.key))
+                        .Select(parameter => new ConditionParameterExport
+                        {
+                            key = parameter.key,
+                            numberValue = parameter.numberValue,
+                            textValue = parameter.textValue,
+                            boolValue = parameter.boolValue
+                        })
+                        .ToList()
                 });
             }
 

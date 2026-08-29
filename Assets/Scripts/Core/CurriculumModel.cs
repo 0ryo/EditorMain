@@ -4,7 +4,7 @@ using System.Collections.Generic;
 [Serializable]
 public class Curriculum
 {
-    public int schemaVersion = 3;
+    public int schemaVersion = 4;
     public string projectName = "VRCourseEditor";
     public string mode = "Graph";
     public RuleSet rules = new RuleSet();
@@ -17,6 +17,7 @@ public class RuleSet
 {
     public float proximityDistance = 0.1f;
     public float holdSeconds = 1.0f;
+    public int maxConditionsPerStep = 8;
 }
 
 [Serializable]
@@ -70,6 +71,16 @@ public class ConditionNodeData
     public string type = "SnapHold";
     public string objectAId;
     public string objectBId;
+    public List<ConditionParameterData> parameters = new List<ConditionParameterData>();
+}
+
+[Serializable]
+public class ConditionParameterData
+{
+    public string key;
+    public float numberValue;
+    public string textValue;
+    public bool boolValue;
 }
 
 // Legacy model types are retained for migration/fallback parsing only.

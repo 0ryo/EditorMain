@@ -204,6 +204,13 @@ public sealed class ScenarioPreviewPanel : MonoBehaviour
         supplementText.text = FormatSection("補足", data.supplement);
         cautionText.text = FormatSection("注意事項", data.caution);
         conditionsText.text = BuildConditionsText(node.nodeId);
+        var conditionLayout = conditionsText.GetComponent<LayoutElement>();
+        if (conditionLayout != null)
+        {
+            float height = Mathf.Max(88f, 34f + (graph.GetConditionCountForStep(node.nodeId) * 24f));
+            conditionLayout.minHeight = height;
+            conditionLayout.preferredHeight = height;
+        }
 
         previousButton.interactable = currentIndex > 0;
         nextButton.interactable = currentIndex < steps.Count - 1;
@@ -226,7 +233,17 @@ public sealed class ScenarioPreviewPanel : MonoBehaviour
             builder.Append(ResolveObjectLabel(condition.objectAId, labelById));
             builder.Append(" を ");
             builder.Append(ResolveObjectLabel(condition.objectBId, labelById));
-            builder.Append(" に近づける");
+            builder.Append(condition.type == ConditionTypeCatalog.SnapHold ? " に近づけて保持" : " に近づける");
+            builder.Append("（距離 ");
+            builder.Append(ConditionTypeCatalog.GetNumber(condition, ConditionTypeCatalog.DistanceKey, 0.1f).ToString("0.###"));
+            builder.Append("m");
+            if (condition.type == ConditionTypeCatalog.SnapHold)
+            {
+                builder.Append("、保持 ");
+                builder.Append(ConditionTypeCatalog.GetNumber(condition, ConditionTypeCatalog.HoldSecondsKey, 1f).ToString("0.###"));
+                builder.Append("秒");
+            }
+            builder.Append("）");
         }
         return builder.ToString();
     }
