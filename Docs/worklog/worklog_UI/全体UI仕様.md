@@ -348,6 +348,6 @@
 - 問題一覧の関連nodeId付き項目を選ぶと、該当ノードまたはConditionを格納するStepへ表示を移す。
 - Object detailは表示名と技術IDをheaderに表示し、`基本情報` / `説明` / `使用中の条件` のsectionに分ける。
 - Object detailの未使用時は `このオブジェクトはまだ手順で使われていません` と表示し、200msのslide＋fadeで開閉する。
-- Object detailは画面上端64pxを空け、globalの `設定` と `ヒント` を隠さない。
+- Object detailは画面右端の上端から下端まで表示し、開閉時はglobalの `設定` と `ヒント` をパネル幅に合わせて水平移動する。
 - Global操作として `ヒント` を追加し、内容差し替え可能なplaceholder panelを開く。
 - Catalog card右側にneutral colorのcategory fallback blockを表示する。

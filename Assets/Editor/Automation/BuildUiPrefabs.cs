@@ -29,7 +29,8 @@ public static class BuildUiPrefabs
         root.AddComponent<ViewportStatusStrip>();
         var editModeRow = root.transform.Find("EditModeRow") as RectTransform;
         var settingsButton = root.transform.Find("Button_Settings") as RectTransform;
-        BuildDockSync(root, catalogPanel, scenarioPanel, editModeRow, settingsButton);
+        var hintButton = root.transform.Find("Button_Hints") as RectTransform;
+        BuildDockSync(root, catalogPanel, scenarioPanel, editModeRow, settingsButton, hintButton);
 
         PrefabUtility.SaveAsPrefabAsset(root, UiRootPrefabPath);
         Object.DestroyImmediate(root);
@@ -368,13 +369,20 @@ public static class BuildUiPrefabs
         return panel;
     }
 
-    static void BuildDockSync(GameObject root, RectTransform catalogPanel, RectTransform scenarioPanel, RectTransform editModeRow, RectTransform settingsButton)
+    static void BuildDockSync(
+        GameObject root,
+        RectTransform catalogPanel,
+        RectTransform scenarioPanel,
+        RectTransform editModeRow,
+        RectTransform settingsButton,
+        RectTransform hintButton)
     {
         var sync = root.AddComponent<UiPanelDockSync>();
         sync.catalogPanel = catalogPanel;
         sync.scenarioPanel = scenarioPanel;
         sync.editModePanel = editModeRow;
         sync.settingsButtonPanel = settingsButton;
+        sync.hintButtonPanel = hintButton;
         sync.gap = 0f;
     }
 
@@ -385,7 +393,7 @@ public static class BuildUiPrefabs
     static RectTransform BuildDetailPanel(Transform parent)
     {
         var panel = CreateUiRect("Panel_Detail", parent);
-        SetRect(panel, new Vector2(1f, 0f), new Vector2(1f, 1f), new Vector2(-320f, 0f), new Vector2(0f, -64f));
+        SetRect(panel, new Vector2(1f, 0f), new Vector2(1f, 1f), new Vector2(-320f, 0f), new Vector2(0f, 0f));
         panel.gameObject.AddComponent<Image>().color = DesignTokens.BgPrimary;
         panel.gameObject.AddComponent<CanvasGroup>();
 

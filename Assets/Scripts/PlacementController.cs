@@ -10,6 +10,7 @@ public class PlacementController : MonoBehaviour
         "Panel_Settings",
         "Panel_NewObjectSettings",
         "Panel_Hints",
+        "Panel_Detail",
         "Panel_SaveValidation",
         "NodeArea",
         "EditModeRow",

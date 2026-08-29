@@ -29,11 +29,13 @@ public class ObjectDetailPanel : MonoBehaviour
     ConditionNodeUI usageConditionTemplateCache;
     RectTransform rt;
     CanvasGroup panelCanvasGroup;
+    UiPanelDockSync panelDockSync;
     PlacedObject currentPo;
 
     Vector2 restOffsetMin;
     Vector2 restOffsetMax;
     Coroutine slideCoroutine;
+    bool isShown;
 
     const float SlideDuration = 0.2f;
     const float DescriptionInputMinHeight = 96f;
@@ -75,15 +77,7 @@ public class ObjectDetailPanel : MonoBehaviour
         if (panelCanvasGroup == null) panelCanvasGroup = gameObject.AddComponent<CanvasGroup>();
         panelCanvasGroup.alpha = 1f;
 
-        selectionService = FindFirstObjectByType<SelectionService>();
-        catalogUI = FindFirstObjectByType<CatalogUI>();
-        graphService = FindFirstObjectByType<CurriculumGraphService>();
-        scenarioGraphUI = FindFirstObjectByType<ScenarioGraphUI>();
-
-        if (selectionService != null)
-        {
-            selectionService.OnSelectionChanged += OnSelectionChanged;
-        }
+        ResolveRuntimeReferences();
 
         if (inputObjectName != null)
         {
@@ -106,12 +100,17 @@ public class ObjectDetailPanel : MonoBehaviour
         }
 
         DesignTokenApplier.ApplyDetailPanel(transform);
-        gameObject.SetActive(false);
+        // Keep this component alive while hidden so delayed/replaced edit services can be rebound.
+        SetHiddenImmediately();
+        SyncSelection();
     }
 
     void Update()
     {
-        if (currentPo == null || !isActiveAndEnabled || !gameObject.activeInHierarchy) return;
+        ResolveRuntimeReferences();
+        SyncSelection();
+
+        if (currentPo == null || !isShown) return;
         if (Time.unscaledTime < nextConditionUsageRefreshTime) return;
 
         nextConditionUsageRefreshTime = Time.unscaledTime + ConditionUsageRefreshInterval;
@@ -120,6 +119,11 @@ public class ObjectDetailPanel : MonoBehaviour
 
     void OnDestroy()
     {
+        if (panelDockSync != null)
+        {
+            panelDockSync.SetDetailPanelVisibleWidth(0f);
+        }
+
         if (selectionService != null)
         {
             selectionService.OnSelectionChanged -= OnSelectionChanged;
@@ -136,14 +140,47 @@ public class ObjectDetailPanel : MonoBehaviour
         }
     }
 
+    void ResolveRuntimeReferences()
+    {
+        var selection = FindFirstObjectByType<SelectionService>();
+        if (selection != selectionService)
+        {
+            if (selectionService != null)
+            {
+                selectionService.OnSelectionChanged -= OnSelectionChanged;
+            }
+
+            selectionService = selection;
+            if (selectionService != null)
+            {
+                selectionService.OnSelectionChanged -= OnSelectionChanged;
+                selectionService.OnSelectionChanged += OnSelectionChanged;
+            }
+        }
+
+        if (catalogUI == null) catalogUI = FindFirstObjectByType<CatalogUI>();
+        if (graphService == null) graphService = FindFirstObjectByType<CurriculumGraphService>();
+        if (scenarioGraphUI == null) scenarioGraphUI = FindFirstObjectByType<ScenarioGraphUI>();
+        if (panelDockSync == null) panelDockSync = transform.root.GetComponent<UiPanelDockSync>();
+    }
+
+    void SyncSelection()
+    {
+        if (selectionService == null) return;
+        if (currentPo == selectionService.Current) return;
+
+        OnSelectionChanged(selectionService.Current);
+    }
+
     void OnSelectionChanged(PlacedObject po)
     {
         if (po == null)
         {
             currentPo = null;
             currentUsageSignature = string.Empty;
-            if (gameObject.activeSelf)
+            if (isShown)
             {
+                isShown = false;
                 if (slideCoroutine != null) StopCoroutine(slideCoroutine);
                 slideCoroutine = StartCoroutine(SlideOut());
             }
@@ -155,9 +192,9 @@ public class ObjectDetailPanel : MonoBehaviour
         currentUsageSignature = string.Empty;
         nextConditionUsageRefreshTime = 0f;
 
-        if (!gameObject.activeSelf)
+        if (!isShown)
         {
-            gameObject.SetActive(true);
+            isShown = true;
             if (slideCoroutine != null) StopCoroutine(slideCoroutine);
             slideCoroutine = StartCoroutine(SlideIn());
         }
@@ -231,7 +268,7 @@ public class ObjectDetailPanel : MonoBehaviour
         if (rt == null) return;
 
         rt.offsetMin = new Vector2(-320f, rt.offsetMin.y);
-        rt.offsetMax = new Vector2(rt.offsetMax.x, -64f);
+        rt.offsetMax = new Vector2(rt.offsetMax.x, 0f);
 
         var header = transform.Find("Header") as RectTransform;
         if (header != null)
@@ -946,12 +983,11 @@ public class ObjectDetailPanel : MonoBehaviour
     {
         float panelWidth = restOffsetMax.x - restOffsetMin.x;
         float elapsed = 0f;
+        float startShift = rt.offsetMin.x - restOffsetMin.x;
+        float startAlpha = panelCanvasGroup != null ? panelCanvasGroup.alpha : 0f;
 
-        rt.offsetMin = new Vector2(restOffsetMin.x + panelWidth, restOffsetMin.y);
-        rt.offsetMax = new Vector2(restOffsetMax.x + panelWidth, restOffsetMax.y);
         if (panelCanvasGroup != null)
         {
-            panelCanvasGroup.alpha = 0f;
             panelCanvasGroup.interactable = true;
             panelCanvasGroup.blocksRaycasts = true;
         }
@@ -962,15 +998,17 @@ public class ObjectDetailPanel : MonoBehaviour
             float t = Mathf.Clamp01(elapsed / SlideDuration);
             float eased = 1f - (1f - t) * (1f - t);
 
-            float shift = Mathf.Lerp(panelWidth, 0f, eased);
+            float shift = Mathf.Lerp(startShift, 0f, eased);
             rt.offsetMin = new Vector2(restOffsetMin.x + shift, restOffsetMin.y);
             rt.offsetMax = new Vector2(restOffsetMax.x + shift, restOffsetMax.y);
-            if (panelCanvasGroup != null) panelCanvasGroup.alpha = eased;
+            UpdateGlobalButtonDock(panelWidth, shift);
+            if (panelCanvasGroup != null) panelCanvasGroup.alpha = Mathf.Lerp(startAlpha, 1f, eased);
             yield return null;
         }
 
         rt.offsetMin = restOffsetMin;
         rt.offsetMax = restOffsetMax;
+        UpdateGlobalButtonDock(panelWidth, 0f);
         if (panelCanvasGroup != null) panelCanvasGroup.alpha = 1f;
         slideCoroutine = null;
     }
@@ -996,14 +1034,40 @@ public class ObjectDetailPanel : MonoBehaviour
             float shift = Mathf.Lerp(startShift, panelWidth, eased);
             rt.offsetMin = new Vector2(restOffsetMin.x + shift, restOffsetMin.y);
             rt.offsetMax = new Vector2(restOffsetMax.x + shift, restOffsetMax.y);
+            UpdateGlobalButtonDock(panelWidth, shift);
             if (panelCanvasGroup != null) panelCanvasGroup.alpha = Mathf.Lerp(startAlpha, 0f, eased);
             yield return null;
         }
 
-        rt.offsetMin = restOffsetMin;
-        rt.offsetMax = restOffsetMax;
-        if (panelCanvasGroup != null) panelCanvasGroup.alpha = 1f;
+        SetHiddenImmediately();
         slideCoroutine = null;
-        gameObject.SetActive(false);
+    }
+
+    void SetHiddenImmediately()
+    {
+        float panelWidth = restOffsetMax.x - restOffsetMin.x;
+        rt.offsetMin = new Vector2(restOffsetMin.x + panelWidth, restOffsetMin.y);
+        rt.offsetMax = new Vector2(restOffsetMax.x + panelWidth, restOffsetMax.y);
+        UpdateGlobalButtonDock(panelWidth, panelWidth);
+
+        if (panelCanvasGroup != null)
+        {
+            panelCanvasGroup.alpha = 0f;
+            panelCanvasGroup.interactable = false;
+            panelCanvasGroup.blocksRaycasts = false;
+        }
+
+        isShown = false;
+    }
+
+    void UpdateGlobalButtonDock(float panelWidth, float panelShift)
+    {
+        if (panelDockSync == null)
+        {
+            panelDockSync = transform.root.GetComponent<UiPanelDockSync>();
+        }
+
+        if (panelDockSync == null) return;
+        panelDockSync.SetDetailPanelVisibleWidth(Mathf.Clamp(panelWidth - panelShift, 0f, panelWidth));
     }
 }

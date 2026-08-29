@@ -101,7 +101,8 @@ public class SelectionService : MonoBehaviour
             }
             else
             {
-                LogDebug($"Selection click hit nothing. mouse={mousePosition}");
+                LogDebug($"Selection cleared by empty workspace click. mouse={mousePosition}");
+                Select(null);
             }
         }
 
