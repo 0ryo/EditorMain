@@ -146,10 +146,12 @@ public class ConditionRowUI : MonoBehaviour
         ForceRebuildDropdownLayout(dropdown);
     }
 
-    public static void PrepareDropdown(TMP_Dropdown dropdown)
+    public static void PrepareDropdown(TMP_Dropdown dropdown, bool hideSelectedOption = false)
     {
         if (dropdown == null) return;
         EnsureDropdownReferences(dropdown);
+        var openFixer = dropdown.GetComponent<DropdownOpenFixer>();
+        if (openFixer != null) openFixer.Bind(dropdown, hideSelectedOption);
         ApplyDropdownVisualStyle(dropdown);
         ForceRebuildDropdownLayout(dropdown);
     }
@@ -415,10 +417,12 @@ public class DropdownOpenFixer : MonoBehaviour, IPointerClickHandler
 {
     TMP_Dropdown dropdown;
     Coroutine fixRoutine;
+    bool hideSelectedOption;
 
-    public void Bind(TMP_Dropdown target)
+    public void Bind(TMP_Dropdown target, bool hideSelected = false)
     {
         dropdown = target;
+        hideSelectedOption = hideSelected;
     }
 
     public void OnPointerClick(PointerEventData eventData)
@@ -453,11 +457,18 @@ public class DropdownOpenFixer : MonoBehaviour, IPointerClickHandler
         }
 
         var toggles = list.GetComponentsInChildren<Toggle>(false);
-        int visibleIndex = 0;
+        int optionIndex = 0;
+        int visibleOptionCount = 0;
         for (int i = 0; i < toggles.Length; i++)
         {
             var toggle = toggles[i];
             if (toggle == null) continue;
+
+            bool isSelectedOption = optionIndex == dropdown.value;
+            bool shouldHide = hideSelectedOption && isSelectedOption;
+            // Keep the underlying option and sibling index intact so selecting the remaining row
+            // still resolves to TMP_Dropdown's original option index.
+            toggle.gameObject.SetActive(!shouldHide);
 
             var itemRt = toggle.transform as RectTransform;
             if (itemRt != null)
@@ -479,13 +490,14 @@ public class DropdownOpenFixer : MonoBehaviour, IPointerClickHandler
                 {
                     txt.color = DesignTokens.TextPrimary;
                     txt.enabled = true;
-                    txt.text = visibleIndex < dropdown.options.Count
-                        ? dropdown.options[visibleIndex].text
+                    txt.text = optionIndex < dropdown.options.Count
+                        ? dropdown.options[optionIndex].text
                         : string.Empty;
                 }
             }
 
-            visibleIndex++;
+            if (!shouldHide) visibleOptionCount++;
+            optionIndex++;
         }
 
         var listRt = list.transform as RectTransform;
@@ -495,6 +507,11 @@ public class DropdownOpenFixer : MonoBehaviour, IPointerClickHandler
             if (dropdownRt != null && dropdownRt.rect.width > 1f)
             {
                 listRt.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, dropdownRt.rect.width);
+            }
+            if (hideSelectedOption)
+            {
+                float visibleHeight = Mathf.Max(1, visibleOptionCount) * DesignTokens.DropdownItemH;
+                listRt.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, visibleHeight);
             }
 
             StretchDropdownListContent(listRt);

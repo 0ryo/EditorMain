@@ -234,7 +234,7 @@ public class ConditionNodeUI : MonoBehaviour
             }
             conditionTypeDropdown.SetValueWithoutNotify(selectedIndex);
             conditionTypeDropdown.RefreshShownValue();
-            ConditionRowUI.PrepareDropdown(conditionTypeDropdown);
+            ConditionRowUI.PrepareDropdown(conditionTypeDropdown, hideSelectedOption: true);
             conditionTypeDropdown.onValueChanged.AddListener(index =>
             {
                 if (index < 0 || index >= definitions.Count) return;
