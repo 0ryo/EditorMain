@@ -10,6 +10,8 @@
 
 ## 優先キュー
 
+進行中の機能不変refactorは[作業計画](BACKLOG/function-preserving-refactor-plan.md)に従い、機能単位のcommitとUnity確認を挟んで進める。
+
 | 優先度 | テーマ | 次に達成する状態 | 詳細 |
 |---|---|---|---|
 | P0 | 主要UIの操作不能解消 | 詳細パネル、検証パネル、ギズモ、グラフが正規Sceneで安定動作する | `UIB-*` |
