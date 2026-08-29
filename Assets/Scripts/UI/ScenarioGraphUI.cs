@@ -136,6 +136,7 @@ public class ScenarioGraphUI : MonoBehaviour
     readonly Dictionary<string, Vector2> nodePositions = new Dictionary<string, Vector2>();
     readonly Dictionary<Graphic, Color> connectorBaseColors = new Dictionary<Graphic, Color>();
     readonly Dictionary<string, RectTransform> minimapNodeIndicators = new Dictionary<string, RectTransform>();
+    readonly HashSet<string> expandedStepDetailNodeIds = new HashSet<string>();
     readonly List<ConnectionLineGraphic> lines = new List<ConnectionLineGraphic>();
     NodeAreaPanZoomController panZoomController;
     Outline validationFocusOutline;
@@ -617,6 +618,7 @@ public class ScenarioGraphUI : MonoBehaviour
         foreach (var staleNodeId in nodePositions.Keys.Where(nodeId => graph.FindNode(nodeId) == null).ToArray())
         {
             nodePositions.Remove(staleNodeId);
+            expandedStepDetailNodeIds.Remove(staleNodeId);
         }
 
         var nodeParent = GetNodeParent();
@@ -845,11 +847,12 @@ public class ScenarioGraphUI : MonoBehaviour
         ui.onCancelConnectorDrag = () => CancelConnectorDrag(clearStatus: true);
         ui.onClickDelete = OnClickDeleteNode;
         ui.onClickEmbeddedConditionDelete = OnClickExtractEmbeddedCondition;
+        ui.onDetailsExpandedChanged = OnStepDetailsExpandedChanged;
         ui.onChanged = RefreshValidationStatus;
         ui.embeddedConditionTemplate = conditionNodeTemplate;
 
         int stepIndex = stepIndexMap.TryGetValue(node.nodeId, out var mapped) ? mapped : 0;
-        ui.Bind(graph, node, stepIndex);
+        ui.Bind(graph, node, stepIndex, expandedStepDetailNodeIds.Contains(node.nodeId));
         ui.RefreshConditionSummary();
         ui.RefreshWarning();
 
@@ -859,6 +862,16 @@ public class ScenarioGraphUI : MonoBehaviour
             ui.inputConnector != null ? ui.inputConnector.GetComponent<RectTransform>() : null,
             ui.outputConnector != null ? ui.outputConnector.GetComponent<RectTransform>() : null,
             defaults);
+    }
+
+    void OnStepDetailsExpandedChanged(string nodeId, bool expanded)
+    {
+        if (string.IsNullOrWhiteSpace(nodeId)) return;
+        if (expanded) expandedStepDetailNodeIds.Add(nodeId);
+        else expandedStepDetailNodeIds.Remove(nodeId);
+
+        RefreshLines();
+        RefreshMinimapNodes();
     }
 
     void InstantiateConditionNode(ScenarioNode node, Dictionary<string, Vector2> defaults)

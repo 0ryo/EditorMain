@@ -8,6 +8,7 @@ using UnityEngine.UI;
 public class StepNodeUI : MonoBehaviour
 {
     const float BaseHeight = 180f;
+    const float ExpandedBaseHeight = 404f;
     const float EmbeddedWidthScale = 1.2f;
     const float FallbackNodeWidth = 390f;
     const float EmbeddedSpacing = 8f; // カード間のVLGスペーシング（区切り線の前後各8px）
@@ -18,6 +19,7 @@ public class StepNodeUI : MonoBehaviour
     const float EmbeddedFallbackWidth = 390f;
     const float HeaderLeft = 12f;
     const float HeaderRight = -44f;
+    const float ExpandedHeaderRight = -128f;
     const float DragAreaRight = -12f;
     const float DragAreaBottom = 16f;
 
@@ -26,6 +28,14 @@ public class StepNodeUI : MonoBehaviour
     public TMP_InputField titleInput;
     public TMP_Text conditionSummaryText;
     public GameObject warningIcon;
+
+    [Header("Step Details")]
+    public Button detailsButton;
+    public RectTransform detailsRoot;
+    public TMP_InputField bodyInput;
+    public TMP_InputField supplementInput;
+    public TMP_InputField cautionInput;
+    public TMP_InputField durationInput;
 
     [Header("Connectors")]
     public Button inputConnector;
@@ -43,6 +53,7 @@ public class StepNodeUI : MonoBehaviour
     string currentConditionNodeSignature = string.Empty;
     float nextPollTime;
     float baseNodeWidth = -1f;
+    bool detailsExpanded;
 
     public Action<string> onClickInputConnector;
     public Action<string> onClickOutputConnector;
@@ -52,9 +63,10 @@ public class StepNodeUI : MonoBehaviour
     public Action onCancelConnectorDrag;
     public Action<string> onClickDelete;
     public Action<string> onClickEmbeddedConditionDelete;
+    public Action<string, bool> onDetailsExpandedChanged;
     public Action onChanged;
 
-    public void Bind(CurriculumGraphService graph, ScenarioNode targetStep, int stepDisplayIndex)
+    public void Bind(CurriculumGraphService graph, ScenarioNode targetStep, int stepDisplayIndex, bool initiallyExpanded = false)
     {
         graphService = graph;
         stepNode = targetStep;
@@ -80,6 +92,9 @@ public class StepNodeUI : MonoBehaviour
             titleInput.gameObject.SetActive(false);
         }
 
+        EnsureDetailsUi();
+        ConfigureDetailsInputs();
+        SetDetailsExpanded(initiallyExpanded, notify: false);
         ApplyTask1VisualLayout();
         CacheBaseNodeWidth();
         ConfigureConnectorDragHandlers();
@@ -87,6 +102,198 @@ public class StepNodeUI : MonoBehaviour
         RefreshEmbeddedConditions();
         RefreshConditionSummary();
         RefreshWarning();
+    }
+
+    void EnsureDetailsUi()
+    {
+        if (detailsRoot == null)
+        {
+            detailsRoot = transform.Find("StepDetails") as RectTransform;
+        }
+
+        if (detailsRoot == null)
+        {
+            var detailsGo = new GameObject("StepDetails", typeof(RectTransform), typeof(Image));
+            detailsRoot = detailsGo.GetComponent<RectTransform>();
+            detailsRoot.SetParent(transform, false);
+            detailsGo.GetComponent<Image>().color = DesignTokens.BgSecondary;
+            EnsureThinOutline(detailsRoot);
+        }
+
+        SetTopStretchRect(detailsRoot, 12f, -12f, -250f, -38f);
+
+        if (detailsButton == null)
+        {
+            var existingButton = transform.Find("Button_Details");
+            if (existingButton != null) detailsButton = existingButton.GetComponent<Button>();
+        }
+
+        if (detailsButton == null)
+        {
+            var buttonGo = new GameObject("Button_Details", typeof(RectTransform), typeof(Image), typeof(Button));
+            var buttonRt = buttonGo.GetComponent<RectTransform>();
+            buttonRt.SetParent(transform, false);
+            buttonGo.GetComponent<Image>().color = DesignTokens.Surface;
+            detailsButton = buttonGo.GetComponent<Button>();
+            EnsureThinOutline(buttonRt);
+
+            var labelGo = new GameObject("Label", typeof(RectTransform), typeof(TextMeshProUGUI));
+            var labelRt = labelGo.GetComponent<RectTransform>();
+            labelRt.SetParent(buttonRt, false);
+            labelRt.anchorMin = Vector2.zero;
+            labelRt.anchorMax = Vector2.one;
+            labelRt.offsetMin = Vector2.zero;
+            labelRt.offsetMax = Vector2.zero;
+
+            var label = labelGo.GetComponent<TextMeshProUGUI>();
+            label.text = "詳細";
+            label.fontSize = DesignTokens.FontSizeCaption;
+            label.color = DesignTokens.TextPrimary;
+            label.alignment = TextAlignmentOptions.Center;
+            label.raycastTarget = false;
+        }
+
+        SetTopRightRect(detailsButton.transform as RectTransform, -98f, -42f, -30f, -8f);
+        detailsButton.onClick.RemoveAllListeners();
+        detailsButton.onClick.AddListener(() => SetDetailsExpanded(!detailsExpanded));
+
+        bodyInput = EnsureDetailInput(bodyInput, "Input_Body", "本文", -72f, -8f, multiline: true);
+        supplementInput = EnsureDetailInput(supplementInput, "Input_Supplement", "補足", -114f, -78f);
+        cautionInput = EnsureDetailInput(cautionInput, "Input_Caution", "注意事項", -156f, -120f);
+        durationInput = EnsureDetailInput(durationInput, "Input_DurationMinutes", "所要時間（分）", -198f, -162f);
+        if (durationInput != null) durationInput.contentType = TMP_InputField.ContentType.IntegerNumber;
+
+        detailsButton.transform.SetAsLastSibling();
+        detailsRoot.SetAsLastSibling();
+    }
+
+    TMP_InputField EnsureDetailInput(
+        TMP_InputField current,
+        string objectName,
+        string placeholder,
+        float bottom,
+        float top,
+        bool multiline = false)
+    {
+        if (current == null)
+        {
+            current = detailsRoot.Find(objectName)?.GetComponent<TMP_InputField>();
+        }
+
+        if (current == null && titleInput != null)
+        {
+            current = Instantiate(titleInput, detailsRoot);
+            current.gameObject.name = objectName;
+        }
+
+        if (current == null) return null;
+
+        current.gameObject.SetActive(true);
+        current.readOnly = false;
+        current.interactable = true;
+        current.contentType = TMP_InputField.ContentType.Standard;
+        current.lineType = multiline
+            ? TMP_InputField.LineType.MultiLineNewline
+            : TMP_InputField.LineType.SingleLine;
+        if (current.placeholder is TMP_Text placeholderText)
+        {
+            placeholderText.text = placeholder;
+            placeholderText.color = DesignTokens.TextTertiary;
+            placeholderText.alignment = multiline
+                ? TextAlignmentOptions.TopLeft
+                : TextAlignmentOptions.MidlineLeft;
+        }
+        if (current.textComponent != null)
+        {
+            current.textComponent.alignment = multiline
+                ? TextAlignmentOptions.TopLeft
+                : TextAlignmentOptions.MidlineLeft;
+        }
+
+        SetTopStretchRect(current.transform as RectTransform, 8f, -8f, bottom, top);
+        return current;
+    }
+
+    void ConfigureDetailsInputs()
+    {
+        if (stepNode == null || stepNode.step == null) return;
+
+        BindTextInput(bodyInput, stepNode.step.body, "Edit step body", value => data => data.body = value);
+        BindTextInput(supplementInput, stepNode.step.supplement, "Edit step supplement", value => data => data.supplement = value);
+        BindTextInput(cautionInput, stepNode.step.caution, "Edit step caution", value => data => data.caution = value);
+
+        if (durationInput != null)
+        {
+            durationInput.onEndEdit.RemoveAllListeners();
+            durationInput.SetTextWithoutNotify(stepNode.step.durationMinutes > 0
+                ? stepNode.step.durationMinutes.ToString()
+                : string.Empty);
+            durationInput.onEndEdit.AddListener(value =>
+            {
+                string trimmed = value?.Trim();
+                int duration = 0;
+                if (!string.IsNullOrEmpty(trimmed) && !int.TryParse(trimmed, out duration))
+                {
+                    durationInput.SetTextWithoutNotify(stepNode.step.durationMinutes > 0
+                        ? stepNode.step.durationMinutes.ToString()
+                        : string.Empty);
+                    return;
+                }
+
+                duration = Mathf.Clamp(duration, 0, 1440);
+                if (stepNode.step.durationMinutes == duration) return;
+                if (ExecuteStepEdit("Edit step duration", data => data.durationMinutes = duration)) onChanged?.Invoke();
+            });
+        }
+    }
+
+    void BindTextInput(
+        TMP_InputField input,
+        string currentValue,
+        string commandLabel,
+        Func<string, Action<StepNodeData>> mutationFactory)
+    {
+        if (input == null || mutationFactory == null) return;
+
+        input.onEndEdit.RemoveAllListeners();
+        input.SetTextWithoutNotify(currentValue ?? string.Empty);
+        input.onEndEdit.AddListener(value =>
+        {
+            string normalized = value ?? string.Empty;
+            if (string.Equals(currentValue ?? string.Empty, normalized, StringComparison.Ordinal)) return;
+            if (ExecuteStepEdit(commandLabel, mutationFactory(normalized))) onChanged?.Invoke();
+        });
+    }
+
+    bool ExecuteStepEdit(string label, Action<StepNodeData> mutation)
+    {
+        if (graphService == null || stepNode == null || mutation == null) return false;
+
+        string nodeId = stepNode.nodeId;
+        return graphService.ExecuteCommand(label, () =>
+        {
+            var target = graphService.FindNode(nodeId);
+            if (target == null || target.nodeType != ScenarioNodeType.Step) return false;
+            target.step ??= new StepNodeData();
+            mutation(target.step);
+            return true;
+        });
+    }
+
+    void SetDetailsExpanded(bool expanded, bool notify = true)
+    {
+        detailsExpanded = expanded;
+        if (detailsRoot != null) detailsRoot.gameObject.SetActive(expanded);
+        if (detailsButton != null)
+        {
+            var label = detailsButton.GetComponentInChildren<TMP_Text>(true);
+            if (label != null) label.text = expanded ? "閉じる" : "詳細";
+        }
+
+        ApplyTask1VisualLayout();
+        int conditionCount = runtimeEmbeddedConditions.Count;
+        ResizeForEmbeddedCount(conditionCount, GetEmbeddedNodeHeight());
+        if (notify && stepNode != null) onDetailsExpandedChanged?.Invoke(stepNode.nodeId, expanded);
     }
 
     void Update()
@@ -274,7 +481,7 @@ public class StepNodeUI : MonoBehaviour
             var size = root.sizeDelta;
             float widthBase = baseNodeWidth > 1f ? baseNodeWidth : FallbackNodeWidth;
             size.x = embeddedCount > 0 ? widthBase * EmbeddedWidthScale : widthBase;
-            size.y = BaseHeight + extraHeight;
+            size.y = (detailsExpanded ? ExpandedBaseHeight : BaseHeight) + extraHeight;
             root.sizeDelta = size;
         }
 
@@ -477,8 +684,23 @@ public class StepNodeUI : MonoBehaviour
             var stepRt = stepIdText.rectTransform;
             if (stepRt != null)
             {
-                SetTopStretchRect(stepRt, HeaderLeft, HeaderRight, -28f, -8f);
+                SetTopStretchRect(stepRt, HeaderLeft, detailsButton != null ? ExpandedHeaderRight : HeaderRight, -28f, -8f);
             }
+        }
+
+        if (detailsButton != null)
+        {
+            SetTopRightRect(detailsButton.transform as RectTransform, -98f, -42f, -30f, -8f);
+        }
+
+        if (warningIcon != null)
+        {
+            SetTopRightRect(warningIcon.transform as RectTransform, -122f, -102f, -30f, -10f);
+        }
+
+        if (detailsRoot != null)
+        {
+            SetTopStretchRect(detailsRoot, 12f, -12f, -250f, -38f);
         }
 
         var dragHandle = transform.Find("DragHandle") as RectTransform;
@@ -495,9 +717,23 @@ public class StepNodeUI : MonoBehaviour
             var summaryRt = conditionSummaryText.rectTransform;
             if (summaryRt != null)
             {
-                SetTopStretchRect(summaryRt, HeaderLeft, HeaderRight, -92f, -72f);
+                SetTopStretchRect(
+                    summaryRt,
+                    HeaderLeft,
+                    HeaderRight,
+                    detailsExpanded ? -280f : -92f,
+                    detailsExpanded ? -260f : -72f);
             }
         }
+    }
+
+    static void SetTopRightRect(RectTransform rt, float left, float right, float bottom, float top)
+    {
+        if (rt == null) return;
+        rt.anchorMin = Vector2.one;
+        rt.anchorMax = Vector2.one;
+        rt.offsetMin = new Vector2(left, bottom);
+        rt.offsetMax = new Vector2(right, top);
     }
 
     static void SetTopStretchRect(RectTransform rt, float left, float right, float bottom, float top)

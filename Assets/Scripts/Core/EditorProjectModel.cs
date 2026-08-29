@@ -5,7 +5,7 @@ using UnityEngine;
 [Serializable]
 public sealed class EditorProjectFile
 {
-    public const int CurrentSchemaVersion = 2;
+    public const int CurrentSchemaVersion = 3;
 
     public int schemaVersion = CurrentSchemaVersion;
     public string projectName = "VRCourseEditor";
@@ -84,6 +84,11 @@ public static class EditorProjectMigration
             MigrateV1ToV2(project);
         }
 
+        if (project.schemaVersion == 2)
+        {
+            MigrateV2ToV3(project);
+        }
+
         Normalize(project);
         project.schemaVersion = EditorProjectFile.CurrentSchemaVersion;
         return true;
@@ -94,6 +99,13 @@ public static class EditorProjectMigration
         // v2 で追加した表示名・説明・表示/ロック状態は、未設定なら既定値のまま維持する。
         project.savedAtUtc ??= string.Empty;
         project.schemaVersion = 2;
+    }
+
+    static void MigrateV2ToV3(EditorProjectFile project)
+    {
+        // v3 adds optional Step metadata; absent values are normalized to empty/zero.
+        if (project.curriculum != null) project.curriculum.schemaVersion = 3;
+        project.schemaVersion = 3;
     }
 
     public static void Normalize(EditorProjectFile project)
@@ -108,7 +120,19 @@ public static class EditorProjectMigration
         project.curriculum.rules ??= new RuleSet();
         project.curriculum.nodes ??= new List<ScenarioNode>();
         project.curriculum.edges ??= new List<ScenarioEdge>();
+        project.curriculum.schemaVersion = 3;
         project.objects ??= new List<EditorProjectObject>();
+
+        foreach (var node in project.curriculum.nodes)
+        {
+            if (node == null) continue;
+            node.step ??= new StepNodeData();
+            node.step.title ??= string.Empty;
+            node.step.body ??= string.Empty;
+            node.step.supplement ??= string.Empty;
+            node.step.caution ??= string.Empty;
+            node.step.durationMinutes = Math.Max(0, node.step.durationMinutes);
+        }
 
         foreach (var item in project.objects)
         {

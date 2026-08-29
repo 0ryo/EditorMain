@@ -4,7 +4,7 @@ using System.Collections.Generic;
 [Serializable]
 public class ScenarioExport
 {
-    public int version = 2;
+    public int version = 3;
     public string projectName = "VRCourseEditor";
     public ScenarioSettingsExport scenarioSettings = new ScenarioSettingsExport();
     public List<RequiredActionExport> requiredActions = new List<RequiredActionExport>();
@@ -23,6 +23,10 @@ public class RequiredActionExport
 {
     public string id;
     public string name;
+    public string body;
+    public string supplement;
+    public string caution;
+    public int durationMinutes;
     public List<ConditionExport> conditions = new List<ConditionExport>();
 }
 

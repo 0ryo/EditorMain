@@ -119,6 +119,8 @@ public class CurriculumGraphService : MonoBehaviour
             curriculum.edges = new List<ScenarioEdge>();
         }
 
+        curriculum.schemaVersion = 3;
+
         EnsureTerminalNode(ScenarioNodeType.Start, StartNodeId);
         EnsureTerminalNode(ScenarioNodeType.End, EndNodeId);
         NormalizeNodeDataDefaults();
@@ -147,6 +149,12 @@ public class CurriculumGraphService : MonoBehaviour
             {
                 node.step = new StepNodeData();
             }
+
+            node.step.title ??= string.Empty;
+            node.step.body ??= string.Empty;
+            node.step.supplement ??= string.Empty;
+            node.step.caution ??= string.Empty;
+            node.step.durationMinutes = Math.Max(0, node.step.durationMinutes);
 
             if (node.condition == null)
             {
@@ -910,7 +918,7 @@ public class CurriculumGraphService : MonoBehaviour
 
         var export = new ScenarioExport
         {
-            version = 2,
+            version = 3,
             projectName = string.IsNullOrWhiteSpace(curriculum.projectName) ? "VRCourseEditor" : curriculum.projectName,
             scenarioSettings = new ScenarioSettingsExport
             {
@@ -925,7 +933,11 @@ public class CurriculumGraphService : MonoBehaviour
             var action = new RequiredActionExport
             {
                 id = $"act-{(i + 1).ToString("D3")}",
-                name = $"\u624B\u9806 {i + 1}"
+                name = string.IsNullOrWhiteSpace(step.step.title) ? $"\u624B\u9806 {i + 1}" : step.step.title.Trim(),
+                body = step.step.body ?? string.Empty,
+                supplement = step.step.supplement ?? string.Empty,
+                caution = step.step.caution ?? string.Empty,
+                durationMinutes = Math.Max(0, step.step.durationMinutes)
             };
 
             var conditions = GetConditionNodesForStep(step.nodeId);

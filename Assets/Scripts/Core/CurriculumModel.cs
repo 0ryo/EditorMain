@@ -4,7 +4,7 @@ using System.Collections.Generic;
 [Serializable]
 public class Curriculum
 {
-    public int schemaVersion = 2;
+    public int schemaVersion = 3;
     public string projectName = "VRCourseEditor";
     public string mode = "Graph";
     public RuleSet rules = new RuleSet();
@@ -56,6 +56,10 @@ public class ScenarioEdge
 public class StepNodeData
 {
     public string title = "";
+    public string body = "";
+    public string supplement = "";
+    public string caution = "";
+    public int durationMinutes;
 }
 
 [Serializable]
