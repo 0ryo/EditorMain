@@ -22,6 +22,9 @@ public class ConditionNodeUI : MonoBehaviour
     const float RowVerticalInset = 6f;
     const float ControlInset = AreaLeft + RowInset;
     const float ParameterColumnGap = 16f;
+    const float ActionDropdownWidth = 128f;
+    const float InlineParticleWidth = 20f;
+    const float InlineGap = 8f;
 
     [Header("Basic")]
     public TMP_Text nodeIdText;
@@ -152,8 +155,6 @@ public class ConditionNodeUI : MonoBehaviour
             conditionTypeDropdown = Instantiate(conditionRow.dropdownA, transform);
             conditionTypeDropdown.gameObject.name = "Dropdown_ConditionType";
         }
-        ConditionRowUI.PrepareDropdown(conditionTypeDropdown);
-
         distanceInput = EnsureParameterInput(distanceInput, "Input_Distance", "距離 (m)");
         holdSecondsInput = EnsureParameterInput(holdSecondsInput, "Input_HoldSeconds", "保持 (秒)");
         distanceLabel = EnsureParameterLabel(distanceLabel, "Text_DistanceLabel", "距離 (m)");
@@ -233,6 +234,7 @@ public class ConditionNodeUI : MonoBehaviour
             }
             conditionTypeDropdown.SetValueWithoutNotify(selectedIndex);
             conditionTypeDropdown.RefreshShownValue();
+            ConditionRowUI.PrepareDropdown(conditionTypeDropdown);
             conditionTypeDropdown.onValueChanged.AddListener(index =>
             {
                 if (index < 0 || index >= definitions.Count) return;
@@ -296,10 +298,8 @@ public class ConditionNodeUI : MonoBehaviour
 
     void UpdateConditionLabels()
     {
-        if (conditionRow?.textAfterB == null || conditionNode?.condition == null) return;
-        conditionRow.textAfterB.text = conditionNode.condition.type == ConditionTypeCatalog.SnapHold
-            ? "に近づけて保持"
-            : "に近づける";
+        if (conditionRow?.textAfterB == null) return;
+        conditionRow.textAfterB.text = "に";
     }
 
     void RefreshConditionOptionsIfNeeded(bool force = false)
@@ -481,16 +481,6 @@ public class ConditionNodeUI : MonoBehaviour
             EnsureThinOutline(dragHandle);
         }
 
-        if (conditionTypeDropdown != null)
-        {
-            SetTopStretchRect(
-                conditionTypeDropdown.transform as RectTransform,
-                ControlInset,
-                -ControlInset,
-                -86f,
-                -46f);
-        }
-
         if (distanceInput != null)
         {
             SetTopHorizontalSegment(
@@ -499,8 +489,8 @@ public class ConditionNodeUI : MonoBehaviour
                 0.5f,
                 ControlInset,
                 -(ParameterColumnGap * 0.5f),
-                -162f,
-                -122f);
+                -270f,
+                -230f);
         }
 
         if (holdSecondsInput != null)
@@ -511,8 +501,8 @@ public class ConditionNodeUI : MonoBehaviour
                 1f,
                 ParameterColumnGap * 0.5f,
                 -ControlInset,
-                -162f,
-                -122f);
+                -270f,
+                -230f);
         }
 
         if (distanceLabel != null)
@@ -523,8 +513,8 @@ public class ConditionNodeUI : MonoBehaviour
                 0.5f,
                 ControlInset,
                 -(ParameterColumnGap * 0.5f),
-                -114f,
-                -94f);
+                -222f,
+                -202f);
         }
 
         if (holdSecondsLabel != null)
@@ -535,8 +525,8 @@ public class ConditionNodeUI : MonoBehaviour
                 1f,
                 ParameterColumnGap * 0.5f,
                 -ControlInset,
-                -114f,
-                -94f);
+                -222f,
+                -202f);
         }
 
         if (conditionRow == null) return;
@@ -548,12 +538,12 @@ public class ConditionNodeUI : MonoBehaviour
         var areaFitter = conditionArea.GetComponent<ContentSizeFitter>();
         if (areaFitter != null) areaFitter.enabled = false;
 
-        SetStretchRect(conditionArea, AreaLeft, AreaRight, AreaBottom, -170f);
+        SetTopStretchRect(conditionArea, AreaLeft, AreaRight, -194f, -46f);
         ClearContainerVisual(conditionArea);
-        LayoutConditionRow(conditionRow);
+        LayoutConditionRow(conditionRow, conditionTypeDropdown);
     }
 
-    static void LayoutConditionRow(ConditionRowUI row)
+    static void LayoutConditionRow(ConditionRowUI row, TMP_Dropdown actionDropdown)
     {
         if (row == null) return;
 
@@ -586,7 +576,7 @@ public class ConditionNodeUI : MonoBehaviour
         float suffixLeft = Mathf.Clamp(rowWidth * 0.66f, 170f, rowWidth - 96f);
 
         LayoutConditionLine(lineA, row.dropdownA, row.textAfterA, suffixLeft, "\u3092");
-        LayoutConditionLine(lineB, row.dropdownB, row.textAfterB, suffixLeft, "\u306B\u8FD1\u3065\u3051\u308B");
+        LayoutConditionActionLine(lineB, row.dropdownB, row.textAfterB, actionDropdown, rowWidth);
     }
 
     static void ClearContainerVisual(RectTransform target)
@@ -632,6 +622,53 @@ public class ConditionNodeUI : MonoBehaviour
             suffix.fontStyle = FontStyles.Bold;
             suffix.alignment = TextAlignmentOptions.MidlineLeft;
         }
+    }
+
+    static void LayoutConditionActionLine(
+        RectTransform lineRt,
+        TMP_Dropdown objectDropdown,
+        TMP_Text particle,
+        TMP_Dropdown actionDropdown,
+        float rowWidth)
+    {
+        if (lineRt == null) return;
+
+        var horizontal = lineRt.GetComponent<HorizontalLayoutGroup>();
+        if (horizontal != null) horizontal.enabled = false;
+
+        float actionWidth = Mathf.Min(ActionDropdownWidth, Mathf.Max(104f, rowWidth * 0.4f));
+        float actionLeft = rowWidth - actionWidth;
+        float particleLeft = actionLeft - InlineGap - InlineParticleWidth;
+        float objectRight = particleLeft - InlineGap;
+
+        var objectRt = objectDropdown != null ? objectDropdown.transform as RectTransform : null;
+        if (objectRt != null)
+        {
+            objectRt.anchorMin = new Vector2(0f, 0f);
+            objectRt.anchorMax = new Vector2(0f, 1f);
+            objectRt.offsetMin = new Vector2(0f, DropdownInsetY);
+            objectRt.offsetMax = new Vector2(objectRight, -DropdownInsetY);
+        }
+
+        if (particle != null)
+        {
+            var particleRt = particle.rectTransform;
+            particleRt.anchorMin = new Vector2(0f, 0f);
+            particleRt.anchorMax = new Vector2(0f, 1f);
+            particleRt.offsetMin = new Vector2(particleLeft, 0f);
+            particleRt.offsetMax = new Vector2(particleLeft + InlineParticleWidth, 0f);
+            particle.text = "に";
+            particle.fontStyle = FontStyles.Bold;
+            particle.alignment = TextAlignmentOptions.MidlineLeft;
+        }
+
+        var actionRt = actionDropdown != null ? actionDropdown.transform as RectTransform : null;
+        if (actionRt == null) return;
+        if (actionRt.parent != lineRt) actionRt.SetParent(lineRt, false);
+        actionRt.anchorMin = new Vector2(0f, 0f);
+        actionRt.anchorMax = new Vector2(0f, 1f);
+        actionRt.offsetMin = new Vector2(actionLeft, DropdownInsetY);
+        actionRt.offsetMax = new Vector2(rowWidth, -DropdownInsetY);
     }
 
     string BuildHeaderLabel()

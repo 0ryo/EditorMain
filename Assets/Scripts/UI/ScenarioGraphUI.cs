@@ -284,18 +284,12 @@ public class ScenarioGraphUI : MonoBehaviour
         }
 
         addStepButton.onClick.RemoveAllListeners();
-        addStepButton.onClick.AddListener(() =>
-        {
-            graph.ExecuteCommand("Add step", () => graph.AddStep() != null);
-        });
+        addStepButton.onClick.AddListener(() => AddNodeAtViewportCenter(ScenarioNodeType.Step));
 
         if (addConditionButton != null)
         {
             addConditionButton.onClick.RemoveAllListeners();
-            addConditionButton.onClick.AddListener(() =>
-            {
-                graph.ExecuteCommand("Add condition", () => graph.AddCondition() != null);
-            });
+            addConditionButton.onClick.AddListener(() => AddNodeAtViewportCenter(ScenarioNodeType.Condition));
         }
 
         saveButton.onClick.RemoveAllListeners();
@@ -330,6 +324,32 @@ public class ScenarioGraphUI : MonoBehaviour
             projectNameInput.SetTextWithoutNotify(graph.curriculum.projectName);
         }
         graphRebuildRequested = true;
+    }
+
+    void AddNodeAtViewportCenter(ScenarioNodeType nodeType)
+    {
+        if (graph == null) return;
+
+        ScenarioNode addedNode = null;
+        string commandLabel = nodeType == ScenarioNodeType.Condition ? "Add condition" : "Add step";
+        bool added = graph.ExecuteCommand(commandLabel, () =>
+        {
+            addedNode = nodeType == ScenarioNodeType.Condition
+                ? graph.AddCondition()
+                : graph.AddStep();
+            return addedNode != null;
+        });
+
+        if (!added || addedNode == null || string.IsNullOrWhiteSpace(addedNode.nodeId)) return;
+        nodePositions[addedNode.nodeId] = GetViewportCenterContentPosition();
+    }
+
+    Vector2 GetViewportCenterContentPosition()
+    {
+        if (graphContent == null) return Vector2.zero;
+        float zoom = Mathf.Max(0.001f, graphContent.localScale.x);
+        // This is the same content-space center represented by the blue minimap viewport indicator.
+        return -graphContent.anchoredPosition / zoom;
     }
 
     void OpenScenarioPreview()

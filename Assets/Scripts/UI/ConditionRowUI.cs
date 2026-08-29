@@ -179,7 +179,10 @@ public class ConditionRowUI : MonoBehaviour
             templateRt.anchorMax = new Vector2(1f, 0f);
             templateRt.pivot = new Vector2(0.5f, 1f);
             templateRt.anchoredPosition = Vector2.zero;
-            templateRt.offsetMin = new Vector2(0f, templateRt.offsetMin.y <= -8f ? templateRt.offsetMin.y : -120f);
+            float currentHeight = Mathf.Max(0f, -templateRt.offsetMin.y);
+            float requiredHeight = Mathf.Max(1, dropdown.options.Count) * DesignTokens.DropdownItemH;
+            float listHeight = Mathf.Clamp(Mathf.Max(currentHeight, requiredHeight), DesignTokens.DropdownItemH, 216f);
+            templateRt.offsetMin = new Vector2(0f, -listHeight);
             templateRt.offsetMax = new Vector2(templateRt.offsetMax.x, 0f);
             templateRt.SetAsLastSibling();
 
