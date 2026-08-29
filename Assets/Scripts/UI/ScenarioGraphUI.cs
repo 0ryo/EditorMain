@@ -11,6 +11,7 @@ public class ScenarioGraphUI : MonoBehaviour
     static readonly Color DragPreviewLineColor = new Color(DesignTokens.Accent.r, DesignTokens.Accent.g, DesignTokens.Accent.b, 0.9f);
     const string AddStepLabel = "+ 手順";
     const string AddConditionLabel = "+ 条件";
+    const string PreviewLabel = "プレビュー";
     const string SaveLabel = "JSON出力";
     const string StartNodeLabel = "開始";
     const string EndNodeLabel = "終了";
@@ -67,9 +68,11 @@ public class ScenarioGraphUI : MonoBehaviour
     [SerializeField] TMP_InputField projectNameInput;
     [SerializeField] Button addStepButton;
     [SerializeField] Button addConditionButton;
+    [SerializeField] Button previewButton;
     [SerializeField] Button saveButton;
     [SerializeField] TMP_Text statusText;
     [SerializeField] ScenarioValidationPanel validationPanel;
+    [SerializeField] ScenarioPreviewPanel previewPanel;
     [SerializeField] RectTransform nodeArea;
     [SerializeField] RectTransform graphContent;
     [SerializeField] RectTransform lineLayer;
@@ -171,6 +174,7 @@ public class ScenarioGraphUI : MonoBehaviour
         if (graph != null) graph.GraphChanged -= OnGraphChanged;
         UnbindValidationChangeSources();
         if (validationPanel != null) validationPanel.Hidden -= ClearValidationFocus;
+        previewPanel?.Hide();
         ClearValidationFocus();
         ClearConnectionCandidates();
     }
@@ -256,11 +260,17 @@ public class ScenarioGraphUI : MonoBehaviour
         EnsureGraphContent();
         EnsurePanZoomController();
         validationPanel = ScenarioValidationPanel.Ensure(nodeArea, validationPanel);
+        previewPanel = ScenarioPreviewPanel.Ensure(nodeArea, previewPanel);
         BindValidationPanelEvents();
 
         if (addConditionButton == null)
         {
             addConditionButton = CreateRuntimeConditionButton();
+        }
+
+        if (previewButton == null)
+        {
+            previewButton = CreateRuntimePreviewButton();
         }
 
         EnsureRuntimeTemplates();
@@ -290,6 +300,12 @@ public class ScenarioGraphUI : MonoBehaviour
         saveButton.onClick.RemoveAllListeners();
         saveButton.onClick.AddListener(SaveScenarioExport);
 
+        if (previewButton != null)
+        {
+            previewButton.onClick.RemoveAllListeners();
+            previewButton.onClick.AddListener(OpenScenarioPreview);
+        }
+
         projectNameInput.onEndEdit.RemoveAllListeners();
         projectNameInput.onEndEdit.AddListener(_ =>
         {
@@ -307,11 +323,28 @@ public class ScenarioGraphUI : MonoBehaviour
     void OnGraphChanged()
     {
         if (!isActiveAndEnabled) return;
+        previewPanel?.Hide();
         if (projectNameInput != null)
         {
             projectNameInput.SetTextWithoutNotify(graph.curriculum.projectName);
         }
         graphRebuildRequested = true;
+    }
+
+    void OpenScenarioPreview()
+    {
+        if (graph == null) return;
+
+        var validation = graph.ValidateGraph();
+        if (!validation.CanExport)
+        {
+            ShowValidationPanel(validation);
+            validationPanel?.MinimizeForFocus();
+            return;
+        }
+
+        previewPanel = ScenarioPreviewPanel.Ensure(nodeArea, previewPanel);
+        previewPanel?.Show(graph);
     }
 
     void BindValidationChangeSources()
@@ -345,6 +378,7 @@ public class ScenarioGraphUI : MonoBehaviour
     {
         SetButtonLabel(addStepButton, AddStepLabel);
         SetButtonLabel(addConditionButton, AddConditionLabel);
+        SetButtonLabel(previewButton, PreviewLabel);
         SetButtonLabel(saveButton, SaveLabel);
     }
 
@@ -379,6 +413,17 @@ public class ScenarioGraphUI : MonoBehaviour
 
         SetButtonLabel(cloned, AddConditionLabel);
 
+        return cloned;
+    }
+
+    Button CreateRuntimePreviewButton()
+    {
+        if (saveButton == null) return null;
+
+        var cloned = Instantiate(saveButton, saveButton.transform.parent);
+        cloned.gameObject.name = "Button_Preview_Runtime";
+        cloned.transform.SetSiblingIndex(saveButton.transform.GetSiblingIndex());
+        SetButtonLabel(cloned, PreviewLabel);
         return cloned;
     }
 
@@ -1804,12 +1849,15 @@ public class ScenarioGraphUI : MonoBehaviour
         if (graph.GetNodes(ScenarioNodeType.Step).Count == 0)
         {
             saveButton.interactable = false;
+            if (previewButton != null) previewButton.interactable = false;
             statusText.text = EmptyGraphGuide;
             ClearNodeValidationIndicators();
             lastValidationUiSignature = null;
             validationPanel?.Hide();
             return;
         }
+
+        if (previewButton != null) previewButton.interactable = true;
 
         var validation = graph.ValidateGraph();
         saveButton.interactable = validation.CanExport;
