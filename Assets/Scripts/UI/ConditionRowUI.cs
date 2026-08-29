@@ -19,7 +19,7 @@ public class ConditionRowUI : MonoBehaviour
     const string LabelUnset = "\u672A\u8A2D\u5B9A";
     const string LabelMissingPrefix = "参照切れ: ";
     const string LabelParticleA = "\u3092";
-    const string LabelParticleB = "\u306B\u8FD1\u3065\u3051\u308B";
+    const string LabelParticleB = "\u306B";
 
     // 再描画のために保持する最後の Bind 引数
     List<PlacedObjectOptionProvider.Option> lastOptions;
