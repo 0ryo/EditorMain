@@ -79,8 +79,8 @@ EditorMainの実装を機能単位で整理し、肥大化したclass、重複�
 
 | Phase | Status | Commit | Unity verification |
 |---|---|---|---|
-| 1. Project save/load/export | Awaiting Unity verification | `refactor: separate project persistence data processing` | Pending |
-| 2. Placement/catalog/import | Pending | - | Pending |
+| 1. Project save/load/export | Complete | `refactor: separate project persistence data processing` | Passed |
+| 2. Placement/catalog/import | Awaiting catalog verification | `refactor: separate catalog card state and filtering` | Pending |
 | 3. 3D editing | Pending | - | Pending |
 | 4. Scenario domain/validation | Pending | - | Pending |
 | 5. Scenario graph UI | Pending | - | Pending |

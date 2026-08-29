@@ -1,6 +1,5 @@
 using System;
 using System.Collections;
-using System.Collections.Generic;
 using System.IO;
 using TMPro;
 using UnityEngine;
@@ -70,8 +69,7 @@ public class CatalogUI : MonoBehaviour
     [SerializeField] StringEvent onSelectType;
     bool runtimeListenerBound;
     Coroutine clearStatusCoroutine;
-    readonly List<CardState> cards = new();
-    readonly HashSet<string> removedTypeIds = new(StringComparer.OrdinalIgnoreCase);
+    readonly CatalogCardCollection cards = new();
     const string CardRemoveButtonName = "Button_RemoveCard";
     const string CardThumbnailName = "Thumbnail";
     const string CardMainLabelName = "LabelMain";
@@ -117,14 +115,6 @@ public class CatalogUI : MonoBehaviour
         General,
         Integration,
         Account
-    }
-
-    class CardState
-    {
-        public string typeId;
-        public string displayLabel;
-        public string displayDescription;
-        public GameObject root;
     }
 
     void Start()
@@ -179,22 +169,7 @@ public class CatalogUI : MonoBehaviour
     /// </summary>
     public bool TryGetTypeInfo(string typeId, out string label, out string description)
     {
-        if (!string.IsNullOrEmpty(typeId))
-        {
-            foreach (var card in cards)
-            {
-                if (string.Equals(card.typeId, typeId, System.StringComparison.OrdinalIgnoreCase))
-                {
-                    label       = card.displayLabel;
-                    description = card.displayDescription ?? string.Empty;
-                    return true;
-                }
-            }
-        }
-
-        label       = typeId ?? string.Empty;
-        description = string.Empty;
-        return false;
+        return cards.TryGetTypeInfo(typeId, out label, out description);
     }
 
     void EnsureRuntimeBindings()
@@ -603,7 +578,7 @@ public class CatalogUI : MonoBehaviour
         foreach (var entry in registry.entries)
         {
             if (entry == null || string.IsNullOrWhiteSpace(entry.typeId)) continue;
-            if (removedTypeIds.Contains(entry.typeId)) continue;
+            if (cards.IsRemoved(entry.typeId)) continue;
 
             var cardButton = Instantiate(buttonTemplate, content);
             cardButton.gameObject.name = $"Card_{entry.typeId}";
@@ -611,11 +586,11 @@ public class CatalogUI : MonoBehaviour
             EnsureCardHeight(cardButton.gameObject);
 
             var typeId = entry.typeId;
-            var displayLabel = BuildDisplayName(typeId);
+            var displayLabel = CatalogCardText.BuildDisplayName(typeId);
             SetCardLabel(cardButton.gameObject, displayLabel, typeId);
             SetupCardInteractions(cardButton, typeId);
 
-            cards.Add(new CardState
+            cards.Add(new CatalogCardState
             {
                 typeId = typeId,
                 displayLabel = displayLabel,
@@ -637,7 +612,7 @@ public class CatalogUI : MonoBehaviour
     {
         if (string.IsNullOrWhiteSpace(runtimeImportedTypeId) || runtimeImportedPrefab == null) return;
         if (buttonTemplate == null || content == null) return;
-        if (removedTypeIds.Contains(runtimeImportedTypeId)) return;
+        if (cards.IsRemoved(runtimeImportedTypeId)) return;
 
         var cardButton = Instantiate(buttonTemplate, content);
         cardButton.gameObject.name = "Card_NewObject";
@@ -648,7 +623,7 @@ public class CatalogUI : MonoBehaviour
         SetCardLabel(cardButton.gameObject, cardLabel, importedTypeId);
         SetupCardInteractions(cardButton, importedTypeId);
 
-        cards.Add(new CardState
+        cards.Add(new CatalogCardState
         {
             typeId = importedTypeId,
             displayLabel = cardLabel,
@@ -2354,19 +2329,19 @@ public class CatalogUI : MonoBehaviour
             var txt = explicitMain.GetComponent<TMP_Text>();
             if (txt != null)
             {
-                txt.text = string.IsNullOrWhiteSpace(displayLabel) ? BuildDisplayName(typeId) : displayLabel;
+                txt.text = string.IsNullOrWhiteSpace(displayLabel) ? CatalogCardText.BuildDisplayName(typeId) : displayLabel;
                 txt.alignment = TextAlignmentOptions.MidlineLeft;
             }
         }
 
         var categoryLabel = root.transform.Find($"{CardCategoryBadgeName}/{CardCategoryLabelName}")?.GetComponent<TMP_Text>();
-        if (categoryLabel != null) categoryLabel.text = BuildCategoryLabel(typeId);
+        if (categoryLabel != null) categoryLabel.text = CatalogCardText.BuildCategoryLabel(typeId);
 
         var technical = root.transform.Find(CardTechnicalLabelName)?.GetComponent<TMP_Text>();
         if (technical != null) technical.text = typeId ?? string.Empty;
 
         var categoryVisualLabel = root.transform.Find($"{CardCategoryVisualName}/{CardCategoryVisualLabelName}")?.GetComponent<TMP_Text>();
-        if (categoryVisualLabel != null) categoryVisualLabel.text = BuildCategoryVisualLabel(typeId);
+        if (categoryVisualLabel != null) categoryVisualLabel.text = CatalogCardText.BuildCategoryVisualLabel(typeId);
 
         var tmps = root.GetComponentsInChildren<TMP_Text>(true);
         foreach (var tmp in tmps)
@@ -2374,7 +2349,7 @@ public class CatalogUI : MonoBehaviour
             if (tmp == null) continue;
             if (IsUnderCardRemoveButton(tmp.transform)) continue;
             if (tmp.transform == explicitMain || tmp == categoryLabel || tmp == technical || tmp == categoryVisualLabel) continue;
-            tmp.text = string.IsNullOrWhiteSpace(displayLabel) ? BuildDisplayName(typeId) : displayLabel;
+            tmp.text = string.IsNullOrWhiteSpace(displayLabel) ? CatalogCardText.BuildDisplayName(typeId) : displayLabel;
             tmp.alignment = TextAlignmentOptions.MidlineLeft;
             if (tmp.rectTransform != null && tmp.rectTransform.parent == root.transform)
             {
@@ -2497,39 +2472,6 @@ public class CatalogUI : MonoBehaviour
         outline.effectColor = DesignTokens.Divider;
         outline.effectDistance = new Vector2(1f, -1f);
         outline.useGraphicAlpha = false;
-    }
-
-    static string BuildDisplayName(string typeId)
-    {
-        if (string.IsNullOrWhiteSpace(typeId)) return string.Empty;
-
-        if (typeId.Contains("Vehicle/Car", StringComparison.OrdinalIgnoreCase)) return "\u8ECA\u4E21";
-        if (typeId.Contains("ToolBox", StringComparison.OrdinalIgnoreCase)) return "\u5DE5\u5177\u7BB1";
-        if (typeId.Contains("Tire/Replacement", StringComparison.OrdinalIgnoreCase)) return "\u30BF\u30A4\u30E4\u4EA4\u63DB";
-        if (typeId.Contains("Env/Wall", StringComparison.OrdinalIgnoreCase)) return "\u58C1";
-
-        var tail = typeId;
-        int slash = tail.LastIndexOf('/');
-        if (slash >= 0 && slash < tail.Length - 1) tail = tail.Substring(slash + 1);
-        tail = tail.Replace("_Proxy", string.Empty).Replace('_', ' ').Trim();
-        return string.IsNullOrWhiteSpace(tail) ? typeId : tail;
-    }
-
-    static string BuildCategoryLabel(string typeId)
-    {
-        if (string.IsNullOrWhiteSpace(typeId)) return "\u305D\u306E\u4ED6";
-        if (typeId.Contains("Vehicle", StringComparison.OrdinalIgnoreCase)) return "\u8ECA\u4E21";
-        if (typeId.Contains("Tire", StringComparison.OrdinalIgnoreCase)) return "\u8ECA\u4E21";
-        if (typeId.Contains("Tool", StringComparison.OrdinalIgnoreCase)) return "\u5DE5\u5177";
-        if (typeId.Contains("Env", StringComparison.OrdinalIgnoreCase)) return "\u74B0\u5883";
-        if (typeId.Contains("Imported", StringComparison.OrdinalIgnoreCase)) return "\u8FFD\u52A0";
-        return "\u305D\u306E\u4ED6";
-    }
-
-    static string BuildCategoryVisualLabel(string typeId)
-    {
-        string category = BuildCategoryLabel(typeId);
-        return string.IsNullOrWhiteSpace(category) ? "?" : category.Substring(0, 1);
     }
 
     static bool IsUnderCardRemoveButton(Transform target)
@@ -3018,7 +2960,7 @@ public class CatalogUI : MonoBehaviour
     void OnClickCard(string typeId)
     {
         if (string.IsNullOrWhiteSpace(typeId)) return;
-        if (removedTypeIds.Contains(typeId)) return;
+        if (cards.IsRemoved(typeId)) return;
         EnsureRuntimeBindings();
         EnsureViewportReady(false);
         Debug.Log($"[CatalogUI] Card clicked: type={typeId}, placementController={GetPlacementControllerName()}");
@@ -3043,24 +2985,12 @@ public class CatalogUI : MonoBehaviour
     void OnClickRemoveCard(string typeId)
     {
         if (string.IsNullOrWhiteSpace(typeId)) return;
-        removedTypeIds.Add(typeId);
-
-        for (int i = cards.Count - 1; i >= 0; i--)
+        foreach (var card in cards.Remove(typeId))
         {
-            var card = cards[i];
-            if (card == null || string.IsNullOrWhiteSpace(card.typeId))
-            {
-                cards.RemoveAt(i);
-                continue;
-            }
-
-            if (!string.Equals(card.typeId, typeId, StringComparison.OrdinalIgnoreCase)) continue;
-
             if (card.root != null)
             {
                 Destroy(card.root);
             }
-            cards.RemoveAt(i);
         }
 
         if (string.Equals(runtimeImportedTypeId, typeId, StringComparison.OrdinalIgnoreCase))
@@ -3084,18 +3014,10 @@ public class CatalogUI : MonoBehaviour
     void ApplyFilter(string query)
     {
         var normalized = query?.Trim() ?? string.Empty;
-        var showAll = normalized.Length == 0;
-
         foreach (var card in cards)
         {
             if (card?.root == null) continue;
-            var matchesType = card.typeId.IndexOf(normalized, StringComparison.OrdinalIgnoreCase) >= 0;
-            var matchesLabel = !string.IsNullOrWhiteSpace(card.displayLabel) &&
-                               card.displayLabel.IndexOf(normalized, StringComparison.OrdinalIgnoreCase) >= 0;
-            var matchesDescription = !string.IsNullOrWhiteSpace(card.displayDescription) &&
-                                     card.displayDescription.IndexOf(normalized, StringComparison.OrdinalIgnoreCase) >= 0;
-            var visible = showAll || matchesType || matchesLabel || matchesDescription;
-            card.root.SetActive(visible);
+            card.root.SetActive(CatalogCardCollection.MatchesQuery(card, normalized));
         }
     }
 
