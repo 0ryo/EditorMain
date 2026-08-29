@@ -31,7 +31,8 @@ public class ConditionNodeUI : MonoBehaviour
     ScenarioNode conditionNode;
     CurriculumGraphService graphService;
     string currentOptionSignature = string.Empty;
-    float nextOptionPollTime;
+    CommandStack optionCommandStack;
+    PlacementController optionPlacementController;
 
     public Action<string> onClickOutputConnector;
     public Action<string, Vector2> onBeginOutputConnectorDrag;
@@ -46,7 +47,6 @@ public class ConditionNodeUI : MonoBehaviour
         graphService = graph;
         conditionNode = targetCondition;
         currentOptionSignature = string.Empty;
-        nextOptionPollTime = 0f;
 
         if (conditionNode == null || conditionNode.nodeType != ScenarioNodeType.Condition)
         {
@@ -65,17 +65,57 @@ public class ConditionNodeUI : MonoBehaviour
         ConfigureConnectorDragHandlers();
         ConfigureDeleteButton();
         ApplyTask2VisualLayout();
+        BindOptionChangeSources();
         RefreshConditionOptionsIfNeeded(force: true);
         ApplyTask2VisualLayout();
         RefreshWarning();
     }
 
-    void Update()
+    void OnEnable()
     {
-        if (conditionNode == null || !isActiveAndEnabled || graphService == null) return;
-        if (Time.unscaledTime < nextOptionPollTime) return;
+        BindOptionChangeSources();
+    }
 
-        nextOptionPollTime = Time.unscaledTime + 0.2f;
+    void OnDisable()
+    {
+        UnbindOptionChangeSources();
+    }
+
+    void BindOptionChangeSources()
+    {
+        var nextStack = CommandService.I != null ? CommandService.I.Stack : null;
+        if (nextStack != optionCommandStack)
+        {
+            if (optionCommandStack != null) optionCommandStack.HistoryChanged -= HandleOptionSourceChanged;
+            optionCommandStack = nextStack;
+            if (optionCommandStack != null) optionCommandStack.HistoryChanged += HandleOptionSourceChanged;
+        }
+
+        var nextPlacement = FindFirstObjectByType<PlacementController>();
+        if (nextPlacement != optionPlacementController)
+        {
+            if (optionPlacementController != null) optionPlacementController.ObjectPlaced -= HandleObjectPlaced;
+            optionPlacementController = nextPlacement;
+            if (optionPlacementController != null) optionPlacementController.ObjectPlaced += HandleObjectPlaced;
+        }
+    }
+
+    void UnbindOptionChangeSources()
+    {
+        if (optionCommandStack != null) optionCommandStack.HistoryChanged -= HandleOptionSourceChanged;
+        if (optionPlacementController != null) optionPlacementController.ObjectPlaced -= HandleObjectPlaced;
+        optionCommandStack = null;
+        optionPlacementController = null;
+    }
+
+    void HandleObjectPlaced(PlacedObject _, string __)
+    {
+        HandleOptionSourceChanged();
+    }
+
+    void HandleOptionSourceChanged()
+    {
+        if (!isActiveAndEnabled || conditionNode == null || graphService == null) return;
         RefreshConditionOptionsIfNeeded();
         RefreshWarning();
     }

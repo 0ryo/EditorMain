@@ -50,8 +50,6 @@ public class StepNodeUI : MonoBehaviour
     ScenarioNode stepNode;
     CurriculumGraphService graphService;
     readonly List<ConditionNodeUI> runtimeEmbeddedConditions = new List<ConditionNodeUI>();
-    string currentConditionNodeSignature = string.Empty;
-    float nextPollTime;
     float baseNodeWidth = -1f;
     bool detailsExpanded;
 
@@ -70,8 +68,6 @@ public class StepNodeUI : MonoBehaviour
     {
         graphService = graph;
         stepNode = targetStep;
-        currentConditionNodeSignature = string.Empty;
-        nextPollTime = 0f;
         if (stepNode == null) return;
 
         int displayIndex = stepDisplayIndex <= 0 ? 1 : stepDisplayIndex;
@@ -296,24 +292,6 @@ public class StepNodeUI : MonoBehaviour
         if (notify && stepNode != null) onDetailsExpandedChanged?.Invoke(stepNode.nodeId, expanded);
     }
 
-    void Update()
-    {
-        if (!isActiveAndEnabled || graphService == null || stepNode == null) return;
-        if (Time.unscaledTime < nextPollTime) return;
-
-        nextPollTime = Time.unscaledTime + 0.25f;
-        var conditions = graphService.GetConditionNodesForStep(stepNode.nodeId);
-        var signature = BuildConditionNodeSignature(conditions);
-        if (signature != currentConditionNodeSignature)
-        {
-            RefreshEmbeddedConditions();
-            return;
-        }
-
-        RefreshConditionSummary();
-        RefreshWarning();
-    }
-
     public void RefreshWarning()
     {
         bool hasWarning = graphService != null && graphService.HasUnconfiguredConditions(stepNode);
@@ -342,7 +320,6 @@ public class StepNodeUI : MonoBehaviour
         if (conditionListRoot == null || graphService == null || stepNode == null || embeddedConditionTemplate == null)
         {
             if (conditionListRoot != null) conditionListRoot.gameObject.SetActive(false);
-            currentConditionNodeSignature = string.Empty;
             ResizeForEmbeddedCount(0, GetEmbeddedNodeHeight());
             return;
         }
@@ -353,7 +330,6 @@ public class StepNodeUI : MonoBehaviour
         }
 
         var conditions = graphService.GetConditionNodesForStep(stepNode.nodeId);
-        currentConditionNodeSignature = BuildConditionNodeSignature(conditions);
         if (conditions.Count <= 0)
         {
             conditionListRoot.gameObject.SetActive(false);
@@ -528,14 +504,6 @@ public class StepNodeUI : MonoBehaviour
         }
 
         baseNodeWidth = root.sizeDelta.x;
-    }
-
-    static string BuildConditionNodeSignature(List<ScenarioNode> conditions)
-    {
-        if (conditions == null || conditions.Count == 0) return string.Empty;
-        return string.Join("|", conditions
-            .Where(c => c != null && !string.IsNullOrWhiteSpace(c.nodeId))
-            .Select(c => c.nodeId));
     }
 
     static void AddEmbeddedDivider(RectTransform parent)
