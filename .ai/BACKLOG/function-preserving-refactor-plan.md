@@ -79,7 +79,7 @@ EditorMainの実装を機能単位で整理し、肥大化したclass、重複�
 
 | Phase | Status | Commit | Unity verification |
 |---|---|---|---|
-| 1. Project save/load/export | In progress | - | Pending |
+| 1. Project save/load/export | Awaiting Unity verification | `refactor: separate project persistence data processing` | Pending |
 | 2. Placement/catalog/import | Pending | - | Pending |
 | 3. 3D editing | Pending | - | Pending |
 | 4. Scenario domain/validation | Pending | - | Pending |
@@ -88,4 +88,3 @@ EditorMainの実装を機能単位で整理し、肥大化したclass、重複�
 | 7. UI settings/generation/fallbacks | Pending | - | Pending |
 | 8. Cross-cutting performance | Pending | - | Pending |
 | 9. Documentation cleanup | Pending | - | Pending |
-

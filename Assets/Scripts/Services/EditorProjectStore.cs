@@ -73,13 +73,7 @@ public static class EditorProjectStore
     public static string SaveRecovery(EditorProjectFile project)
     {
         if (project == null) throw new ArgumentNullException(nameof(project));
-
-        project.schemaVersion = EditorProjectFile.CurrentSchemaVersion;
-        project.savedAtUtc = DateTime.UtcNow.ToString("O");
-        project.lastSaveWasAutomatic = true;
-        EditorProjectMigration.Normalize(project);
-        ExportFileWriter.WriteAllTextWithBackup(RecoveryPath, JsonUtility.ToJson(project, true));
-        return RecoveryPath;
+        return WriteProject(project, project.projectName, RecoveryPath, true);
     }
 
     public static bool TryGetRecovery(out EditorProjectFileInfo info)

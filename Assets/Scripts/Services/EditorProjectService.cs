@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
 using UnityEngine;
 
@@ -118,7 +117,7 @@ public sealed class EditorProjectService : MonoBehaviour
         try
         {
             suppressTracking = true;
-            var project = Capture(projectName);
+            var project = EditorProjectSnapshotBuilder.Capture(graph, projectName);
             CurrentProjectPath = EditorProjectStore.Save(project, project.projectName);
             CurrentProjectName = project.projectName;
             if (!string.Equals(graph.curriculum.projectName, project.projectName, StringComparison.Ordinal))
@@ -166,8 +165,13 @@ public sealed class EditorProjectService : MonoBehaviour
             return Fail(readError, out message);
         }
 
-        RepairObjectIdsForLoad(project);
-        if (!ValidateProject(project, out var validationError))
+        int repairedObjectIdCount = EditorProjectLoadPreparation.RepairObjectIds(project);
+        if (repairedObjectIdCount > 0)
+        {
+            Debug.LogWarning($"[EditorProject] 読み込み時に配置オブジェクトIDを{repairedObjectIdCount}件修復しました。");
+        }
+
+        if (!EditorProjectLoadPreparation.Validate(project, placementController, out var validationError))
         {
             return Fail(validationError, out message);
         }
@@ -251,117 +255,6 @@ public sealed class EditorProjectService : MonoBehaviour
         }
     }
 
-    EditorProjectFile Capture(string requestedName)
-    {
-        graph.EnsureGraphInitialized();
-        string name = string.IsNullOrWhiteSpace(requestedName)
-            ? graph.curriculum.projectName
-            : requestedName.Trim();
-        if (string.IsNullOrWhiteSpace(name)) name = "VRCourseEditor";
-
-        var project = new EditorProjectFile
-        {
-            projectName = name,
-            curriculum = JsonUtility.FromJson<Curriculum>(JsonUtility.ToJson(graph.curriculum)),
-            objects = new List<EditorProjectObject>()
-        };
-        project.curriculum.projectName = name;
-
-        var placedObjects = FindObjectsByType<PlacedObject>(FindObjectsInactive.Exclude, FindObjectsSortMode.None)
-            .Where(item => item != null)
-            .OrderBy(item => item.id)
-            .ToList();
-        foreach (var placed in placedObjects)
-        {
-            placed.EnsureHasId();
-            var editState = placed.GetComponent<PlacedObjectEditState>();
-            project.objects.Add(new EditorProjectObject
-            {
-                id = placed.id,
-                typeId = placed.typeId,
-                displayName = placed.displayName,
-                description = placed.description,
-                hasDescriptionOverride = placed.hasDescriptionOverride,
-                position = placed.transform.position,
-                rotation = placed.transform.rotation,
-                scale = placed.transform.localScale,
-                hidden = editState != null && editState.Hidden,
-                locked = editState != null && editState.Locked
-            });
-        }
-
-        return project;
-    }
-
-    bool ValidateProject(EditorProjectFile project, out string error)
-    {
-        error = null;
-        foreach (var item in project.objects)
-        {
-            if (item == null || string.IsNullOrWhiteSpace(item.id) || string.IsNullOrWhiteSpace(item.typeId))
-            {
-                error = "IDまたは種類がない配置オブジェクトを含んでいます。";
-                return false;
-            }
-
-            if (!placementController.TryGetPrefab(item.typeId, out _))
-            {
-                error = $"現在のカタログにない種類を含んでいます: {item.typeId}";
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    static void RepairObjectIdsForLoad(EditorProjectFile project)
-    {
-        if (project?.objects == null) return;
-
-        var reservedOriginalIds = new HashSet<string>(StringComparer.Ordinal);
-        int nextSequence = 1;
-        foreach (var item in project.objects)
-        {
-            string id = item?.id?.Trim();
-            if (string.IsNullOrWhiteSpace(id)) continue;
-            reservedOriginalIds.Add(id);
-            if (id.StartsWith("obj-", StringComparison.Ordinal) &&
-                int.TryParse(id.Substring(4), out int sequence))
-            {
-                nextSequence = Mathf.Max(nextSequence, sequence + 1);
-            }
-        }
-
-        var usedIds = new HashSet<string>(StringComparer.Ordinal);
-        int repairedCount = 0;
-        foreach (var item in project.objects)
-        {
-            if (item == null) continue;
-
-            string originalId = item.id?.Trim();
-            if (!string.IsNullOrWhiteSpace(originalId) && usedIds.Add(originalId))
-            {
-                item.id = originalId;
-                continue;
-            }
-
-            string replacement;
-            do
-            {
-                replacement = $"obj-{nextSequence++:D4}";
-            }
-            while (reservedOriginalIds.Contains(replacement) || !usedIds.Add(replacement));
-
-            item.id = replacement;
-            repairedCount++;
-        }
-
-        if (repairedCount > 0)
-        {
-            Debug.LogWarning($"[EditorProject] 読み込み時に配置オブジェクトIDを{repairedCount}件修復しました。");
-        }
-    }
-
     PlacedObject CreateStagedObject(EditorProjectObject item)
     {
         if (!placementController.TryGetPrefab(item.typeId, out var prefab) || prefab == null)
@@ -388,17 +281,21 @@ public sealed class EditorProjectService : MonoBehaviour
     {
         selectionService?.Select(null);
 
+        var stagedSet = new HashSet<PlacedObject>(staged);
         var current = FindObjectsByType<PlacedObject>(FindObjectsInactive.Include, FindObjectsSortMode.None);
         foreach (var placed in current)
         {
-            if (placed == null || staged.Contains(placed)) continue;
+            if (placed == null || stagedSet.Contains(placed)) continue;
             placed.gameObject.SetActive(false);
             Destroy(placed.gameObject);
         }
 
+        var objectDataById = project.objects
+            .Where(item => item != null)
+            .ToDictionary(item => item.id, StringComparer.Ordinal);
         foreach (var placed in staged)
         {
-            var item = project.objects.First(entry => entry != null && entry.id == placed.id);
+            var item = objectDataById[placed.id];
             placed.gameObject.SetActive(true);
             PlacedObjectPickability.EnsurePickable(placed, true);
             var state = placed.GetComponent<PlacedObjectEditState>();
@@ -506,7 +403,7 @@ public sealed class EditorProjectService : MonoBehaviour
         nextSelectedObjectPollAt = Time.unscaledTime + SelectedObjectPollInterval;
 
         var selected = selectionService != null ? selectionService.Current : null;
-        string fingerprint = BuildSelectedObjectFingerprint(selected);
+        string fingerprint = EditorProjectFingerprint.BuildSelectedObject(selected);
         if (selected == monitoredObject)
         {
             if (!string.Equals(monitoredObjectFingerprint, fingerprint, StringComparison.Ordinal))
@@ -519,35 +416,6 @@ public sealed class EditorProjectService : MonoBehaviour
 
         monitoredObject = selected;
         monitoredObjectFingerprint = fingerprint;
-    }
-
-    static string BuildSelectedObjectFingerprint(PlacedObject placed)
-    {
-        if (placed == null) return string.Empty;
-        var transform = placed.transform;
-        return string.Join("|",
-            placed.id,
-            placed.displayName,
-            placed.description,
-            placed.hasDescriptionOverride,
-            FormatVector(transform.position),
-            FormatQuaternion(transform.rotation),
-            FormatVector(transform.localScale));
-    }
-
-    static string FormatVector(Vector3 value)
-    {
-        return string.Join(",", FormatFloat(value.x), FormatFloat(value.y), FormatFloat(value.z));
-    }
-
-    static string FormatQuaternion(Quaternion value)
-    {
-        return string.Join(",", FormatFloat(value.x), FormatFloat(value.y), FormatFloat(value.z), FormatFloat(value.w));
-    }
-
-    static string FormatFloat(float value)
-    {
-        return value.ToString("R", CultureInfo.InvariantCulture);
     }
 
     void EstablishCleanBaseline()
@@ -574,7 +442,7 @@ public sealed class EditorProjectService : MonoBehaviour
     void ResetSelectedObjectMonitor()
     {
         monitoredObject = selectionService != null ? selectionService.Current : null;
-        monitoredObjectFingerprint = BuildSelectedObjectFingerprint(monitoredObject);
+        monitoredObjectFingerprint = EditorProjectFingerprint.BuildSelectedObject(monitoredObject);
         nextSelectedObjectPollAt = Time.unscaledTime + SelectedObjectPollInterval;
     }
 
@@ -591,7 +459,7 @@ public sealed class EditorProjectService : MonoBehaviour
         if (graph == null) return null;
         try
         {
-            return JsonUtility.ToJson(Capture(graph.curriculum.projectName));
+            return JsonUtility.ToJson(EditorProjectSnapshotBuilder.Capture(graph, graph.curriculum.projectName));
         }
         catch (Exception ex)
         {
@@ -635,7 +503,7 @@ public sealed class EditorProjectService : MonoBehaviour
             if (!string.IsNullOrWhiteSpace(CurrentProjectPath))
             {
                 CurrentProjectPath = EditorProjectStore.SaveAutomatic(
-                    Capture(CurrentProjectName),
+                    EditorProjectSnapshotBuilder.Capture(graph, CurrentProjectName),
                     CurrentProjectPath);
                 EditorProjectStore.DeleteRecovery(out _);
                 EstablishCleanBaseline();
@@ -645,7 +513,7 @@ public sealed class EditorProjectService : MonoBehaviour
                 return true;
             }
 
-            EditorProjectStore.SaveRecovery(Capture(graph.curriculum.projectName));
+            EditorProjectStore.SaveRecovery(EditorProjectSnapshotBuilder.Capture(graph, graph.curriculum.projectName));
             lastRecoveryFingerprint = fingerprint;
             message = "復旧用の自動保存を更新しました。";
             RecoveryChanged?.Invoke();
