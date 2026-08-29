@@ -14,10 +14,8 @@ public class SelectionService : MonoBehaviour
     public PrefabRegistry registry;
     public PlacementController placementController;
     public MoveTool moveTool;
-    public float pickabilityAutoFixInterval = 1f;
     public bool enableDiagnostics = true;
 
-    float nextPickabilityFixTime;
     bool warnedCameraMissing;
     bool warnedPickMaskExclusion;
     public string LastDebugMessage { get; private set; }
@@ -45,8 +43,6 @@ public class SelectionService : MonoBehaviour
         {
             cam = EditWorkspace.ResolveCamera();
         }
-
-        AutoFixPickabilityIfNeeded();
 
         if (Current != null && !Current.gameObject.activeInHierarchy)
         {
@@ -194,28 +190,6 @@ public class SelectionService : MonoBehaviour
         placed.InitType(typeId);
         PlacedObjectPickability.EnsurePickable(placed, true);
         return created;
-    }
-
-    void AutoFixPickabilityIfNeeded()
-    {
-        if (pickabilityAutoFixInterval <= 0f) return;
-        if (Time.unscaledTime < nextPickabilityFixTime) return;
-        nextPickabilityFixTime = Time.unscaledTime + pickabilityAutoFixInterval;
-
-        var allPlaced = FindObjectsByType<PlacedObject>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
-        int fixedCount = 0;
-        foreach (var placed in allPlaced)
-        {
-            if (PlacedObjectPickability.EnsurePickable(placed))
-            {
-                fixedCount++;
-            }
-        }
-
-        if (fixedCount > 0)
-        {
-            LogDebug($"Auto-fixed pickability. collidersAdded={fixedCount}");
-        }
     }
 
     void EnsureOutline()
