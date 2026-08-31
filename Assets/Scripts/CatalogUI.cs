@@ -6,9 +6,6 @@ using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
-#if UNITY_EDITOR
-using UnityEditor;
-#endif
 
 public class CatalogUI : MonoBehaviour
 {
@@ -2940,7 +2937,7 @@ public class CatalogUI : MonoBehaviour
             return;
         }
 
-        var selectedPath = EditorUtility.OpenFilePanel("Select 3D Model", GetDefaultModelDirectory(), string.Empty);
+        var selectedPath = EditorModelImportService.SelectModelPath();
         if (string.IsNullOrWhiteSpace(selectedPath))
         {
             SetStatus("Object selection canceled.");
@@ -2953,7 +2950,7 @@ public class CatalogUI : MonoBehaviour
         var selectedExtension = Path.GetExtension(selectedPath);
         if (string.Equals(selectedExtension, ".fbx", StringComparison.OrdinalIgnoreCase))
         {
-            if (!TryLoadFbxAsset(selectedPath, out prefab, out assetPath, out errorMessage))
+            if (!EditorModelImportService.TryLoadFbxAsset(selectedPath, out prefab, out assetPath, out errorMessage))
             {
                 SetStatus(errorMessage);
                 return;
@@ -3039,7 +3036,7 @@ public class CatalogUI : MonoBehaviour
 
         if (newObjectNameInput != null)
         {
-            var defaultName = GetDefaultNewObjectNameFromAssetPath(assetPath);
+            var defaultName = CatalogModelImportNaming.GetDefaultName(assetPath);
             if (string.IsNullOrWhiteSpace(defaultName))
             {
                 defaultName = importedCardLabel;
@@ -3093,7 +3090,7 @@ public class CatalogUI : MonoBehaviour
             }
         }
 
-        var typeId = BuildImportedTypeId(pendingImportedAssetPath, displayLabel);
+        var typeId = CatalogModelImportNaming.BuildImportedTypeId(pendingImportedAssetPath, displayLabel);
         if (!placementController.RegisterRuntimePrefab(typeId, pendingImportedPrefab))
         {
             SetStatus("Failed to register imported object.");
@@ -3237,133 +3234,6 @@ public class CatalogUI : MonoBehaviour
         return input;
     }
 
-#if UNITY_EDITOR
-    static string GetDefaultModelDirectory()
-    {
-        var documents = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-        return Directory.Exists(documents) ? documents : string.Empty;
-    }
-
-    static bool TryLoadFbxAsset(string absolutePath, out GameObject prefab, out string assetPath, out string errorMessage)
-    {
-        prefab = null;
-        assetPath = null;
-        errorMessage = null;
-
-        if (string.IsNullOrWhiteSpace(absolutePath))
-        {
-            errorMessage = "Model path is empty.";
-            return false;
-        }
-
-        if (!string.Equals(Path.GetExtension(absolutePath), ".fbx", StringComparison.OrdinalIgnoreCase))
-        {
-            errorMessage = "Please select an .fbx file.";
-            return false;
-        }
-
-        if (!File.Exists(absolutePath))
-        {
-            errorMessage = "Selected file does not exist.";
-            return false;
-        }
-
-        if (!TryToAssetPath(absolutePath, out assetPath))
-        {
-            var targetDir = EnsureImportedAssetFolders();
-            var fileStem = SanitizeName(Path.GetFileNameWithoutExtension(absolutePath));
-            if (string.IsNullOrWhiteSpace(fileStem))
-            {
-                fileStem = "ImportedModel";
-            }
-
-            var uniqueSuffix = DateTime.UtcNow.Ticks.ToString();
-            assetPath = $"{targetDir}/{fileStem}_{uniqueSuffix}.fbx";
-            FileUtil.CopyFileOrDirectory(absolutePath, assetPath);
-        }
-
-        AssetDatabase.ImportAsset(assetPath, ImportAssetOptions.ForceSynchronousImport | ImportAssetOptions.ForceUpdate);
-        prefab = AssetDatabase.LoadAssetAtPath<GameObject>(assetPath);
-        if (prefab == null)
-        {
-            errorMessage = "Failed to import selected FBX.";
-            return false;
-        }
-
-        return true;
-    }
-
-    static string EnsureImportedAssetFolders()
-    {
-        const string rootFolder = "Assets/ImportedFbx";
-        if (!AssetDatabase.IsValidFolder(rootFolder))
-        {
-            AssetDatabase.CreateFolder("Assets", "ImportedFbx");
-        }
-
-        return rootFolder;
-    }
-
-    static bool TryToAssetPath(string absolutePath, out string assetPath)
-    {
-        assetPath = NormalizePath(FileUtil.GetProjectRelativePath(Path.GetFullPath(absolutePath)));
-        if (string.IsNullOrWhiteSpace(assetPath) ||
-            (!assetPath.Equals("Assets", StringComparison.OrdinalIgnoreCase) &&
-             !assetPath.StartsWith("Assets/", StringComparison.OrdinalIgnoreCase)))
-        {
-            assetPath = null;
-            return false;
-        }
-        return true;
-    }
-
-    static string NormalizePath(string path)
-    {
-        return path.Replace('\\', '/');
-    }
-#endif
-
-    static string BuildImportedTypeId(string assetPath, string displayLabel)
-    {
-        var stem = string.IsNullOrWhiteSpace(displayLabel)
-            ? Path.GetFileNameWithoutExtension(assetPath)
-            : displayLabel;
-        var sanitized = SanitizeName(stem);
-        if (string.IsNullOrWhiteSpace(sanitized))
-        {
-            sanitized = "Model";
-        }
-
-        return $"Imported/{sanitized}_{DateTime.UtcNow.Ticks}";
-    }
-
-    static string GetDefaultNewObjectNameFromAssetPath(string assetPath)
-    {
-        if (string.IsNullOrWhiteSpace(assetPath)) return string.Empty;
-
-        var stem = Path.GetFileNameWithoutExtension(assetPath);
-        if (string.IsNullOrWhiteSpace(stem)) return string.Empty;
-
-        return stem;
-    }
-
-    static string SanitizeName(string source)
-    {
-        if (string.IsNullOrWhiteSpace(source)) return string.Empty;
-
-        var chars = source.ToCharArray();
-        for (int i = 0; i < chars.Length; i++)
-        {
-            var ch = chars[i];
-            var valid = char.IsLetterOrDigit(ch) || ch == '_' || ch == '-';
-            if (!valid)
-            {
-                chars[i] = '_';
-            }
-        }
-
-        return new string(chars).Trim('_');
-    }
 }
 
 public class SettingsOverlayClickCatcher : MonoBehaviour, IPointerClickHandler
