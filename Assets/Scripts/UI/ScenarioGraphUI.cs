@@ -708,7 +708,7 @@ public class ScenarioGraphUI : MonoBehaviour
         var defaultPositions = BuildDefaultNodePositions();
         var stepIndexMap = graph.BuildStepIndexMap();
 
-        foreach (var node in graph.curriculum.nodes.Where(n => n != null).OrderBy(GetNodeSortOrder).ThenBy(n => n.nodeId))
+        foreach (var node in graph.curriculum.nodes.Where(n => n != null).OrderBy(ScenarioGraphLayout.GetNodeSortOrder).ThenBy(n => n.nodeId))
         {
             if (string.IsNullOrWhiteSpace(node.nodeId)) continue;
 
@@ -758,21 +758,8 @@ public class ScenarioGraphUI : MonoBehaviour
         }
     }
 
-    static int GetNodeSortOrder(ScenarioNode node)
-    {
-        return node.nodeType switch
-        {
-            ScenarioNodeType.Start => 0,
-            ScenarioNodeType.Step => 1,
-            ScenarioNodeType.Condition => 2,
-            ScenarioNodeType.End => 3,
-            _ => 9
-        };
-    }
-
     Dictionary<string, Vector2> BuildDefaultNodePositions()
     {
-        var defaults = new Dictionary<string, Vector2>();
         var flowNodes = new List<ScenarioNode>();
         var start = graph.GetStartNode();
         if (start != null) flowNodes.Add(start);
@@ -794,68 +781,19 @@ public class ScenarioGraphUI : MonoBehaviour
             .OrderBy(condition => condition.nodeId)
             .ToList();
 
-        Vector2 flowSize = GetLargestTemplateSize(
+        Vector2 flowSize = ScenarioGraphLayout.GetLargestTemplateSize(
             new Component[] { startNodeTemplate, stepNodeTemplate, endNodeTemplate },
             new Vector2(390f, 220f));
-        Vector2 conditionSize = GetLargestTemplateSize(
+        Vector2 conditionSize = ScenarioGraphLayout.GetLargestTemplateSize(
             new Component[] { conditionNodeTemplate },
             new Vector2(390f, 180f));
-        float flowSpacingX = flowSize.x + NodeLayoutGap;
-        float flowSpacingY = flowSize.y + NodeLayoutGap;
-        int flowRows = Mathf.Max(1, Mathf.CeilToInt(flowNodes.Count / (float)MaxLayoutColumns));
-        float flowCenterY = unboundConditions.Count > 0 ? 220f : 0f;
-        float flowTopY = flowCenterY + ((flowRows - 1) * flowSpacingY * 0.5f);
-
-        for (int row = 0; row < flowRows; row++)
-        {
-            int rowStartIndex = row * MaxLayoutColumns;
-            int rowCount = Mathf.Min(MaxLayoutColumns, flowNodes.Count - rowStartIndex);
-            float rowStartX = -((rowCount - 1) * flowSpacingX * 0.5f);
-            for (int column = 0; column < rowCount; column++)
-            {
-                var node = flowNodes[rowStartIndex + column];
-                defaults[node.nodeId] = new Vector2(
-                    rowStartX + (column * flowSpacingX),
-                    flowTopY - (row * flowSpacingY));
-            }
-        }
-
-        if (unboundConditions.Count == 0) return defaults;
-
-        float conditionSpacingX = conditionSize.x + NodeLayoutGap;
-        float conditionSpacingY = conditionSize.y + NodeLayoutGap;
-        float flowBottomY = flowTopY - ((flowRows - 1) * flowSpacingY);
-        float conditionTopY = flowBottomY - (flowSize.y * 0.5f) - (conditionSize.y * 0.5f) - NodeLayoutGap;
-        int conditionRows = Mathf.CeilToInt(unboundConditions.Count / (float)MaxLayoutColumns);
-        for (int row = 0; row < conditionRows; row++)
-        {
-            int rowStartIndex = row * MaxLayoutColumns;
-            int rowCount = Mathf.Min(MaxLayoutColumns, unboundConditions.Count - rowStartIndex);
-            float rowStartX = -((rowCount - 1) * conditionSpacingX * 0.5f);
-            for (int column = 0; column < rowCount; column++)
-            {
-                var condition = unboundConditions[rowStartIndex + column];
-                defaults[condition.nodeId] = new Vector2(
-                    rowStartX + (column * conditionSpacingX),
-                    conditionTopY - (row * conditionSpacingY));
-            }
-        }
-
-        return defaults;
-    }
-
-    static Vector2 GetLargestTemplateSize(IEnumerable<Component> templates, Vector2 fallback)
-    {
-        var size = fallback;
-        foreach (var template in templates)
-        {
-            var rect = template != null ? template.transform as RectTransform : null;
-            if (rect == null) continue;
-            size.x = Mathf.Max(size.x, rect.rect.width, rect.sizeDelta.x);
-            size.y = Mathf.Max(size.y, rect.rect.height, rect.sizeDelta.y);
-        }
-
-        return size;
+        return ScenarioGraphLayout.BuildDefaultNodePositions(
+            flowNodes,
+            unboundConditions,
+            flowSize,
+            conditionSize,
+            NodeLayoutGap,
+            MaxLayoutColumns);
     }
 
     void InstantiateStartNode(ScenarioNode node, Dictionary<string, Vector2> defaults)
