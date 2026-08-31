@@ -22,39 +22,7 @@ public class CurriculumGraphService : MonoBehaviour
 
     public bool ExecuteCommand(string label, Func<bool> mutation)
     {
-        if (mutation == null) return false;
-
-        string before = CaptureCommandSnapshot();
-        bool succeeded;
-        try
-        {
-            succeeded = mutation();
-        }
-        catch (Exception ex)
-        {
-            RestoreAfterFailedMutation(before);
-            Debug.LogException(ex);
-            return false;
-        }
-
-        string after = CaptureCommandSnapshot();
-        if (!succeeded)
-        {
-            RestoreAfterFailedMutation(before, after);
-            return false;
-        }
-
-        if (string.Equals(before, after, StringComparison.Ordinal)) return false;
-
-        NotifyGraphChanged();
-        var command = new CurriculumGraphSnapshotCommand(this, label, before, after);
-        if (CommandService.I != null && CommandService.I.Stack != null)
-        {
-            return CommandService.I.Stack.RecordApplied(command);
-        }
-
-        Debug.LogWarning("[CurriculumGraphService] Graph edit applied without undo because CommandService is missing.");
-        return true;
+        return CurriculumGraphCommandProcessor.Execute(this, label, mutation);
     }
 
     internal string CaptureCommandSnapshot()
@@ -76,14 +44,7 @@ public class CurriculumGraphService : MonoBehaviour
         return true;
     }
 
-    void RestoreAfterFailedMutation(string before, string current = null)
-    {
-        current ??= CaptureCommandSnapshot();
-        if (string.Equals(before, current, StringComparison.Ordinal)) return;
-        RestoreCommandSnapshot(before);
-    }
-
-    void NotifyGraphChanged()
+    internal void NotifyGraphChanged()
     {
         var handlers = GraphChanged;
         if (handlers == null) return;
@@ -522,38 +483,6 @@ public class CurriculumGraphService : MonoBehaviour
     {
         EnsureGraphInitialized();
         return ScenarioExportBuilder.Build(this);
-    }
-}
-
-sealed class CurriculumGraphSnapshotCommand : IEditorCommand
-{
-    readonly CurriculumGraphService graph;
-    readonly string before;
-    readonly string after;
-    readonly string label;
-
-    public string Label => label;
-
-    public CurriculumGraphSnapshotCommand(
-        CurriculumGraphService graph,
-        string label,
-        string before,
-        string after)
-    {
-        this.graph = graph;
-        this.label = string.IsNullOrWhiteSpace(label) ? "Edit scenario" : label;
-        this.before = before;
-        this.after = after;
-    }
-
-    public bool Do()
-    {
-        return graph != null && graph.RestoreCommandSnapshot(after);
-    }
-
-    public bool Undo()
-    {
-        return graph != null && graph.RestoreCommandSnapshot(before);
     }
 }
 
