@@ -4,6 +4,8 @@ using UnityEngine.Rendering;
 
 public class SelectionOutline : MonoBehaviour
 {
+    const float OutlineLineWidth = 0.012f;
+
     [SerializeField] Material lineMat;
     [SerializeField] float handlePickRadiusPixels = 18f;
     [SerializeField] float minScaleAxis = 0.1f;
@@ -226,7 +228,7 @@ public class SelectionOutline : MonoBehaviour
             lr.material = GetRuntimeLineMaterial();
             lr.positionCount = 2;
             lr.useWorldSpace = true;
-            lr.widthMultiplier = 0.05f;
+            lr.widthMultiplier = OutlineLineWidth;
             lr.alignment = LineAlignment.View;
             lr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             lr.receiveShadows = false;
