@@ -77,8 +77,14 @@ public class EditorCameraController : MonoBehaviour
     void Update()
     {
         EnsureCameraRig();
-        bool typingBlocked = EditWorkspace.IsTypingIntoInputField();
         Vector2 mousePosition = EditInput.MousePosition;
+        if (!IsPointerInsideGameView(mousePosition))
+        {
+            hasPreviousMousePosition = false;
+            return;
+        }
+
+        bool typingBlocked = EditWorkspace.IsTypingIntoInputField();
         float scrollY = EditInput.ScrollY;
         bool middlePressed = EditInput.MiddlePressed();
         bool rightPressed = EditInput.RightPressed();
@@ -130,6 +136,15 @@ public class EditorCameraController : MonoBehaviour
 
         HandleOrbit(delta);
         LogDiagnostics("Orbit", true, delta, scrollY);
+    }
+
+    static bool IsPointerInsideGameView(Vector2 mousePosition)
+    {
+        return Application.isFocused &&
+               mousePosition.x >= 0f &&
+               mousePosition.y >= 0f &&
+               mousePosition.x < Screen.width &&
+               mousePosition.y < Screen.height;
     }
 
     void RememberMousePosition(Vector2 mousePosition)
