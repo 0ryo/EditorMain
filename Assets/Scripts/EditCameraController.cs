@@ -179,25 +179,8 @@ public class EditorCameraController : MonoBehaviour
         if (placedObject == null) return false;
 
         EnsureCameraRig();
-        var renderers = placedObject.GetComponentsInChildren<Renderer>(true);
-        Bounds bounds = new Bounds(placedObject.transform.position, Vector3.one);
-        bool hasBounds = false;
-        foreach (var renderer in renderers)
-        {
-            if (renderer == null) continue;
-            if (!hasBounds)
-            {
-                bounds = renderer.bounds;
-                hasBounds = true;
-            }
-            else
-            {
-                bounds.Encapsulate(renderer.bounds);
-            }
-        }
-
-        pivot.position = hasBounds ? bounds.center : placedObject.transform.position;
-        float radius = Mathf.Max(0.5f, hasBounds ? bounds.extents.magnitude : 0.5f);
+        EditorCameraNavigationMath.GetFocusTarget(placedObject, out var center, out var radius);
+        pivot.position = center;
 
         if (cachedCamera != null && cachedCamera.orthographic)
         {
@@ -244,8 +227,9 @@ public class EditorCameraController : MonoBehaviour
 
         if (cachedCamera.orthographic)
         {
-            float targetDistance = Mathf.Clamp(
-                cachedCamera.orthographicSize / Mathf.Tan(cachedCamera.fieldOfView * 0.5f * Mathf.Deg2Rad),
+            float targetDistance = EditorCameraNavigationMath.CalculatePerspectiveDistanceForSize(
+                cachedCamera.orthographicSize,
+                cachedCamera.fieldOfView,
                 minDistance,
                 maxDistance);
             cachedCamera.orthographic = false;
@@ -255,8 +239,9 @@ public class EditorCameraController : MonoBehaviour
         {
             float distance = Mathf.Max(minDistance, transform.localPosition.magnitude);
             cachedCamera.orthographic = true;
-            cachedCamera.orthographicSize = Mathf.Clamp(
-                distance * Mathf.Tan(cachedCamera.fieldOfView * 0.5f * Mathf.Deg2Rad),
+            cachedCamera.orthographicSize = EditorCameraNavigationMath.CalculateOrthographicSizeForDistance(
+                distance,
+                cachedCamera.fieldOfView,
                 minOrthographicSize,
                 maxOrthographicSize);
             SyncOrthographicCameraDistance(cachedCamera.orthographicSize);
@@ -324,14 +309,21 @@ public class EditorCameraController : MonoBehaviour
     void SyncPivotAngles()
     {
         Vector3 euler = pivot.rotation.eulerAngles;
-        pitch = NormalizeAngle(euler.x);
-        yaw = NormalizeAngle(euler.y);
+        pitch = EditorCameraNavigationMath.NormalizeAngle(euler.x);
+        yaw = EditorCameraNavigationMath.NormalizeAngle(euler.y);
     }
 
     void HandleOrbit(Vector2 delta)
     {
-        yaw += delta.x * (orbitSpeed * 0.02f);
-        pitch = Mathf.Clamp(pitch - (delta.y * orbitSpeed * 0.02f), minPitch, maxPitch);
+        EditorCameraNavigationMath.CalculateOrbit(
+            yaw,
+            pitch,
+            delta,
+            orbitSpeed,
+            minPitch,
+            maxPitch,
+            out yaw,
+            out pitch);
         ApplyPivotRotation();
     }
 
@@ -342,13 +334,15 @@ public class EditorCameraController : MonoBehaviour
 
     void HandleHorizontalPan(Vector2 delta)
     {
-        Vector3 right = Vector3.ProjectOnPlane(transform.right, Vector3.up).normalized;
-        Vector3 forward = Vector3.ProjectOnPlane(transform.forward, Vector3.up).normalized;
-        if (right.sqrMagnitude <= 0.0001f || forward.sqrMagnitude <= 0.0001f) return;
+        if (!EditorCameraNavigationMath.TryCalculateHorizontalPan(
+                transform.right,
+                transform.forward,
+                transform.localPosition.magnitude,
+                minDistance,
+                panSpeed,
+                delta,
+                out var move)) return;
 
-        float distance = Mathf.Max(minDistance, transform.localPosition.magnitude);
-        float scaledPanSpeed = panSpeed * distance * 0.1f;
-        Vector3 move = ((-delta.x * right) + (-delta.y * forward)) * scaledPanSpeed;
         pivot.position += move;
     }
 
@@ -356,14 +350,16 @@ public class EditorCameraController : MonoBehaviour
     {
         if (Mathf.Abs(rawScrollY) <= 0.0001f) return;
 
-        float scroll = Mathf.Abs(rawScrollY) > 1f ? rawScrollY / 120f : rawScrollY;
+        float scroll = EditorCameraNavigationMath.NormalizeScroll(rawScrollY);
 
         if (cachedCamera != null && cachedCamera.orthographic)
         {
-            float minSize = Mathf.Max(0.01f, minOrthographicSize);
-            float maxSize = Mathf.Max(minSize, maxOrthographicSize);
-            float zoomFactor = Mathf.Exp(-scroll * orthographicZoomSpeed);
-            float targetSize = Mathf.Clamp(cachedCamera.orthographicSize * zoomFactor, minSize, maxSize);
+            float targetSize = EditorCameraNavigationMath.CalculateOrthographicSize(
+                cachedCamera.orthographicSize,
+                scroll,
+                orthographicZoomSpeed,
+                minOrthographicSize,
+                maxOrthographicSize);
 
             cachedCamera.orthographicSize = targetSize;
             SyncOrthographicCameraDistance(targetSize);
@@ -371,9 +367,10 @@ public class EditorCameraController : MonoBehaviour
             return;
         }
 
-        float currentDistance = Mathf.Max(0.0001f, transform.localPosition.magnitude);
-        float targetDistance = Mathf.Clamp(
-            currentDistance - (scroll * zoomSpeed),
+        float targetDistance = EditorCameraNavigationMath.CalculatePerspectiveDistance(
+            transform.localPosition.magnitude,
+            scroll,
+            zoomSpeed,
             minDistance,
             maxDistance);
 
@@ -383,8 +380,9 @@ public class EditorCameraController : MonoBehaviour
 
     void SyncOrthographicCameraDistance(float orthographicSize)
     {
-        float distance = Mathf.Clamp(
-            orthographicSize * Mathf.Max(1f, orthographicDistancePerSize),
+        float distance = EditorCameraNavigationMath.CalculateOrthographicCameraDistance(
+            orthographicSize,
+            orthographicDistancePerSize,
             minDistance,
             maxDistance);
 
@@ -397,13 +395,6 @@ public class EditorCameraController : MonoBehaviour
         {
             cachedCamera.farClipPlane = Mathf.Max(1000f, distance + orthographicSize * 4f);
         }
-    }
-
-    static float NormalizeAngle(float angle)
-    {
-        angle %= 360f;
-        if (angle > 180f) angle -= 360f;
-        return angle;
     }
 
     void LogDiagnostics(string phase, bool force, Vector2 delta, float scrollY)

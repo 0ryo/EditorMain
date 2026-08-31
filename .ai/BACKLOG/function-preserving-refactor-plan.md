@@ -81,7 +81,7 @@ EditorMainの実装を機能単位で整理し、肥大化したclass、重複�
 |---|---|---|---|
 | 1. Project save/load/export | Complete | `refactor: separate project persistence data processing` | Passed |
 | 2. Placement/catalog/import | Complete | `refactor: separate catalog card state and filtering`<br>`refactor: separate placement prefab and object creation`<br>`refactor: extract runtime edit composition`<br>`refactor: separate catalog model import processing` | Passed |
-| 3. 3D editing | Selection and outliner passed; awaiting transform verification | `refactor: separate placed object selection processing`<br>`refactor: separate outliner data processing`<br>`refactor: separate transform gizmo geometry` | Transform pending |
+| 3. 3D editing | Selection, outliner, and transform passed; awaiting camera verification | `refactor: separate placed object selection processing`<br>`refactor: separate outliner data processing`<br>`refactor: separate transform gizmo geometry`<br>`refactor: separate camera navigation calculations` | Camera pending |
 | 4. Scenario domain/validation | Pending | - | Pending |
 | 5. Scenario graph UI | Pending | - | Pending |
 | 6. Object detail/condition references | Pending | - | Pending |
