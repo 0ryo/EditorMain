@@ -86,7 +86,19 @@ public class SelectionService : MonoBehaviour
             }
 
             Ray ray = cam.ScreenPointToRay(mousePosition);
-            if (TryPickPlacedObject(ray, out var picked, out var hitSomething))
+            bool pickedPlacedObject = PlacedObjectPicker.TryPick(
+                ray,
+                pickMask,
+                out var picked,
+                out var hitSomething,
+                out var usedMaskFallback);
+            if (usedMaskFallback && !warnedPickMaskExclusion)
+            {
+                warnedPickMaskExclusion = true;
+                LogWarning($"pickMask excluded selected object layer. picked={picked.name}");
+            }
+
+            if (pickedPlacedObject)
             {
                 if (picked != Current)
                 {
@@ -113,21 +125,7 @@ public class SelectionService : MonoBehaviour
         {
             System.Func<string, GameObject> factory = (tId) =>
             {
-                if (registry != null)
-                {
-                    var entry = registry.entries.Find(e => e.typeId == tId);
-                    if (entry != null && entry.prefab != null)
-                    {
-                        return InstantiatePlacedForUndo(entry.prefab, tId);
-                    }
-                }
-
-                if (placementController != null && placementController.TryGetPrefab(tId, out var runtimePrefab))
-                {
-                    return InstantiatePlacedForUndo(runtimePrefab, tId);
-                }
-
-                return null;
+                return PlacedObjectRestoreFactory.Create(tId, registry, placementController);
             };
 
             var deleteCmd = new DeleteObjectCommand(Current.gameObject, Current.typeId, factory);
@@ -180,19 +178,6 @@ public class SelectionService : MonoBehaviour
         LogDebug(po != null ? $"Selected: id={po.Id}, type={po.TypeId}" : "Selection cleared.");
     }
 
-    GameObject InstantiatePlacedForUndo(GameObject prefab, string typeId)
-    {
-        if (prefab == null || string.IsNullOrWhiteSpace(typeId)) return null;
-
-        var created = Instantiate(prefab);
-        var placed = created.GetComponent<PlacedObject>();
-        if (placed == null) placed = created.AddComponent<PlacedObject>();
-
-        placed.InitType(typeId);
-        PlacedObjectPickability.EnsurePickable(placed, true);
-        return created;
-    }
-
     void EnsureOutline()
     {
         if (outline != null) return;
@@ -221,49 +206,6 @@ public class SelectionService : MonoBehaviour
         }
     }
 
-    bool TryPickPlacedObject(Ray ray, out PlacedObject picked, out bool hitSomething)
-    {
-        picked = null;
-        hitSomething = false;
-
-        var hits = Physics.RaycastAll(ray, 1000f, ~0, QueryTriggerInteraction.Collide);
-        if (hits == null || hits.Length == 0) return false;
-        hitSomething = true;
-
-        System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
-
-        PlacedObject fallback = null;
-        foreach (var hit in hits)
-        {
-            var collider = hit.collider;
-            if (collider == null) continue;
-
-            var placed = collider.GetComponentInParent<PlacedObject>();
-            if (placed == null) continue;
-
-            if (fallback == null) fallback = placed;
-
-            if (IsLayerIncluded(collider.gameObject.layer, pickMask) || IsLayerIncluded(placed.gameObject.layer, pickMask))
-            {
-                picked = placed;
-                return true;
-            }
-        }
-
-        if (fallback != null)
-        {
-            picked = fallback;
-            if (!warnedPickMaskExclusion)
-            {
-                warnedPickMaskExclusion = true;
-                LogWarning($"pickMask excluded selected object layer. picked={fallback.name}");
-            }
-            return true;
-        }
-
-        return false;
-    }
-
     void LogDebug(string message)
     {
         LastDebugMessage = message;
@@ -277,8 +219,4 @@ public class SelectionService : MonoBehaviour
         Debug.LogWarning("[Selection] " + message);
     }
 
-    static bool IsLayerIncluded(int layer, LayerMask mask)
-    {
-        return (mask.value & (1 << layer)) != 0;
-    }
 }

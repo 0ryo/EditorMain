@@ -80,8 +80,8 @@ EditorMainの実装を機能単位で整理し、肥大化したclass、重複�
 | Phase | Status | Commit | Unity verification |
 |---|---|---|---|
 | 1. Project save/load/export | Complete | `refactor: separate project persistence data processing` | Passed |
-| 2. Placement/catalog/import | Catalog, placement, and composition passed; awaiting import verification | `refactor: separate catalog card state and filtering`<br>`refactor: separate placement prefab and object creation`<br>`refactor: extract runtime edit composition`<br>`refactor: separate catalog model import processing` | Import pending |
-| 3. 3D editing | Pending | - | Pending |
+| 2. Placement/catalog/import | Complete | `refactor: separate catalog card state and filtering`<br>`refactor: separate placement prefab and object creation`<br>`refactor: extract runtime edit composition`<br>`refactor: separate catalog model import processing` | Passed |
+| 3. 3D editing | Awaiting selection verification | `refactor: separate placed object selection processing` | Pending |
 | 4. Scenario domain/validation | Pending | - | Pending |
 | 5. Scenario graph UI | Pending | - | Pending |
 | 6. Object detail/condition references | Pending | - | Pending |
