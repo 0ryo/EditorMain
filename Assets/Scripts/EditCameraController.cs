@@ -2,7 +2,22 @@ using UnityEngine;
 
 public class EditorCameraController : MonoBehaviour
 {
-    static readonly string[] NodeAreaUiNames = { "NodeArea" };
+    static readonly string[] BlockingUiRectNames =
+    {
+        "Panel_Catalog",
+        "Panel_Settings",
+        "Panel_NewObjectSettings",
+        "Panel_Hints",
+        "Panel_Detail",
+        "Panel_SaveValidation",
+        "Panel_ScenarioGraph",
+        "NodeArea",
+        "EditModeRow",
+        "EditModeRow_Runtime",
+        "Button_Settings",
+        "Button_Settings_Runtime",
+        "Button_Hints"
+    };
 
     [Header("Sensitivity")]
     public float orbitSpeed = 12f;
@@ -68,7 +83,7 @@ public class EditorCameraController : MonoBehaviour
         bool middlePressed = EditInput.MiddlePressed();
         bool rightPressed = EditInput.RightPressed();
         bool shiftPressed = EditInput.ShiftPressed();
-        bool overNodeArea = EditWorkspace.TryGetBlockingUiName(mousePosition, NodeAreaUiNames, out _);
+        bool overBlockingUi = EditWorkspace.TryGetBlockingUiName(mousePosition, BlockingUiRectNames, out _);
 
         if (typingBlocked)
         {
@@ -79,7 +94,7 @@ public class EditorCameraController : MonoBehaviour
             return;
         }
 
-        if (overNodeArea)
+        if (overBlockingUi)
         {
             RememberMousePosition(mousePosition);
             return;
