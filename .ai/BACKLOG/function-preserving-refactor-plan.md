@@ -83,7 +83,7 @@ EditorMainの実装を機能単位で整理し、肥大化したclass、重複�
 | 2. Placement/catalog/import | Complete | `refactor: separate catalog card state and filtering`<br>`refactor: separate placement prefab and object creation`<br>`refactor: extract runtime edit composition`<br>`refactor: separate catalog model import processing` | Passed |
 | 3. 3D editing | Complete | `refactor: separate placed object selection processing`<br>`refactor: separate outliner data processing`<br>`refactor: separate transform gizmo geometry`<br>`refactor: separate camera navigation calculations`<br>`fix: restrict camera navigation to viewport`<br>`fix: ignore camera input outside game view` | Passed |
 | 4. Scenario domain/validation | Complete | `refactor: separate scenario graph validation`<br>`refactor: separate scenario connection rules`<br>`refactor: separate scenario graph traversal`<br>`refactor: separate scenario export building`<br>`refactor: separate scenario graph command processing` | Passed |
-| 5. Scenario graph UI | Awaiting node-layout verification | `refactor: separate scenario graph layout` | Node layout pending |
+| 5. Scenario graph UI | Awaiting node-layout and validation-panel verification | `refactor: separate scenario graph layout`<br>`fix: make validation panel minimize reliable` | Node layout and validation panel pending |
 | 6. Object detail/condition references | Pending | - | Pending |
 | 7. UI settings/generation/fallbacks | Pending | - | Pending |
 | 8. Cross-cutting performance | Pending | - | Pending |

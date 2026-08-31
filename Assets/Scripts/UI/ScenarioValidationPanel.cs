@@ -29,9 +29,11 @@ public class ScenarioValidationPanel : MonoBehaviour
     [SerializeField] Outline panelOutline;
     bool applyingResponsiveLayout;
     bool isMinimized;
+    Button wiredCloseButton;
     readonly List<GraphValidationIssue> navigableIssues = new List<GraphValidationIssue>();
     Action<string> nodeRequested;
     int currentIssueIndex = -1;
+    int lastCloseClickFrame = -1;
     bool hasIssues;
 
     public bool IsVisible => gameObject.activeSelf;
@@ -288,9 +290,15 @@ public class ScenarioValidationPanel : MonoBehaviour
 
     void WireCloseButton()
     {
-        if (closeButton == null) return;
-        closeButton.onClick.RemoveListener(OnClickClose);
-        closeButton.onClick.AddListener(OnClickClose);
+        if (wiredCloseButton != null && wiredCloseButton != closeButton)
+        {
+            wiredCloseButton.onClick.RemoveListener(OnClickClose);
+        }
+
+        wiredCloseButton = closeButton;
+        if (wiredCloseButton == null) return;
+        wiredCloseButton.onClick.RemoveListener(OnClickClose);
+        wiredCloseButton.onClick.AddListener(OnClickClose);
     }
 
     void EnsureNavigationControls()
@@ -442,6 +450,9 @@ public class ScenarioValidationPanel : MonoBehaviour
 
     void OnClickClose()
     {
+        if (lastCloseClickFrame == Time.frameCount) return;
+        lastCloseClickFrame = Time.frameCount;
+
         if (isMinimized)
         {
             RestoreIssueList();
