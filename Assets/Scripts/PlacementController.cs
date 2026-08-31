@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using System;
 using UnityEngine;
 
@@ -27,7 +26,7 @@ public class PlacementController : MonoBehaviour
     public SelectionService selection;
 
     string currentTypeId;
-    Dictionary<string, GameObject> map;
+    PlacementPrefabCatalog prefabCatalog;
     static bool uiDragInProgress;
     public event Action<string> PlacementTypeChanged;
     public event Action<PlacedObject, string> ObjectPlaced;
@@ -79,7 +78,7 @@ public class PlacementController : MonoBehaviour
 
     void RebuildTypeMapFromRegistry()
     {
-        map = new Dictionary<string, GameObject>();
+        prefabCatalog = new PlacementPrefabCatalog();
 
         if (registry == null)
         {
@@ -87,22 +86,15 @@ public class PlacementController : MonoBehaviour
             return;
         }
 
-        foreach (var entry in registry.entries)
-        {
-            if (entry == null || string.IsNullOrWhiteSpace(entry.typeId) || entry.prefab == null) continue;
-            if (!map.ContainsKey(entry.typeId))
-            {
-                map.Add(entry.typeId, entry.prefab);
-            }
-        }
+        prefabCatalog.Rebuild(registry.entries);
 
-        Debug.Log($"[Placement] Registry loaded. entries={map.Count}");
+        Debug.Log($"[Placement] Registry loaded. entries={prefabCatalog.Count}");
     }
 
     void EnsureTypeMap()
     {
         EnsureRegistryAssigned();
-        if (map != null && map.Count > 0) return;
+        if (prefabCatalog != null && prefabCatalog.Count > 0) return;
         RebuildTypeMapFromRegistry();
     }
 
@@ -111,7 +103,7 @@ public class PlacementController : MonoBehaviour
         if (string.IsNullOrWhiteSpace(typeId) || prefab == null) return false;
 
         EnsureTypeMap();
-        map[typeId] = prefab;
+        prefabCatalog.Register(typeId, prefab);
         Debug.Log($"[Placement] Runtime prefab registered: {typeId}");
         return true;
     }
@@ -122,7 +114,7 @@ public class PlacementController : MonoBehaviour
         if (string.IsNullOrWhiteSpace(typeId)) return false;
 
         EnsureTypeMap();
-        return map.TryGetValue(typeId, out prefab) && prefab != null;
+        return prefabCatalog.TryGet(typeId, out prefab);
     }
 
     void CancelPlacement()
@@ -231,7 +223,7 @@ public class PlacementController : MonoBehaviour
 
     bool PlaceType(string typeId, Vector3 floorPoint)
     {
-        if (!TryGetPrefab(typeId, out var prefab))
+        if (!TryGetPrefab(typeId, out _))
         {
             LogWarning($"PlaceType failed. {typeId} is not registered.");
             return false;
@@ -286,19 +278,7 @@ public class PlacementController : MonoBehaviour
         placed = null;
         if (!TryGetPrefab(typeId, out var sourcePrefab)) return null;
 
-        var obj = Instantiate(sourcePrefab);
-        if (!obj.activeSelf)
-        {
-            obj.SetActive(true);
-        }
-
-        placed = obj.GetComponent<PlacedObject>();
-        if (placed == null) placed = obj.AddComponent<PlacedObject>();
-
-        placed.InitType(typeId);
-        placed.ForceNewId();
-        PlacedObjectPickability.EnsurePickable(placed, true);
-        return obj;
+        return PlacementObjectFactory.Create(sourcePrefab, typeId, out placed);
     }
 
     void LogDebug(string message)
@@ -325,7 +305,7 @@ public class PlacementController : MonoBehaviour
         string blockingName = null;
         bool blocked = EditWorkspace.TryGetBlockingUiName(mousePosition, BlockingUiRectNames, out blockingName);
         string cameraName = cam != null ? cam.name : "(null)";
-        int typeCount = map != null ? map.Count : -1;
+        int typeCount = prefabCatalog != null ? prefabCatalog.Count : -1;
         string mode = EditModeService.I != null ? EditModeService.I.Mode.ToString() : "(no EditModeService)";
 
         Debug.Log(
