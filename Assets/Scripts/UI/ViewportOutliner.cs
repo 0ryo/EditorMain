@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -77,7 +75,7 @@ public sealed class ViewportOutliner : MonoBehaviour
 
         if (!showingOutliner || Time.unscaledTime < nextSignatureCheck) return;
         nextSignatureCheck = Time.unscaledTime + 0.5f;
-        int signature = CalculateObjectSignature();
+        int signature = ViewportOutlinerData.CalculateCurrentSignature();
         if (signature != lastObjectSignature) RebuildList();
     }
 
@@ -311,10 +309,7 @@ public sealed class ViewportOutliner : MonoBehaviour
             Destroy(child.gameObject);
         }
 
-        var placedObjects = new List<PlacedObject>(
-            FindObjectsByType<PlacedObject>(FindObjectsInactive.Exclude, FindObjectsSortMode.None));
-        placedObjects.RemoveAll(placed => placed == null || !placed.gameObject.scene.IsValid());
-        placedObjects.Sort(ComparePlacedObjects);
+        var placedObjects = ViewportOutlinerData.CollectSorted(out int sourceObjectCount);
 
         if (activeObject != null && !placedObjects.Contains(activeObject)) activeObject = null;
         if (activeObject == null && selectionService != null && placedObjects.Contains(selectionService.Current))
@@ -326,7 +321,7 @@ public sealed class ViewportOutliner : MonoBehaviour
         int matchCount = 0;
         foreach (var placed in placedObjects)
         {
-            if (!MatchesSearch(placed, query)) continue;
+            if (!ViewportOutlinerData.MatchesSearch(placed, query)) continue;
             CreateObjectRow(placed);
             matchCount++;
         }
@@ -347,13 +342,13 @@ public sealed class ViewportOutliner : MonoBehaviour
             element.preferredHeight = 48f;
         }
 
-        lastObjectSignature = CalculateObjectSignature();
+        lastObjectSignature = ViewportOutlinerData.CalculateSignature(placedObjects, sourceObjectCount);
         RefreshActionButtons();
     }
 
     void CreateObjectRow(PlacedObject placed)
     {
-        var row = CreateRect("Row_" + SafeName(placed.Id), listRoot);
+        var row = CreateRect("Row_" + ViewportOutlinerData.SafeName(placed.Id), listRoot);
         var rowImage = row.gameObject.AddComponent<Image>();
         bool selected = activeObject == placed;
         rowImage.color = selected ? DesignTokens.BadgeBg(DesignTokens.Accent) : DesignTokens.Surface;
@@ -474,7 +469,10 @@ public sealed class ViewportOutliner : MonoBehaviour
         if (activeObject == null) return;
 
         var target = activeObject;
-        var command = new DeleteObjectCommand(target.gameObject, target.TypeId, InstantiatePlacedForUndo);
+        var command = new DeleteObjectCommand(
+            target.gameObject,
+            target.TypeId,
+            typeId => PlacedObjectRestoreFactory.Create(typeId, null, placementController));
         bool succeeded = CommandService.I != null && CommandService.I.Stack != null
             ? CommandService.I.Stack.Execute(command)
             : command.Do();
@@ -483,73 +481,6 @@ public sealed class ViewportOutliner : MonoBehaviour
         if (selectionService != null && selectionService.Current == target) selectionService.Select(null);
         activeObject = null;
         RebuildList();
-    }
-
-    GameObject InstantiatePlacedForUndo(string typeId)
-    {
-        if (placementController == null || !placementController.TryGetPrefab(typeId, out var prefab) || prefab == null)
-        {
-            return null;
-        }
-
-        var created = Instantiate(prefab);
-        if (!created.activeSelf) created.SetActive(true);
-        var placed = created.GetComponent<PlacedObject>();
-        if (placed == null) placed = created.AddComponent<PlacedObject>();
-        placed.InitType(typeId);
-        PlacedObjectPickability.EnsurePickable(placed, true);
-        return created;
-    }
-
-    int CalculateObjectSignature()
-    {
-        var placedObjects = FindObjectsByType<PlacedObject>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
-        unchecked
-        {
-            int signature = placedObjects.Length;
-            foreach (var placed in placedObjects)
-            {
-                if (placed == null || !placed.gameObject.scene.IsValid()) continue;
-                int itemSignature = placed.GetInstanceID();
-                var state = placed.GetComponent<PlacedObjectEditState>();
-                if (state != null)
-                {
-                    itemSignature = itemSignature * 397 ^ (state.Hidden ? 1 : 0);
-                    itemSignature = itemSignature * 397 ^ (state.Locked ? 1 : 0);
-                }
-                signature ^= itemSignature;
-            }
-            return signature;
-        }
-    }
-
-    static int ComparePlacedObjects(PlacedObject a, PlacedObject b)
-    {
-        string aName = a != null ? a.GetDisplayName() : string.Empty;
-        string bName = b != null ? b.GetDisplayName() : string.Empty;
-        int displayComparison = string.Compare(aName, bName, StringComparison.CurrentCultureIgnoreCase);
-        if (displayComparison != 0) return displayComparison;
-        return string.Compare(a?.Id, b?.Id, StringComparison.OrdinalIgnoreCase);
-    }
-
-    static bool MatchesSearch(PlacedObject placed, string query)
-    {
-        if (placed == null || string.IsNullOrWhiteSpace(query)) return true;
-        return ContainsIgnoreCase(placed.GetDisplayName(), query)
-            || ContainsIgnoreCase(placed.Id, query)
-            || ContainsIgnoreCase(placed.TypeId, query);
-    }
-
-    static bool ContainsIgnoreCase(string source, string query)
-    {
-        return !string.IsNullOrEmpty(source)
-            && source.IndexOf(query, StringComparison.CurrentCultureIgnoreCase) >= 0;
-    }
-
-    static string SafeName(string value)
-    {
-        if (string.IsNullOrWhiteSpace(value)) return "Object";
-        return value.Replace('/', '_').Replace('\\', '_').Replace(' ', '_');
     }
 
     static ViewportOutliner Build(RectTransform catalog)
