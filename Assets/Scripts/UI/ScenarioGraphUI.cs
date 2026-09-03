@@ -7,8 +7,6 @@ using UnityEngine.UI;
 
 public class ScenarioGraphUI : MonoBehaviour
 {
-    static readonly Color ConnectionLineColor = DesignTokens.Accent;
-    static readonly Color DragPreviewLineColor = new Color(DesignTokens.Accent.r, DesignTokens.Accent.g, DesignTokens.Accent.b, 0.9f);
     const string AddStepLabel = "+ 手順";
     const string AddConditionLabel = "+ 条件";
     const string PreviewLabel = "プレビュー";
@@ -70,8 +68,6 @@ public class ScenarioGraphUI : MonoBehaviour
 
     string linkingFromNodeId;
     string draggingFromNodeId;
-    ConnectionLineGraphic dragPreviewLine;
-    RectTransform dragPreviewTarget;
     bool graphRebuildRequested;
     bool validationRefreshRequested;
     string lastValidationUiSignature;
@@ -116,7 +112,7 @@ public class ScenarioGraphUI : MonoBehaviour
     readonly Dictionary<Graphic, Color> connectorBaseColors = new Dictionary<Graphic, Color>();
     readonly Dictionary<string, RectTransform> minimapNodeIndicators = new Dictionary<string, RectTransform>();
     readonly HashSet<string> expandedStepDetailNodeIds = new HashSet<string>();
-    readonly List<ConnectionLineGraphic> lines = new List<ConnectionLineGraphic>();
+    readonly ScenarioConnectionLines connectionLines = new ScenarioConnectionLines();
     NodeAreaPanZoomController panZoomController;
     Outline validationFocusOutline;
     Coroutine validationFocusFlashCoroutine;
@@ -1283,10 +1279,7 @@ public class ScenarioGraphUI : MonoBehaviour
         draggingFromNodeId = null;
         ClearConnectionCandidates();
 
-        if (dragPreviewLine != null) Destroy(dragPreviewLine.gameObject);
-        if (dragPreviewTarget != null) Destroy(dragPreviewTarget.gameObject);
-        dragPreviewLine = null;
-        dragPreviewTarget = null;
+        connectionLines.ClearDragPreview();
 
         if (clearStatus && statusText != null)
         {
@@ -1296,58 +1289,17 @@ public class ScenarioGraphUI : MonoBehaviour
 
     void EnsureDragPreview(RectTransform fromConnector)
     {
-        if (dragPreviewTarget == null)
-        {
-            var targetGo = new GameObject("DragPreviewTarget", typeof(RectTransform));
-            dragPreviewTarget = targetGo.GetComponent<RectTransform>();
-            dragPreviewTarget.SetParent(lineLayer, false);
-            dragPreviewTarget.anchorMin = new Vector2(0.5f, 0.5f);
-            dragPreviewTarget.anchorMax = new Vector2(0.5f, 0.5f);
-            dragPreviewTarget.sizeDelta = new Vector2(1f, 1f);
-            dragPreviewTarget.anchoredPosition = Vector2.zero;
-        }
-
-        if (dragPreviewLine == null)
-        {
-            dragPreviewLine = Instantiate(lineTemplate, lineLayer);
-            dragPreviewLine.gameObject.name = "DragPreviewLine";
-            dragPreviewLine.gameObject.SetActive(true);
-            ConfigureLineGraphic(dragPreviewLine, DragPreviewLineColor, 8f, raycastTarget: false);
-        }
-
-        dragPreviewLine.from = fromConnector;
-        dragPreviewLine.to = dragPreviewTarget;
-        dragPreviewLine.fromNodeId = null;
-        dragPreviewLine.toNodeId = null;
-        dragPreviewLine.raycastBlockers = null;
-        dragPreviewLine.onClickLine = null;
+        connectionLines.EnsureDragPreview(lineTemplate, lineLayer, fromConnector);
     }
 
     void UpdateDragPreviewPosition(Vector2 screenPosition)
     {
-        if (dragPreviewTarget == null || lineLayer == null) return;
-
-        Camera eventCamera = null;
-        var canvas = lineLayer.GetComponentInParent<Canvas>();
-        if (canvas != null && canvas.renderMode != RenderMode.ScreenSpaceOverlay)
-        {
-            eventCamera = canvas.worldCamera;
-        }
-
-        if (RectTransformUtility.ScreenPointToLocalPointInRectangle(lineLayer, screenPosition, eventCamera, out var local))
-        {
-            dragPreviewTarget.anchoredPosition = local;
-        }
+        connectionLines.UpdateDragPreviewPosition(lineLayer, screenPosition);
     }
 
     void RefreshLines()
     {
-        foreach (var line in lines)
-        {
-            if (line == null) continue;
-            Destroy(line.gameObject);
-        }
-        lines.Clear();
+        connectionLines.Clear();
 
         var raycastBlockers = nodeUIs.Values
             .Where(v => v != null && v.root != null)
@@ -1363,17 +1315,9 @@ public class ScenarioGraphUI : MonoBehaviour
 
             if (fromUi.outputConnector == null || toUi.inputConnector == null) continue;
 
-            var line = Instantiate(lineTemplate, lineLayer);
-            line.gameObject.SetActive(true);
-            line.from = fromUi.outputConnector;
-            line.to = toUi.inputConnector;
-            line.fromNodeId = edge.fromNodeId;
-            line.toNodeId = edge.toNodeId;
-            line.edgeType = edge.edgeType;
-            line.raycastBlockers = raycastBlockers;
-            line.onClickLine = OnClickConnectionPath;
-            ConfigureLineGraphic(line, ConnectionLineColor, 8f, raycastTarget: true);
-            lines.Add(line);
+            connectionLines.Add(
+                lineTemplate, lineLayer, edge, fromUi.outputConnector, toUi.inputConnector,
+                raycastBlockers, OnClickConnectionPath);
         }
     }
 
@@ -1654,31 +1598,6 @@ public class ScenarioGraphUI : MonoBehaviour
         rect.anchorMax = anchorMax;
         rect.offsetMin = offsetMin;
         rect.offsetMax = offsetMax;
-    }
-
-    void ConfigureLineGraphic(ConnectionLineGraphic line, Color color, float thickness, bool raycastTarget)
-    {
-        if (line == null || lineLayer == null) return;
-
-        if (line.GetComponent<CanvasRenderer>() == null)
-        {
-            line.gameObject.AddComponent<CanvasRenderer>();
-            Debug.LogWarning($"[ScenarioGraphUI] Added missing CanvasRenderer on {line.gameObject.name}");
-        }
-
-        var rt = line.rectTransform;
-        rt.SetParent(lineLayer, false);
-        rt.anchorMin = Vector2.zero;
-        rt.anchorMax = Vector2.one;
-        rt.offsetMin = Vector2.zero;
-        rt.offsetMax = Vector2.zero;
-        rt.localScale = Vector3.one;
-        rt.localRotation = Quaternion.identity;
-
-        line.color = color;
-        line.thickness = thickness;
-        line.raycastTarget = raycastTarget;
-        line.SetAllDirty();
     }
 
     void SaveScenarioExport()
