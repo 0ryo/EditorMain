@@ -50,6 +50,7 @@ persistentDataPath/Projects/*.skillsync.json
 - `Core/CurriculumModel.cs`: 編集モデル。Start/End/Step/ConditionとStepFlow/ConditionBind、Step詳細、拡張可能なCondition parameterを明示するschema version 4。Condition種別定義と既定parameterは`ConditionTypeCatalog`へ集約する。
 - `CurriculumGraphService`: node/edge操作、接続制約、欠損参照を保持した検証、線形Step列の生成、export model変換。UI非依存の中心サービス。
 - `ScenarioGraphUI`: nodeの配置・接続操作、status表示、保存処理を統括する。4種のnode生成と再構築時の破棄は`ScenarioNodeViewFactory`、旧Prefabの不足template補完は`ScenarioNodeTemplateFactory`へ委譲し、位置・展開状態と編集操作のcallbackはUI側で保持する。検証結果を各nodeの文字badgeと枠へ常時反映し、`ScenarioValidationPanel`の前後navigationから問題nodeへfocusする。検証済みgraphは`ScenarioPreviewPanel`で実行順に手動または自動送りできる。
+- `ScenarioGraphViewport`: GraphContentと操作buttonの補完、minimapの生成・更新を担当する。node参照はUI側の`ScenarioNodeViewBinding`を共有し、nodeの配置位置やUndoは所有しない。マウス入力とpan/zoomの制限は`NodeAreaPanZoomController`が担当する。
 - `StepNodeUI` / `ConditionNodeUI` / `ConditionRowUI` / `TerminalNodeUI`: node単位の表示と編集。Step/Conditionの再同期はgraph/command/placement eventで行い、定期pollingしない。
 - `ObjectDetailPanel`: 選択中 `PlacedObject` の名前/説明と、参照しているCondition nodeの編集表示。
 - `Core/ScenarioExportModel.cs`: JSON出力用のversion 4モデル。編集用graphをそのまま保存せず、Step詳細とCondition parameterを含む線形 `requiredActions` へ変換する。
