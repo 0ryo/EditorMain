@@ -20,9 +20,6 @@ public class ScenarioGraphUI : MonoBehaviour
     const float GraphContentMinHeight = 6000f;
     const float NodeLayoutGap = 64f;
     const int MaxLayoutColumns = 8;
-    const float MinimapWidth = 180f;
-    const float MinimapHeight = 110f;
-    const float MinimapPadding = 8f;
 
     static readonly System.Collections.Generic.Dictionary<string, string> ErrorMessages = new System.Collections.Generic.Dictionary<string, string>
     {
@@ -1483,7 +1480,7 @@ public class ScenarioGraphUI : MonoBehaviour
         minimapRoot.anchorMax = new Vector2(1f, 0f);
         minimapRoot.pivot = new Vector2(1f, 0f);
         minimapRoot.anchoredPosition = new Vector2(-12f, 12f);
-        minimapRoot.sizeDelta = new Vector2(MinimapWidth, MinimapHeight);
+        minimapRoot.sizeDelta = new Vector2(ScenarioGraphMinimapLayout.Width, ScenarioGraphMinimapLayout.Height);
         var minimapImage = minimapRoot.GetComponent<Image>();
         if (minimapImage == null) minimapImage = minimapRoot.gameObject.AddComponent<Image>();
         minimapImage.color = new Color(DesignTokens.BgSecondary.r, DesignTokens.BgSecondary.g, DesignTokens.BgSecondary.b, 0.94f);
@@ -1629,45 +1626,24 @@ public class ScenarioGraphUI : MonoBehaviour
     {
         if (minimapRoot == null || minimapNodeIndicators.Count == 0) return;
 
-        bool hasBounds = false;
-        Vector2 min = Vector2.zero;
-        Vector2 max = Vector2.zero;
+        var boundsBuilder = new ScenarioGraphMinimapLayout.BoundsBuilder();
         foreach (var pair in nodeUIs)
         {
             var root = pair.Value?.root;
             if (root == null) continue;
-            Vector2 nodeMin = root.anchoredPosition + root.rect.min;
-            Vector2 nodeMax = root.anchoredPosition + root.rect.max;
-            if (!hasBounds)
-            {
-                min = nodeMin;
-                max = nodeMax;
-                hasBounds = true;
-            }
-            else
-            {
-                min = Vector2.Min(min, nodeMin);
-                max = Vector2.Max(max, nodeMax);
-            }
+            boundsBuilder.Encapsulate(root.anchoredPosition, root.rect);
         }
-        if (!hasBounds) return;
-
-        min -= Vector2.one * 120f;
-        max += Vector2.one * 120f;
-        Vector2 center = (min + max) * 0.5f;
-        Vector2 size = Vector2.Max(max - min, new Vector2(800f, 480f));
-        minimapContentBounds = new Rect(center - (size * 0.5f), size);
+        if (!boundsBuilder.TryGetBounds(out var contentBounds)) return;
+        minimapContentBounds = contentBounds;
 
         foreach (var pair in minimapNodeIndicators)
         {
             if (!nodeUIs.TryGetValue(pair.Key, out var binding) || binding?.root == null || pair.Value == null) continue;
             var root = binding.root;
-            Vector2 nodeMin = MapContentPointToMinimap(root.anchoredPosition + root.rect.min);
-            Vector2 nodeMax = MapContentPointToMinimap(root.anchoredPosition + root.rect.max);
-            pair.Value.anchoredPosition = (nodeMin + nodeMax) * 0.5f;
-            pair.Value.sizeDelta = new Vector2(
-                Mathf.Max(4f, nodeMax.x - nodeMin.x),
-                Mathf.Max(4f, nodeMax.y - nodeMin.y));
+            ScenarioGraphMinimapLayout.GetNodeIndicatorLayout(
+                minimapContentBounds, root.anchoredPosition, root.rect, out var position, out var size);
+            pair.Value.anchoredPosition = position;
+            pair.Value.sizeDelta = size;
         }
 
         RefreshMinimapViewport();
@@ -1678,26 +1654,11 @@ public class ScenarioGraphUI : MonoBehaviour
         if (minimapViewportIndicator == null || nodeArea == null || graphContent == null ||
             minimapContentBounds.width <= 0f || minimapContentBounds.height <= 0f) return;
 
-        float zoom = Mathf.Max(0.001f, graphContent.localScale.x);
-        Vector2 center = -graphContent.anchoredPosition / zoom;
-        Vector2 halfSize = nodeArea.rect.size / (zoom * 2f);
-        Vector2 visibleMin = MapContentPointToMinimap(center - halfSize);
-        Vector2 visibleMax = MapContentPointToMinimap(center + halfSize);
-        float width = Mathf.Clamp(visibleMax.x - visibleMin.x, 4f, MinimapWidth - (MinimapPadding * 2f));
-        float height = Mathf.Clamp(visibleMax.y - visibleMin.y, 4f, MinimapHeight - (MinimapPadding * 2f));
-        float centerX = Mathf.Clamp((visibleMin.x + visibleMax.x) * 0.5f, MinimapPadding + (width * 0.5f), MinimapWidth - MinimapPadding - (width * 0.5f));
-        float centerY = Mathf.Clamp((visibleMin.y + visibleMax.y) * 0.5f, MinimapPadding + (height * 0.5f), MinimapHeight - MinimapPadding - (height * 0.5f));
-        minimapViewportIndicator.anchoredPosition = new Vector2(centerX, centerY);
-        minimapViewportIndicator.sizeDelta = new Vector2(width, height);
-    }
-
-    Vector2 MapContentPointToMinimap(Vector2 point)
-    {
-        float normalizedX = Mathf.InverseLerp(minimapContentBounds.xMin, minimapContentBounds.xMax, point.x);
-        float normalizedY = Mathf.InverseLerp(minimapContentBounds.yMin, minimapContentBounds.yMax, point.y);
-        return new Vector2(
-            Mathf.Lerp(MinimapPadding, MinimapWidth - MinimapPadding, normalizedX),
-            Mathf.Lerp(MinimapPadding, MinimapHeight - MinimapPadding, normalizedY));
+        ScenarioGraphMinimapLayout.GetViewportIndicatorLayout(
+            minimapContentBounds, graphContent.anchoredPosition, graphContent.localScale.x, nodeArea.rect.size,
+            out var position, out var size);
+        minimapViewportIndicator.anchoredPosition = position;
+        minimapViewportIndicator.sizeDelta = size;
     }
 
     static void ConfigureMinimapChild(RectTransform child)
