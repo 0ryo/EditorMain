@@ -11,8 +11,6 @@ public class ScenarioGraphUI : MonoBehaviour
     const string AddConditionLabel = "+ 条件";
     const string PreviewLabel = "プレビュー";
     const string SaveLabel = "JSON出力";
-    const string StartNodeLabel = "開始";
-    const string EndNodeLabel = "終了";
     const string EmptyGraphGuide = "「+ 手順」からシナリオを作成してください";
     const float GraphContentMinWidth = 6000f;
     const float GraphContentMinHeight = 6000f;
@@ -421,30 +419,8 @@ public class ScenarioGraphUI : MonoBehaviour
 
     void EnsureRuntimeTemplates()
     {
-        if (startNodeTemplate == null)
-        {
-            startNodeTemplate = CreateTerminalTemplateFromStepTemplate(
-                "StartNodeTemplate_Runtime",
-                StartNodeLabel,
-                hasInput: false,
-                hasOutput: true,
-                color: DesignTokens.BgSecondary);
-        }
-
-        if (endNodeTemplate == null)
-        {
-            endNodeTemplate = CreateTerminalTemplateFromStepTemplate(
-                "EndNodeTemplate_Runtime",
-                EndNodeLabel,
-                hasInput: true,
-                hasOutput: false,
-                color: DesignTokens.BgSecondary);
-        }
-
-        if (conditionNodeTemplate == null)
-        {
-            conditionNodeTemplate = CreateConditionTemplateFromStepTemplate();
-        }
+        ScenarioNodeTemplateFactory.Ensure(
+            stepNodeTemplate, GetNodeParent(), ref startNodeTemplate, ref endNodeTemplate, ref conditionNodeTemplate);
     }
 
     void EnsureNodeAreaMask()
@@ -536,110 +512,6 @@ public class ScenarioGraphUI : MonoBehaviour
         return graphContent != null ? graphContent : nodeArea;
     }
 
-    ConditionNodeUI CreateConditionTemplateFromStepTemplate()
-    {
-        var clone = Instantiate(stepNodeTemplate.gameObject, GetNodeParent());
-        clone.name = "ConditionNodeTemplate_Runtime";
-        clone.SetActive(false);
-
-        var rootRt = clone.GetComponent<RectTransform>();
-        if (rootRt != null)
-        {
-            rootRt.sizeDelta = new Vector2(390f, 180f);
-        }
-
-        var image = clone.GetComponent<Image>();
-        if (image != null)
-        {
-            image.color = DesignTokens.Surface;
-        }
-
-        var sourceStepUi = clone.GetComponent<StepNodeUI>();
-        if (sourceStepUi == null)
-        {
-            Debug.LogError("[ScenarioGraphUI] Failed to create condition template from step template.");
-            return null;
-        }
-
-        sourceStepUi.enabled = false;
-        if (sourceStepUi.titleInput != null) sourceStepUi.titleInput.gameObject.SetActive(true);
-        if (sourceStepUi.conditionSummaryText != null) sourceStepUi.conditionSummaryText.gameObject.SetActive(false);
-        if (sourceStepUi.inputConnector != null) sourceStepUi.inputConnector.gameObject.SetActive(false);
-
-        ConditionRowUI row = null;
-        if (sourceStepUi.conditionListRoot != null && sourceStepUi.conditionRowTemplate != null)
-        {
-            row = Instantiate(sourceStepUi.conditionRowTemplate, sourceStepUi.conditionListRoot);
-            row.gameObject.SetActive(true);
-            sourceStepUi.conditionRowTemplate.gameObject.SetActive(false);
-            sourceStepUi.conditionListRoot.gameObject.SetActive(true);
-            sourceStepUi.conditionListRoot.anchorMin = new Vector2(0f, 0f);
-            sourceStepUi.conditionListRoot.anchorMax = new Vector2(1f, 1f);
-            sourceStepUi.conditionListRoot.offsetMin = new Vector2(12f, 16f);
-            sourceStepUi.conditionListRoot.offsetMax = new Vector2(-12f, -34f);
-        }
-
-        var conditionUi = clone.GetComponent<ConditionNodeUI>();
-        if (conditionUi == null) conditionUi = clone.AddComponent<ConditionNodeUI>();
-        conditionUi.nodeIdText = sourceStepUi.stepIdText;
-        conditionUi.titleInput = sourceStepUi.titleInput;
-        conditionUi.warningIcon = sourceStepUi.warningIcon;
-        conditionUi.conditionRow = row;
-        conditionUi.outputConnector = sourceStepUi.outputConnector;
-        conditionUi.deleteButton = sourceStepUi.deleteButton;
-        return conditionUi;
-    }
-
-    TerminalNodeUI CreateTerminalTemplateFromStepTemplate(
-        string name,
-        string label,
-        bool hasInput,
-        bool hasOutput,
-        Color color)
-    {
-        var clone = Instantiate(stepNodeTemplate.gameObject, GetNodeParent());
-        clone.name = name;
-        clone.SetActive(false);
-
-        var rootRt = clone.GetComponent<RectTransform>();
-        if (rootRt != null)
-        {
-            rootRt.sizeDelta = new Vector2(230f, 96f);
-        }
-
-        var image = clone.GetComponent<Image>();
-        if (image != null)
-        {
-            image.color = color;
-        }
-
-        var sourceStepUi = clone.GetComponent<StepNodeUI>();
-        if (sourceStepUi == null)
-        {
-            Debug.LogError("[ScenarioGraphUI] Failed to create terminal template from step template.");
-            return null;
-        }
-
-        sourceStepUi.enabled = false;
-        if (sourceStepUi.warningIcon != null) sourceStepUi.warningIcon.SetActive(false);
-        if (sourceStepUi.titleInput != null) sourceStepUi.titleInput.gameObject.SetActive(false);
-        if (sourceStepUi.conditionListRoot != null) sourceStepUi.conditionListRoot.gameObject.SetActive(false);
-        if (sourceStepUi.conditionSummaryText != null) sourceStepUi.conditionSummaryText.gameObject.SetActive(false);
-        if (sourceStepUi.deleteButton != null) sourceStepUi.deleteButton.gameObject.SetActive(false);
-        var legacyDeleteButton = clone.transform.Find("Button_Delete");
-        if (legacyDeleteButton != null) legacyDeleteButton.gameObject.SetActive(false);
-        if (sourceStepUi.stepIdText != null) sourceStepUi.stepIdText.text = label;
-        if (sourceStepUi.inputConnector != null) sourceStepUi.inputConnector.gameObject.SetActive(hasInput);
-        if (sourceStepUi.outputConnector != null) sourceStepUi.outputConnector.gameObject.SetActive(hasOutput);
-
-        var terminalUi = clone.GetComponent<TerminalNodeUI>();
-        if (terminalUi == null) terminalUi = clone.AddComponent<TerminalNodeUI>();
-        terminalUi.labelText = sourceStepUi.stepIdText;
-        terminalUi.inputConnector = sourceStepUi.inputConnector;
-        terminalUi.outputConnector = sourceStepUi.outputConnector;
-        return terminalUi;
-    }
-
     void RebuildAll()
     {
         graphRebuildRequested = false;
@@ -665,43 +537,29 @@ public class ScenarioGraphUI : MonoBehaviour
             return;
         }
 
-        foreach (Transform child in nodeParent)
-        {
-            if (child == lineLayer) continue;
-            if (child == stepNodeTemplate.transform) continue;
-            if (conditionNodeTemplate != null && child == conditionNodeTemplate.transform) continue;
-            if (startNodeTemplate != null && child == startNodeTemplate.transform) continue;
-            if (endNodeTemplate != null && child == endNodeTemplate.transform) continue;
-            Destroy(child.gameObject);
-        }
+        var nodeViews = new ScenarioNodeViewFactory(
+            graph, nodeParent, stepNodeTemplate, conditionNodeTemplate, startNodeTemplate, endNodeTemplate,
+            expandedStepDetailNodeIds, new ScenarioNodeViewFactory.Callbacks
+            {
+                onClickInputConnector = OnClickInputConnector,
+                onClickOutputConnector = OnClickOutputConnector,
+                onBeginOutputConnectorDrag = BeginConnectorDrag,
+                onOutputConnectorDrag = UpdateConnectorDrag,
+                onCompleteConnectorDrag = CompleteConnectorDrag,
+                onCancelConnectorDrag = () => CancelConnectorDrag(clearStatus: true),
+                onClickDelete = OnClickDeleteNode,
+                onClickEmbeddedConditionDelete = OnClickExtractEmbeddedCondition,
+                onDetailsExpandedChanged = OnStepDetailsExpandedChanged,
+                onChanged = RefreshValidationStatus,
+                registerNode = RegisterNode
+            });
+        nodeViews.ClearNodes(lineLayer);
 
         nodeUIs.Clear();
         var defaultPositions = BuildDefaultNodePositions();
         var stepIndexMap = graph.BuildStepIndexMap();
 
-        foreach (var node in graph.curriculum.nodes.Where(n => n != null).OrderBy(ScenarioGraphLayout.GetNodeSortOrder).ThenBy(n => n.nodeId))
-        {
-            if (string.IsNullOrWhiteSpace(node.nodeId)) continue;
-
-            switch (node.nodeType)
-            {
-                case ScenarioNodeType.Start:
-                    InstantiateStartNode(node, defaultPositions);
-                    break;
-                case ScenarioNodeType.End:
-                    InstantiateEndNode(node, defaultPositions);
-                    break;
-                case ScenarioNodeType.Step:
-                    InstantiateStepNode(node, stepIndexMap, defaultPositions);
-                    break;
-                case ScenarioNodeType.Condition:
-                    if (!graph.IsConditionBoundToStep(node.nodeId))
-                    {
-                        InstantiateConditionNode(node, defaultPositions);
-                    }
-                    break;
-            }
-        }
+        nodeViews.CreateNodes(defaultPositions, stepIndexMap);
 
         if (lineLayer != null)
         {
@@ -767,78 +625,6 @@ public class ScenarioGraphUI : MonoBehaviour
             MaxLayoutColumns);
     }
 
-    void InstantiateStartNode(ScenarioNode node, Dictionary<string, Vector2> defaults)
-    {
-        if (startNodeTemplate == null) return;
-
-        var ui = Instantiate(startNodeTemplate, GetNodeParent());
-        ui.gameObject.name = $"Node_{node.nodeId}";
-        ui.gameObject.SetActive(true);
-        ui.onClickOutputConnector = OnClickOutputConnector;
-        ui.onBeginOutputConnectorDrag = BeginConnectorDrag;
-        ui.onOutputConnectorDrag = UpdateConnectorDrag;
-        ui.onCompleteConnectorDrag = CompleteConnectorDrag;
-        ui.onCancelConnectorDrag = () => CancelConnectorDrag(clearStatus: true);
-        ui.Bind(node, StartNodeLabel, allowInput: false, allowOutput: true);
-
-        RegisterNode(
-            node,
-            ui.transform as RectTransform,
-            null,
-            ui.outputConnector != null ? ui.outputConnector.GetComponent<RectTransform>() : null,
-            defaults);
-    }
-
-    void InstantiateEndNode(ScenarioNode node, Dictionary<string, Vector2> defaults)
-    {
-        if (endNodeTemplate == null) return;
-
-        var ui = Instantiate(endNodeTemplate, GetNodeParent());
-        ui.gameObject.name = $"Node_{node.nodeId}";
-        ui.gameObject.SetActive(true);
-        ui.onClickInputConnector = OnClickInputConnector;
-        ui.Bind(node, EndNodeLabel, allowInput: true, allowOutput: false);
-
-        RegisterNode(
-            node,
-            ui.transform as RectTransform,
-            ui.inputConnector != null ? ui.inputConnector.GetComponent<RectTransform>() : null,
-            null,
-            defaults);
-    }
-
-    void InstantiateStepNode(ScenarioNode node, Dictionary<string, int> stepIndexMap, Dictionary<string, Vector2> defaults)
-    {
-        if (stepNodeTemplate == null) return;
-
-        var ui = Instantiate(stepNodeTemplate, GetNodeParent());
-        ui.gameObject.name = $"Node_{node.nodeId}";
-        ui.gameObject.SetActive(true);
-        ui.onClickInputConnector = OnClickInputConnector;
-        ui.onClickOutputConnector = OnClickOutputConnector;
-        ui.onBeginOutputConnectorDrag = BeginConnectorDrag;
-        ui.onOutputConnectorDrag = UpdateConnectorDrag;
-        ui.onCompleteConnectorDrag = CompleteConnectorDrag;
-        ui.onCancelConnectorDrag = () => CancelConnectorDrag(clearStatus: true);
-        ui.onClickDelete = OnClickDeleteNode;
-        ui.onClickEmbeddedConditionDelete = OnClickExtractEmbeddedCondition;
-        ui.onDetailsExpandedChanged = OnStepDetailsExpandedChanged;
-        ui.onChanged = RefreshValidationStatus;
-        ui.embeddedConditionTemplate = conditionNodeTemplate;
-
-        int stepIndex = stepIndexMap.TryGetValue(node.nodeId, out var mapped) ? mapped : 0;
-        ui.Bind(graph, node, stepIndex, expandedStepDetailNodeIds.Contains(node.nodeId));
-        ui.RefreshConditionSummary();
-        ui.RefreshWarning();
-
-        RegisterNode(
-            node,
-            ui.transform as RectTransform,
-            ui.inputConnector != null ? ui.inputConnector.GetComponent<RectTransform>() : null,
-            ui.outputConnector != null ? ui.outputConnector.GetComponent<RectTransform>() : null,
-            defaults);
-    }
-
     void OnStepDetailsExpandedChanged(string nodeId, bool expanded)
     {
         if (string.IsNullOrWhiteSpace(nodeId)) return;
@@ -847,30 +633,6 @@ public class ScenarioGraphUI : MonoBehaviour
 
         RefreshLines();
         RefreshMinimapNodes();
-    }
-
-    void InstantiateConditionNode(ScenarioNode node, Dictionary<string, Vector2> defaults)
-    {
-        if (conditionNodeTemplate == null) return;
-
-        var ui = Instantiate(conditionNodeTemplate, GetNodeParent());
-        ui.gameObject.name = $"Node_{node.nodeId}";
-        ui.gameObject.SetActive(true);
-        ui.onClickOutputConnector = OnClickOutputConnector;
-        ui.onBeginOutputConnectorDrag = BeginConnectorDrag;
-        ui.onOutputConnectorDrag = UpdateConnectorDrag;
-        ui.onCompleteConnectorDrag = CompleteConnectorDrag;
-        ui.onCancelConnectorDrag = () => CancelConnectorDrag(clearStatus: true);
-        ui.onClickDelete = OnClickDeleteNode;
-        ui.onChanged = RefreshValidationStatus;
-        ui.Bind(graph, node);
-
-        RegisterNode(
-            node,
-            ui.transform as RectTransform,
-            null,
-            ui.outputConnector != null ? ui.outputConnector.GetComponent<RectTransform>() : null,
-            defaults);
     }
 
     void RegisterNode(

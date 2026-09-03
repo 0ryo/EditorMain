@@ -7,7 +7,7 @@ EditorMainの実装を機能単位で整理し、肥大化したclass、重複�
 ## Working Rules
 
 - 作業branchは `codex/function-preserving-refactor` とする。
-- 1機能または安全に確認できる小単位ごとに1commitとする。
+- 1機能または関連する一連の処理をまとめて1commitとする。helperや数個のmethodだけで過度に細分化せず、生成・更新・破棄などを通して確認できる機能単位を基本とする。
 - 各commit後に作業を停止し、変更内容、静的確認結果、Unityでの確認項目を報告する。
 - ユーザーから次へ進む指示を受けるまで次の機能へ着手しない。
 - 退行が確認されたcommitは `git revert` で取り消し、正常状態から再実装する。
@@ -83,7 +83,7 @@ EditorMainの実装を機能単位で整理し、肥大化したclass、重複�
 | 2. Placement/catalog/import | Complete | `refactor: separate catalog card state and filtering`<br>`refactor: separate placement prefab and object creation`<br>`refactor: extract runtime edit composition`<br>`refactor: separate catalog model import processing` | Passed |
 | 3. 3D editing | Complete | `refactor: separate placed object selection processing`<br>`refactor: separate outliner data processing`<br>`refactor: separate transform gizmo geometry`<br>`refactor: separate camera navigation calculations`<br>`fix: restrict camera navigation to viewport`<br>`fix: ignore camera input outside game view` | Passed |
 | 4. Scenario domain/validation | Complete | `refactor: separate scenario graph validation`<br>`refactor: separate scenario connection rules`<br>`refactor: separate scenario graph traversal`<br>`refactor: separate scenario export building`<br>`refactor: separate scenario graph command processing` | Passed |
-| 5. Scenario graph UI | Awaiting connection-line verification | `refactor: separate scenario graph layout`<br>`fix: make validation panel minimize reliable`<br>`refactor: separate scenario minimap layout`<br>`refactor: separate scenario validation text`<br>`refactor: separate scenario connection line presentation` | Node layout, validation panel, minimap and validation text passed; connection lines pending |
+| 5. Scenario graph UI | Awaiting node-lifecycle verification | `refactor: separate scenario graph layout`<br>`fix: make validation panel minimize reliable`<br>`refactor: separate scenario minimap layout`<br>`refactor: separate scenario validation text`<br>`refactor: separate scenario connection line presentation`<br>`refactor: separate scenario node view lifecycle` | Node layout, validation panel, minimap, validation text and connection lines passed; node lifecycle pending |
 | 6. Object detail/condition references | Pending | - | Pending |
 | 7. UI settings/generation/fallbacks | Pending | - | Pending |
 | 8. Cross-cutting performance | Pending | - | Pending |
