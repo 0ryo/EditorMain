@@ -52,7 +52,7 @@ persistentDataPath/Projects/*.skillsync.json
 - `ScenarioGraphUI`: nodeの配置・接続操作、status表示、保存処理を統括する。4種のnode生成と再構築時の破棄は`ScenarioNodeViewFactory`、旧Prefabの不足template補完は`ScenarioNodeTemplateFactory`へ委譲し、位置・展開状態と編集操作のcallbackはUI側で保持する。検証結果を各nodeの文字badgeと枠へ常時反映し、`ScenarioValidationPanel`の前後navigationから問題nodeへfocusする。検証済みgraphは`ScenarioPreviewPanel`で実行順に手動または自動送りできる。
 - `ScenarioGraphViewport`: GraphContentと操作buttonの補完、minimapの生成・更新を担当する。node参照はUI側の`ScenarioNodeViewBinding`を共有し、nodeの配置位置やUndoは所有しない。マウス入力とpan/zoomの制限は`NodeAreaPanZoomController`が担当する。
 - `StepNodeUI` / `ConditionNodeUI` / `ConditionRowUI` / `TerminalNodeUI`: node単位の表示と編集。Step/Conditionの再同期はgraph/command/placement eventで行い、定期pollingしない。
-- `ObjectDetailPanel`: 選択中 `PlacedObject` の名前/説明と、参照しているCondition nodeの編集表示。
+- `ObjectDetailPanel`: 選択中 `PlacedObject` の名前/説明と、詳細パネルの開閉を担当する。参照しているCondition nodeの探索、差分判定、互換UI生成、編集後のgraph再同期は`ObjectConditionReferencePresenter`へ委譲する。
 - `Core/ScenarioExportModel.cs`: JSON出力用のversion 4モデル。編集用graphをそのまま保存せず、Step詳細とCondition parameterを含む線形 `requiredActions` へ変換する。
 - `Core/EditorProjectModel.cs` / `EditorProjectService`: 配置Transform・表示情報・lock/hidden状態と`Curriculum`を一体で保存する。読込時は配置IDの欠損・重複を一意IDへ修復し、typeId解決を検証してから現在内容を完全置換する。編集eventと選択中objectの差分からdirtyを判定し、保存済みprojectは元fileへ、未保存projectは復旧dataへautosaveする。
 - `EditorProjectStore`: `persistentDataPath/Projects` の `.skillsync.json` をtemp file + backupで保存し、schema migration、保存済み一覧、`Projects/Recovery`の復旧dataを提供する。
