@@ -3,10 +3,38 @@ using UnityEngine;
 public class CommandService : MonoBehaviour {
     public static CommandService I;
     public CommandStack Stack = new();
-    void Awake(){ I=this; }
+    void Awake(){
+        if (I != null && I != this){
+            Destroy(this);
+            return;
+        }
+
+        I = this;
+    }
+
+    void OnDestroy(){
+        if (I == this) I = null;
+    }
+
     void Update(){
-        bool ctrl = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightCommand);
-        if (ctrl && Input.GetKeyDown(KeyCode.Z)) Stack.Undo();
-        if (ctrl && (Input.GetKeyDown(KeyCode.Y) || Input.GetKeyDown(KeyCode.Z) && Input.GetKey(KeyCode.LeftShift))) Stack.Redo();
+        if (EditWorkspace.IsTypingIntoInputField()) return;
+
+        bool primaryModifier =
+            Input.GetKey(KeyCode.LeftControl) ||
+            Input.GetKey(KeyCode.RightControl) ||
+            Input.GetKey(KeyCode.LeftCommand) ||
+            Input.GetKey(KeyCode.RightCommand);
+        if (!primaryModifier) return;
+
+        bool shift = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
+        bool zPressed = Input.GetKeyDown(KeyCode.Z);
+        bool redoPressed = Input.GetKeyDown(KeyCode.Y) || (shift && zPressed);
+
+        if (redoPressed){
+            Stack.Redo();
+            return;
+        }
+
+        if (zPressed) Stack.Undo();
     }
 }

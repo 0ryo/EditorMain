@@ -1,10 +1,13 @@
 using System;
+using System.Globalization;
+using System.Linq;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
 public class ConditionNodeUI : MonoBehaviour
 {
+    public const float PreferredHeight = 312f;
     const float HeaderLeft = 12f;
     const float HeaderRight = -44f;
     const float HeaderBottom = -28f;
@@ -17,12 +20,22 @@ public class ConditionNodeUI : MonoBehaviour
     const float RowGap = 8f;
     const float DropdownInsetY = 4f;
     const float RowVerticalInset = 6f;
+    const float ControlInset = AreaLeft + RowInset;
+    const float ParameterColumnGap = 16f;
+    const float ActionDropdownWidth = 128f;
+    const float InlineParticleWidth = 20f;
+    const float InlineGap = 8f;
 
     [Header("Basic")]
     public TMP_Text nodeIdText;
     public TMP_InputField titleInput;
     public GameObject warningIcon;
     public ConditionRowUI conditionRow;
+    public TMP_Dropdown conditionTypeDropdown;
+    public TMP_Text distanceLabel;
+    public TMP_Text holdSecondsLabel;
+    public TMP_InputField distanceInput;
+    public TMP_InputField holdSecondsInput;
 
     [Header("Connectors")]
     public Button outputConnector;
@@ -31,7 +44,8 @@ public class ConditionNodeUI : MonoBehaviour
     ScenarioNode conditionNode;
     CurriculumGraphService graphService;
     string currentOptionSignature = string.Empty;
-    float nextOptionPollTime;
+    CommandStack optionCommandStack;
+    PlacementController optionPlacementController;
 
     public Action<string> onClickOutputConnector;
     public Action<string, Vector2> onBeginOutputConnectorDrag;
@@ -46,7 +60,6 @@ public class ConditionNodeUI : MonoBehaviour
         graphService = graph;
         conditionNode = targetCondition;
         currentOptionSignature = string.Empty;
-        nextOptionPollTime = 0f;
 
         if (conditionNode == null || conditionNode.nodeType != ScenarioNodeType.Condition)
         {
@@ -62,22 +75,236 @@ public class ConditionNodeUI : MonoBehaviour
 
         EnsureTitleInputReference();
         ConfigureTitleInput();
+        EnsureConditionEditorControls();
+        ConfigureConditionEditorControls();
         ConfigureConnectorDragHandlers();
         ConfigureDeleteButton();
         ApplyTask2VisualLayout();
+        BindOptionChangeSources();
         RefreshConditionOptionsIfNeeded(force: true);
         ApplyTask2VisualLayout();
+        UpdateConditionLabels();
         RefreshWarning();
     }
 
-    void Update()
+    void OnEnable()
     {
-        if (conditionNode == null || !isActiveAndEnabled || graphService == null) return;
-        if (Time.unscaledTime < nextOptionPollTime) return;
+        BindOptionChangeSources();
+    }
 
-        nextOptionPollTime = Time.unscaledTime + 0.2f;
+    void OnDisable()
+    {
+        UnbindOptionChangeSources();
+    }
+
+    void BindOptionChangeSources()
+    {
+        var nextStack = CommandService.I != null ? CommandService.I.Stack : null;
+        if (nextStack != optionCommandStack)
+        {
+            if (optionCommandStack != null) optionCommandStack.HistoryChanged -= HandleOptionSourceChanged;
+            optionCommandStack = nextStack;
+            if (optionCommandStack != null) optionCommandStack.HistoryChanged += HandleOptionSourceChanged;
+        }
+
+        var nextPlacement = FindFirstObjectByType<PlacementController>();
+        if (nextPlacement != optionPlacementController)
+        {
+            if (optionPlacementController != null) optionPlacementController.ObjectPlaced -= HandleObjectPlaced;
+            optionPlacementController = nextPlacement;
+            if (optionPlacementController != null) optionPlacementController.ObjectPlaced += HandleObjectPlaced;
+        }
+    }
+
+    void UnbindOptionChangeSources()
+    {
+        if (optionCommandStack != null) optionCommandStack.HistoryChanged -= HandleOptionSourceChanged;
+        if (optionPlacementController != null) optionPlacementController.ObjectPlaced -= HandleObjectPlaced;
+        optionCommandStack = null;
+        optionPlacementController = null;
+    }
+
+    void HandleObjectPlaced(PlacedObject _, string __)
+    {
+        HandleOptionSourceChanged();
+    }
+
+    void HandleOptionSourceChanged()
+    {
+        if (!isActiveAndEnabled || conditionNode == null || graphService == null) return;
         RefreshConditionOptionsIfNeeded();
         RefreshWarning();
+    }
+
+    public void PrepareTemplateControls()
+    {
+        EnsureTitleInputReference();
+        EnsureConditionEditorControls();
+        ApplyTask2VisualLayout();
+    }
+
+    void EnsureConditionEditorControls()
+    {
+        var root = transform as RectTransform;
+        if (root != null && root.sizeDelta.y < PreferredHeight)
+        {
+            var size = root.sizeDelta;
+            size.y = PreferredHeight;
+            root.sizeDelta = size;
+        }
+
+        if (conditionTypeDropdown == null)
+        {
+            conditionTypeDropdown = transform.Find("Dropdown_ConditionType")?.GetComponent<TMP_Dropdown>();
+        }
+        if (conditionTypeDropdown == null && conditionRow != null && conditionRow.dropdownA != null)
+        {
+            conditionTypeDropdown = Instantiate(conditionRow.dropdownA, transform);
+            conditionTypeDropdown.gameObject.name = "Dropdown_ConditionType";
+        }
+        distanceInput = EnsureParameterInput(distanceInput, "Input_Distance", "距離 (m)");
+        holdSecondsInput = EnsureParameterInput(holdSecondsInput, "Input_HoldSeconds", "保持 (秒)");
+        distanceLabel = EnsureParameterLabel(distanceLabel, "Text_DistanceLabel", "距離 (m)");
+        holdSecondsLabel = EnsureParameterLabel(holdSecondsLabel, "Text_HoldSecondsLabel", "保持 (秒)");
+    }
+
+    TMP_Text EnsureParameterLabel(TMP_Text current, string objectName, string value)
+    {
+        if (current == null) current = transform.Find(objectName)?.GetComponent<TMP_Text>();
+        if (current == null)
+        {
+            var go = new GameObject(objectName, typeof(RectTransform), typeof(TextMeshProUGUI));
+            var rt = go.GetComponent<RectTransform>();
+            rt.SetParent(transform, false);
+            current = go.GetComponent<TextMeshProUGUI>();
+        }
+
+        current.text = value;
+        current.fontSize = DesignTokens.FontSizeCaption;
+        current.color = DesignTokens.TextSecondary;
+        current.alignment = TextAlignmentOptions.MidlineLeft;
+        current.raycastTarget = false;
+        return current;
+    }
+
+    TMP_InputField EnsureParameterInput(TMP_InputField current, string objectName, string placeholder)
+    {
+        if (current == null) current = transform.Find(objectName)?.GetComponent<TMP_InputField>();
+        if (current == null && titleInput != null)
+        {
+            current = Instantiate(titleInput, transform);
+            current.gameObject.name = objectName;
+        }
+        if (current == null) return null;
+
+        current.gameObject.SetActive(true);
+        current.readOnly = false;
+        current.interactable = true;
+        current.contentType = TMP_InputField.ContentType.DecimalNumber;
+        current.lineType = TMP_InputField.LineType.SingleLine;
+        if (current.placeholder is TMP_Text placeholderText)
+        {
+            placeholderText.text = placeholder;
+            placeholderText.color = DesignTokens.TextTertiary;
+        }
+        return current;
+    }
+
+    void ConfigureConditionEditorControls()
+    {
+        if (conditionNode?.condition == null) return;
+        ConditionTypeCatalog.Normalize(conditionNode.condition, graphService != null ? graphService.curriculum.rules : null);
+
+        if (conditionTypeDropdown != null)
+        {
+            var definitions = ConditionTypeCatalog.Definitions.ToList();
+            var legacy = ConditionTypeCatalog.Find(conditionNode.condition.type);
+            if (legacy != null && !definitions.Any(item => item.id == legacy.id)) definitions.Insert(0, legacy);
+            if (ConditionTypeCatalog.Find(conditionNode.condition.type) == null)
+            {
+                definitions.Insert(0, new ConditionTypeCatalog.Definition
+                {
+                    id = conditionNode.condition.type,
+                    label = $"未対応: {conditionNode.condition.type}",
+                    parameters = Array.Empty<ConditionTypeCatalog.ParameterDefinition>()
+                });
+            }
+            conditionTypeDropdown.onValueChanged.RemoveAllListeners();
+            conditionTypeDropdown.ClearOptions();
+            conditionTypeDropdown.AddOptions(definitions.Select(item => item.label).ToList());
+            int selectedIndex = 0;
+            for (int i = 0; i < definitions.Count; i++)
+            {
+                if (definitions[i].id == conditionNode.condition.type)
+                {
+                    selectedIndex = i;
+                    break;
+                }
+            }
+            conditionTypeDropdown.SetValueWithoutNotify(selectedIndex);
+            conditionTypeDropdown.RefreshShownValue();
+            ConditionRowUI.PrepareDropdown(conditionTypeDropdown, hideSelectedOption: true);
+            conditionTypeDropdown.onValueChanged.AddListener(index =>
+            {
+                if (index < 0 || index >= definitions.Count) return;
+                string type = definitions[index].id;
+                if (conditionNode.condition.type == type) return;
+                if (!ExecuteConditionEdit("Set condition type", data =>
+                {
+                    data.type = type;
+                    ConditionTypeCatalog.Normalize(data, graphService.curriculum.rules);
+                })) return;
+                onChanged?.Invoke();
+            });
+        }
+
+        var activeDefinition = ConditionTypeCatalog.Find(conditionNode.condition.type);
+        var parameters = activeDefinition?.parameters;
+        BindParameterSlot(distanceInput, distanceLabel, parameters != null && parameters.Count > 0 ? parameters[0] : null);
+        BindParameterSlot(holdSecondsInput, holdSecondsLabel, parameters != null && parameters.Count > 1 ? parameters[1] : null);
+        UpdateConditionLabels();
+    }
+
+    void BindParameterSlot(TMP_InputField input, TMP_Text label, ConditionTypeCatalog.ParameterDefinition parameter)
+    {
+        if (input != null) input.gameObject.SetActive(parameter != null);
+        if (label != null) { label.gameObject.SetActive(parameter != null); if (parameter != null) label.text = parameter.label; }
+        if (parameter != null) BindNumberParameter(input, parameter.key, "Set condition parameter");
+    }
+
+    void BindNumberParameter(TMP_InputField input, string key, string commandLabel)
+    {
+        if (input == null || conditionNode?.condition == null) return;
+        float current = ConditionTypeCatalog.GetNumber(conditionNode.condition, key);
+        input.onEndEdit.RemoveAllListeners();
+        input.SetTextWithoutNotify(current.ToString("0.###", CultureInfo.InvariantCulture));
+        input.onEndEdit.AddListener(value =>
+        {
+            if (!float.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed) &&
+                !float.TryParse(value, out parsed))
+            {
+                input.SetTextWithoutNotify(current.ToString("0.###", CultureInfo.InvariantCulture));
+                return;
+            }
+
+            if (Mathf.Approximately(current, parsed)) return;
+            if (!ExecuteConditionEdit(commandLabel, data => ConditionTypeCatalog.SetNumber(data, key, parsed)))
+            {
+                float normalized = ConditionTypeCatalog.GetNumber(conditionNode.condition, key, current);
+                input.SetTextWithoutNotify(normalized.ToString("0.###", CultureInfo.InvariantCulture));
+                return;
+            }
+            onChanged?.Invoke();
+        });
+    }
+
+    void UpdateConditionLabels()
+    {
+        if (conditionRow?.textAfterB == null) return;
+        bool needsB = ConditionTypeCatalog.RequiresObjectB(conditionNode.condition.type);
+        if (conditionRow.dropdownB != null) conditionRow.dropdownB.gameObject.SetActive(needsB);
+        conditionRow.textAfterB.gameObject.SetActive(needsB);
+        conditionRow.textAfterB.text = conditionNode.condition.type == ConditionTypeCatalog.Separation ? "から" : "に";
     }
 
     void RefreshConditionOptionsIfNeeded(bool force = false)
@@ -95,14 +322,16 @@ public class ConditionNodeUI : MonoBehaviour
             conditionNode.condition.objectBId,
             onAChanged: newId =>
             {
-                conditionNode.condition.objectAId = newId;
+                if (string.Equals(conditionNode.condition.objectAId, newId, StringComparison.Ordinal)) return;
+                if (!ExecuteConditionEdit("Set condition object A", data => data.objectAId = newId)) return;
                 UpdateNodeLabel();
                 RefreshWarning();
                 onChanged?.Invoke();
             },
             onBChanged: newId =>
             {
-                conditionNode.condition.objectBId = newId;
+                if (string.Equals(conditionNode.condition.objectBId, newId, StringComparison.Ordinal)) return;
+                if (!ExecuteConditionEdit("Set condition object B", data => data.objectBId = newId)) return;
                 UpdateNodeLabel();
                 RefreshWarning();
                 onChanged?.Invoke();
@@ -234,6 +463,14 @@ public class ConditionNodeUI : MonoBehaviour
 
     void ApplyTask2VisualLayout()
     {
+        bool needsB = conditionNode?.condition == null || ConditionTypeCatalog.RequiresObjectB(conditionNode.condition.type);
+        float compactOffset = needsB ? 0 : 56;
+        bool hasParameters = conditionNode?.condition == null || (ConditionTypeCatalog.Find(conditionNode.condition.type)?.parameters?.Count ?? 0) > 0;
+        var root = transform as RectTransform;
+        float height = needsB ? PreferredHeight : hasParameters ? PreferredHeight - compactOffset : 154;
+        if (root) root.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, height);
+        var layout = GetComponent<LayoutElement>();
+        if (layout) layout.minHeight = layout.preferredHeight = height;
         if (titleInput != null)
         {
             titleInput.gameObject.SetActive(false);
@@ -257,6 +494,54 @@ public class ConditionNodeUI : MonoBehaviour
             EnsureThinOutline(dragHandle);
         }
 
+        if (distanceInput != null)
+        {
+            SetTopHorizontalSegment(
+                distanceInput.transform as RectTransform,
+                0f,
+                0.5f,
+                ControlInset,
+                -(ParameterColumnGap * 0.5f),
+                -270f + compactOffset,
+                -230f + compactOffset);
+        }
+
+        if (holdSecondsInput != null)
+        {
+            SetTopHorizontalSegment(
+                holdSecondsInput.transform as RectTransform,
+                0.5f,
+                1f,
+                ParameterColumnGap * 0.5f,
+                -ControlInset,
+                -270f + compactOffset,
+                -230f + compactOffset);
+        }
+
+        if (distanceLabel != null)
+        {
+            SetTopHorizontalSegment(
+                distanceLabel.rectTransform,
+                0f,
+                0.5f,
+                ControlInset,
+                -(ParameterColumnGap * 0.5f),
+                -222f + compactOffset,
+                -202f + compactOffset);
+        }
+
+        if (holdSecondsLabel != null)
+        {
+            SetTopHorizontalSegment(
+                holdSecondsLabel.rectTransform,
+                0.5f,
+                1f,
+                ParameterColumnGap * 0.5f,
+                -ControlInset,
+                -222f + compactOffset,
+                -202f + compactOffset);
+        }
+
         if (conditionRow == null) return;
         var conditionArea = conditionRow.transform.parent as RectTransform;
         if (conditionArea == null) return;
@@ -266,12 +551,12 @@ public class ConditionNodeUI : MonoBehaviour
         var areaFitter = conditionArea.GetComponent<ContentSizeFitter>();
         if (areaFitter != null) areaFitter.enabled = false;
 
-        SetStretchRect(conditionArea, AreaLeft, AreaRight, AreaBottom, AreaTop);
+        SetTopStretchRect(conditionArea, AreaLeft, AreaRight, -194f + compactOffset, -46f);
         ClearContainerVisual(conditionArea);
-        LayoutConditionRow(conditionRow);
+        LayoutConditionRow(conditionRow, conditionTypeDropdown, needsB);
     }
 
-    static void LayoutConditionRow(ConditionRowUI row)
+    static void LayoutConditionRow(ConditionRowUI row, TMP_Dropdown actionDropdown, bool needsB)
     {
         if (row == null) return;
 
@@ -290,9 +575,7 @@ public class ConditionNodeUI : MonoBehaviour
         ClearContainerVisual(lineA);
         ClearContainerVisual(lineB);
 
-        float rowHeight = rowRt.rect.height > 1f ? rowRt.rect.height : 100f;
-        float availableHeight = Mathf.Max(48f, rowHeight - (RowVerticalInset * 2f) - RowGap);
-        float lineHeight = Mathf.Max(24f, availableHeight * 0.5f);
+        float lineHeight = 48f;
         float lineATop = -RowVerticalInset;
         float lineABottom = -(RowVerticalInset + lineHeight);
         float lineBTop = -(RowVerticalInset + lineHeight + RowGap);
@@ -303,8 +586,18 @@ public class ConditionNodeUI : MonoBehaviour
         float rowWidth = rowRt.rect.width > 1f ? rowRt.rect.width : 300f;
         float suffixLeft = Mathf.Clamp(rowWidth * 0.66f, 170f, rowWidth - 96f);
 
-        LayoutConditionLine(lineA, row.dropdownA, row.textAfterA, suffixLeft, "\u3092");
-        LayoutConditionLine(lineB, row.dropdownB, row.textAfterB, suffixLeft, "\u306B\u8FD1\u3065\u3051\u308B");
+        if (needsB)
+        {
+            lineB.gameObject.SetActive(true);
+            LayoutConditionLine(lineA, row.dropdownA, row.textAfterA, suffixLeft, "\u3092");
+            LayoutConditionActionLine(lineB, row.dropdownB, row.textAfterB, actionDropdown, rowWidth);
+        }
+        else
+        {
+            LayoutConditionActionLine(lineA, row.dropdownA, row.textAfterA, actionDropdown, rowWidth);
+            if (row.textAfterA) row.textAfterA.text = "を";
+            lineB.gameObject.SetActive(false);
+        }
     }
 
     static void ClearContainerVisual(RectTransform target)
@@ -352,11 +645,58 @@ public class ConditionNodeUI : MonoBehaviour
         }
     }
 
+    static void LayoutConditionActionLine(
+        RectTransform lineRt,
+        TMP_Dropdown objectDropdown,
+        TMP_Text particle,
+        TMP_Dropdown actionDropdown,
+        float rowWidth)
+    {
+        if (lineRt == null) return;
+
+        var horizontal = lineRt.GetComponent<HorizontalLayoutGroup>();
+        if (horizontal != null) horizontal.enabled = false;
+
+        float actionWidth = Mathf.Min(ActionDropdownWidth, Mathf.Max(104f, rowWidth * 0.4f));
+        float actionLeft = rowWidth - actionWidth;
+        float particleLeft = actionLeft - InlineGap - InlineParticleWidth;
+        float objectRight = particleLeft - InlineGap;
+
+        var objectRt = objectDropdown != null ? objectDropdown.transform as RectTransform : null;
+        if (objectRt != null)
+        {
+            objectRt.anchorMin = new Vector2(0f, 0f);
+            objectRt.anchorMax = new Vector2(0f, 1f);
+            objectRt.offsetMin = new Vector2(0f, DropdownInsetY);
+            objectRt.offsetMax = new Vector2(objectRight, -DropdownInsetY);
+        }
+
+        if (particle != null)
+        {
+            var particleRt = particle.rectTransform;
+            particleRt.anchorMin = new Vector2(0f, 0f);
+            particleRt.anchorMax = new Vector2(0f, 1f);
+            particleRt.offsetMin = new Vector2(particleLeft, 0f);
+            particleRt.offsetMax = new Vector2(particleLeft + InlineParticleWidth, 0f);
+            particle.text = "に";
+            particle.fontStyle = FontStyles.Bold;
+            particle.alignment = TextAlignmentOptions.MidlineLeft;
+        }
+
+        var actionRt = actionDropdown != null ? actionDropdown.transform as RectTransform : null;
+        if (actionRt == null) return;
+        if (actionRt.parent != lineRt) actionRt.SetParent(lineRt, false);
+        actionRt.anchorMin = new Vector2(0f, 0f);
+        actionRt.anchorMax = new Vector2(0f, 1f);
+        actionRt.offsetMin = new Vector2(actionLeft, DropdownInsetY);
+        actionRt.offsetMax = new Vector2(rowWidth, -DropdownInsetY);
+    }
+
     string BuildHeaderLabel()
     {
         int index = ExtractTrailingNumber(conditionNode != null ? conditionNode.nodeId : null);
         if (index <= 0) index = 1;
-        return $"\u624B\u9806 {index}";
+        return $"\u6761\u4EF6 {index}";
     }
 
     static int ExtractTrailingNumber(string value)
@@ -383,6 +723,22 @@ public class ConditionNodeUI : MonoBehaviour
         rt.offsetMax = new Vector2(right, top);
     }
 
+    static void SetTopHorizontalSegment(
+        RectTransform rt,
+        float anchorLeft,
+        float anchorRight,
+        float left,
+        float right,
+        float bottom,
+        float top)
+    {
+        if (rt == null) return;
+        rt.anchorMin = new Vector2(anchorLeft, 1f);
+        rt.anchorMax = new Vector2(anchorRight, 1f);
+        rt.offsetMin = new Vector2(left, bottom);
+        rt.offsetMax = new Vector2(right, top);
+    }
+
     static void SetStretchRect(RectTransform rt, float left, float right, float bottom, float top)
     {
         if (rt == null) return;
@@ -401,7 +757,7 @@ public class ConditionNodeUI : MonoBehaviour
             outputConnector.gameObject.SetActive(false);
 
         if (nodeIdText != null)
-            nodeIdText.text = $"\u624B\u9806 {sequentialIndex}";
+            nodeIdText.text = $"\u6761\u4EF6 {sequentialIndex}";
     }
 
     void EnsureTitleInputReference()
@@ -426,9 +782,26 @@ public class ConditionNodeUI : MonoBehaviour
         titleInput.SetTextWithoutNotify(NormalizeConditionTitle(conditionNode.condition.title));
         titleInput.onEndEdit.AddListener(value =>
         {
-            conditionNode.condition.title = NormalizeConditionTitle(value);
-            titleInput.SetTextWithoutNotify(conditionNode.condition.title);
+            string normalized = NormalizeConditionTitle(value);
+            if (string.Equals(conditionNode.condition.title, normalized, StringComparison.Ordinal)) return;
+            if (!ExecuteConditionEdit("Rename condition", data => data.title = normalized)) return;
+            titleInput.SetTextWithoutNotify(normalized);
             onChanged?.Invoke();
+        });
+    }
+
+    bool ExecuteConditionEdit(string label, Action<ConditionNodeData> mutation)
+    {
+        if (graphService == null || conditionNode == null || mutation == null) return false;
+
+        string nodeId = conditionNode.nodeId;
+        return graphService.ExecuteCommand(label, () =>
+        {
+            var target = graphService.FindNode(nodeId);
+            if (target == null || target.nodeType != ScenarioNodeType.Condition) return false;
+            if (target.condition == null) target.condition = new ConditionNodeData();
+            mutation(target.condition);
+            return true;
         });
     }
 

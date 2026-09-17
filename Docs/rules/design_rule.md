@@ -55,8 +55,8 @@ Pure Black / Pure White are prohibited. Use off-tone values throughout for softn
 | `text-primary` | `#1D1D1F` | `(0.114, 0.114, 0.122, 1.0)` | Main text |
 | `text-secondary` | `#6E6E73` | `(0.431, 0.431, 0.451, 1.0)` | Secondary text / labels |
 | `text-tertiary` | `#AEAEB2` | `(0.682, 0.682, 0.698, 1.0)` | Placeholder / disabled text |
-| `accent` | `#0A84FF` | `(0.039, 0.518, 1.0, 1.0)` | Primary action / links / selected state |
-| `accent-hover` | `#0070E0` | `(0.0, 0.439, 0.878, 1.0)` | Hover / press state of `accent` |
+| `accent` | `#2563EB` | `(0.145, 0.388, 0.922, 1.0)` | Primary action / links / selected state |
+| `accent-hover` | `#1D4ED8` | `(0.114, 0.306, 0.847, 1.0)` | Hover / press state of `accent` |
 | `success` | `#30D158` | `(0.188, 0.820, 0.345, 1.0)` | Success / save complete |
 | `warning` | `#FF9F0A` | `(1.0, 0.624, 0.039, 1.0)` | Warning / caution |
 | `error` | `#FF453A` | `(1.0, 0.271, 0.227, 1.0)` | Error / deletion |
@@ -132,6 +132,11 @@ All margins, padding, and gaps must be **multiples of 4**.
 - Between elements in the same group: `space-sm` (8)
 - Between different groups: `space-lg` (24) or more
 - Panel inner padding: at least `space-md` (16)
+- **Never initialize a container with zero padding merely because no value is specified.** Zero is permitted only for an explicitly full-bleed edge or when an adjacent established component already uses zero for the same structural role.
+- Before changing padding, inspect the parent and sibling `RectTransform` offsets or layout-group padding. Reuse the nearest established content inset instead of aligning a new control to the card's outer edge.
+- Controls in the same content column must share the same left edge. Unless the specification calls for asymmetry, use the same inset on the right edge as on the left edge.
+- For dynamic repeated content, calculate container height as `fixed header/content area + top padding + total item heights + item gaps/dividers + bottom padding`. Top and bottom padding around the repeated region must use the same token and remain equal as items are added or removed.
+- Validate spacing with zero items, one item, and multiple items. For dropdowns, also validate the expanded list; the trigger width, item width, label inset, and no-wrap behavior must remain intact.
 
 ---
 
@@ -180,7 +185,7 @@ Match: 0.5
 | fontWeight | SemiBold | Regular | SemiBold | Regular |
 | Corner radius | `corner-radius` | `corner-radius` | `corner-radius` | 0 |
 | Hover | `accent-hover` | `bg-tertiary` | `#E03E35` | `bg-secondary` |
-| Press | `#005EC4` | `divider` | `#C43530` | `bg-tertiary` |
+| Press | `#1E40AF` | `divider` | `#C43530` | `bg-tertiary` |
 | Disabled | opacity 0.4 | opacity 0.4 | opacity 0.4 | opacity 0.4 |
 
 ### 6.2 Cards
@@ -261,7 +266,7 @@ Match: 0.5
 
 | Token | Value | Notes |
 |---|---|---|
-| `corner-radius` | 8 | **Uniform across all components.** Do not vary per element |
+| `corner-radius` | 6 | **Uniform across all components.** Do not vary per element |
 | `transition-duration` | 150ms | State transitions such as hover / press |
 | `min-touch-target` | 44 × 44 | Minimum size for touch / click targets |
 

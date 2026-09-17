@@ -4,8 +4,6 @@ using UnityEngine;
 
 public static class PlacedObjectOptionProvider
 {
-    static string lastLoggedSignature = string.Empty;
-
     public struct Option
     {
         public string id;
@@ -27,7 +25,7 @@ public static class PlacedObjectOptionProvider
             var option = new Option
             {
                 id    = placed.id,
-                label = placed.GetDisplayName()
+                label = ImportedModelParts.Label(placed)
             };
 
             byId[option.id] = option;
@@ -36,20 +34,6 @@ public static class PlacedObjectOptionProvider
         var result = byId.Values
             .OrderBy(o => o.label)
             .ToList();
-
-        var signature = BuildSignature(result);
-        if (signature != lastLoggedSignature)
-        {
-            lastLoggedSignature = signature;
-            if (result.Count == 0)
-            {
-                Debug.Log("[PlacedObjectOptionProvider] options=0");
-            }
-            else
-            {
-                Debug.Log($"[PlacedObjectOptionProvider] options={result.Count} ids={string.Join(", ", result.Select(o => o.id))}");
-            }
-        }
 
         return result;
     }

@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.EventSystems;
 
@@ -9,19 +11,53 @@ public class SelectionService : MonoBehaviour
     public Camera cam;
     public LayerMask pickMask = ~0;
     public PlacedObject Current;
+    readonly List<PlacedObject> selected = new();
+    public IReadOnlyList<PlacedObject> Selected => selected;
+    public bool Contains(PlacedObject item) => selected.Contains(item);
+    public static bool AdditiveSelection => Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift) ||
+        Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl);
+    public static bool CanEdit(PlacedObject item)
+    {
+        if (item == null || !item.gameObject.activeInHierarchy) return false;
+        for (var node = item.transform; node != null; node = node.parent)
+        {
+            var state = node.GetComponent<PlacedObjectEditState>();
+            if (state != null && (state.Hidden || state.Locked)) return false;
+        }
+        return true;
+    }
     public SelectionOutline outline;
 
     public PrefabRegistry registry;
     public PlacementController placementController;
     public MoveTool moveTool;
-    public float pickabilityAutoFixInterval = 1f;
+    public bool enableDiagnostics = true;
 
-    float nextPickabilityFixTime;
     bool warnedCameraMissing;
     bool warnedPickMaskExclusion;
+    public string LastDebugMessage { get; private set; }
+
+    void Awake()
+    {
+        if (CanEdit(Current)) selected.Add(Current);
+        EnsureOutline();
+    }
+
+    readonly SelectionHighlightSet highlights = new();
+
+    void LateUpdate()
+    {
+        highlights.Refresh(this, selected);
+    }
+
+    void OnDisable() { highlights.Clear(); }
+    void OnDestroy() { highlights.Clear(); }
 
     void Update()
     {
+        if (ObjectScreenPicker.Capturing) return;
+        EnsureOutline();
+
         if (placementController == null)
         {
             placementController = FindFirstObjectByType<PlacementController>();
@@ -32,184 +68,201 @@ public class SelectionService : MonoBehaviour
             moveTool = FindFirstObjectByType<MoveTool>();
         }
 
-        AutoFixPickabilityIfNeeded();
-
-        if (Current != null && Current.gameObject == null)
+        if (cam == null)
         {
-            Select(null);
+            cam = EditWorkspace.ResolveCamera();
         }
 
-        if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject()) return;
-        if (moveTool != null && moveTool.ShouldConsumeSelectionClick()) return;
+        if (selected.RemoveAll(item => !CanEdit(item)) > 0) PublishSelection();
 
-        if (Input.GetMouseButtonDown(0))
+        var mousePosition = EditInput.MousePosition;
+        if (PlacementController.IsScreenPositionOverBlockingUi(mousePosition))
+        {
+            if (EditInput.LeftPressedThisFrame())
+            {
+                LogDebug($"Selection click blocked by editor UI. mouse={mousePosition}");
+            }
+            return;
+        }
+
+        if (moveTool != null && moveTool.ShouldConsumeSelectionClick())
+        {
+            if (EditInput.LeftPressedThisFrame())
+            {
+                LogDebug("Selection click consumed by MoveTool.");
+            }
+            return;
+        }
+
+        if (outline != null && outline.ShouldConsumeSelectionClick())
+        {
+            return;
+        }
+
+        if (EditInput.LeftPressedThisFrame())
         {
             if (cam == null)
             {
                 if (!warnedCameraMissing)
                 {
                     warnedCameraMissing = true;
-                    Debug.LogWarning("[Selection] Camera is not assigned.");
+                    LogWarning("Camera is not assigned.");
                 }
                 return;
             }
 
-            Ray ray = cam.ScreenPointToRay(Input.mousePosition);
-            if (TryPickPlacedObject(ray, out var picked, out var hitSomething))
+            Ray ray = cam.ScreenPointToRay(mousePosition);
+            bool pickedPlacedObject = PlacedObjectPicker.TryPick(
+                ray,
+                pickMask,
+                out var picked,
+                out var hitSomething,
+                out var usedMaskFallback);
+            if (usedMaskFallback && !warnedPickMaskExclusion)
             {
-                Select(picked);
+                warnedPickMaskExclusion = true;
+                LogWarning($"pickMask excluded selected object layer. picked={picked.name}");
+            }
+
+            if (pickedPlacedObject)
+            {
+                if (picked != Current)
+                {
+                    LogDebug($"Picked placed object: id={picked.Id}, name={picked.name}, mouse={mousePosition}");
+                }
+                if (AdditiveSelection || !Contains(picked)) Select(picked, AdditiveSelection);
+                else if (picked != Current)
+                {
+                    selected.Remove(picked);
+                    selected.Add(picked);
+                    PublishSelection();
+                }
             }
             else if (hitSomething)
             {
-                Select(null);
+                LogDebug($"Selection cleared by non-placed hit. mouse={mousePosition}");
+                if (!AdditiveSelection) Select(null);
+            }
+            else
+            {
+                LogDebug($"Selection cleared by empty workspace click. mouse={mousePosition}");
+                if (!AdditiveSelection) Select(null);
             }
         }
 
         if (Current == null) return;
+        if (EditWorkspace.IsTypingIntoInputField()) return;
 
-        if (Input.GetKeyDown(KeyCode.Delete))
+        if (Input.GetKeyDown(KeyCode.Delete)) { DeleteSelected(); return; }
+        bool modifier = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl) ||
+            Input.GetKey(KeyCode.LeftCommand) || Input.GetKey(KeyCode.RightCommand);
+        if (modifier && Input.GetKeyDown(KeyCode.D)) DuplicateSelected();
+    }
+
+    public void Select(PlacedObject po) => Select(po, false);
+
+    public void Select(PlacedObject po, bool additive)
+    {
+        if (!additive) selected.Clear();
+        if (CanEdit(po))
         {
-            System.Func<string, GameObject> factory = (tId) =>
+            if (additive && selected.Contains(po)) selected.Remove(po);
+            else if (!selected.Any(parent => po.transform.IsChildOf(parent.transform)))
             {
-                if (registry != null)
-                {
-                    var entry = registry.entries.Find(e => e.typeId == tId);
-                    if (entry != null && entry.prefab != null)
-                    {
-                        return InstantiatePlacedForUndo(entry.prefab, tId);
-                    }
-                }
-
-                if (placementController != null && placementController.TryGetPrefab(tId, out var runtimePrefab))
-                {
-                    return InstantiatePlacedForUndo(runtimePrefab, tId);
-                }
-
-                return null;
-            };
-
-            var deleteCmd = new DeleteObjectCommand(Current.gameObject, Current.typeId, factory);
-            CommandService.I.Stack.Execute(deleteCmd);
-
-            Select(null);
-            return;
-        }
-
-        bool controlKey = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl);
-        bool commandKey = Input.GetKey(KeyCode.LeftCommand) || Input.GetKey(KeyCode.RightCommand);
-
-        if ((controlKey || commandKey) && Input.GetKeyDown(KeyCode.D))
-        {
-            var dup = Instantiate(
-                Current.gameObject,
-                Current.transform.position + new Vector3(0.2f, 0f, 0.2f),
-                Current.transform.rotation
-            );
-
-            var po = dup.GetComponent<PlacedObject>();
-            if (po == null) po = dup.AddComponent<PlacedObject>();
-
-            if (string.IsNullOrEmpty(po.typeId))
-            {
-                po.typeId = Current.typeId;
+                // A selection is an antichain: parent motion already transforms its children.
+                selected.RemoveAll(child => child.transform.IsChildOf(po.transform));
+                selected.Add(po);
             }
-
-            po.ForceNewId();
-            PlacedObjectPickability.EnsurePickable(po, true);
-
-            Select(po);
-            return;
         }
+        PublishSelection();
     }
 
-    public void Select(PlacedObject po)
+    void PublishSelection()
     {
-        Current = po;
-        if (outline != null) outline.ShowFor(po ? po.gameObject : null);
-        OnSelectionChanged?.Invoke(po);
+        Current = selected.LastOrDefault();
+        EnsureOutline();
+        if (outline != null) outline.ShowFor(Current != null ? Current.gameObject : null);
+        OnSelectionChanged?.Invoke(Current);
     }
 
-    GameObject InstantiatePlacedForUndo(GameObject prefab, string typeId)
+    public void DeleteSelected()
     {
-        if (prefab == null || string.IsNullOrWhiteSpace(typeId)) return null;
-
-        var created = Instantiate(prefab);
-        var placed = created.GetComponent<PlacedObject>();
-        if (placed == null) placed = created.AddComponent<PlacedObject>();
-
-        placed.Init(typeId);
-        PlacedObjectPickability.EnsurePickable(placed, true);
-        Select(placed);
-        return created;
+        var commands = selected.Where(CanEdit).Select(item => (IEditorCommand)new DeleteObjectCommand(
+            item.gameObject, item.typeId, typeId => PlacedObjectRestoreFactory.Create(typeId, registry, placementController))).ToList();
+        if (commands.Count == 0) return;
+        if (Execute(new CompositeEditorCommand("Delete selection", commands))) Select(null);
     }
 
-    void AutoFixPickabilityIfNeeded()
+    public void DuplicateSelected()
     {
-        if (pickabilityAutoFixInterval <= 0f) return;
-        if (Time.unscaledTime < nextPickabilityFixTime) return;
-        nextPickabilityFixTime = Time.unscaledTime + pickabilityAutoFixInterval;
+        var commands = selected.Where(CanEdit).Select(item => new DuplicateObjectCommand(
+            item.gameObject, new Vector3(0.2f, 0f, 0.2f))).ToList();
+        if (commands.Count == 0 || !Execute(new CompositeEditorCommand("Duplicate selection", commands))) return;
+        selected.Clear();
+        selected.AddRange(commands.Select(command => command.Result).Where(item => item != null));
+        PublishSelection();
+    }
 
-        var allPlaced = FindObjectsByType<PlacedObject>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
-        int fixedCount = 0;
-        foreach (var placed in allPlaced)
+    public void Align(int axis, bool distribute)
+    {
+        if (axis < 0 || axis > 2) return;
+        var items = selected.Where(CanEdit).OrderBy(item => item.transform.position[axis]).ToList();
+        if (items.Count < (distribute ? 3 : 2) || Current == null) return;
+        float first = items[0].transform.position[axis];
+        float last = items[items.Count - 1].transform.position[axis];
+        var commands = new List<IEditorCommand>();
+        for (int i = 0; i < items.Count; i++)
         {
-            if (PlacedObjectPickability.EnsurePickable(placed))
+            Vector3 from = items[i].transform.position;
+            Vector3 to = from;
+            to[axis] = distribute ? Mathf.Lerp(first, last, (float)i / (items.Count - 1)) : Current.transform.position[axis];
+            if ((to - from).sqrMagnitude > 0.00000001f) commands.Add(new MoveObjectCommand(items[i].gameObject, from, to));
+        }
+        if (commands.Count > 0) Execute(new CompositeEditorCommand(distribute ? "Distribute selection" : "Align selection", commands));
+    }
+
+    static bool Execute(IEditorCommand command) => CommandService.I != null
+        ? CommandService.I.Stack.Execute(command) : command.Do();
+
+    void EnsureOutline()
+    {
+        if (outline != null) return;
+
+        outline = FindFirstObjectByType<SelectionOutline>();
+        if (outline == null)
+        {
+            var outlines = FindObjectsByType<SelectionOutline>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            if (outlines != null && outlines.Length > 0)
             {
-                fixedCount++;
+                outline = outlines[0];
+                outline.gameObject.SetActive(true);
+                outline.enabled = true;
             }
         }
 
-        if (fixedCount > 0)
+        if (outline == null)
         {
-            Debug.Log($"[Selection] Auto-fixed pickability. collidersAdded={fixedCount}");
+            var outlineRoot = new GameObject("SelectionOutlineRoot_Runtime");
+            outline = outlineRoot.AddComponent<SelectionOutline>();
+        }
+
+        if (Current != null)
+        {
+            outline.ShowFor(Current.gameObject);
         }
     }
 
-    bool TryPickPlacedObject(Ray ray, out PlacedObject picked, out bool hitSomething)
+    void LogDebug(string message)
     {
-        picked = null;
-        hitSomething = false;
-
-        var hits = Physics.RaycastAll(ray, 1000f, ~0, QueryTriggerInteraction.Collide);
-        if (hits == null || hits.Length == 0) return false;
-        hitSomething = true;
-
-        System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
-
-        PlacedObject fallback = null;
-        foreach (var hit in hits)
-        {
-            var collider = hit.collider;
-            if (collider == null) continue;
-
-            var placed = collider.GetComponentInParent<PlacedObject>();
-            if (placed == null) continue;
-
-            if (fallback == null) fallback = placed;
-
-            if (IsLayerIncluded(collider.gameObject.layer, pickMask) || IsLayerIncluded(placed.gameObject.layer, pickMask))
-            {
-                picked = placed;
-                return true;
-            }
-        }
-
-        if (fallback != null)
-        {
-            picked = fallback;
-            if (!warnedPickMaskExclusion)
-            {
-                warnedPickMaskExclusion = true;
-                Debug.LogWarning($"[Selection] pickMask excluded selected object layer. picked={fallback.name}");
-            }
-            return true;
-        }
-
-        return false;
+        LastDebugMessage = message;
+        if (!enableDiagnostics) return;
+        Debug.Log("[Selection] " + message);
     }
 
-    static bool IsLayerIncluded(int layer, LayerMask mask)
+    void LogWarning(string message)
     {
-        return (mask.value & (1 << layer)) != 0;
+        LastDebugMessage = message;
+        Debug.LogWarning("[Selection] " + message);
     }
+
 }

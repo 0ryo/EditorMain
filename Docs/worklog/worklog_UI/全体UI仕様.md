@@ -15,6 +15,7 @@
 - `UIRoot`（Canvas）
   - `Panel_Catalog`（左固定、オブジェクト一覧）
   - `Panel_ScenarioGraph`（下部固定、ノード追加）
+  - `ViewportStatusStrip`（3Dビュー上部、現在モード/配置/選択状態）
   - `UiPanelDockSync`（2パネル密着同期）
 - Canvas 設定
   - Render Mode: `Screen Space - Overlay`
@@ -27,10 +28,10 @@
 - 全体トーンは白基調。
 - 透明度は原則 1.0（不透明）。例外は線レイヤーの透明背景のみ。
 - 主要色（実装値）
-  - パネル背景: `0.96, 0.96, 0.96, 1`
-  - ノード/主要ボタン: 薄い黄系（例: `1, 0.98, 0.86, 1`）
-  - 接続線: 明るい黄（`1, 0.92, 0.2, 1`）
-  - ドロップダウン背景: グレー系（`0.92`〜`0.97`）
+  - パネル背景: `DesignTokens.BgPrimary`
+  - ノード/カード背景: `DesignTokens.Surface` または `DesignTokens.BgSecondary`
+  - アクセント/選択/接続線: `DesignTokens.Accent`（`#2563EB`）
+  - ドロップダウン背景: `DesignTokens.Surface`
 - フォント
   - ランタイムで参照する built-in font は `LegacyRuntime.ttf` を使用。
 - 視認性
@@ -41,11 +42,11 @@
 - `Panel_Catalog`
   - 画面左側固定、上下端まで表示。
   - 横幅可変（`PanelHorizontalResizeHandle`）
-  - 幅制限: `min=220`, `max=720`
+  - 幅制限: `min=240`, `max=420`
 - `Panel_ScenarioGraph`
   - 画面下部固定、右側に展開。
   - 高さ可変（`PanelVerticalResizeHandle`）
-  - 高さ制限: `min=180`, `max=720`
+  - 高さ制限: `min=220`, `max=720`
 - 2パネルの隙間
   - `UiPanelDockSync.gap = 0` を維持し、常に密着。
   - カタログ幅変更時も隙間を作らない。
@@ -58,8 +59,9 @@
   - スクロール一覧（カード縦積み）
   - 右端に横リサイズハンドル
 - カード表示
-  - `typeId` を表示
-  - カード高は `84` 固定
+  - カテゴリバッジ、表示名、技術ID（`typeId`）を表示
+  - カード高は `96` 固定
+  - `typeId` からカテゴリと表示名を推定する
   - 上詰め配置（`VerticalLayoutGroup.childAlignment = UpperLeft`）
   - 小型 `×` ボタンはカードホバー時のみ表示
   - `×` ボタンはカード右上角の外側にはみ出し、丸の中心がカード角に重なる
@@ -80,7 +82,14 @@
 
 ## 7. 配置処理ルール（PlacementController）
 - 配置先判定
-  - カメラから床へ Raycast（`floorMask`）
+  - `EditWorkspace.TryScreenToGround` でカメラから y=0 の作業平面へ `ScreenPointToRay` / `Plane.Raycast` する
+  - 床Colliderは配置入力の必須条件にしない。`WorkspaceFloorGrid` は視覚補助として扱う
+- 3Dビュー補助表示
+  - `WorkspaceFloorGrid` が実行時に広い半透明の床面と、同じ太さの半透明格子線/X/Z中心線を補完する
+  - `ViewportStatusStrip` が `閲覧中` / `配置中` / `移動中` / `スケール調整` と対象情報を表示する
+  - デバッグ時は `ViewportStatusStrip` にカメラ座標、ズーム値、直近の配置ログを表示する
+  - Main Camera は起動時に `(0, 6, -10)` から原点を見る既定ビューへ補正する
+  - 3Dビュー操作は中ドラッグで回転、Shift+中ドラッグで平行移動、ホイールでズームする
 - 座標
   - `x,z` は `0.1m` グリッドスナップ
   - `y = hit.y + 0.5`
@@ -89,12 +98,13 @@
   - `InitType(typeId)` 実行
   - `ForceNewId()` で `obj-0001` 形式 ID を保証
   - 回転は `Quaternion.identity`
-  - 配置後は自動選択
+- 配置後は自動選択
+  - 配置成功時は `ViewportStatusStrip` に短時間 `配置しました: obj-xxxx` を表示する
 
 ## 8. ノード追加ウィンドウ仕様
 - 対象: `Panel_ScenarioGraph` / `ScenarioGraphUI`
 - UI構成
-  - TopBar: プロジェクト名、`+ Step`、`+ Condition`、`Save`、ステータス
+  - TopBar: プロジェクト名、`+ 手順`、`+ 条件`、`保存`、ステータス
   - NodeArea: ノード配置領域
   - LineLayer: 接続線描画レイヤー
   - 上端に縦リサイズハンドル
@@ -102,13 +112,13 @@
   - `Start` / `End`（各1つ）
   - `Step`（複数）
   - `Condition`（複数）
-- `+ Step`
+- `+ 手順`
   - `CurriculumGraphService.AddStep()` を実行
   - 既存ノード位置は保持
   - 未保存位置がないノードは自動整列位置を適用
-- `+ Condition`
+- `+ 条件`
   - `CurriculumGraphService.AddCondition()` を実行
-  - 新規Conditionノードを追加
+  - 新規Conditionノード（表示名は条件）を追加
 - ノード移動
   - `NodeDragHandler` でドラッグ移動可能
 - 保存
@@ -118,14 +128,14 @@
 
 ## 9. ノードカード仕様
 - `StepNodeUI`
-  - 表示: `STEP n`、条件数サマリ、警告アイコン
+  - 表示: `手順 n`、条件数サマリ、警告アイコン
   - 接続: 入力1 / 出力1（StepFlow）
 - `ConditionNodeUI`
-  - 表示: `Condition nodeId`、`DropdownA` + `DropdownB`
+  - 表示: `条件 n`、`DropdownA` + `DropdownB`
   - 接続: 出力1（ConditionBind）
 - `TerminalNodeUI`
-  - `START`: 出力のみ
-  - `END`: 入力のみ
+  - `開始`: 出力のみ
+  - `終了`: 入力のみ
 
 ## 10. 条件ドロップダウン仕様
 - 対象: `ConditionRowUI`, `PlacedObjectOptionProvider`
@@ -152,10 +162,10 @@
   - `StepFlow`: `Start/Step -> Step/End`
   - `ConditionBind`: `Condition -> Step`
 - 接続制約
-  - StepFlowは分岐禁止（各ノード出力は最大1）
+  - Startの出力は最大1。Stepは複数接続を許可し、全成功条件の達成後に進路を選ぶ。Step/Endへの合流を許可する。
   - StepFlowは循環禁止
   - Conditionは1つのStepにのみ接続
-  - StepのCondition受け取り上限は3
+  - StepのCondition受け取り上限は既定8（設定範囲1〜32）
 - 接続線
   - `ConnectionLineGraphic` で描画
   - 色は明るい黄色、太さ `8`
@@ -300,3 +310,63 @@
 - `QualitySettings` は高品質寄りのプリセットを既定にし、UI と線描画の視認性改善を優先する。
 - 日本語フォールバックは `TmpFontInitializer` が Editor / Runtime の両方で登録する。`TMP_Settings.fallbackFontAssets` を空のままにしない。
 - フォールバック候補フォントは Windows の `Yu Gothic UI` / `Meiryo UI` などを優先し、`あ / ア / 漢 / （ / ）` を描画できるものだけを採用する。
+
+## 33. 2026-06-29 Canvas Reference Resolution
+- CanvasScaler の Reference Resolution は `1920x1080` に統一する。
+- `DesignTokens.ReferenceResolution` を正とし、`BuildUiPrefabs` と `DesignTokenApplier` は同じ値を参照する。
+- 既存仕様の `Reference 1920x1080` を維持し、実装側に残っていた `2560x1440` 固定値は使わない。
+
+## 34. 2026-06-29 Foundation Color / Labels / Layout
+- アクセント色を `#2563EB`、hover を `#1D4ED8`、press を `#1E40AF` に更新した。
+- Start/End ノードは強い青/赤塗りをやめ、`Surface` 背景 + `Divider` アウトラインの静かな表示にする。
+- 設定ボタンは Unicode 歯車単独ではなく `設定` の日本語ラベルで表示する。
+- Scenario graph の主要操作ラベルは `+ 手順` / `+ 条件` / `保存` とする。
+- ラップトップ対応として Catalog 幅を `min=240`, `default=312`, `max=420`、Scenario graph 高さを `min=220`, `default=320`, `max=720` に寄せる。
+
+## 35. 2026-06-29 Viewport State Feedback
+- `ViewportStatusStrip` を追加し、3Dビュー上部に現在モード、配置対象、選択中オブジェクト、配置成功メッセージを表示する。
+- `PlacementController.ObjectPlaced` を追加し、配置成功をUIへ通知する。
+- `WorkspaceFloorGrid` を追加し、実行時に床グリッドを補完して灰色の無地感を減らす。
+- `SelectionOutline` のライン色を `DesignTokens.Accent` に寄せる。
+
+## 36. 2026-06-29 Catalog Card Information Density
+- カタログカードをカテゴリバッジ、表示名、技術IDの3段構成に更新する。
+- `CatalogUI` は既存Prefabでも `Badge_Category` / `LabelCategory` / `LabelTechnicalId` をランタイム補完する。
+- `BuildUiPrefabs` の `Card_Template` も同じ3段構成で生成する。
+- `DesignTokenApplier` は旧中央寄せ補正をやめ、新カードレイアウトを維持する。
+
+## 37. 2026-06-29 Scenario Graph Japanese Terminology
+- `StepNodeUI` の見出しを `STEP n` から `手順 n` に変更する。
+- `ConditionNodeUI` の見出しを `条件 n` に統一する。
+- `BuildUiPrefabs` の Step node template も `手順 1` で生成する。
+- `CurriculumGraphService` の新規Stepタイトルと保存JSONの required action 名も `手順 n` とする。
+
+## 38. 2026-08-22 Remaining UI Polish
+- 空の手順ノードは `条件を追加してください` を表示する。
+- Catalogの横リサイズ境界とScenario graphの縦リサイズ境界は、細いグリップ線と方向カーソルで操作可能範囲を示す。
+- Scenario graphは編集中に `要確認: n件` の短い状態だけを表示し、保存操作時に詳細な問題一覧を開く。
+- 問題一覧の関連nodeId付き項目を選ぶと、該当ノードまたはConditionを格納するStepへ表示を移す。
+- Object detailは表示名と技術IDをheaderに表示し、`基本情報` / `説明` / `使用中の条件` のsectionに分ける。
+- Object detailの未使用時は `このオブジェクトはまだ手順で使われていません` と表示し、200msのslide＋fadeで開閉する。
+- Object detailは画面右端の上端から下端まで表示し、開閉時はglobalの `設定` と `ヒント` をパネル幅に合わせて水平移動する。
+- Global操作として `ヒント` を追加し、内容差し替え可能なplaceholder panelを開く。
+- Catalog card右側にneutral colorのcategory fallback blockを表示する。
+
+## 教材作成機能の操作
+
+- 一覧と3D空間はShift/Ctrl+クリックで追加選択・解除する。複数選択した全対象に形状に沿う青い輪郭を表示し、最後に選択した対象をギズモと数値Transformの基準にする。輪郭は遮蔽物越しにも表示し、他の選択対象に埋まった物も個別に確認できる。選択中の対象を3D空間で通常クリックすると、選択集合を保ったまま基準を切り替える。
+- 通常の選択枠は矩形を使わない。拡縮モードでは従来の角ドラッグ位置を小さなハンドルで示す。候補確認のオレンジ輪郭と通常選択の青輪郭は別状態とし、同じ位置ではオレンジを上に表示する。
+- 移動・回転・拡大縮小・複製・削除は選択集合に適用し、一度のUndoで戻せる。固定・非表示の対象は選択集合に含めない。
+- 一覧のX/Y/Z整列は最後に選択した対象の原点にそろえる。等間隔は各軸の両端を維持し、3個以上の選択を均等に配置する。操作可能な個数に満たないボタンは無効化する。
+- 新規条件は「近づける」「近づけて保持」「押す」「引く」「もつ」「回す」。回すには角度（度）の数値欄を表示する。旧条件は既存データの互換用に保持する。種類に必要な対象と数値欄だけ表示する。失敗設定は追加しない。
+- 対象ドロップダウンは高速スクロールと名前の折り返しに対応する。候補へのホバーで全文と遮蔽物越しのオレンジ輪郭を表示し、選択済み欄へのホバーでも確認できる。ホバーは編集選択を変えない。
+- 対象リスト上部で名前の部分一致検索（英字の大文字小文字を区別しない）ができる。「画面上から選択」は対象欄を挟んでリストの反対側へ表示する。ピペットで3D上の対象をクリックすると、操作を始めたA/B欄へ設定する。Esc・右クリックで取り消す。入力待ち中は通常の配置・変形・編集選択を抑止する。
+- 「画面上から選択」は元の対象欄と左右端・幅をそろえ、8pxの間隔を置く。アクセント色の背景に中央揃えの明るい文字を使い、44pxの高さを確保する。検索欄は固定ヘッダーとしてリストのスクロール領域から分離する。
+- Bを使わない条件（押す・引く・もつ・回すなど）は「対象を 動作」の1行に詰める。回すの角度欄も繰り上げる。近づける・近づけて保持などへ戻したらB欄を含む2行に戻す。親の手順カードも各条件の実際の高さに合わせる。
+- 手順の出力から複数の手順へ接続すると分岐になる。手順カードには「成功後 n択」を表示する。
+- プレビューでは「成功を模擬」を押して次への操作を有効化し、複数接続の場合は手順名付きの進路ボタンを表示する。「前の手順」は実際に選んだ経路を戻り、成功の模擬状態をリセットする。
+- 追加モデルは名前・説明とともに保存され、再起動後にカタログへ復元する。復元中に教材を開こうとした場合は、復元完了後に開くよう案内する。
+- 追加した静的モデルを新しく配置すると、内部のMeshとその親グループを「一覧」に親子順で表示する。親の行で車全体、子の行または3D上の形状で個々の部品を選択する。検索は部品名・配置ID・元モデルの表示名に対応する。スキニングまたはLODを含むモデルは全体のまま扱う。
+- 親と子を同時選択して変形を二重適用しないよう、親を選択集合に含めた場合はその子を除外する。親の移動・回転・拡縮・非表示・固定は子に継承し、親を再表示しても子自身の非表示状態を維持する。部品だけの複製は独立配置になる。
+- 部品は名前、local Transform、表示/固定、削除状態、条件参照IDを保存・再読込できる。旧保存形式の配置は全体のまま読み込むため、部品編集にはカタログから新しく配置する。
+- UI更新は `Tools/Automation/Apply Authoring Features`。Scene/Prefab YAMLを直接編集しない。

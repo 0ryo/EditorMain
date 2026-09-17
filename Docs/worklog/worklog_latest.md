@@ -1,28 +1,14 @@
-﻿# worklog_latest
+# worklog_latest
 
 ## 0. 対象範囲
-- ブランチ: `improve/rendering-quality`
-- 比較起点: `improve/objectlist`
-- 作業テーマ: UI の可読性・描画品質の改善、詳細パネル拡張、シナリオ UI 調整、ビルド系修正の整理
-- 最終更新: 2026-03-23
-- 参照コミット:
-  - `9d5009f4` ノードのUIを調整しました。
-  - `c8dcc17b` オブジェクト詳細画面を作成しました。アニメーションで開いたり閉じたりするようにしました。
-  - `8f0cabd8` 詳細ウィンドウに、使用中のノードを表示するようにしました。
-  - `ce0f3c4d` ビルドエラー解消とgltfインポートに対応しました。
-  - `8b7e3cb8` エラーメッセージをわかりやすくしました。
-  - `3e5ed63c` 解像度が低い問題を改善しました。
+- ブランチ: `codex/placement-camera-floor-refactor`
+- 作業テーマ: `ui_design_implementation_policy_2026-06-29.md` に基づく UI デザイン実装
+- 最終更新: 2026-08-22
+- 旧ログ: `Docs/worklog/worklog_2026-06-29_ui_design_audit.md`
 
 ## 1. Phase A 現状把握
-### 1.1 Unityバージョン
-- `ProjectSettings/ProjectVersion.txt`: `6000.2.6f2`
-
-### 1.2 UI方式
-- `.uxml/.uss` は未検出。
-- ベースは `uGUI`。
-- 現在ブランチの UI テキスト/入力/ドロップダウンは `TextMeshPro` 系コンポーネントへの移行が進行中。
-
-### 1.3 UI構造メモ（主要Scene/Prefab/入口）
+- Unityバージョン: `6000.2.6f2`
+- UI方式: uGUI + TextMeshPro
 - 主要Scene: `Assets/EditorMain.unity`
 - UIルート: `Assets/UI/Prefabs/UIRoot.prefab`
 - 主要UI入口:
@@ -30,124 +16,156 @@
   - `ScenarioGraphUI`
   - `ObjectDetailPanel`
   - `BuildUiPrefabs`
+- UI仕様ログ:
+  - `Docs/worklog/worklog_UI/全体UI仕様.md`
+  - `Docs/worklog/worklog_UI/worklog_オブジェクト一覧ウィンドウ.md`
 
-## 2. このブランチの要点
-- シナリオノード UI を整理し、Condition の埋め込み表示、Step 自動リサイズ、START/END ノードの色分けとドラッグ挙動を改善。
-- オブジェクト詳細パネルを追加し、選択オブジェクトの基本情報表示、説明編集、使用中 Condition ノード表示まで拡張。
-- 設定画面と新規オブジェクト設定画面の前面表示や、詳細パネル側の専用スタイラ分離など、UI 運用面を整備。
-- `RuntimeModelLoader` を追加し、glTF import 対応とビルドエラー解消を実施。
-- シナリオ保存/検証のエラーメッセージをユーザー向け文言に寄せ、`statusText` の見え方を改善。
-- 最新の未コミット差分では、UI 一式を `TextMeshPro` 系へ寄せつつ、角丸スプライト解像度・アウトライン・接続線アンチエイリアス・Quality 設定を調整して表示品質を上げている。
+## 2. 参照した方針
+- `Docs/design_audit/ui_design_implementation_policy_2026-06-29.md`
+- `Docs/design_audit/ui_ux_design_audit_2026-06-29.md`
+- `Docs/rules/design_rule.md`
+- `Docs/rules/ui_editing_rules.md`
+- `Docs/rules/worklog_rules.md`
 
-## 3. 実装サマリ
-### 3.1 シナリオノードUI
-- `ConditionNodeUI` / `StepNodeUI` の見た目と配置ロジックを調整。
-- Condition を Step 近傍へドラッグしたときの内包表示を安定化。
-- 埋め込み Condition のヘッダーを `手順 n` 表示に統一し、区切り線と余白を追加。
-- `TerminalNodeUI` と `DesignTokenApplier` を更新し、START/END を専用色表示に変更。
-- START/END ノードはノード全体ドラッグに対応。
+## 3. 実装方針
+- Unity Editor / Unity CLI は起動しない。静的チェックのみ行い、コンパイルと実機確認はユーザーが実施する。
+- Scene/Prefab の直接YAML編集は避け、必要な場合は `Assets/Editor/Automation/BuildUiPrefabs.cs` など Editor API 経由の更新ルートに限定する。
+- 仕様と差が出そうな場合は実装前に停止して報告する。
+- 1タスク完了ごとにユーザーへ報告し、次へ進む判断を待つ。
 
-### 3.2 オブジェクト詳細パネル
-- `ObjectDetailPanel` を追加し、選択中オブジェクトの詳細を右パネル表示に変更。
-- 説明欄を編集可能にし、`PlacedObject` 側へオーバーライド内容を保持。
-- 選択中オブジェクトを参照している Condition を詳細パネルに表示。
-- 表示は簡易テキストから `ConditionNodeUI` 実体ベースへ移行し、詳細側でも A/B 編集を可能化。
-- 詳細側専用の見た目調整用に `ObjectDetailConditionNodeStyler` を追加。
+## 4. 最初の候補タスク
+- Phase 1: Foundation And Responsiveness のうち、最小差分で扱えるものから着手する。
+- 候補:
+  - Canvas reference resolution の 1920x1080 統一確認と必要最小修正
+  - `DesignTokens` のアクセント色を `#2563EB` 系へ更新
+  - Unicode-only 設定ボタンの日本語ラベル化
 
-### 3.3 カタログ/補助UI
-- 設定画面と新規オブジェクト設定画面を前面表示へ調整。
-- カタログカードは「名前のみ中央表示」の簡素化状態を継続。
-- `CatalogUI` から設定/新規オブジェクト入力/UI補完の責務を整理。
-
-### 3.4 ビルド・読み込み・品質
-- `RuntimeModelLoader` を追加し、glTF import 対応を追加。
-- Build Profile / URP / ProjectSettings を更新し、ビルドエラー解消と実行設定を調整。
-- 現在の未コミット差分では `TMP_Text` / `TMP_InputField` / `TMP_Dropdown` への置換が進行中。
-- `TmpFontInitializer` を追加し、Windows 環境で TMP の日本語フォールバックフォントをランタイム登録する構成を追加。
-- `UiRoundedTheme` の生成テクスチャ解像度を上げ、角丸のジャギーを減らす方向で調整。
-- `ConnectionLineGraphic.AaEdgeWidth` を `2.5f` に引き上げ、接続線のエッジを滑らかに調整。
-- `QualitySettings` の既定品質プリセットを `Ultra` 側に寄せ、描画品質を引き上げ。
-
-## 4. 現在の未コミット差分メモ
-- `CatalogUI` / `ScenarioGraphUI` / `ConditionNodeUI` / `StepNodeUI` / `TerminalNodeUI` / `ObjectDetailPanel` / `ConditionRowUI` を `Legacy Text/InputField/Dropdown` から TMP 系へ置換中。
-- `BuildUiPrefabs` も TMP 前提の Prefab 生成へ追従中。
-- `DesignTokenApplier` は TMP 系コンポーネントを前提に色・アウトライン適用を更新中。
-- `UIRoot.prefab` は TMP コンポーネント差し替えに伴う大きな差分が発生中。
-- `ProjectSettings/QualitySettings.asset` は品質プリセット名とパラメータを調整中。
-
-## 5. 主な変更ファイル
-- `Assets/Editor/Automation/BuildUiPrefabs.cs`
-- `Assets/Scripts/CatalogUI.cs`
-- `Assets/Scripts/PlacementController.cs`
-- `Assets/Scripts/RuntimeModelLoader.cs`
-- `Assets/Scripts/SelectionService.cs`
-- `Assets/Scripts/UI/ConditionNodeUI.cs`
-- `Assets/Scripts/UI/ConditionRowUI.cs`
-- `Assets/Scripts/UI/ConnectionLineGraphic.cs`
-- `Assets/Scripts/UI/DesignTokenApplier.cs`
-- `Assets/Scripts/UI/DesignTokens.cs`
-- `Assets/Scripts/UI/ObjectDetailConditionNodeStyler.cs`
-- `Assets/Scripts/UI/ObjectDetailPanel.cs`
-- `Assets/Scripts/UI/ScenarioGraphUI.cs`
-- `Assets/Scripts/UI/StepNodeUI.cs`
-- `Assets/Scripts/UI/TerminalNodeUI.cs`
-- `Assets/Scripts/UI/TmpFontInitializer.cs`
-- `Assets/Scripts/UI/UiRoundedTheme.cs`
-- `Assets/UI/Prefabs/UIRoot.prefab`
-- `Assets/Settings/UniversalRP.asset`
-- `ProjectSettings/QualitySettings.asset`
-- `Docs/worklog/worklog_UI/全体UI仕様.md`
-- `Docs/worklog/worklog_UI/worklog_オブジェクト一覧ウィンドウ.md`
-- `Docs/worklog/worklog_latest.md`
+## 5. 実装メモ
+- Task 1: Canvas reference resolution を `1920x1080` に統一。
+- `DesignTokens.ReferenceResolution` を追加し、`DesignTokenApplier` と `BuildUiPrefabs` が同じ値を参照するようにした。
+- `Docs/worklog/worklog_UI/全体UI仕様.md` の既存仕様は `1920x1080` だったため、仕様変更ではなく実装側のズレ修正として扱う。
+- Task 2: Phase 1 Foundation の残り最小差分を実装。
+- `DesignTokens.Accent` / `AccentHover` / `AccentPress` を落ち着いた `#2563EB` 系へ更新した。
+- Start/End ノードの強い青/赤塗りをやめ、`Surface` 背景 + `Divider` アウトラインの静かな表示に寄せた。
+- 設定ボタンを Unicode 歯車単独から `設定` の日本語ラベルへ変更した。既存Prefab向けに `CatalogUI` のランタイム補正も更新した。
+- Scenario graph のボタンラベルを `+ 手順` / `+ 条件` / `保存` へ寄せた。
+- Catalog / Scenario graph のラップトップ向けリサイズ制限を `DesignTokens` に追加し、既存Prefabの古い serialized 値も起動時に正規化するようにした。
+- UI仕様ログ `Docs/worklog/worklog_UI/全体UI仕様.md` とデザインルール `Docs/rules/design_rule.md` を実装値に合わせて更新した。
+- Task 3: Phase 2 State Feedback の入口として 3D Viewport の状態表示を追加。
+- `ViewportStatusStrip` を追加し、現在モード、配置対象、選択中オブジェクト、配置成功メッセージを 3D ビュー上部へ表示するようにした。
+- `PlacementController.ObjectPlaced` を追加し、配置成功を UI へ通知できるようにした。
+- `WorkspaceFloorGrid` を追加し、実行時に床グリッドを補完して灰色の無地感を減らすようにした。
+- `SelectionOutline` のライン色を `DesignTokens.Accent` に変更した。
+- `BuildUiPrefabs` と `CatalogUI` の両方に `ViewportStatusStrip` の生成/補完ルートを追加した。
+- Task 4: Phase 3 Catalog Polish の入口としてカタログカード表示を改善。
+- カードをカテゴリバッジ、表示名、技術IDの3段構成にした。
+- `CatalogUI` は `typeId` からカテゴリ/表示名を推定し、既存Prefabへ `Badge_Category` / `LabelCategory` / `LabelTechnicalId` をランタイム補完するようにした。
+- `BuildUiPrefabs` の `Card_Template` も同じ3段構成で生成するようにした。
+- `DesignTokenApplier` の旧カード中央寄せ補正を、新カードレイアウト維持に変更した。
+- UI仕様ログ `Docs/worklog/worklog_UI/全体UI仕様.md` と `Docs/worklog/worklog_UI/worklog_オブジェクト一覧ウィンドウ.md` を更新した。
+- Task 5: Scenario graph の英語表示残りを日本語へ寄せた。
+- `StepNodeUI` の見出しを `STEP n` から `手順 n` に変更した。
+- `ConditionNodeUI` の見出しを `条件 n` に統一した。
+- `BuildUiPrefabs` の Step node template 初期表示も `手順 1` に変更した。
+- `CurriculumGraphService` の新規Stepタイトルと保存JSONの required action 名も `手順 n` に変更した。
+- Task 6: デフォルト配置オブジェクト一覧が空/不可視になるケースを修正。
+- `PrefabRegistry.LoadDefault()` を追加し、`CatalogUI` と `PlacementController` が `Assets/Data/DefaultRegistry.asset` へフォールバックできるようにした。
+- Catalog のスクロール領域背景を `DesignTokens.BgPrimary` に戻し、`Surface` カードが背景と同化しないようにした。
+- これにより `Vehicle/Car_Proxy` / `ToolBox/Basic_Proxy` / `Tire/Replacement_Proxy` / `Env/Wall_Min` の既定カードが復旧しやすくなった。
+- Task 7: 床ColliderへのRaycastが外れても配置できるようにした。
+- `PlacementController` の配置点解決を Collider Raycast 優先 + y=0 平面フォールバックに変更し、床表示やレイヤー状態に左右されず配置できるようにした。
+- Task 8: 3Dビュー配置クリックと床グリッド表示を改善。
+- `PlacementController` は 3Dビュー全体を UI ヒット扱いで弾かず、Catalog / Scenario graph / モーダル / 上部操作だけをブロックするようにした。
+- `WorkspaceFloorGrid` を LineRenderer 依存からメッシュ床面 + 格子線 + X/Z方向軸 + Origin ラベルの表示へ変更した。
+- `CatalogCardDragHandler` の UI ドロップ判定も同じブロック矩形判定に寄せた。
+- `CatalogUI` の配置イベント配線を毎回 `PlacementController.EnterPlacement` へ明示再バインドし、壊れた永続イベント参照に左右されないようにした。
+- Task 9: 3Dビュー初期化をシンプルな確定経路へ移した。
+- `CatalogUI` 起動時とカードクリック時に Main Camera を床向きの既定ビューへ戻し、`WorkspaceFloorGrid` 生成も保証するようにした。
+- `PlacementController` もカメラ参照切れを自動補完し、Start 時にもグリッド生成を保証するようにした。
+- `EditCameraController` は保存済みの遠いカメラ位置を使わず、起動時に床向き既定ビューへ戻すようにした。
+- Task 10: グリッドを控えめにし、視点移動を復旧。
+- `WorkspaceFloorGrid` はラベル/矢印/太い軸をやめ、薄い床面、細い格子線、控えめなX/Z中心線だけにした。
+- `CatalogUI.EnsureViewportReady` はカメラを親から外さず、`EditorCameraController.ResetToDefaultView()` 経由で初期化するようにした。
+- カードクリック時は視点をリセットせず、グリッドと配置コントローラ参照だけを保証するようにした。
+- `EditCameraController` のUI判定を全画面Canvasではなく操作パネル矩形だけにし、3Dビュー上の中ボタンドラッグ/ホイール操作が通るようにした。
+- Task 11: グリッド領域と視点移動を再修正。
+- `WorkspaceFloorGrid` は既存の生成済み子要素を毎回破棄してから再生成し、古い太いグリッドが残らないようにした。
+- グリッド範囲を大きく取り、全線を同じ太さ、半透明マテリアルに統一した。
+- `PlacementController` にカメラ操作専用のUIブロック判定を追加し、Scenario graph の矩形が3Dビュー操作を止めないようにした。
+- `EditCameraController` は中ドラッグで平行移動、右ドラッグで回転、ホイールでズームするようにした。
+- Task 12: 視点操作の入力経路と操作仕様を修正。
+- `EditCameraController` は新Input System の `Mouse.current` 依存をやめ、既存の配置/選択系と同じ旧 `Input` API へ統一した。
+- 視点操作は中ドラッグで回転、Shift+中ドラッグで平行移動、ホイールでズームに戻した。
+- `WorkspaceFloorGrid` の半透明色を少し濃くし、BuildRevision を更新して既存ランタイム生成物も再生成されるようにした。
+- Task 13: 配置優先のデバッグ補強。
+- `PlacementController` は配置クリックのブロック対象から `Panel_ScenarioGraph` を外し、下部パネルの矩形が3Dビュー配置を止めないようにした。
+- 配置開始、クリック受理、UIブロック、配置点解決、配置成功/失敗を `[Placement]` ログとしてコンソールへ出すようにした。
+- `CommandService` が未初期化でも直接配置へフォールバックし、まずオブジェクトが出ることを優先するようにした。
+- `ViewportStatusStrip` にカメラ座標/ズーム値と直近の配置デバッグログを表示する行を追加した。
+- Task 14: 床/視点移動/配置の調査とリファクタリング。
+- 調査結果: Scene上の `Floor` は Layer 8 かつ `floorMask` も Layer 8 だが、Collider は 1x1 の `BoxCollider` なので、広いグリッド表示範囲のクリックを床Colliderで受ける設計として不十分だった。
+- 調査結果: Unity公式API上も `Camera.ScreenPointToRay` と `Plane.Raycast` でスクリーン座標を作業平面へ直接変換できるため、配置は床Colliderではなく y=0 の数学的な作業平面を主経路にする。
+- `EditWorkspace` を追加し、カメラ解決、作業平面変換、配置点スナップ、UI矩形ブロック判定、入力欄判定を集約した。
+- `PlacementController` は `floorMask` 依存をやめ、`EditWorkspace.TryScreenToGround` で必ず作業平面へ配置点を解決するようにした。
+- `EditorCameraController` はUI矩形ブロックをやめ、入力欄編集中以外は中ドラッグ/Shift+中ドラッグ/ホイールを処理するようにした。
+- `CatalogUI` と `ViewportStatusStrip` も `EditWorkspace` 経由で同じカメラを解決するようにし、初期化経路を一本化した。
+- Task 15: 配置/視点操作が無反応な問題の実行経路診断を追加。
+- 調査結果: `Editor.log` 上で `TmpFontInitializer.ClearTmpMaterialCaches()` と `TMP_SubMeshUI` 更新中の `NullReferenceException` が継続発生していたため、TMP内部状態が不安定なタイミングでは例外を投げず警告に落として処理を継続するようにした。
+- `EditInput` を追加し、3Dビュー操作の左クリック/中クリック/Shift/ホイールを旧Inputと新Input Systemの両方から読めるようにした。`ProjectSettings.asset` は `activeInputHandler: 2` で両対応だが、SceneのEventSystemは `InputSystemUIInputModule` なので、操作系も新Inputを見られるようにした。
+- `CatalogUI` はカードクリック/ドラッグドロップ時に `[CatalogUI]` ログを出し、`PlacementController` の接続有無と typeId を確認できるようにした。
+- `PlacementController` は `[PlacementDiag]` ログで、配置対象、Prefab map件数、カメラ、マウス座標、左クリック、UIブロック名、EditModeを一定間隔および配置開始時に出すようにした。
+- `EditorCameraController` は `[CameraDiag]` ログで、カメラ/ピボット座標、マウス座標、中ボタン、Shift、ホイール、ズーム値を表示し、視点操作入力が読めているか確認できるようにした。
+- Task 16: カードクリック時に `placementController=(null)` で配置モードに入れない問題を修正。
+- ユーザー確認ログから、3Dビュークリック以前に `CatalogUI` が `PlacementController` を解決できていないことが確定した。
+- `CatalogUI.EnsureRuntimeBindings()` を、active な `PlacementController` 探索、inactive 含む探索と再有効化、最後に `RuntimePlacementSystems` へのランタイム生成、の順に必ず配置システムを解決する実装へ変更した。
+- 生成/再有効化した `PlacementController` へ、既存 `PrefabRegistry`、Camera、`SelectionService` を補完するようにした。
+- Task 17: 配置後の選択切り替え、移動、視点操作の実行経路を修正。
+- ユーザー確認ログから、配置自体は成功している一方で `[PlacementDiag] Update` が常時出ており、さらに `mode=(no EditModeService)` だったため、配置後の編集系サービスが見つかっていないことを原因候補として扱った。
+- `CatalogUI` のランタイム補完を拡張し、`EditModeService` / `CommandService` / `SelectionService` / `MoveTool` / `EditorCameraController` が見つからない場合は再有効化または生成し、Camera / Registry / Selection / Placement 参照を同期するようにした。
+- `EditInput` は旧Inputを優先し、新Input Systemはフォールバックに変更した。これにより `mouse=(405,-705)` のようなGameビュー外座標を編集操作に使いにくくした。
+- `SelectionService` は全画面 `EventSystem.IsPointerOverGameObject()` 判定をやめ、配置と同じブロックUI矩形だけを除外して選択Raycastするようにした。選択クリック時のみ `[Selection]` ログを出す。
+- `MoveTool` は共通入力とブロックUI矩形判定へ寄せ、移動モードでのドラッグ開始/確定、または移動モードではない時のクリックだけ `[MoveTool]` ログを出す。
+- `PlacementController` の `[PlacementDiag]` は配置中または配置対象なしでクリックされた時だけ出し、マウス移動だけでは出ないようにした。
+- `ViewportStatusStrip` は選択変更イベントを取り逃がしても `SelectionService.Current` から選択表示を追従するようにした。
+- Task 18: 選択表示、スケール、正投影クリップ、ノード入力領域を修正。
+- `Editor.log` から、選択切り替えとノード追加イベント自体は成功していることを確認した。選択枠未表示とスケール不能は `SelectionOutline` の接続/入力経路、ノード追加が見えない問題は表示位置と接続線レイヤー順を原因として修正した。
+- `SelectionService` / `CatalogUI` は `SelectionOutline` を探索・再有効化・生成して現在選択へ再同期する。選択線材は白ベースのランタイム材へ統一し、Scaleモードの角ドラッグを共通入力と限定UI判定で処理する。
+- 正投影ズームでは `orthographicSize` に合わせてCamera距離も更新し、広い床面の手前側がnear clipを越える現象を抑えた。NodeArea上ではCamera入力を処理せず、ホイール/中ドラッグをノードビューへ渡す。
+- 新規グラフは Start / Step / End とStepに紐づくConditionを補完し、初期表示とノード追加後にNodeAreaを中央へ戻す。接続線レイヤーは透明・raycast無効・最背面を再保証する。
+- 配置対象なしクリック、Scaleモード時のMoveTool無効通知、Condition dropdown正常系、配置オブジェクト候補正常系、接続線再描画の常時ログを削除した。
+- Task 19: グリッド、ズーム、回転選択枠、スケールカーソルを調整。
+- グリッド線とX/Z軸の透明度を約15%濃くし、BuildRevision更新で既存ランタイム表示も再生成する。
+- 正投影ズームを固定量加算から倍率式へ変更し、既存Sceneの旧感度値 `1.6` は起動時に `0.12` へ移行する。
+- 選択枠はRendererのワールド軸AABBではなく、対象ルートのローカル空間で子Rendererの境界を合成し、オブジェクトの回転へ追従する。
+- Scaleモードでは選択枠の角ハンドル上とドラッグ中に横リサイズカーソルを表示する。
+- Task 20: UI改善ロードマップの必須残件を実装。
+- 空の手順ノードには `条件を追加してください` を表示し、Catalog/Scenario graphのリサイズ境界へ細いグリップ線と方向カーソルを追加した。
+- 保存ボタンを常に操作可能にし、保存失敗時は日本語の検証一覧を表示する。検証issueへ関連nodeIdを保持し、一覧から該当ノードまたは親Stepへ移動できるようにした。
+- Object detailは表示名＋技術IDの二段header、`基本情報` / `説明` / `使用中の条件` のsection、明確な未使用文、slide＋fadeへ更新した。上端を空けてglobal設定を隠さない。
+- Global `ヒント` ボタンと内容差し替え可能なplaceholder panelを追加した。
+- Catalog cardへ中立色のcategory fallback blockを追加し、既存のbadge・表示名・技術IDを維持した。
+- Unity `AssetPreview` は非同期cache前提で、現行card dataにも永続thumbnail参照がないため、任意のthumbnail automationは独立taskとして保留した。
 
 ## 6. 検証状況
-- AGENTS.md の Local Execution Policy に従い、Unity Editor 起動・CLIコンパイルは未実施。
-- 静的確認として、以下を実施:
-  - ブランチ名・Unityバージョン・UI方式を確認
-  - `improve/objectlist..improve/rendering-quality` のコミット差分と差分統計を確認
-  - HEAD 以降の未コミット差分を確認
-  - `worklog` / `worklog_UI` 更新ルールを確認
-
-## 7. 人間確認チェックリスト
-- [ ] オブジェクト詳細パネルが表示/非表示を正しく切り替える。
-- [ ] 詳細パネルで説明を編集し、選択を切り替えて戻っても保持される。
-- [ ] 詳細パネル内の使用中 Condition ノードが表示され、A/B ドロップダウン編集が反映される。
-- [ ] START / END ノードが専用色で表示され、ノード全体ドラッグができる。
-- [ ] Condition の Step 内包表示、区切り線、手順番号表示、Step 高さ自動拡張が崩れていない。
-- [ ] シナリオ保存時のエラー/警告文言が分かりやすく表示される。
-- [ ] オブジェクト一覧カードが名前のみ中央表示のまま崩れていない。
-- [ ] TMP 化した入力欄・ラベル・ドロップダウンで文字欠けや日本語豆腐が出ない。
-- [ ] 接続線の見た目が以前より荒れず、Delete ヒントやヒット判定に副作用がない。
-- [ ] 品質設定変更後もパフォーマンスと見た目のバランスが許容範囲か確認する。
-
-## 8. アーカイブ
-- 旧 `Docs/worklog/worklog_latest.md` は以下へアーカイブ:
-  - `Docs/worklog/worklog_2026-03-23_archive_improve_objectlist.md`
-
-## 9. 追記（2026-03-23 / TMP日本語フォールバック修正）
-- 症状: `LiberationSans SDF` に日本語グリフがなく、`Text_Status` などの TMP テキストで `\uFF09` を含む日本語が `□` に置換されていた。
-- 原因: `TmpFontInitializer` が `RuntimeInitializeOnLoadMethod` のみで、Editor 上の TMP 描画時には日本語フォールバックが未登録だった。さらに `defaultFont.fallbackFontAssetTable` しか触っておらず、`TMP_Settings.fallbackFontAssets` が空のままだった。
-- 対応: `TmpFontInitializer` を Editor / Runtime 両対応に変更し、Windows の日本語システムフォントから生成した動的 TMP フォントを `TMP_Settings.fallbackFontAssets` と既定フォントの fallback に登録するよう修正した。
-- 追加チェック: `あ / ア / 漢 / （ / ）` を含む複数文字で対応フォントを検証し、`Yu Gothic UI` などが使える場合のみフォールバックとして採用する。
-
-## 10. 追記（2026-03-23 / TMP日本語フォールバック再修正）
-- 前回修正後も `\u6761` などの漢字が `LiberationSans SDF` のまま `□` に置換されていた。
-- 対応として、`TmpFontInitializer` のフォント生成経路を `Font.CreateDynamicFontFromOSFont` から、TMP 標準の `TMP_FontAsset.CreateFontAsset(familyName, styleName, pointSize)` に変更した。
-- これにより Windows のシステムフォントを `DynamicOS` 扱いで読み込み、漢字を含む日本語グリフ追加を TMP 本体の想定経路で行う。
-- フォント採用判定も `あ / ア / 漢 / 条 / （ / ）` を `HasCharacter(..., tryAddCharacter: true)` で確認する形に更新した。
-
-## 11. 追記（2026-03-23 / TMPフォールバック永続化）
-- 前回の一時生成フォントは Play 遷移時に `Material` が破棄され、`MissingReferenceException` の原因になった。
-- 対応として、日本語 TMP フォールバックを Editor 上で `Assets/TextMesh Pro/Resources/Fonts & Materials/Japanese TMP Fallback.asset` として永続アセット化し、`TMP Settings` に登録する方式へ変更した。
-- 既存の fallback list からは `null` と一時生成フォントを除去し、読み込み済み `TMP_Text` は既定フォントへ再バインドして破棄済み Material 参照を切り離す。
-
-## 12. 追記（2026-03-23 / TMP material cache 再修正）
-- `TMP_Text` 基底型には `UpdateFontAsset()` が存在しないため、再バインド時は `TextMeshProUGUI` / `TextMeshPro` の具体型だけで呼び分けるよう修正した。
-- これにより `Assets/Scripts/UI/TmpFontInitializer.cs(307,18): error CS1061` を解消する。
-- あわせて、以前の一時フォールバックが残した `TMP_Text` の private material cache と `TMP_SubMesh` / `TMP_SubMeshUI` の fallback material 参照をコードで明示的にクリアするよう更新した。
-- 目的は、Play 遷移後も破棄済み `Material` を `TMP_MaterialManager.GetFallbackMaterial()` が再利用しない状態に戻すこと。
-
-## 13. 追記（2026-03-23 / Editor初期化NRE修正）
-- `InitializeOnLoadMethod` 直後に `EnsureJapaneseFallback()` を即実行していたため、Editor の再読込中で未初期化な `TextMeshProUGUI` に `ForceMeshUpdate()` が入り、`GenerateTextMesh()` 内で `NullReferenceException` が発生していた。
-- 対応として Editor 側初期化は `EditorApplication.delayCall` のみへ変更し、即時実行を廃止した。
-- あわせて `RefreshLoadedTextComponents()` では `fontSharedMaterials` の固定上書きと `ForceMeshUpdate()` をやめ、`SetVerticesDirty / SetLayoutDirty / SetMaterialDirty` による安全な再描画通知へ変更した。
+- `git diff --check`: 現在ブランチ作成前の監査コミットで成功。
+- `git diff --check`: Task 2 変更後に成功。
+- `git diff --check`: Task 3 変更後に成功。
+- `git diff --check`: Task 4 変更後に成功。
+- `git diff --check`: Task 5 変更後に成功。
+- `git diff --check`: Task 6 変更後に成功。
+- `git diff --check`: Task 7 変更後に成功。
+- `git diff --check`: Task 8 変更後に成功。
+- `git diff --check`: Task 9 変更後に成功。
+- `git diff --check`: Task 10 変更後に成功。
+- `git diff --check`: Task 11 変更後に成功。
+- `git diff --check`: Task 12 変更後に成功。
+- `git diff --check -- Assets/Scripts/PlacementController.cs Assets/Scripts/UI/ViewportStatusStrip.cs Docs/worklog/worklog_latest.md Docs/worklog/worklog_UI/全体UI仕様.md`: Task 13 変更後に成功。
+- `git diff --check -- Assets/Scripts/EditWorkspace.cs Assets/Scripts/EditWorkspace.cs.meta Assets/Scripts/EditCameraController.cs Assets/Scripts/PlacementController.cs Assets/Scripts/CatalogUI.cs Assets/Scripts/UI/ViewportStatusStrip.cs Assets/Scripts/UI/ViewportStatusStrip.cs.meta Docs/worklog/worklog_latest.md Docs/worklog/worklog_UI/全体UI仕様.md`: Task 14 変更後に成功。
+- `git diff --check -- Assets/Scripts/EditInput.cs Assets/Scripts/EditInput.cs.meta Assets/Scripts/PlacementController.cs Assets/Scripts/EditCameraController.cs Assets/Scripts/CatalogUI.cs Assets/Scripts/UI/TmpFontInitializer.cs`: Task 15 変更後に成功。
+- `git diff --check -- Assets/Scripts/CatalogUI.cs`: Task 16 変更後に成功。
+- `git diff --check -- Assets/Scripts/EditInput.cs Assets/Scripts/PlacementController.cs Assets/Scripts/CatalogUI.cs Assets/Scripts/SelectionService.cs Assets/Scripts/MoveTool.cs Assets/Scripts/EditCameraController.cs Assets/Scripts/UI/ViewportStatusStrip.cs`: Task 17 変更後に成功。
+- `git diff --check -- Assets/Scripts/EditWorkspace.cs Assets/Scripts/CatalogUI.cs Assets/Scripts/SelectionService.cs Assets/Scripts/SelectionOutline.cs Assets/Scripts/EditCameraController.cs Assets/Scripts/PlacementController.cs Assets/Scripts/MoveTool.cs Assets/Scripts/UI/NodeAreaPanZoomController.cs Assets/Scripts/UI/ScenarioGraphUI.cs Assets/Scripts/UI/ConditionRowUI.cs Assets/Scripts/Services/PlacedObjectOptionProvider.cs Docs/worklog/worklog_latest.md`: Task 18 変更後に成功。
+- `git diff --check -- Assets/Scripts/WorkspaceFloorGrid.cs Assets/Scripts/EditCameraController.cs Assets/Scripts/SelectionOutline.cs Docs/worklog/worklog_latest.md`: Task 19 変更後に成功。
+- `git diff --check -- Assets/Editor/Automation/BuildUiPrefabs.cs Assets/Scripts/CatalogUI.cs Assets/Scripts/PlacementController.cs Assets/Scripts/Services/CurriculumGraphService.cs Assets/Scripts/UI/DesignTokenApplier.cs Assets/Scripts/UI/HintPanelController.cs Assets/Scripts/UI/NodeAreaPanZoomController.cs Assets/Scripts/UI/ObjectDetailPanel.cs Assets/Scripts/UI/PanelHorizontalResizeHandle.cs Assets/Scripts/UI/PanelVerticalResizeHandle.cs Assets/Scripts/UI/ScenarioGraphUI.cs Assets/Scripts/UI/ScenarioValidationPanel.cs Assets/Scripts/UI/StepNodeUI.cs Docs/worklog/worklog_latest.md Docs/worklog/worklog_UI/全体UI仕様.md Docs/worklog/worklog_UI/worklog_オブジェクト一覧ウィンドウ.md`: Task 20 変更後に成功。
+- `dotnet build .\Assembly-CSharp.csproj`: 実行したが、Unity生成csprojが既存の `DesignTokens` / `UiRoundedTheme` / `RuntimeModelLoader` などを解決できない状態で失敗。Unity Editor 起動なしの静的ビルド検証としては利用不可。
+- Unity Editor 起動、Unity CLI、コンパイル確認は Local Execution Policy により未実施。

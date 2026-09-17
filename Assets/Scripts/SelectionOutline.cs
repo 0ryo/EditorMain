@@ -1,53 +1,91 @@
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.EventSystems;
+using UnityEngine.Rendering;
 
 public class SelectionOutline : MonoBehaviour
 {
+    const float OutlineLineWidth = 0.012f;
+
     [SerializeField] Material lineMat;
     [SerializeField] float handlePickRadiusPixels = 18f;
     [SerializeField] float minScaleAxis = 0.1f;
+    [SerializeField] bool enableDiagnostics = true;
 
     readonly List<LineRenderer> lines = new();
     readonly Vector3[] corners = new Vector3[8];
-    readonly Vector3[,] edges = new Vector3[12, 2];
+    bool scaleHandlesVisible;
 
     GameObject target;
     Camera cachedCamera;
     bool isScaling;
+    bool scaleCursorActive;
     Vector3 dragStartScale;
+    Vector3 dragStartPosition;
+    Vector3 dragStartCenterWorld;
     float dragStartScreenDistance;
+    Material runtimeLineMaterial;
+    Texture2D scaleCursorTexture;
+    Bounds cachedLocalBounds;
+    bool localBoundsDirty = true;
+    bool outlineDirty = true;
+    bool transformSnapshotValid;
+    Vector3 lastWorldPosition;
+    Quaternion lastWorldRotation;
+    Vector3 lastWorldScale;
 
     void Update()
     {
+        if (ObjectScreenPicker.Capturing) { EnsureLines(0); ResetScaleState(); SetScaleCursor(false); outlineDirty = true; return; }
         if (target == null)
         {
             EnsureLines(0);
             ResetScaleState();
+            SetScaleCursor(false);
+            transformSnapshotValid = false;
             return;
         }
 
         UpdateOutline();
         HandleScaleDrag();
+        UpdateOutline();
+        UpdateScaleCursor();
     }
 
     public void ShowFor(GameObject t)
     {
         target = t;
         ResetScaleState();
+        localBoundsDirty = true;
+        outlineDirty = true;
+        transformSnapshotValid = false;
 
         if (target == null)
         {
             EnsureLines(0);
+            SetScaleCursor(false);
             return;
         }
 
+        UpdateOutline(force: true);
+    }
+
+    public bool ShouldConsumeSelectionClick()
+    {
+        if (target == null || !IsScaleMode()) return false;
+        if (!EditInput.LeftPressedThisFrame()) return false;
+        if (PlacementController.IsScreenPositionOverBlockingUi(EditInput.MousePosition)) return false;
+
+        var cam = ResolveCamera();
+        if (cam == null) return false;
+
         UpdateOutline();
+        return TryGetClosestCornerScreen(cam, EditInput.MousePosition, out _, out var distance) &&
+               distance <= handlePickRadiusPixels;
     }
 
     void HandleScaleDrag()
     {
-        if (EditModeService.I == null || EditModeService.I.Mode != EditMode.Scale)
+        if (!IsScaleMode())
         {
             if (isScaling)
             {
@@ -58,44 +96,67 @@ public class SelectionOutline : MonoBehaviour
 
         if (!isScaling)
         {
-            if (!Input.GetMouseButtonDown(0)) return;
-            if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject()) return;
-            TryBeginScaleDrag();
+            if (!EditInput.LeftPressedThisFrame()) return;
+            if (PlacementController.IsScreenPositionOverBlockingUi(EditInput.MousePosition)) return;
+            TryBeginScaleDrag(EditInput.MousePosition);
             return;
         }
 
-        if (!Input.GetMouseButton(0))
+        if (!EditInput.LeftPressed())
         {
             CommitScaleIfNeeded();
             return;
         }
 
-        ApplyScaleFromPointer();
+        ApplyScaleFromPointer(EditInput.MousePosition);
     }
 
-    void TryBeginScaleDrag()
+    void UpdateScaleCursor()
+    {
+        bool shouldShow = isScaling;
+        if (!shouldShow && IsScaleMode() &&
+            !PlacementController.IsScreenPositionOverBlockingUi(EditInput.MousePosition))
+        {
+            var cam = ResolveCamera();
+            shouldShow = cam != null &&
+                         TryGetClosestCornerScreen(cam, EditInput.MousePosition, out _, out var distance) &&
+                         distance <= handlePickRadiusPixels;
+        }
+
+        SetScaleCursor(shouldShow);
+    }
+
+    SelectionTransformSession selectionGesture;
+
+    void TryBeginScaleDrag(Vector2 pointer)
     {
         var cam = ResolveCamera();
         if (cam == null) return;
 
         if (!TryGetCenterScreen(cam, out var centerScreen)) return;
-        if (!TryGetClosestCornerScreen(cam, Input.mousePosition, out var nearestCorner, out var nearestDistance)) return;
+        if (!TryGetClosestCornerScreen(cam, pointer, out var nearestCorner, out var nearestDistance)) return;
         if (nearestDistance > handlePickRadiusPixels) return;
 
         dragStartScale = target.transform.localScale;
+        dragStartPosition = target.transform.position;
+        dragStartCenterWorld = target.transform.TransformPoint(GetTargetLocalBounds().center);
         dragStartScreenDistance = Vector2.Distance(centerScreen, nearestCorner);
         if (dragStartScreenDistance <= 0.001f) return;
 
+        var selection = FindFirstObjectByType<SelectionService>();
+        if (selection != null && selection.Current != null && selection.Current.gameObject == target)
+            selectionGesture = new SelectionTransformSession(selection);
         isScaling = true;
+        LogDebug($"Scale drag started. target={target.name}, pointer={pointer}");
     }
 
-    void ApplyScaleFromPointer()
+    void ApplyScaleFromPointer(Vector2 pointer)
     {
         var cam = ResolveCamera();
         if (cam == null) return;
         if (!TryGetCenterScreen(cam, out var centerScreen)) return;
 
-        float currentDistance = Vector2.Distance(centerScreen, Input.mousePosition);
+        float currentDistance = Vector2.Distance(centerScreen, pointer);
         float ratio = currentDistance / dragStartScreenDistance;
         if (!float.IsFinite(ratio)) return;
 
@@ -104,6 +165,13 @@ public class SelectionOutline : MonoBehaviour
 
         var scaled = dragStartScale * ratio;
         target.transform.localScale = ClampScale(scaled, minScaleAxis);
+        if (TransformToolSettings.PivotMode == TransformPivotMode.Center)
+        {
+            Vector3 currentCenterWorld = target.transform.TransformPoint(GetTargetLocalBounds().center);
+            target.transform.position += dragStartCenterWorld - currentCenterWorld;
+        }
+        selectionGesture?.Apply();
+        outlineDirty = true;
     }
 
     void CommitScaleIfNeeded()
@@ -114,16 +182,43 @@ public class SelectionOutline : MonoBehaviour
             return;
         }
 
+        if (selectionGesture != null)
+        {
+            selectionGesture.Commit("Scale selection");
+            selectionGesture = null;
+            ResetScaleState();
+            return;
+        }
+
         var endScale = ClampScale(target.transform.localScale, minScaleAxis);
         target.transform.localScale = endScale;
+        var endPosition = target.transform.position;
 
-        if ((endScale - dragStartScale).sqrMagnitude > 0.000001f)
+        bool scaleChanged = (endScale - dragStartScale).sqrMagnitude > 0.000001f;
+        bool positionChanged = (endPosition - dragStartPosition).sqrMagnitude > 0.000001f;
+        if (scaleChanged || positionChanged)
         {
-            if (CommandService.I != null)
+            if (CommandService.I != null && CommandService.I.Stack != null)
             {
-                var cmd = new ScaleObjectCommand(target, dragStartScale, endScale);
-                CommandService.I.Stack.Execute(cmd);
+                var scaleCommand = new ScaleObjectCommand(target, dragStartScale, endScale);
+                if (scaleChanged && positionChanged)
+                {
+                    CommandService.I.Stack.ExecuteTransaction(
+                        "Scale around center",
+                        new MoveObjectCommand(target, dragStartPosition, endPosition),
+                        scaleCommand);
+                }
+                else if (positionChanged)
+                {
+                    CommandService.I.Stack.Execute(new MoveObjectCommand(target, dragStartPosition, endPosition));
+                }
+                else
+                {
+                    CommandService.I.Stack.Execute(scaleCommand);
+                }
             }
+
+            LogDebug($"Scale drag committed. target={target.name}, from={dragStartScale}, to={endScale}");
         }
 
         ResetScaleState();
@@ -131,8 +226,12 @@ public class SelectionOutline : MonoBehaviour
 
     void ResetScaleState()
     {
+        selectionGesture?.Cancel();
+        selectionGesture = null;
         isScaling = false;
         dragStartScale = Vector3.one;
+        dragStartPosition = Vector3.zero;
+        dragStartCenterWorld = Vector3.zero;
         dragStartScreenDistance = 0f;
     }
 
@@ -143,15 +242,17 @@ public class SelectionOutline : MonoBehaviour
             var go = new GameObject("OutlineLine");
             go.transform.SetParent(transform, false);
             var lr = go.AddComponent<LineRenderer>();
-            lr.material = lineMat;
+            lr.material = GetRuntimeLineMaterial();
             lr.positionCount = 2;
             lr.useWorldSpace = true;
-            lr.widthMultiplier = 0.05f;
+            lr.widthMultiplier = OutlineLineWidth;
             lr.alignment = LineAlignment.View;
             lr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             lr.receiveShadows = false;
-            lr.startColor = Color.cyan;
-            lr.endColor = Color.cyan;
+            lr.textureMode = LineTextureMode.Stretch;
+            lr.sortingOrder = short.MaxValue;
+            lr.startColor = DesignTokens.Accent;
+            lr.endColor = DesignTokens.Accent;
             lines.Add(lr);
         }
 
@@ -161,56 +262,91 @@ public class SelectionOutline : MonoBehaviour
         }
     }
 
-    void UpdateOutline()
+    void UpdateOutline(bool force = false)
     {
         if (target == null) return;
+        bool showHandles = IsScaleMode();
+        if (scaleHandlesVisible != showHandles) { scaleHandlesVisible = showHandles; force = true; }
 
-        var bounds = CalculateTargetBounds();
+        var targetTransform = target.transform;
+        bool transformChanged = !transformSnapshotValid ||
+                                targetTransform.position != lastWorldPosition ||
+                                targetTransform.rotation != lastWorldRotation ||
+                                targetTransform.lossyScale != lastWorldScale;
+        if (!force && !outlineDirty && !transformChanged) return;
+
+        var bounds = GetTargetLocalBounds();
         Vector3 min = bounds.min;
         Vector3 max = bounds.max;
 
-        corners[0] = new Vector3(min.x, min.y, min.z);
-        corners[1] = new Vector3(max.x, min.y, min.z);
-        corners[2] = new Vector3(max.x, min.y, max.z);
-        corners[3] = new Vector3(min.x, min.y, max.z);
-        corners[4] = new Vector3(min.x, max.y, min.z);
-        corners[5] = new Vector3(max.x, max.y, min.z);
-        corners[6] = new Vector3(max.x, max.y, max.z);
-        corners[7] = new Vector3(min.x, max.y, max.z);
+        corners[0] = targetTransform.TransformPoint(new Vector3(min.x, min.y, min.z));
+        corners[1] = targetTransform.TransformPoint(new Vector3(max.x, min.y, min.z));
+        corners[2] = targetTransform.TransformPoint(new Vector3(max.x, min.y, max.z));
+        corners[3] = targetTransform.TransformPoint(new Vector3(min.x, min.y, max.z));
+        corners[4] = targetTransform.TransformPoint(new Vector3(min.x, max.y, min.z));
+        corners[5] = targetTransform.TransformPoint(new Vector3(max.x, max.y, min.z));
+        corners[6] = targetTransform.TransformPoint(new Vector3(max.x, max.y, max.z));
+        corners[7] = targetTransform.TransformPoint(new Vector3(min.x, max.y, max.z));
 
-        edges[0, 0] = corners[0]; edges[0, 1] = corners[1];
-        edges[1, 0] = corners[1]; edges[1, 1] = corners[2];
-        edges[2, 0] = corners[2]; edges[2, 1] = corners[3];
-        edges[3, 0] = corners[3]; edges[3, 1] = corners[0];
-        edges[4, 0] = corners[4]; edges[4, 1] = corners[5];
-        edges[5, 0] = corners[5]; edges[5, 1] = corners[6];
-        edges[6, 0] = corners[6]; edges[6, 1] = corners[7];
-        edges[7, 0] = corners[7]; edges[7, 1] = corners[4];
-        edges[8, 0] = corners[0]; edges[8, 1] = corners[4];
-        edges[9, 0] = corners[1]; edges[9, 1] = corners[5];
-        edges[10, 0] = corners[2]; edges[10, 1] = corners[6];
-        edges[11, 0] = corners[3]; edges[11, 1] = corners[7];
-
-        EnsureLines(12);
-        for (int i = 0; i < 12; i++)
+        // The silhouette is drawn by SelectionHighlightSet. Keep only the existing
+        // corner affordances for scaling; do not draw a rectangular selection cage.
+        EnsureLines(showHandles ? 8 : 0);
+        for (int i = 0; showHandles && i < 8; i++)
         {
-            lines[i].SetPosition(0, edges[i, 0]);
-            lines[i].SetPosition(1, edges[i, 1]);
+            lines[i].SetPosition(0, corners[i] - Vector3.right * OutlineLineWidth);
+            lines[i].SetPosition(1, corners[i] + Vector3.right * OutlineLineWidth);
         }
+
+        lastWorldPosition = targetTransform.position;
+        lastWorldRotation = targetTransform.rotation;
+        lastWorldScale = targetTransform.lossyScale;
+        transformSnapshotValid = true;
+        outlineDirty = false;
     }
 
-    Bounds CalculateTargetBounds()
+    Bounds GetTargetLocalBounds()
     {
-        var bounds = new Bounds(target.transform.position, Vector3.one * 0.5f);
-        var renderers = target.GetComponentsInChildren<Renderer>();
-        if (renderers != null && renderers.Length > 0)
+        if (!localBoundsDirty) return cachedLocalBounds;
+
+        cachedLocalBounds = CalculateTargetLocalBounds();
+        localBoundsDirty = false;
+        return cachedLocalBounds;
+    }
+
+    Bounds CalculateTargetLocalBounds()
+    {
+        var bounds = new Bounds(Vector3.zero, Vector3.one * 0.5f);
+        var renderers = target.GetComponentsInChildren<Renderer>(true);
+        bool hasPoint = false;
+
+        for (int rendererIndex = 0; rendererIndex < renderers.Length; rendererIndex++)
         {
-            bounds = renderers[0].bounds;
-            for (int i = 1; i < renderers.Length; i++)
+            var renderer = renderers[rendererIndex];
+            var rendererBounds = renderer.localBounds;
+            Vector3 min = rendererBounds.min;
+            Vector3 max = rendererBounds.max;
+
+            for (int cornerIndex = 0; cornerIndex < 8; cornerIndex++)
             {
-                bounds.Encapsulate(renderers[i].bounds);
+                var rendererLocalPoint = new Vector3(
+                    (cornerIndex & 1) == 0 ? min.x : max.x,
+                    (cornerIndex & 2) == 0 ? min.y : max.y,
+                    (cornerIndex & 4) == 0 ? min.z : max.z);
+                Vector3 worldPoint = renderer.transform.TransformPoint(rendererLocalPoint);
+                Vector3 targetLocalPoint = target.transform.InverseTransformPoint(worldPoint);
+
+                if (!hasPoint)
+                {
+                    bounds = new Bounds(targetLocalPoint, Vector3.zero);
+                    hasPoint = true;
+                }
+                else
+                {
+                    bounds.Encapsulate(targetLocalPoint);
+                }
             }
         }
+
         return bounds;
     }
 
@@ -219,7 +355,9 @@ public class SelectionOutline : MonoBehaviour
         centerScreen = default;
         if (target == null) return false;
 
-        var centerWorld = CalculateTargetBounds().center;
+        var centerWorld = TransformToolSettings.PivotMode == TransformPivotMode.Pivot
+            ? target.transform.position
+            : target.transform.TransformPoint(GetTargetLocalBounds().center);
         var screen = cam.WorldToScreenPoint(centerWorld);
         if (screen.z <= 0f) return false;
 
@@ -260,6 +398,128 @@ public class SelectionOutline : MonoBehaviour
             cachedCamera = FindFirstObjectByType<Camera>();
         }
         return cachedCamera;
+    }
+
+    bool IsScaleMode()
+    {
+        return EditModeService.I != null && EditModeService.I.Mode == EditMode.Scale;
+    }
+
+    public Material GetRuntimeLineMaterial()
+    {
+        if (runtimeLineMaterial != null) return runtimeLineMaterial;
+
+        if (lineMat != null)
+        {
+            runtimeLineMaterial = new Material(lineMat);
+        }
+        else
+        {
+            var shader = Shader.Find("Sprites/Default");
+            if (shader == null) shader = Shader.Find("Universal Render Pipeline/Unlit");
+            if (shader == null) shader = Shader.Find("Unlit/Color");
+            runtimeLineMaterial = new Material(shader);
+        }
+
+        runtimeLineMaterial.name = "SelectionOutline_Runtime";
+        runtimeLineMaterial.hideFlags = HideFlags.HideAndDontSave;
+        if (runtimeLineMaterial.HasProperty("_Color")) runtimeLineMaterial.SetColor("_Color", Color.white);
+        if (runtimeLineMaterial.HasProperty("_BaseColor")) runtimeLineMaterial.SetColor("_BaseColor", Color.white);
+        runtimeLineMaterial.renderQueue = (int)RenderQueue.Transparent;
+        return runtimeLineMaterial;
+    }
+
+    void SetScaleCursor(bool active)
+    {
+        if (scaleCursorActive == active) return;
+
+        scaleCursorActive = active;
+        Cursor.SetCursor(active ? GetScaleCursorTexture() : null, active ? new Vector2(16f, 16f) : Vector2.zero, CursorMode.Auto);
+    }
+
+    Texture2D GetScaleCursorTexture()
+    {
+        if (scaleCursorTexture != null) return scaleCursorTexture;
+
+        const int size = 32;
+        scaleCursorTexture = new Texture2D(size, size, TextureFormat.RGBA32, false)
+        {
+            name = "ScaleHorizontalCursor_Runtime",
+            hideFlags = HideFlags.HideAndDontSave,
+            filterMode = FilterMode.Point,
+            wrapMode = TextureWrapMode.Clamp,
+        };
+        scaleCursorTexture.SetPixels(new Color[size * size]);
+
+        var segments = new[]
+        {
+            new[] { new Vector2Int(5, 16), new Vector2Int(26, 16) },
+            new[] { new Vector2Int(5, 16), new Vector2Int(11, 10) },
+            new[] { new Vector2Int(5, 16), new Vector2Int(11, 22) },
+            new[] { new Vector2Int(26, 16), new Vector2Int(20, 10) },
+            new[] { new Vector2Int(26, 16), new Vector2Int(20, 22) },
+        };
+
+        for (int i = 0; i < segments.Length; i++)
+        {
+            DrawCursorLine(scaleCursorTexture, segments[i][0], segments[i][1], Color.black, 1);
+        }
+        for (int i = 0; i < segments.Length; i++)
+        {
+            DrawCursorLine(scaleCursorTexture, segments[i][0], segments[i][1], Color.white, 0);
+        }
+
+        scaleCursorTexture.Apply(false, false);
+        return scaleCursorTexture;
+    }
+
+    static void DrawCursorLine(Texture2D texture, Vector2Int from, Vector2Int to, Color color, int radius)
+    {
+        int steps = Mathf.Max(Mathf.Abs(to.x - from.x), Mathf.Abs(to.y - from.y));
+        for (int step = 0; step <= steps; step++)
+        {
+            float t = steps == 0 ? 0f : (float)step / steps;
+            int x = Mathf.RoundToInt(Mathf.Lerp(from.x, to.x, t));
+            int y = Mathf.RoundToInt(Mathf.Lerp(from.y, to.y, t));
+
+            for (int offsetY = -radius; offsetY <= radius; offsetY++)
+            {
+                for (int offsetX = -radius; offsetX <= radius; offsetX++)
+                {
+                    int pixelX = x + offsetX;
+                    int pixelY = y + offsetY;
+                    if (pixelX < 0 || pixelX >= texture.width || pixelY < 0 || pixelY >= texture.height) continue;
+                    texture.SetPixel(pixelX, pixelY, color);
+                }
+            }
+        }
+    }
+
+    void OnDisable()
+    {
+        EnsureLines(0);
+        outlineDirty = true;
+        SetScaleCursor(false);
+    }
+
+    void OnDestroy()
+    {
+        SetScaleCursor(false);
+        if (runtimeLineMaterial != null)
+        {
+            Destroy(runtimeLineMaterial);
+        }
+
+        if (scaleCursorTexture != null)
+        {
+            Destroy(scaleCursorTexture);
+        }
+    }
+
+    void LogDebug(string message)
+    {
+        if (!enableDiagnostics) return;
+        Debug.Log("[SelectionOutline] " + message);
     }
 
     static float CalculateMinScaleRatio(Vector3 baseScale, float minAxis)

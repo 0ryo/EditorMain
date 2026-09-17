@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -6,9 +7,10 @@ public class CurriculumGraphService : MonoBehaviour
 {
     const string StartNodeId = "start-0001";
     const string EndNodeId = "end-0001";
-    const int MaxConditionsPerStep = 3;
 
     public Curriculum curriculum = new Curriculum();
+
+    public event Action GraphChanged;
 
     int stepSequence = 0;
     int conditionSequence = 0;
@@ -16,6 +18,48 @@ public class CurriculumGraphService : MonoBehaviour
     void Awake()
     {
         EnsureGraphInitialized();
+    }
+
+    public bool ExecuteCommand(string label, Func<bool> mutation)
+    {
+        return CurriculumGraphCommandProcessor.Execute(this, label, mutation);
+    }
+
+    internal string CaptureCommandSnapshot()
+    {
+        EnsureGraphInitialized();
+        return JsonUtility.ToJson(curriculum);
+    }
+
+    internal bool RestoreCommandSnapshot(string snapshot)
+    {
+        if (string.IsNullOrWhiteSpace(snapshot)) return false;
+
+        var restored = JsonUtility.FromJson<Curriculum>(snapshot);
+        if (restored == null) return false;
+
+        curriculum = restored;
+        EnsureGraphInitialized();
+        NotifyGraphChanged();
+        return true;
+    }
+
+    internal void NotifyGraphChanged()
+    {
+        var handlers = GraphChanged;
+        if (handlers == null) return;
+
+        foreach (Action handler in handlers.GetInvocationList())
+        {
+            try
+            {
+                handler();
+            }
+            catch (Exception ex)
+            {
+                Debug.LogException(ex);
+            }
+        }
     }
 
     public void EnsureGraphInitialized()
@@ -34,6 +78,13 @@ public class CurriculumGraphService : MonoBehaviour
         {
             curriculum.edges = new List<ScenarioEdge>();
         }
+
+        curriculum.schemaVersion = 5;
+        curriculum.rules ??= new RuleSet();
+        curriculum.rules.maxConditionsPerStep = Mathf.Clamp(
+            curriculum.rules.maxConditionsPerStep <= 0 ? 8 : curriculum.rules.maxConditionsPerStep,
+            1,
+            32);
 
         EnsureTerminalNode(ScenarioNodeType.Start, StartNodeId);
         EnsureTerminalNode(ScenarioNodeType.End, EndNodeId);
@@ -64,6 +115,12 @@ public class CurriculumGraphService : MonoBehaviour
                 node.step = new StepNodeData();
             }
 
+            node.step.title ??= string.Empty;
+            node.step.body ??= string.Empty;
+            node.step.supplement ??= string.Empty;
+            node.step.caution ??= string.Empty;
+            node.step.durationMinutes = Math.Max(0, node.step.durationMinutes);
+
             if (node.condition == null)
             {
                 node.condition = new ConditionNodeData();
@@ -73,6 +130,11 @@ public class CurriculumGraphService : MonoBehaviour
                 string.IsNullOrWhiteSpace(node.condition.title))
             {
                 node.condition.title = ConditionNodeData.DefaultTitle;
+            }
+
+            if (node.nodeType == ScenarioNodeType.Condition)
+            {
+                ConditionTypeCatalog.Normalize(node.condition, curriculum.rules);
             }
         }
     }
@@ -109,7 +171,7 @@ public class CurriculumGraphService : MonoBehaviour
             nodeType = ScenarioNodeType.Step,
             step = new StepNodeData
             {
-                title = $"STEP {stepSequence}"
+                title = $"\u624B\u9806 {stepSequence}"
             },
             condition = new ConditionNodeData()
         };
@@ -146,7 +208,7 @@ public class CurriculumGraphService : MonoBehaviour
         if (node.nodeType == ScenarioNodeType.Start || node.nodeType == ScenarioNodeType.End) return;
 
         curriculum.nodes.Remove(node);
-        curriculum.edges.RemoveAll(e => e.fromNodeId == nodeId || e.toNodeId == nodeId);
+        curriculum.edges.RemoveAll(e => e != null && e.fromNodeId == nodeId || e.toNodeId == nodeId);
     }
 
     public ScenarioNode FindNode(string nodeId)
@@ -186,6 +248,24 @@ public class CurriculumGraphService : MonoBehaviour
 
     public bool TryAddEdge(string fromNodeId, string toNodeId, out string reason)
     {
+        if (!CanAddEdge(fromNodeId, toNodeId, out reason)) return false;
+
+        var fromNode = FindNode(fromNodeId);
+        var toNode = FindNode(toNodeId);
+        CurriculumGraphConnectionRules.TryInferEdgeType(fromNode, toNode, out var edgeType);
+
+        curriculum.edges.Add(new ScenarioEdge
+        {
+            fromNodeId = fromNodeId,
+            toNodeId = toNodeId,
+            edgeType = edgeType
+        });
+
+        return true;
+    }
+
+    public bool CanAddEdge(string fromNodeId, string toNodeId, out string reason)
+    {
         reason = null;
         EnsureGraphInitialized();
 
@@ -209,14 +289,14 @@ public class CurriculumGraphService : MonoBehaviour
             return false;
         }
 
-        if (!TryInferEdgeType(fromNode, toNode, out var edgeType))
+        if (!CurriculumGraphConnectionRules.TryInferEdgeType(fromNode, toNode, out var edgeType))
         {
             reason = "CONNECT_INVALID_ROUTE";
             return false;
         }
 
         bool duplicate = curriculum.edges.Any(e =>
-            e.edgeType == edgeType &&
+            e != null && e.edgeType == edgeType &&
             e.fromNodeId == fromNodeId &&
             e.toNodeId == toNodeId);
         if (duplicate)
@@ -225,143 +305,20 @@ public class CurriculumGraphService : MonoBehaviour
             return false;
         }
 
-        if (!CanAddEdge(edgeType, fromNode, toNode, out reason))
-        {
-            return false;
-        }
-
-        curriculum.edges.Add(new ScenarioEdge
-        {
-            fromNodeId = fromNodeId,
-            toNodeId = toNodeId,
-            edgeType = edgeType
-        });
-
-        return true;
-    }
-
-    static bool TryInferEdgeType(ScenarioNode fromNode, ScenarioNode toNode, out ScenarioEdgeType edgeType)
-    {
-        edgeType = ScenarioEdgeType.StepFlow;
-
-        bool fromStepFlow = fromNode.nodeType == ScenarioNodeType.Start || fromNode.nodeType == ScenarioNodeType.Step;
-        bool toStepFlow = toNode.nodeType == ScenarioNodeType.Step || toNode.nodeType == ScenarioNodeType.End;
-        if (fromStepFlow && toStepFlow)
-        {
-            edgeType = ScenarioEdgeType.StepFlow;
-            return true;
-        }
-
-        if (fromNode.nodeType == ScenarioNodeType.Condition && toNode.nodeType == ScenarioNodeType.Step)
-        {
-            edgeType = ScenarioEdgeType.ConditionBind;
-            return true;
-        }
-
-        return false;
-    }
-
-    bool CanAddEdge(ScenarioEdgeType edgeType, ScenarioNode fromNode, ScenarioNode toNode, out string reason)
-    {
-        reason = null;
-
-        if (edgeType == ScenarioEdgeType.StepFlow)
-        {
-            int outCount = curriculum.edges.Count(e => e.edgeType == ScenarioEdgeType.StepFlow && e.fromNodeId == fromNode.nodeId);
-            if (outCount >= 1)
-            {
-                reason = "STEPFLOW_OUT_LIMIT";
-                return false;
-            }
-
-            int inCount = curriculum.edges.Count(e => e.edgeType == ScenarioEdgeType.StepFlow && e.toNodeId == toNode.nodeId);
-            if (toNode.nodeType == ScenarioNodeType.Step && inCount >= 1)
-            {
-                reason = "STEPFLOW_IN_LIMIT";
-                return false;
-            }
-
-            if (toNode.nodeType == ScenarioNodeType.End && inCount >= 1)
-            {
-                reason = "END_IN_LIMIT";
-                return false;
-            }
-
-            if (CreatesStepFlowCycle(fromNode.nodeId, toNode.nodeId))
-            {
-                reason = "STEPFLOW_CYCLE";
-                return false;
-            }
-
-            return true;
-        }
-
-        int conditionOutCount = curriculum.edges.Count(e =>
-            e.edgeType == ScenarioEdgeType.ConditionBind &&
-            e.fromNodeId == fromNode.nodeId);
-        if (conditionOutCount >= 1)
-        {
-            reason = "CONDITION_BIND_LIMIT";
-            return false;
-        }
-
-        int stepConditionCount = curriculum.edges.Count(e =>
-            e.edgeType == ScenarioEdgeType.ConditionBind &&
-            e.toNodeId == toNode.nodeId);
-        if (stepConditionCount >= MaxConditionsPerStep)
-        {
-            reason = "STEP_CONDITION_MAX";
-            return false;
-        }
-
-        return true;
-    }
-
-    bool CreatesStepFlowCycle(string fromNodeId, string toNodeId)
-    {
-        var adjacency = curriculum.edges
-            .Where(e => e.edgeType == ScenarioEdgeType.StepFlow)
-            .GroupBy(e => e.fromNodeId)
-            .ToDictionary(g => g.Key, g => g.Select(e => e.toNodeId).ToList());
-
-        if (!adjacency.TryGetValue(fromNodeId, out var targets))
-        {
-            targets = new List<string>();
-            adjacency[fromNodeId] = targets;
-        }
-        targets.Add(toNodeId);
-
-        var stack = new Stack<string>();
-        var visited = new HashSet<string>();
-        stack.Push(toNodeId);
-
-        while (stack.Count > 0)
-        {
-            var current = stack.Pop();
-            if (!visited.Add(current)) continue;
-            if (current == fromNodeId) return true;
-
-            if (!adjacency.TryGetValue(current, out var nextNodes)) continue;
-            foreach (var next in nextNodes)
-            {
-                stack.Push(next);
-            }
-        }
-
-        return false;
+        return CurriculumGraphConnectionRules.CanAddEdge(curriculum, edgeType, fromNode, toNode, out reason);
     }
 
     public void RemoveEdge(string fromNodeId, string toNodeId)
     {
         EnsureGraphInitialized();
-        curriculum.edges.RemoveAll(e => e.fromNodeId == fromNodeId && e.toNodeId == toNodeId);
+        curriculum.edges.RemoveAll(e => e != null && e.fromNodeId == fromNodeId && e.toNodeId == toNodeId);
     }
 
     public void RemoveEdge(string fromNodeId, string toNodeId, ScenarioEdgeType edgeType)
     {
         EnsureGraphInitialized();
         curriculum.edges.RemoveAll(e =>
-            e.fromNodeId == fromNodeId &&
+            e != null && e.fromNodeId == fromNodeId &&
             e.toNodeId == toNodeId &&
             e.edgeType == edgeType);
     }
@@ -372,7 +329,7 @@ public class CurriculumGraphService : MonoBehaviour
         if (string.IsNullOrWhiteSpace(conditionNodeId)) return null;
 
         var edge = curriculum.edges.FirstOrDefault(e =>
-            e.edgeType == ScenarioEdgeType.ConditionBind &&
+            e != null && e.edgeType == ScenarioEdgeType.ConditionBind &&
             e.fromNodeId == conditionNodeId);
         return edge != null ? edge.toNodeId : null;
     }
@@ -380,6 +337,20 @@ public class CurriculumGraphService : MonoBehaviour
     public bool IsConditionBoundToStep(string conditionNodeId)
     {
         return !string.IsNullOrWhiteSpace(GetConditionBoundStepNodeId(conditionNodeId));
+    }
+
+    public bool TryUnbindConditionFromStep(string conditionNodeId)
+    {
+        EnsureGraphInitialized();
+        if (string.IsNullOrWhiteSpace(conditionNodeId)) return false;
+
+        var conditionNode = FindNode(conditionNodeId);
+        if (conditionNode == null || conditionNode.nodeType != ScenarioNodeType.Condition) return false;
+
+        int removed = curriculum.edges.RemoveAll(e =>
+            e != null && e.edgeType == ScenarioEdgeType.ConditionBind &&
+            e.fromNodeId == conditionNodeId);
+        return removed > 0;
     }
 
     public bool TryBindConditionToStep(string conditionNodeId, string stepNodeId, out string reason)
@@ -408,7 +379,7 @@ public class CurriculumGraphService : MonoBehaviour
         }
 
         var existing = curriculum.edges
-            .Where(e => e.edgeType == ScenarioEdgeType.ConditionBind && e.fromNodeId == conditionNodeId)
+            .Where(e => e != null && e.edgeType == ScenarioEdgeType.ConditionBind && e.fromNodeId == conditionNodeId)
             .ToList();
         if (existing.Any(e => e.toNodeId == stepNodeId))
         {
@@ -416,7 +387,7 @@ public class CurriculumGraphService : MonoBehaviour
         }
 
         curriculum.edges.RemoveAll(e =>
-            e.edgeType == ScenarioEdgeType.ConditionBind &&
+            e != null && e.edgeType == ScenarioEdgeType.ConditionBind &&
             e.fromNodeId == conditionNodeId);
 
         if (TryAddEdge(conditionNodeId, stepNodeId, out reason))
@@ -433,77 +404,17 @@ public class CurriculumGraphService : MonoBehaviour
     {
         EnsureGraphInitialized();
         return curriculum.edges
-            .Where(e => e.edgeType == ScenarioEdgeType.StepFlow && e.toNodeId == nodeId)
+            .Where(e => e != null && e.edgeType == ScenarioEdgeType.StepFlow && e.toNodeId == nodeId)
             .Select(e => e.fromNodeId)
             .Distinct()
             .ToList();
-    }
-
-    public bool RepairBrokenReferences()
-    {
-        EnsureGraphInitialized();
-
-        bool changed = RemoveEdgesPointingToMissingNodes();
-        var placedObjectIds = CollectPlacedObjectIds();
-        bool referenceChanged = false;
-
-        foreach (var conditionNode in curriculum.nodes.Where(n => n != null && n.nodeType == ScenarioNodeType.Condition))
-        {
-            if (!string.IsNullOrEmpty(conditionNode.condition.objectAId) &&
-                !placedObjectIds.Contains(conditionNode.condition.objectAId))
-            {
-                conditionNode.condition.objectAId = null;
-                referenceChanged = true;
-            }
-
-            if (!string.IsNullOrEmpty(conditionNode.condition.objectBId) &&
-                !placedObjectIds.Contains(conditionNode.condition.objectBId))
-            {
-                conditionNode.condition.objectBId = null;
-                referenceChanged = true;
-            }
-        }
-
-        return changed || referenceChanged;
-    }
-
-    bool RemoveEdgesPointingToMissingNodes()
-    {
-        var nodeIds = curriculum.nodes
-            .Where(n => n != null && !string.IsNullOrWhiteSpace(n.nodeId))
-            .Select(n => n.nodeId)
-            .ToHashSet();
-
-        int before = curriculum.edges.Count;
-        curriculum.edges.RemoveAll(e =>
-            string.IsNullOrWhiteSpace(e.fromNodeId) ||
-            string.IsNullOrWhiteSpace(e.toNodeId) ||
-            !nodeIds.Contains(e.fromNodeId) ||
-            !nodeIds.Contains(e.toNodeId));
-
-        return before != curriculum.edges.Count;
-    }
-
-    HashSet<string> CollectPlacedObjectIds()
-    {
-        var allPlaced = FindObjectsByType<PlacedObject>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
-        var ids = new HashSet<string>();
-        foreach (var placed in allPlaced)
-        {
-            if (placed == null) continue;
-            placed.EnsureHasId();
-            if (string.IsNullOrWhiteSpace(placed.id)) continue;
-            ids.Add(placed.id);
-        }
-
-        return ids;
     }
 
     public List<ScenarioNode> GetConditionNodesForStep(string stepNodeId)
     {
         EnsureGraphInitialized();
         return curriculum.edges
-            .Where(e => e.edgeType == ScenarioEdgeType.ConditionBind && e.toNodeId == stepNodeId)
+            .Where(e => e != null && e.edgeType == ScenarioEdgeType.ConditionBind && e.toNodeId == stepNodeId)
             .Select(e => FindNode(e.fromNodeId))
             .Where(n => n != null && n.nodeType == ScenarioNodeType.Condition)
             .OrderBy(n => n.nodeId)
@@ -515,11 +426,19 @@ public class CurriculumGraphService : MonoBehaviour
         return GetConditionNodesForStep(stepNodeId).Count;
     }
 
+    public int GetMaxConditionsPerStep()
+    {
+        EnsureGraphInitialized();
+        return Mathf.Clamp(curriculum.rules.maxConditionsPerStep, 1, 32);
+    }
+
     public bool IsConditionConfigured(ScenarioNode conditionNode)
     {
         if (conditionNode == null || conditionNode.nodeType != ScenarioNodeType.Condition) return false;
-        return !string.IsNullOrWhiteSpace(conditionNode.condition.objectAId) &&
-               !string.IsNullOrWhiteSpace(conditionNode.condition.objectBId);
+        return ConditionTypeCatalog.Find(conditionNode.condition.type) != null &&
+               !string.IsNullOrWhiteSpace(conditionNode.condition.objectAId) &&
+               (!ConditionTypeCatalog.RequiresObjectB(conditionNode.condition.type) ||
+                !string.IsNullOrWhiteSpace(conditionNode.condition.objectBId));
     }
 
     public bool HasUnconfiguredConditions(ScenarioNode stepNode)
@@ -527,33 +446,14 @@ public class CurriculumGraphService : MonoBehaviour
         if (stepNode == null || stepNode.nodeType != ScenarioNodeType.Step) return false;
 
         var conditions = GetConditionNodesForStep(stepNode.nodeId);
-        if (conditions.Count <= 0 || conditions.Count > MaxConditionsPerStep) return true;
+        if (conditions.Count <= 0 || conditions.Count > GetMaxConditionsPerStep()) return true;
         return conditions.Any(c => !IsConditionConfigured(c));
     }
 
     public List<ScenarioNode> GetDisplayOrderedSteps()
     {
         EnsureGraphInitialized();
-
-        var ordered = new List<ScenarioNode>();
-        var visited = new HashSet<string>();
-
-        if (TryBuildLinearStepSequence(out var linear, out _))
-        {
-            foreach (var step in linear)
-            {
-                ordered.Add(step);
-                visited.Add(step.nodeId);
-            }
-        }
-
-        foreach (var step in GetNodes(ScenarioNodeType.Step))
-        {
-            if (visited.Contains(step.nodeId)) continue;
-            ordered.Add(step);
-        }
-
-        return ordered;
+        return CurriculumGraphTraversal.GetDisplayOrderedSteps(curriculum);
     }
 
     public Dictionary<string, int> BuildStepIndexMap()
@@ -571,392 +471,19 @@ public class CurriculumGraphService : MonoBehaviour
 
     public bool TryBuildLinearStepSequence(out List<ScenarioNode> orderedSteps, out string reason)
     {
-        orderedSteps = new List<ScenarioNode>();
-        reason = null;
         EnsureGraphInitialized();
-
-        var start = GetStartNode();
-        var end = GetEndNode();
-        if (start == null)
-        {
-            reason = "Start node is missing.";
-            return false;
-        }
-        if (string.IsNullOrWhiteSpace(start.nodeId))
-        {
-            reason = "Start nodeId is missing.";
-            return false;
-        }
-
-        if (end == null)
-        {
-            reason = "End node is missing.";
-            return false;
-        }
-        if (string.IsNullOrWhiteSpace(end.nodeId))
-        {
-            reason = "End nodeId is missing.";
-            return false;
-        }
-
-        string cursor = start.nodeId;
-        var visited = new HashSet<string>();
-
-        while (true)
-        {
-            var outEdges = curriculum.edges
-                .Where(e => e.edgeType == ScenarioEdgeType.StepFlow && e.fromNodeId == cursor)
-                .ToList();
-            if (outEdges.Count != 1)
-            {
-                reason = $"StepFlow edge count must be 1 from node '{cursor}' (actual={outEdges.Count}).";
-                return false;
-            }
-
-            var nextNode = FindNode(outEdges[0].toNodeId);
-            if (nextNode == null)
-            {
-                reason = $"Target node '{outEdges[0].toNodeId}' not found.";
-                return false;
-            }
-
-            if (nextNode.nodeType == ScenarioNodeType.End)
-            {
-                break;
-            }
-
-            if (nextNode.nodeType != ScenarioNodeType.Step)
-            {
-                reason = $"StepFlow target must be Step/End (actual={nextNode.nodeType}).";
-                return false;
-            }
-
-            if (!visited.Add(nextNode.nodeId))
-            {
-                reason = $"Cycle detected at node '{nextNode.nodeId}'.";
-                return false;
-            }
-
-            orderedSteps.Add(nextNode);
-            cursor = nextNode.nodeId;
-        }
-
-        if (orderedSteps.Count != GetNodes(ScenarioNodeType.Step).Count)
-        {
-            reason = "Not all step nodes are included in the Start->...->End chain.";
-            return false;
-        }
-
-        return true;
+        return CurriculumGraphTraversal.TryBuildLinearStepSequence(curriculum, out orderedSteps, out reason);
     }
 
     public GraphValidationResult ValidateGraph()
     {
         EnsureGraphInitialized();
-        var result = new GraphValidationResult();
-
-        var nodes = curriculum.nodes.Where(n => n != null).ToList();
-        var nodeIds = nodes
-            .Where(n => !string.IsNullOrWhiteSpace(n.nodeId))
-            .Select(n => n.nodeId)
-            .ToList();
-
-        if (nodes.Any(n => string.IsNullOrWhiteSpace(n.nodeId)))
-        {
-            result.AddError("E-11", "Found node with empty nodeId.");
-        }
-
-        var duplicateIds = nodeIds.GroupBy(id => id).Where(g => g.Count() > 1).Select(g => g.Key).ToList();
-        if (duplicateIds.Count > 0)
-        {
-            result.AddError("E-11", $"Duplicate nodeId detected: {string.Join(", ", duplicateIds)}");
-        }
-
-        var startNodes = nodes.Where(n => n.nodeType == ScenarioNodeType.Start).ToList();
-        var endNodes = nodes.Where(n => n.nodeType == ScenarioNodeType.End).ToList();
-        var stepNodes = nodes.Where(n => n.nodeType == ScenarioNodeType.Step).ToList();
-        var conditionNodes = nodes.Where(n => n.nodeType == ScenarioNodeType.Condition).ToList();
-
-        if (startNodes.Count != 1)
-        {
-            result.AddError("E-01", $"Start node count must be exactly 1 (actual={startNodes.Count}).");
-        }
-
-        if (endNodes.Count != 1)
-        {
-            result.AddError("E-02", $"End node count must be exactly 1 (actual={endNodes.Count}).");
-        }
-
-        foreach (var edge in curriculum.edges)
-        {
-            if (string.IsNullOrWhiteSpace(edge.fromNodeId) || string.IsNullOrWhiteSpace(edge.toNodeId))
-            {
-                result.AddError("E-11", "Edge has empty from/to nodeId.");
-                continue;
-            }
-
-            var fromNode = FindNode(edge.fromNodeId);
-            var toNode = FindNode(edge.toNodeId);
-            if (fromNode == null || toNode == null)
-            {
-                result.AddError("E-11", $"Edge points to missing node: {edge.fromNodeId} -> {edge.toNodeId}");
-                continue;
-            }
-
-            if (edge.edgeType == ScenarioEdgeType.StepFlow)
-            {
-                bool valid = (fromNode.nodeType == ScenarioNodeType.Start || fromNode.nodeType == ScenarioNodeType.Step) &&
-                             (toNode.nodeType == ScenarioNodeType.Step || toNode.nodeType == ScenarioNodeType.End);
-                if (!valid)
-                {
-                    result.AddError("E-04", $"Invalid StepFlow route: {fromNode.nodeType} -> {toNode.nodeType}");
-                }
-            }
-            else if (edge.edgeType == ScenarioEdgeType.ConditionBind)
-            {
-                bool valid = fromNode.nodeType == ScenarioNodeType.Condition && toNode.nodeType == ScenarioNodeType.Step;
-                if (!valid)
-                {
-                    result.AddError("E-07", $"Invalid ConditionBind route: {fromNode.nodeType} -> {toNode.nodeType}");
-                }
-            }
-        }
-
-        var stepFlowEdges = curriculum.edges.Where(e => e.edgeType == ScenarioEdgeType.StepFlow).ToList();
-        var conditionBindEdges = curriculum.edges.Where(e => e.edgeType == ScenarioEdgeType.ConditionBind).ToList();
-
-        if (startNodes.Count == 1)
-        {
-            int outCount = stepFlowEdges.Count(e => e.fromNodeId == startNodes[0].nodeId);
-            if (outCount != 1)
-            {
-                result.AddError("E-03", $"Start must have exactly one outgoing StepFlow edge (actual={outCount}).");
-            }
-        }
-
-        if (endNodes.Count == 1)
-        {
-            int inCount = stepFlowEdges.Count(e => e.toNodeId == endNodes[0].nodeId);
-            if (inCount != 1)
-            {
-                result.AddError("E-05", $"End must have exactly one incoming StepFlow edge (actual={inCount}).");
-            }
-        }
-
-        foreach (var step in stepNodes)
-        {
-            int inCount = stepFlowEdges.Count(e => e.toNodeId == step.nodeId);
-            int outCount = stepFlowEdges.Count(e => e.fromNodeId == step.nodeId);
-            if (inCount > 1 || outCount > 1)
-            {
-                result.AddError("E-04", $"Step '{step.nodeId}' has multiple incoming or outgoing StepFlow edges.");
-            }
-        }
-
-        if (stepNodes.Count <= 0)
-        {
-            result.AddError("E-04", "No Step node exists.");
-        }
-        else if (!TryBuildLinearStepSequence(out _, out var linearReason))
-        {
-            result.AddError("E-04", $"Step chain is invalid: {linearReason}");
-        }
-
-        var placedObjects = FindObjectsByType<PlacedObject>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
-        foreach (var placed in placedObjects)
-        {
-            if (placed == null) continue;
-            placed.EnsureHasId();
-
-            if (string.IsNullOrWhiteSpace(placed.id) || string.IsNullOrWhiteSpace(placed.typeId))
-            {
-                result.AddError("E-11", "PlacedObject has missing id or typeId.");
-            }
-        }
-
-        var placedObjectIds = placedObjects
-            .Where(p => p != null && !string.IsNullOrWhiteSpace(p.id))
-            .Select(p => p.id)
-            .ToHashSet();
-        var perStepAUsage = new Dictionary<string, HashSet<string>>();
-
-        foreach (var condition in conditionNodes)
-        {
-            int bindCount = conditionBindEdges.Count(e => e.fromNodeId == condition.nodeId);
-            if (bindCount != 1)
-            {
-                result.AddError("E-07", $"Condition '{condition.nodeId}' must bind to exactly one Step (actual={bindCount}).");
-            }
-
-            if (string.IsNullOrWhiteSpace(condition.condition.objectAId) ||
-                string.IsNullOrWhiteSpace(condition.condition.objectBId))
-            {
-                result.AddError("E-08", $"Condition '{condition.nodeId}' has unassigned A/B object.");
-            }
-            else
-            {
-                if (condition.condition.objectAId == condition.condition.objectBId)
-                {
-                    result.AddError("E-09", $"Condition '{condition.nodeId}' cannot use the same object for A and B.");
-                }
-
-                if (!placedObjectIds.Contains(condition.condition.objectAId) ||
-                    !placedObjectIds.Contains(condition.condition.objectBId))
-                {
-                    result.AddError("E-10", $"Condition '{condition.nodeId}' references missing placed object id.");
-                }
-            }
-        }
-
-        foreach (var step in stepNodes)
-        {
-            var conditions = GetConditionNodesForStep(step.nodeId);
-            if (conditions.Count <= 0 || conditions.Count > MaxConditionsPerStep)
-            {
-                result.AddError("E-06", $"Step '{step.nodeId}' condition count out of range (actual={conditions.Count}, allowed=1..{MaxConditionsPerStep}).");
-            }
-
-            if (conditions.Count == MaxConditionsPerStep)
-            {
-                result.AddWarning("W-01", $"Step '{step.nodeId}' reached max condition count.");
-            }
-
-            var duplicateKeys = conditions
-                .Select(c => $"{c.condition.type}|{c.condition.objectAId}|{c.condition.objectBId}")
-                .GroupBy(k => k)
-                .Where(g => g.Count() > 1)
-                .Select(g => g.Key)
-                .ToList();
-            if (duplicateKeys.Count > 0)
-            {
-                result.AddError("E-06", $"Step '{step.nodeId}' has duplicate condition definitions.");
-            }
-
-            foreach (var condition in conditions)
-            {
-                string a = condition.condition.objectAId;
-                if (string.IsNullOrWhiteSpace(a)) continue;
-                if (!perStepAUsage.TryGetValue(a, out var stepSet))
-                {
-                    stepSet = new HashSet<string>();
-                    perStepAUsage[a] = stepSet;
-                }
-                stepSet.Add(step.nodeId);
-            }
-        }
-
-        foreach (var pair in perStepAUsage)
-        {
-            if (pair.Value.Count > 1)
-            {
-                result.AddWarning("W-02", $"ObjectA '{pair.Key}' is reused across multiple steps.");
-            }
-        }
-
-        return result;
+        return CurriculumGraphValidator.Validate(this);
     }
     public ScenarioExport BuildScenarioExport()
     {
         EnsureGraphInitialized();
-
-        if (!TryBuildLinearStepSequence(out var orderedSteps, out var reason))
-        {
-            throw new System.InvalidOperationException("Scenario export failed: " + reason);
-        }
-
-        var export = new ScenarioExport
-        {
-            version = 2,
-            projectName = string.IsNullOrWhiteSpace(curriculum.projectName) ? "VRCourseEditor" : curriculum.projectName,
-            scenarioSettings = new ScenarioSettingsExport
-            {
-                holdSeconds = curriculum.rules != null ? curriculum.rules.holdSeconds : 1.0f,
-                snapDistance_m = curriculum.rules != null ? curriculum.rules.proximityDistance : 0.1f
-            }
-        };
-
-        for (int i = 0; i < orderedSteps.Count; i++)
-        {
-            var step = orderedSteps[i];
-            var action = new RequiredActionExport
-            {
-                id = $"act-{(i + 1).ToString("D3")}",
-                name = $"STEP {i + 1}"
-            };
-
-            var conditions = GetConditionNodesForStep(step.nodeId);
-            foreach (var condition in conditions.OrderBy(c => c.nodeId))
-            {
-                action.conditions.Add(new ConditionExport
-                {
-                    type = "SnapHold",
-                    aObjectId = condition.condition.objectAId,
-                    bObjectId = condition.condition.objectBId,
-                    holdSeconds = export.scenarioSettings.holdSeconds
-                });
-            }
-
-            export.requiredActions.Add(action);
-        }
-
-        var placed = FindObjectsByType<PlacedObject>(FindObjectsInactive.Exclude, FindObjectsSortMode.None)
-            .OrderBy(p => p.id)
-            .ToList();
-        foreach (var po in placed)
-        {
-            if (po == null) continue;
-            po.EnsureHasId();
-
-            export.objects.Add(new PlacementExportObject
-            {
-                id = po.id,
-                typeId = po.typeId,
-                position = po.transform.position,
-                rotation = po.transform.rotation,
-                scale = po.transform.localScale
-            });
-        }
-
-        return export;
-    }
-}
-
-public class GraphValidationResult
-{
-    public readonly List<GraphValidationIssue> errors = new List<GraphValidationIssue>();
-    public readonly List<GraphValidationIssue> warnings = new List<GraphValidationIssue>();
-
-    readonly HashSet<string> keys = new HashSet<string>();
-
-    public bool CanExport => errors.Count == 0;
-
-    public void AddError(string code, string message)
-    {
-        AddIssue(errors, code, message);
-    }
-
-    public void AddWarning(string code, string message)
-    {
-        AddIssue(warnings, code, message);
-    }
-
-    void AddIssue(List<GraphValidationIssue> target, string code, string message)
-    {
-        string key = code + "|" + message;
-        if (!keys.Add(key)) return;
-        target.Add(new GraphValidationIssue(code, message));
-    }
-}
-
-public class GraphValidationIssue
-{
-    public readonly string code;
-    public readonly string message;
-
-    public GraphValidationIssue(string code, string message)
-    {
-        this.code = code;
-        this.message = message;
+        return ScenarioExportBuilder.Build(this);
     }
 }
 

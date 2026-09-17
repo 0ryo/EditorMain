@@ -1,4 +1,3 @@
-using System.IO;
 using System.Text;
 using UnityEngine;
 
@@ -31,9 +30,22 @@ public class PlacementExportService : MonoBehaviour
 
     public void ExportPlacementJson()
     {
+        if (TryExportPlacementJson(out var path, out var error))
+        {
+            Debug.Log($"[Export] Saved: {path}");
+            return;
+        }
+
+        Debug.LogError("[Export] Save failed: " + error);
+    }
+
+    public bool TryExportPlacementJson(out string path, out string error)
+    {
+        path = null;
+        error = null;
         var data = new PlacementExport
         {
-            version = 1,
+            version = 2,
             projectName = projectName
         };
 
@@ -41,11 +53,15 @@ public class PlacementExportService : MonoBehaviour
         for (int i = 0; i < all.Length; i++)
         {
             var po = all[i];
+            if (po.modelRoot != null) continue;
             po.EnsureHasId();
 
             data.objects.Add(new PlacementExportObject
             {
                 id = po.id,
+                sourceNodePath = po.sourceNodePath,
+                sourceSignature = po.sourceSignature,
+                parts = ImportedModelParts.Capture(po),
                 typeId = po.typeId,
                 position = po.transform.position,
                 rotation = po.transform.rotation,
@@ -53,15 +69,20 @@ public class PlacementExportService : MonoBehaviour
             });
         }
 
-        string dir = Path.Combine(Application.dataPath, "Exports");
-        Directory.CreateDirectory(dir);
-
-        string fileName = $"{projectName}-placement.json";
-        string path = Path.Combine(dir, fileName);
+        string safeProjectName = ExportFileNameUtility.SanitizeProjectName(projectName, "MyProject");
+        string fileName = $"{safeProjectName}-placement.json";
+        path = RuntimeExportPathUtility.BuildPath(fileName);
 
         string json = JsonUtility.ToJson(data, true);
-        File.WriteAllText(path, json);
-
-        Debug.Log($"[Export] Saved: Assets/Exports/{fileName} (count={data.objects.Count})");
+        try
+        {
+            ExportFileWriter.WriteAllTextWithBackup(path, json);
+            return true;
+        }
+        catch (System.Exception ex)
+        {
+            error = ex.Message;
+            return false;
+        }
     }
 }

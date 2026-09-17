@@ -1,15 +1,11 @@
 using System;
 using System.Collections;
-using System.Collections.Generic;
 using System.IO;
 using TMPro;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
-#if UNITY_EDITOR
-using UnityEditor;
-#endif
 
 public class CatalogUI : MonoBehaviour
 {
@@ -35,11 +31,22 @@ public class CatalogUI : MonoBehaviour
     [SerializeField] RectTransform settingsAccountContent;
     [SerializeField] Slider settingsSensitivitySlider;
     [SerializeField] TMP_Text settingsSensitivityValueText;
+    [SerializeField] Toggle settingsSnapEnabledToggle;
+    [SerializeField] Slider settingsGridSnapSlider;
+    [SerializeField] TMP_Text settingsGridSnapValueText;
+    [SerializeField] Slider settingsRotationSnapSlider;
+    [SerializeField] TMP_Text settingsRotationSnapValueText;
+    [SerializeField] Slider settingsUiScaleSlider;
+    [SerializeField] TMP_Text settingsUiScaleValueText;
+    [SerializeField] Slider settingsAutoSaveIntervalSlider;
+    [SerializeField] TMP_Text settingsAutoSaveIntervalValueText;
     [SerializeField] Button settingsIntegrationLinkButton;
     [SerializeField] Button settingsRevertButton;
     [SerializeField] Button settingsApplyButton;
     [SerializeField] TMP_Text settingsAccountUserNameText;
     [SerializeField] TMP_Text settingsAccountEmailText;
+    [SerializeField] bool integrationSettingsAvailable;
+    [SerializeField] bool accountSettingsAvailable;
     [SerializeField] RectTransform newObjectSettingsPanel;
     [SerializeField] TMP_InputField newObjectNameInput;
     [SerializeField] TMP_InputField newObjectDescriptionInput;
@@ -49,6 +56,9 @@ public class CatalogUI : MonoBehaviour
     [SerializeField] float statusAutoClearSeconds = 2f;
     [SerializeField] float cornerRadius = DesignTokens.CornerRadius;
     [SerializeField] string importedCardLabel = "New Object";
+    const string AddObjectButtonLabel = "オブジェクトを追加";
+    const string SettingsButtonLabel = "設定";
+    const string EditorSupportedModelExtensionsLabel = ".fbx, .glb, or .gltf";
 
     [Serializable]
     public class StringEvent : UnityEvent<string> { }
@@ -56,15 +66,17 @@ public class CatalogUI : MonoBehaviour
     [SerializeField] StringEvent onSelectType;
     bool runtimeListenerBound;
     Coroutine clearStatusCoroutine;
-    readonly List<CardState> cards = new();
-    readonly HashSet<string> removedTypeIds = new(StringComparer.OrdinalIgnoreCase);
+    readonly CatalogCardCollection cards = new();
     const string CardRemoveButtonName = "Button_RemoveCard";
     const string CardThumbnailName = "Thumbnail";
     const string CardMainLabelName = "LabelMain";
-    string runtimeImportedTypeId;
-    string runtimeImportedCardLabel;
-    string runtimeImportedDescription;
-    GameObject runtimeImportedPrefab;
+    const string CardCategoryBadgeName = "Badge_Category";
+    const string CardCategoryLabelName = "LabelCategory";
+    const string CardTechnicalLabelName = "LabelTechnicalId";
+    const string CardCategoryVisualName = "CategoryVisual";
+    const string CardCategoryVisualLabelName = "LabelCategoryVisual";
+    readonly System.Collections.Generic.List<ImportedModelRecord> importedModels = new();
+    public bool IsRestoringModels { get; private set; }
     GameObject pendingImportedPrefab;
     string pendingImportedAssetPath;
     EditModeService boundEditModeService;
@@ -76,6 +88,19 @@ public class CatalogUI : MonoBehaviour
     float settingsBaseOrthographicZoomSpeed = -1f;
     float settingsCommittedSensitivityScale = 1f;
     float settingsPendingSensitivityScale = 1f;
+    float settingsCommittedGridSnap = EditSnapSettings.DefaultGridSize;
+    float settingsPendingGridSnap = EditSnapSettings.DefaultGridSize;
+    float settingsCommittedRotationSnap = EditSnapSettings.DefaultRotationDegrees;
+    float settingsPendingRotationSnap = EditSnapSettings.DefaultRotationDegrees;
+    bool settingsCommittedSnapEnabled = true;
+    bool settingsPendingSnapEnabled = true;
+    float settingsCommittedUiScale = 1f;
+    float settingsPendingUiScale = 1f;
+    float settingsCommittedAutoSaveInterval = EditorProjectService.DefaultAutoSaveIntervalSeconds;
+    float settingsPendingAutoSaveInterval = EditorProjectService.DefaultAutoSaveIntervalSeconds;
+    bool settingsSnapBindingInitialized;
+    UiScaleController settingsUiScaleController;
+    EditorProjectService settingsProjectService;
     bool settingsHasPendingChanges;
     bool settingsInitializingUi;
     SettingsTab activeSettingsTab = SettingsTab.General;
@@ -87,19 +112,12 @@ public class CatalogUI : MonoBehaviour
         Account
     }
 
-    class CardState
-    {
-        public string typeId;
-        public string displayLabel;
-        public string displayDescription;
-        public GameObject root;
-    }
-
-    void Start()
+    async void Start()
     {
         cornerRadius = DesignTokens.CornerRadius;
         EnsureSingleEventSystem();
         EnsureRuntimeBindings();
+        EnsureViewportReady(true);
         EnsureRuntimeCatalogControls();
         EnsureEditModeServiceBinding();
         EnsureContentTopAligned();
@@ -109,6 +127,41 @@ public class CatalogUI : MonoBehaviour
         ApplyRoundedTheme();
         DesignTokenApplier.ApplyCatalogPanel(transform);
         RefreshModeButtons();
+        await RestoreImportedModelsAsync();
+    }
+
+    async System.Threading.Tasks.Task RestoreImportedModelsAsync()
+    {
+        IsRestoringModels = true;
+        var warnings = new System.Collections.Generic.List<string>();
+        try
+        {
+            foreach (var record in ImportedModelStore.ReadAll(warnings.Add))
+            {
+                if (this == null) return;
+                try
+                {
+                    GameObject prefab = null;
+                    if (record.editorAsset)
+                    {
+#if UNITY_EDITOR
+                        prefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(record.modelPath);
+#endif
+                    }
+                    else prefab = await RuntimeModelLoader.LoadModelAsync(ImportedModelStore.ResolveModelPath(record));
+                    if (this == null) { if (prefab != null && !record.editorAsset) Destroy(prefab); return; }
+                    if (prefab == null || !placementController.RegisterRuntimePrefab(record.typeId, prefab))
+                        throw new System.IO.IOException("モデルを復元できません（FBXはEditor限定です）。");
+                    record.prefab = prefab;
+                    importedModels.Add(record);
+                }
+                catch (Exception ex) { warnings.Add(record.displayName + ": " + ex.Message); }
+            }
+            RebuildCards();
+            if (warnings.Count > 0) SetStatus("モデル復元: " + string.Join(" / ", warnings));
+        }
+        catch (Exception ex) { SetStatus("モデル一覧を読み取れません: " + ex.Message); }
+        finally { IsRestoringModels = false; }
     }
 
     void OnDestroy()
@@ -126,6 +179,7 @@ public class CatalogUI : MonoBehaviour
     public void HandleCardDrop(string typeId, Vector2 screenPosition)
     {
         EnsureRuntimeBindings();
+        Debug.Log($"[CatalogUI] Card dropped: type={typeId}, screen={screenPosition}, placementController={GetPlacementControllerName()}");
 
         if (placementController == null)
         {
@@ -145,45 +199,94 @@ public class CatalogUI : MonoBehaviour
     /// </summary>
     public bool TryGetTypeInfo(string typeId, out string label, out string description)
     {
-        if (!string.IsNullOrEmpty(typeId))
-        {
-            foreach (var card in cards)
-            {
-                if (string.Equals(card.typeId, typeId, System.StringComparison.OrdinalIgnoreCase))
-                {
-                    label       = card.displayLabel;
-                    description = card.displayDescription ?? string.Empty;
-                    return true;
-                }
-            }
-        }
-
-        label       = typeId ?? string.Empty;
-        description = string.Empty;
-        return false;
+        return cards.TryGetTypeInfo(typeId, out label, out description);
     }
 
     void EnsureRuntimeBindings()
     {
         if (onSelectType == null) onSelectType = new StringEvent();
 
-        if (placementController == null)
-        {
-            placementController = FindFirstObjectByType<PlacementController>();
-        }
+        ResolvePlacementController();
 
         if (registry == null && placementController != null)
         {
             registry = placementController.registry;
         }
 
+        if (registry == null || !registry.HasEntries)
+        {
+            var defaultRegistry = PrefabRegistry.LoadDefault();
+            if (defaultRegistry != null && defaultRegistry.HasEntries)
+            {
+                registry = defaultRegistry;
+                Debug.Log($"[CatalogUI] Bound default registry: {PrefabRegistry.DefaultAssetPath}");
+            }
+        }
+
+        if (placementController != null &&
+            (placementController.registry == null || !placementController.registry.HasEntries) &&
+            registry != null &&
+            registry.HasEntries)
+        {
+            placementController.registry = registry;
+        }
+
+        EnsureRuntimeEditServices();
         EnsurePlacementControllerBinding();
 
-        if (!runtimeListenerBound && onSelectType.GetPersistentEventCount() == 0 && placementController != null)
+        if (placementController != null)
         {
+            onSelectType.RemoveListener(placementController.EnterPlacement);
             onSelectType.AddListener(placementController.EnterPlacement);
             runtimeListenerBound = true;
         }
+    }
+
+    PlacementController ResolvePlacementController()
+    {
+        placementController = RuntimeEditComposition.ResolvePlacementController(placementController, registry);
+        return placementController;
+    }
+
+    void EnsureRuntimeEditServices()
+    {
+        RuntimeEditComposition.EnsureEditServices(placementController, registry);
+    }
+
+    void EnsureViewportReady(bool resetView)
+    {
+        var viewportCamera = EditWorkspace.ResolveCamera(placementController != null ? placementController.cam : null);
+
+        if (viewportCamera != null)
+        {
+            var cameraController = viewportCamera.GetComponent<EditorCameraController>();
+            if (cameraController == null)
+            {
+                cameraController = viewportCamera.gameObject.AddComponent<EditorCameraController>();
+                Debug.LogWarning("[CatalogUI] Added EditorCameraController to viewport camera.");
+            }
+
+            if (resetView && cameraController != null)
+            {
+                cameraController.ResetToDefaultView();
+            }
+            else if (resetView)
+            {
+                viewportCamera.transform.position = EditWorkspace.DefaultCameraPosition;
+                viewportCamera.transform.LookAt(Vector3.zero, Vector3.up);
+                viewportCamera.orthographic = true;
+                viewportCamera.orthographicSize = 7f;
+                viewportCamera.nearClipPlane = 0.05f;
+                viewportCamera.farClipPlane = 1000f;
+            }
+
+            if (placementController != null && placementController.cam == null)
+            {
+                placementController.cam = viewportCamera;
+            }
+        }
+
+        EditWorkspace.EnsureWorkspaceVisuals();
     }
 
     void EnsurePlacementControllerBinding()
@@ -284,6 +387,36 @@ public class CatalogUI : MonoBehaviour
             settingsSensitivitySlider.onValueChanged.AddListener(OnSettingsSensitivityChanged);
         }
 
+        if (settingsSnapEnabledToggle != null)
+        {
+            settingsSnapEnabledToggle.onValueChanged.RemoveListener(OnSettingsSnapEnabledChanged);
+            settingsSnapEnabledToggle.onValueChanged.AddListener(OnSettingsSnapEnabledChanged);
+        }
+
+        if (settingsGridSnapSlider != null)
+        {
+            settingsGridSnapSlider.onValueChanged.RemoveListener(OnSettingsGridSnapChanged);
+            settingsGridSnapSlider.onValueChanged.AddListener(OnSettingsGridSnapChanged);
+        }
+
+        if (settingsRotationSnapSlider != null)
+        {
+            settingsRotationSnapSlider.onValueChanged.RemoveListener(OnSettingsRotationSnapChanged);
+            settingsRotationSnapSlider.onValueChanged.AddListener(OnSettingsRotationSnapChanged);
+        }
+
+        if (settingsUiScaleSlider != null)
+        {
+            settingsUiScaleSlider.onValueChanged.RemoveListener(OnSettingsUiScaleChanged);
+            settingsUiScaleSlider.onValueChanged.AddListener(OnSettingsUiScaleChanged);
+        }
+
+        if (settingsAutoSaveIntervalSlider != null)
+        {
+            settingsAutoSaveIntervalSlider.onValueChanged.RemoveListener(OnSettingsAutoSaveIntervalChanged);
+            settingsAutoSaveIntervalSlider.onValueChanged.AddListener(OnSettingsAutoSaveIntervalChanged);
+        }
+
         if (settingsIntegrationLinkButton != null)
         {
             settingsIntegrationLinkButton.onClick.RemoveListener(OnClickSettingsIntegrationLink);
@@ -346,7 +479,7 @@ public class CatalogUI : MonoBehaviour
         foreach (var entry in registry.entries)
         {
             if (entry == null || string.IsNullOrWhiteSpace(entry.typeId)) continue;
-            if (removedTypeIds.Contains(entry.typeId)) continue;
+            if (cards.IsRemoved(entry.typeId)) continue;
 
             var cardButton = Instantiate(buttonTemplate, content);
             cardButton.gameObject.name = $"Card_{entry.typeId}";
@@ -354,13 +487,14 @@ public class CatalogUI : MonoBehaviour
             EnsureCardHeight(cardButton.gameObject);
 
             var typeId = entry.typeId;
-            SetCardLabel(cardButton.gameObject, typeId);
+            var displayLabel = CatalogCardText.BuildDisplayName(typeId);
+            SetCardLabel(cardButton.gameObject, displayLabel, typeId);
             SetupCardInteractions(cardButton, typeId);
 
-            cards.Add(new CardState
+            cards.Add(new CatalogCardState
             {
                 typeId = typeId,
-                displayLabel = typeId,
+                displayLabel = displayLabel,
                 displayDescription = string.Empty,
                 root = cardButton.gameObject
             });
@@ -377,27 +511,22 @@ public class CatalogUI : MonoBehaviour
 
     void AddRuntimeImportedCardIfNeeded()
     {
-        if (string.IsNullOrWhiteSpace(runtimeImportedTypeId) || runtimeImportedPrefab == null) return;
         if (buttonTemplate == null || content == null) return;
-        if (removedTypeIds.Contains(runtimeImportedTypeId)) return;
-
-        var cardButton = Instantiate(buttonTemplate, content);
-        cardButton.gameObject.name = "Card_NewObject";
-        cardButton.gameObject.SetActive(true);
-        EnsureCardHeight(cardButton.gameObject);
-        var cardLabel = string.IsNullOrWhiteSpace(runtimeImportedCardLabel) ? importedCardLabel : runtimeImportedCardLabel;
-        SetCardLabel(cardButton.gameObject, cardLabel);
-
-        var importedTypeId = runtimeImportedTypeId;
-        SetupCardInteractions(cardButton, importedTypeId);
-
-        cards.Add(new CardState
+        foreach (var record in importedModels)
         {
-            typeId = importedTypeId,
-            displayLabel = cardLabel,
-            displayDescription = runtimeImportedDescription,
-            root = cardButton.gameObject
-        });
+            if (record.prefab == null || record.hidden || cards.IsRemoved(record.typeId)) continue;
+            var cardButton = Instantiate(buttonTemplate, content);
+            cardButton.gameObject.name = "Card_" + record.typeId;
+            cardButton.gameObject.SetActive(true);
+            EnsureCardHeight(cardButton.gameObject);
+            SetCardLabel(cardButton.gameObject, record.displayName, record.typeId);
+            SetupCardInteractions(cardButton, record.typeId);
+            cards.Add(new CatalogCardState
+            {
+                typeId = record.typeId, displayLabel = record.displayName,
+                displayDescription = record.description, root = cardButton.gameObject
+            });
+        }
     }
 
     void SetupCardInteractions(Button cardButton, string typeId)
@@ -437,7 +566,9 @@ public class CatalogUI : MonoBehaviour
 
         EnsureRuntimeEditModeButtons(panel);
         EnsureRuntimeSettingsButton(panel);
+        HintPanelController.Ensure(panel.root);
         EnsureRuntimeSettingsDialog(panel);
+        EnsureRuntimeViewportStatusStrip(panel);
         EnsureEditModeDockSync(panel);
         EnsureRuntimeSearchInput(panel);
         EnsureRuntimeBottomAddButton(panel);
@@ -445,6 +576,19 @@ public class CatalogUI : MonoBehaviour
         ApplyCatalogTopLayout(panel);
         EnsureScrollBottomPadding(56f);
         RefreshModeButtons();
+    }
+
+    void EnsureRuntimeViewportStatusStrip(RectTransform panel)
+    {
+        if (panel == null) return;
+        var host = panel.root as RectTransform;
+        if (host == null) host = panel;
+
+        var strip = host.GetComponent<ViewportStatusStrip>();
+        if (strip == null)
+        {
+            host.gameObject.AddComponent<ViewportStatusStrip>();
+        }
     }
 
     void EnsureEditModeDockSync(RectTransform panel)
@@ -622,11 +766,12 @@ public class CatalogUI : MonoBehaviour
             buttonRt.anchorMin = new Vector2(1f, 1f);
             buttonRt.anchorMax = new Vector2(1f, 1f);
             buttonRt.pivot = new Vector2(1f, 1f);
-            buttonRt.offsetMin = new Vector2(-82f, -52f);
+            buttonRt.offsetMin = new Vector2(-92f, -52f);
             buttonRt.offsetMax = new Vector2(-12f, -12f);
         }
 
         EnsureSettingsButtonAppearance(settingsButton);
+        settingsButton.transform.SetAsLastSibling();
     }
 
     void EnsureSettingsButtonAppearance(Button button)
@@ -653,9 +798,9 @@ public class CatalogUI : MonoBehaviour
             label = labelGo.GetComponent<TMP_Text>();
         }
 
-        label.fontSize = 22;
+        label.fontSize = DesignTokens.FontSizeBody;
         label.alignment = TextAlignmentOptions.Center;
-        label.text = "\u2699";
+        label.text = SettingsButtonLabel;
         label.color = DesignTokens.TextPrimary;
     }
 
@@ -735,6 +880,33 @@ public class CatalogUI : MonoBehaviour
         var sliderValueTr = overlayRt.Find("Window/Content/Content_General/SliderRow/Text_SensitivityValue");
         if (sliderValueTr != null) settingsSensitivityValueText = sliderValueTr.GetComponent<TMP_Text>();
 
+        var snapToggleTr = overlayRt.Find("Window/Content/Content_General/SnapToggleRow/Toggle_SnapEnabled");
+        if (snapToggleTr != null) settingsSnapEnabledToggle = snapToggleTr.GetComponent<Toggle>();
+
+        var gridSliderTr = overlayRt.Find("Window/Content/Content_General/GridSnapRow/Slider_GridSnap");
+        if (gridSliderTr != null) settingsGridSnapSlider = gridSliderTr.GetComponent<Slider>();
+
+        var gridValueTr = overlayRt.Find("Window/Content/Content_General/GridSnapRow/Text_GridSnapValue");
+        if (gridValueTr != null) settingsGridSnapValueText = gridValueTr.GetComponent<TMP_Text>();
+
+        var rotationSliderTr = overlayRt.Find("Window/Content/Content_General/RotationSnapRow/Slider_RotationSnap");
+        if (rotationSliderTr != null) settingsRotationSnapSlider = rotationSliderTr.GetComponent<Slider>();
+
+        var rotationValueTr = overlayRt.Find("Window/Content/Content_General/RotationSnapRow/Text_RotationSnapValue");
+        if (rotationValueTr != null) settingsRotationSnapValueText = rotationValueTr.GetComponent<TMP_Text>();
+
+        var uiScaleSliderTr = overlayRt.Find("Window/Content/Content_General/UiScaleRow/Slider_UiScale");
+        if (uiScaleSliderTr != null) settingsUiScaleSlider = uiScaleSliderTr.GetComponent<Slider>();
+
+        var uiScaleValueTr = overlayRt.Find("Window/Content/Content_General/UiScaleRow/Text_UiScaleValue");
+        if (uiScaleValueTr != null) settingsUiScaleValueText = uiScaleValueTr.GetComponent<TMP_Text>();
+
+        var autoSaveSliderTr = overlayRt.Find("Window/Content/Content_General/AutoSaveIntervalRow/Slider_AutoSaveInterval");
+        if (autoSaveSliderTr != null) settingsAutoSaveIntervalSlider = autoSaveSliderTr.GetComponent<Slider>();
+
+        var autoSaveValueTr = overlayRt.Find("Window/Content/Content_General/AutoSaveIntervalRow/Text_AutoSaveIntervalValue");
+        if (autoSaveValueTr != null) settingsAutoSaveIntervalValueText = autoSaveValueTr.GetComponent<TMP_Text>();
+
         var linkTr = overlayRt.Find("Window/Content/Content_Integration/Button_WebLink");
         if (linkTr != null) settingsIntegrationLinkButton = linkTr.GetComponent<Button>();
 
@@ -773,7 +945,7 @@ public class CatalogUI : MonoBehaviour
         windowRt.anchorMin = new Vector2(0.5f, 0.5f);
         windowRt.anchorMax = new Vector2(0.5f, 0.5f);
         windowRt.pivot = new Vector2(0.5f, 0.5f);
-        windowRt.sizeDelta = new Vector2(760f, 460f);
+        windowRt.sizeDelta = new Vector2(760f, 640f);
         windowRt.anchoredPosition = Vector2.zero;
 
         var windowImage = windowRt.GetComponent<Image>();
@@ -872,12 +1044,51 @@ public class CatalogUI : MonoBehaviour
         BindSettingsReferences(overlayRt);
 
         EnsureSettingsCameraBinding();
+        EnsureSettingsSnapBinding();
+        EnsureSettingsUiScaleBinding();
+        EnsureSettingsAutoSaveBinding();
         settingsPendingSensitivityScale = Mathf.Clamp(settingsPendingSensitivityScale, 0.2f, 2.5f);
+        settingsPendingGridSnap = Mathf.Clamp(settingsPendingGridSnap, 0.05f, 1f);
+        settingsPendingRotationSnap = Mathf.Clamp(settingsPendingRotationSnap, 1f, 90f);
+        settingsPendingUiScale = Mathf.Clamp(settingsPendingUiScale, 0.8f, 1.4f);
+        settingsPendingAutoSaveInterval = Mathf.Clamp(
+            Mathf.Round(settingsPendingAutoSaveInterval),
+            EditorProjectService.MinAutoSaveIntervalSeconds,
+            EditorProjectService.MaxAutoSaveIntervalSeconds);
 
         if (settingsSensitivitySlider != null)
         {
             settingsSensitivitySlider.minValue = 0.2f;
             settingsSensitivitySlider.maxValue = 2.5f;
+        }
+
+
+        if (settingsGridSnapSlider != null)
+        {
+            settingsGridSnapSlider.minValue = 0.05f;
+            settingsGridSnapSlider.maxValue = 1f;
+            settingsGridSnapSlider.wholeNumbers = false;
+        }
+
+        if (settingsRotationSnapSlider != null)
+        {
+            settingsRotationSnapSlider.minValue = 1f;
+            settingsRotationSnapSlider.maxValue = 90f;
+            settingsRotationSnapSlider.wholeNumbers = true;
+        }
+
+        if (settingsUiScaleSlider != null)
+        {
+            settingsUiScaleSlider.minValue = 0.8f;
+            settingsUiScaleSlider.maxValue = 1.4f;
+            settingsUiScaleSlider.wholeNumbers = false;
+        }
+
+        if (settingsAutoSaveIntervalSlider != null)
+        {
+            settingsAutoSaveIntervalSlider.minValue = EditorProjectService.MinAutoSaveIntervalSeconds;
+            settingsAutoSaveIntervalSlider.maxValue = EditorProjectService.MaxAutoSaveIntervalSeconds;
+            settingsAutoSaveIntervalSlider.wholeNumbers = true;
         }
 
         if (settingsAccountUserNameText != null)
@@ -902,9 +1113,32 @@ public class CatalogUI : MonoBehaviour
         {
             settingsSensitivitySlider.SetValueWithoutNotify(settingsPendingSensitivityScale);
         }
+        if (settingsSnapEnabledToggle != null)
+        {
+            settingsSnapEnabledToggle.SetIsOnWithoutNotify(settingsPendingSnapEnabled);
+        }
+        if (settingsGridSnapSlider != null)
+        {
+            settingsGridSnapSlider.SetValueWithoutNotify(settingsPendingGridSnap);
+        }
+        if (settingsRotationSnapSlider != null)
+        {
+            settingsRotationSnapSlider.SetValueWithoutNotify(settingsPendingRotationSnap);
+        }
+        if (settingsUiScaleSlider != null)
+        {
+            settingsUiScaleSlider.SetValueWithoutNotify(settingsPendingUiScale);
+        }
+        if (settingsAutoSaveIntervalSlider != null)
+        {
+            settingsAutoSaveIntervalSlider.SetValueWithoutNotify(settingsPendingAutoSaveInterval);
+        }
         UpdateSensitivityValueText(settingsPendingSensitivityScale);
+        UpdateSnapValueTexts();
+        UpdateUiScaleValueText(settingsPendingUiScale);
+        UpdateAutoSaveIntervalValueText(settingsPendingAutoSaveInterval);
         settingsInitializingUi = false;
-        SetSettingsDirty(!Mathf.Approximately(settingsPendingSensitivityScale, settingsCommittedSensitivityScale));
+        RefreshSettingsDirtyState();
 
         EnsureSettingsOverlayCloseHandler(overlayRt, windowRt);
 
@@ -1027,6 +1261,119 @@ public class CatalogUI : MonoBehaviour
         valueRt.anchorMax = new Vector2(1f, 1f);
         valueRt.offsetMin = new Vector2(-84f, 0f);
         valueRt.offsetMax = new Vector2(0f, 0f);
+
+        var snapTitle = FindOrCreateSettingsText(contentRt, "Text_SnapTitle", "位置・角度の吸着（スナップ）");
+        snapTitle.fontSize = 16;
+        snapTitle.alignment = TextAlignmentOptions.MidlineLeft;
+        snapTitle.color = DesignTokens.TextPrimary;
+        var snapTitleRt = snapTitle.rectTransform;
+        snapTitleRt.anchorMin = new Vector2(0f, 1f);
+        snapTitleRt.anchorMax = new Vector2(1f, 1f);
+        snapTitleRt.offsetMin = new Vector2(24f, -168f);
+        snapTitleRt.offsetMax = new Vector2(-24f, -136f);
+
+        var snapToggleRow = FindOrCreateSettingsRect(contentRt, "SnapToggleRow");
+        snapToggleRow.anchorMin = new Vector2(0f, 1f);
+        snapToggleRow.anchorMax = new Vector2(1f, 1f);
+        snapToggleRow.offsetMin = new Vector2(24f, -216f);
+        snapToggleRow.offsetMax = new Vector2(-24f, -176f);
+        settingsSnapEnabledToggle = EnsureSettingsToggle(snapToggleRow, settingsSnapEnabledToggle, "Toggle_SnapEnabled");
+
+        var snapToggleLabel = FindOrCreateSettingsText(snapToggleRow, "Text_SnapEnabled", "一定間隔に自動で揃える（Altキーで一時解除）");
+        snapToggleLabel.fontSize = 14;
+        snapToggleLabel.alignment = TextAlignmentOptions.MidlineLeft;
+        snapToggleLabel.color = DesignTokens.TextPrimary;
+        var snapToggleLabelRt = snapToggleLabel.rectTransform;
+        snapToggleLabelRt.anchorMin = Vector2.zero;
+        snapToggleLabelRt.anchorMax = Vector2.one;
+        snapToggleLabelRt.offsetMin = new Vector2(48f, 0f);
+        snapToggleLabelRt.offsetMax = Vector2.zero;
+
+        var gridLabel = FindOrCreateSettingsText(contentRt, "Text_GridSnapLabel", "グリッド幅");
+        gridLabel.fontSize = 14;
+        gridLabel.alignment = TextAlignmentOptions.MidlineLeft;
+        gridLabel.color = DesignTokens.TextSecondary;
+        var gridLabelRt = gridLabel.rectTransform;
+        gridLabelRt.anchorMin = new Vector2(0f, 1f);
+        gridLabelRt.anchorMax = new Vector2(1f, 1f);
+        gridLabelRt.offsetMin = new Vector2(24f, -248f);
+        gridLabelRt.offsetMax = new Vector2(-24f, -220f);
+
+        var gridRow = FindOrCreateSettingsRect(contentRt, "GridSnapRow");
+        gridRow.anchorMin = new Vector2(0f, 1f);
+        gridRow.anchorMax = new Vector2(1f, 1f);
+        gridRow.offsetMin = new Vector2(24f, -292f);
+        gridRow.offsetMax = new Vector2(-24f, -252f);
+        settingsGridSnapSlider = EnsureSettingsSlider(gridRow, settingsGridSnapSlider, "Slider_GridSnap");
+        ConfigureSettingsSliderRect(settingsGridSnapSlider, 90f);
+        settingsGridSnapValueText = FindOrCreateSettingsText(gridRow, "Text_GridSnapValue", "0.10 m");
+        ConfigureSettingsValueText(settingsGridSnapValueText);
+
+        var rotationLabel = FindOrCreateSettingsText(contentRt, "Text_RotationSnapLabel", "回転の刻み");
+        rotationLabel.fontSize = 14;
+        rotationLabel.alignment = TextAlignmentOptions.MidlineLeft;
+        rotationLabel.color = DesignTokens.TextSecondary;
+        var rotationLabelRt = rotationLabel.rectTransform;
+        rotationLabelRt.anchorMin = new Vector2(0f, 1f);
+        rotationLabelRt.anchorMax = new Vector2(1f, 1f);
+        rotationLabelRt.offsetMin = new Vector2(24f, -324f);
+        rotationLabelRt.offsetMax = new Vector2(-24f, -296f);
+
+        var rotationRow = FindOrCreateSettingsRect(contentRt, "RotationSnapRow");
+        rotationRow.anchorMin = new Vector2(0f, 1f);
+        rotationRow.anchorMax = new Vector2(1f, 1f);
+        rotationRow.offsetMin = new Vector2(24f, -368f);
+        rotationRow.offsetMax = new Vector2(-24f, -328f);
+        settingsRotationSnapSlider = EnsureSettingsSlider(rotationRow, settingsRotationSnapSlider, "Slider_RotationSnap");
+        ConfigureSettingsSliderRect(settingsRotationSnapSlider, 90f);
+        settingsRotationSnapValueText = FindOrCreateSettingsText(rotationRow, "Text_RotationSnapValue", "15°");
+        ConfigureSettingsValueText(settingsRotationSnapValueText);
+
+        var uiScaleTitle = FindOrCreateSettingsText(contentRt, "Text_UiScaleTitle", "UIの大きさ");
+        uiScaleTitle.fontSize = 16;
+        uiScaleTitle.alignment = TextAlignmentOptions.MidlineLeft;
+        uiScaleTitle.color = DesignTokens.TextPrimary;
+        var uiScaleTitleRt = uiScaleTitle.rectTransform;
+        uiScaleTitleRt.anchorMin = new Vector2(0f, 1f);
+        uiScaleTitleRt.anchorMax = new Vector2(1f, 1f);
+        uiScaleTitleRt.offsetMin = new Vector2(24f, -408f);
+        uiScaleTitleRt.offsetMax = new Vector2(-24f, -376f);
+
+        var uiScaleRow = FindOrCreateSettingsRect(contentRt, "UiScaleRow");
+        uiScaleRow.anchorMin = new Vector2(0f, 1f);
+        uiScaleRow.anchorMax = new Vector2(1f, 1f);
+        uiScaleRow.offsetMin = new Vector2(24f, -464f);
+        uiScaleRow.offsetMax = new Vector2(-24f, -424f);
+        settingsUiScaleSlider = EnsureSettingsSlider(uiScaleRow, settingsUiScaleSlider, "Slider_UiScale");
+        ConfigureSettingsSliderRect(settingsUiScaleSlider, 90f);
+        settingsUiScaleValueText = FindOrCreateSettingsText(uiScaleRow, "Text_UiScaleValue", "100%");
+        ConfigureSettingsValueText(settingsUiScaleValueText);
+
+        var autoSaveTitle = FindOrCreateSettingsText(contentRt, "Text_AutoSaveIntervalTitle", "編集後の自動保存");
+        autoSaveTitle.fontSize = 16;
+        autoSaveTitle.alignment = TextAlignmentOptions.MidlineLeft;
+        autoSaveTitle.color = DesignTokens.TextPrimary;
+        var autoSaveTitleRt = autoSaveTitle.rectTransform;
+        autoSaveTitleRt.anchorMin = new Vector2(0f, 1f);
+        autoSaveTitleRt.anchorMax = new Vector2(1f, 1f);
+        autoSaveTitleRt.offsetMin = new Vector2(24f, -508f);
+        autoSaveTitleRt.offsetMax = new Vector2(-24f, -476f);
+
+        var autoSaveRow = FindOrCreateSettingsRect(contentRt, "AutoSaveIntervalRow");
+        autoSaveRow.anchorMin = new Vector2(0f, 1f);
+        autoSaveRow.anchorMax = new Vector2(1f, 1f);
+        autoSaveRow.offsetMin = new Vector2(24f, -564f);
+        autoSaveRow.offsetMax = new Vector2(-24f, -524f);
+        settingsAutoSaveIntervalSlider = EnsureSettingsSlider(
+            autoSaveRow,
+            settingsAutoSaveIntervalSlider,
+            "Slider_AutoSaveInterval");
+        ConfigureSettingsSliderRect(settingsAutoSaveIntervalSlider, 90f);
+        settingsAutoSaveIntervalValueText = FindOrCreateSettingsText(
+            autoSaveRow,
+            "Text_AutoSaveIntervalValue",
+            "5秒");
+        ConfigureSettingsValueText(settingsAutoSaveIntervalValueText);
     }
 
     void EnsureIntegrationSettingsContent(RectTransform contentRt)
@@ -1155,6 +1502,73 @@ public class CatalogUI : MonoBehaviour
         slider.targetGraphic = handleImage;
         slider.direction = Slider.Direction.LeftToRight;
         return slider;
+    }
+
+    Toggle EnsureSettingsToggle(RectTransform parent, Toggle toggle, string objectName)
+    {
+        if (parent == null) return toggle;
+
+        if (toggle == null)
+        {
+            var found = parent.Find(objectName);
+            if (found != null) toggle = found.GetComponent<Toggle>();
+        }
+
+        if (toggle == null)
+        {
+            var root = new GameObject(objectName, typeof(RectTransform), typeof(Image), typeof(Toggle));
+            var rootRt = root.GetComponent<RectTransform>();
+            rootRt.SetParent(parent, false);
+            toggle = root.GetComponent<Toggle>();
+        }
+
+        var rect = toggle.transform as RectTransform;
+        rect.anchorMin = new Vector2(0f, 0.5f);
+        rect.anchorMax = new Vector2(0f, 0.5f);
+        rect.pivot = new Vector2(0f, 0.5f);
+        rect.sizeDelta = new Vector2(36f, 36f);
+        rect.anchoredPosition = Vector2.zero;
+
+        var background = toggle.GetComponent<Image>();
+        if (background == null) background = toggle.gameObject.AddComponent<Image>();
+        background.color = DesignTokens.BgSecondary;
+
+        var checkmarkRt = FindOrCreateSettingsRect(toggle.transform, "Checkmark");
+        checkmarkRt.anchorMin = new Vector2(0.5f, 0.5f);
+        checkmarkRt.anchorMax = new Vector2(0.5f, 0.5f);
+        checkmarkRt.pivot = new Vector2(0.5f, 0.5f);
+        checkmarkRt.sizeDelta = new Vector2(22f, 22f);
+        checkmarkRt.anchoredPosition = Vector2.zero;
+        var checkmark = checkmarkRt.GetComponent<Image>();
+        if (checkmark == null) checkmark = checkmarkRt.gameObject.AddComponent<Image>();
+        checkmark.color = DesignTokens.Accent;
+
+        toggle.targetGraphic = background;
+        toggle.graphic = checkmark;
+        return toggle;
+    }
+
+    static void ConfigureSettingsSliderRect(Slider slider, float valueWidth)
+    {
+        var rect = slider != null ? slider.transform as RectTransform : null;
+        if (rect == null) return;
+        rect.anchorMin = Vector2.zero;
+        rect.anchorMax = Vector2.one;
+        rect.offsetMin = Vector2.zero;
+        rect.offsetMax = new Vector2(-valueWidth, 0f);
+    }
+
+    static void ConfigureSettingsValueText(TMP_Text text)
+    {
+        if (text == null) return;
+        text.fontSize = 14;
+        text.alignment = TextAlignmentOptions.MidlineRight;
+        text.color = DesignTokens.TextSecondary;
+        var rect = text.rectTransform;
+        rect.anchorMin = new Vector2(1f, 0f);
+        rect.anchorMax = Vector2.one;
+        rect.offsetMin = new Vector2(-84f, 0f);
+        rect.offsetMax = Vector2.zero;
     }
 
     TMP_Text FindOrCreateSettingsText(Transform parent, string objectName, string defaultText)
@@ -1308,6 +1722,7 @@ public class CatalogUI : MonoBehaviour
 
             if (isBottomAnchored)
             {
+                EnsureBottomAddButtonLabel();
                 EnsureScrollBottomPadding(56f);
                 return;
             }
@@ -1340,13 +1755,19 @@ public class CatalogUI : MonoBehaviour
         label.color = DesignTokens.TextPrimary;
         label.fontSize = 14;
         label.alignment = TextAlignmentOptions.Center;
-#if UNITY_EDITOR
-        label.text = "Import FBX";
-#else
-        label.text = "Import 3D Model";
-#endif
+        label.text = AddObjectButtonLabel;
 
         EnsureScrollBottomPadding(56f);
+    }
+
+    void EnsureBottomAddButtonLabel()
+    {
+        if (addButton == null) return;
+
+        var label = addButton.GetComponentInChildren<TMP_Text>(true);
+        if (label == null) return;
+
+        label.text = AddObjectButtonLabel;
     }
 
     void EnsureRuntimeNewObjectSettingsDialog(RectTransform panel)
@@ -1743,8 +2164,8 @@ public class CatalogUI : MonoBehaviour
 
         var layout = cardObject.GetComponent<LayoutElement>();
         if (layout == null) layout = cardObject.AddComponent<LayoutElement>();
-        layout.minHeight = 84f;
-        layout.preferredHeight = 84f;
+        layout.minHeight = 96f;
+        layout.preferredHeight = 96f;
         NormalizeCardVisuals(cardObject);
     }
 
@@ -1753,6 +2174,9 @@ public class CatalogUI : MonoBehaviour
         if (cardObject == null) return;
 
         var root = cardObject.transform;
+        var cardImage = cardObject.GetComponent<Image>();
+        if (cardImage != null) cardImage.color = DesignTokens.Surface;
+        EnsureCardOutline(cardObject.transform);
 
         var thumbnail = root.Find(CardThumbnailName);
         if (thumbnail != null) thumbnail.gameObject.SetActive(false);
@@ -1766,24 +2190,33 @@ public class CatalogUI : MonoBehaviour
         var explicitMain = root.Find(CardMainLabelName) as RectTransform;
         if (explicitMain != null)
         {
-            StretchCardLabel(explicitMain);
+            LayoutMainCardLabel(explicitMain);
 
             var text = explicitMain.GetComponent<TMP_Text>();
-            if (text != null) text.alignment = TextAlignmentOptions.Center;
+            if (text != null)
+            {
+                text.alignment = TextAlignmentOptions.MidlineLeft;
+                text.fontSize = DesignTokens.FontSizeBody;
+                text.color = DesignTokens.TextPrimary;
+            }
         }
+
+        EnsureCategoryBadge(root);
+        EnsureTechnicalIdLabel(root);
+        EnsureCategoryVisual(root);
     }
 
-    static void StretchCardLabel(RectTransform labelRect)
+    static void LayoutMainCardLabel(RectTransform labelRect)
     {
         if (labelRect == null) return;
-        labelRect.anchorMin = Vector2.zero;
-        labelRect.anchorMax = Vector2.one;
-        labelRect.pivot = new Vector2(0.5f, 0.5f);
-        labelRect.offsetMin = new Vector2(10f, 0f);
-        labelRect.offsetMax = new Vector2(-10f, 0f);
+        labelRect.anchorMin = new Vector2(0f, 1f);
+        labelRect.anchorMax = new Vector2(1f, 1f);
+        labelRect.pivot = new Vector2(0f, 1f);
+        labelRect.offsetMin = new Vector2(16f, -64f);
+        labelRect.offsetMax = new Vector2(-72f, -38f);
     }
 
-    void SetCardLabel(GameObject root, string typeId)
+    void SetCardLabel(GameObject root, string displayLabel, string typeId)
     {
         NormalizeCardVisuals(root);
 
@@ -1793,25 +2226,149 @@ public class CatalogUI : MonoBehaviour
             var txt = explicitMain.GetComponent<TMP_Text>();
             if (txt != null)
             {
-                txt.text = typeId;
-                txt.alignment = TextAlignmentOptions.Center;
+                txt.text = string.IsNullOrWhiteSpace(displayLabel) ? CatalogCardText.BuildDisplayName(typeId) : displayLabel;
+                txt.alignment = TextAlignmentOptions.MidlineLeft;
             }
-            return;
         }
+
+        var categoryLabel = root.transform.Find($"{CardCategoryBadgeName}/{CardCategoryLabelName}")?.GetComponent<TMP_Text>();
+        if (categoryLabel != null) categoryLabel.text = CatalogCardText.BuildCategoryLabel(typeId);
+
+        var technical = root.transform.Find(CardTechnicalLabelName)?.GetComponent<TMP_Text>();
+        if (technical != null) technical.text = typeId ?? string.Empty;
+
+        var categoryVisualLabel = root.transform.Find($"{CardCategoryVisualName}/{CardCategoryVisualLabelName}")?.GetComponent<TMP_Text>();
+        if (categoryVisualLabel != null) categoryVisualLabel.text = CatalogCardText.BuildCategoryVisualLabel(typeId);
 
         var tmps = root.GetComponentsInChildren<TMP_Text>(true);
         foreach (var tmp in tmps)
         {
             if (tmp == null) continue;
             if (IsUnderCardRemoveButton(tmp.transform)) continue;
-            tmp.text = typeId;
-            tmp.alignment = TextAlignmentOptions.Center;
+            if (tmp.transform == explicitMain || tmp == categoryLabel || tmp == technical || tmp == categoryVisualLabel) continue;
+            tmp.text = string.IsNullOrWhiteSpace(displayLabel) ? CatalogCardText.BuildDisplayName(typeId) : displayLabel;
+            tmp.alignment = TextAlignmentOptions.MidlineLeft;
             if (tmp.rectTransform != null && tmp.rectTransform.parent == root.transform)
             {
-                StretchCardLabel(tmp.rectTransform);
+                LayoutMainCardLabel(tmp.rectTransform);
             }
             break;
         }
+    }
+
+    static RectTransform EnsureCategoryBadge(Transform root)
+    {
+        var badge = root.Find(CardCategoryBadgeName) as RectTransform;
+        if (badge == null)
+        {
+            var badgeGo = new GameObject(CardCategoryBadgeName, typeof(RectTransform), typeof(Image));
+            badge = badgeGo.GetComponent<RectTransform>();
+            badge.SetParent(root, false);
+        }
+
+        badge.anchorMin = new Vector2(0f, 1f);
+        badge.anchorMax = new Vector2(0f, 1f);
+        badge.pivot = new Vector2(0f, 1f);
+        badge.offsetMin = new Vector2(16f, -34f);
+        badge.offsetMax = new Vector2(84f, -12f);
+
+        var image = badge.GetComponent<Image>();
+        if (image == null) image = badge.gameObject.AddComponent<Image>();
+        image.color = DesignTokens.BadgeBg(DesignTokens.Accent);
+        image.raycastTarget = false;
+
+        var label = badge.Find(CardCategoryLabelName)?.GetComponent<TMP_Text>();
+        if (label == null)
+        {
+            var labelGo = new GameObject(CardCategoryLabelName, typeof(RectTransform), typeof(TextMeshProUGUI));
+            labelGo.transform.SetParent(badge, false);
+            label = labelGo.GetComponent<TMP_Text>();
+        }
+
+        label.fontSize = DesignTokens.FontSizeCaption;
+        label.color = DesignTokens.Accent;
+        label.alignment = TextAlignmentOptions.Center;
+        label.raycastTarget = false;
+        label.rectTransform.anchorMin = Vector2.zero;
+        label.rectTransform.anchorMax = Vector2.one;
+        label.rectTransform.offsetMin = Vector2.zero;
+        label.rectTransform.offsetMax = Vector2.zero;
+        return badge;
+    }
+
+    static TMP_Text EnsureTechnicalIdLabel(Transform root)
+    {
+        var technical = root.Find(CardTechnicalLabelName)?.GetComponent<TMP_Text>();
+        if (technical == null)
+        {
+            var go = new GameObject(CardTechnicalLabelName, typeof(RectTransform), typeof(TextMeshProUGUI));
+            go.transform.SetParent(root, false);
+            technical = go.GetComponent<TMP_Text>();
+        }
+
+        technical.fontSize = DesignTokens.FontSizeCaption;
+        technical.color = DesignTokens.TextSecondary;
+        technical.alignment = TextAlignmentOptions.MidlineLeft;
+        technical.raycastTarget = false;
+        var rt = technical.rectTransform;
+        rt.anchorMin = new Vector2(0f, 1f);
+        rt.anchorMax = new Vector2(1f, 1f);
+        rt.pivot = new Vector2(0f, 1f);
+        rt.offsetMin = new Vector2(16f, -84f);
+        rt.offsetMax = new Vector2(-72f, -64f);
+        return technical;
+    }
+
+    static RectTransform EnsureCategoryVisual(Transform root)
+    {
+        var visual = root.Find(CardCategoryVisualName) as RectTransform;
+        if (visual == null)
+        {
+            var visualGo = new GameObject(CardCategoryVisualName, typeof(RectTransform), typeof(Image));
+            visual = visualGo.GetComponent<RectTransform>();
+            visual.SetParent(root, false);
+        }
+
+        visual.anchorMin = new Vector2(1f, 1f);
+        visual.anchorMax = new Vector2(1f, 1f);
+        visual.pivot = new Vector2(1f, 1f);
+        visual.offsetMin = new Vector2(-56f, -56f);
+        visual.offsetMax = new Vector2(-16f, -16f);
+
+        var image = visual.GetComponent<Image>();
+        if (image == null) image = visual.gameObject.AddComponent<Image>();
+        image.color = DesignTokens.BgSecondary;
+        image.raycastTarget = false;
+
+        var label = visual.Find(CardCategoryVisualLabelName)?.GetComponent<TMP_Text>();
+        if (label == null)
+        {
+            var labelGo = new GameObject(CardCategoryVisualLabelName, typeof(RectTransform), typeof(TextMeshProUGUI));
+            labelGo.transform.SetParent(visual, false);
+            label = labelGo.GetComponent<TMP_Text>();
+        }
+
+        label.fontSize = DesignTokens.FontSizeSubheading;
+        label.color = DesignTokens.TextSecondary;
+        label.alignment = TextAlignmentOptions.Center;
+        label.raycastTarget = false;
+        label.rectTransform.anchorMin = Vector2.zero;
+        label.rectTransform.anchorMax = Vector2.one;
+        label.rectTransform.offsetMin = Vector2.zero;
+        label.rectTransform.offsetMax = Vector2.zero;
+        return visual;
+    }
+
+    static void EnsureCardOutline(Transform target)
+    {
+        if (target == null) return;
+        if (target.GetComponent<Graphic>() == null) return;
+
+        var outline = target.GetComponent<Outline>();
+        if (outline == null) outline = target.gameObject.AddComponent<Outline>();
+        outline.effectColor = DesignTokens.Divider;
+        outline.effectDistance = new Vector2(1f, -1f);
+        outline.useGraphicAlpha = false;
     }
 
     static bool IsUnderCardRemoveButton(Transform target)
@@ -1918,6 +2475,22 @@ public class CatalogUI : MonoBehaviour
 
     void RefreshSettingsTabs()
     {
+        if ((activeSettingsTab == SettingsTab.Integration && !integrationSettingsAvailable) ||
+            (activeSettingsTab == SettingsTab.Account && !accountSettingsAvailable))
+        {
+            activeSettingsTab = SettingsTab.General;
+        }
+
+        if (settingsTabIntegrationButton != null)
+        {
+            settingsTabIntegrationButton.gameObject.SetActive(integrationSettingsAvailable);
+        }
+
+        if (settingsTabAccountButton != null)
+        {
+            settingsTabAccountButton.gameObject.SetActive(accountSettingsAvailable);
+        }
+
         if (settingsGeneralContent != null)
         {
             settingsGeneralContent.gameObject.SetActive(activeSettingsTab == SettingsTab.General);
@@ -1925,17 +2498,25 @@ public class CatalogUI : MonoBehaviour
 
         if (settingsIntegrationContent != null)
         {
-            settingsIntegrationContent.gameObject.SetActive(activeSettingsTab == SettingsTab.Integration);
+            settingsIntegrationContent.gameObject.SetActive(
+                integrationSettingsAvailable && activeSettingsTab == SettingsTab.Integration);
         }
 
         if (settingsAccountContent != null)
         {
-            settingsAccountContent.gameObject.SetActive(activeSettingsTab == SettingsTab.Account);
+            settingsAccountContent.gameObject.SetActive(
+                accountSettingsAvailable && activeSettingsTab == SettingsTab.Account);
         }
 
         ApplySettingsTabVisual(settingsTabGeneralButton, activeSettingsTab == SettingsTab.General);
-        ApplySettingsTabVisual(settingsTabIntegrationButton, activeSettingsTab == SettingsTab.Integration);
-        ApplySettingsTabVisual(settingsTabAccountButton, activeSettingsTab == SettingsTab.Account);
+        if (integrationSettingsAvailable)
+        {
+            ApplySettingsTabVisual(settingsTabIntegrationButton, activeSettingsTab == SettingsTab.Integration);
+        }
+        if (accountSettingsAvailable)
+        {
+            ApplySettingsTabVisual(settingsTabAccountButton, activeSettingsTab == SettingsTab.Account);
+        }
     }
 
     void ApplySettingsTabVisual(Button button, bool isActive)
@@ -1971,6 +2552,56 @@ public class CatalogUI : MonoBehaviour
         settingsBaseOrthographicZoomSpeed = settingsCameraController.orthographicZoomSpeed;
     }
 
+    void EnsureSettingsSnapBinding()
+    {
+        if (settingsSnapBindingInitialized) return;
+
+        if (placementController == null)
+        {
+            placementController = FindFirstObjectByType<PlacementController>();
+        }
+
+        var moveTool = FindFirstObjectByType<MoveTool>();
+        settingsCommittedGridSnap = placementController != null
+            ? Mathf.Max(0.05f, placementController.gridSize)
+            : moveTool != null
+                ? Mathf.Max(0.05f, moveTool.gridSize)
+                : EditSnapSettings.DefaultGridSize;
+        settingsCommittedRotationSnap = moveTool != null
+            ? Mathf.Clamp(moveTool.rotateSnapDegrees, 1f, 90f)
+            : EditSnapSettings.DefaultRotationDegrees;
+        settingsCommittedSnapEnabled = EditSnapSettings.Enabled;
+        settingsPendingGridSnap = settingsCommittedGridSnap;
+        settingsPendingRotationSnap = settingsCommittedRotationSnap;
+        settingsPendingSnapEnabled = settingsCommittedSnapEnabled;
+        settingsSnapBindingInitialized = true;
+        ApplySnapSettings(settingsCommittedGridSnap, settingsCommittedRotationSnap, settingsCommittedSnapEnabled);
+    }
+
+    void EnsureSettingsUiScaleBinding()
+    {
+        if (settingsUiScaleController == null)
+        {
+            settingsUiScaleController = UiScaleController.Ensure(transform.root);
+        }
+
+        if (settingsUiScaleController == null) return;
+        settingsCommittedUiScale = settingsUiScaleController.Scale;
+        settingsPendingUiScale = settingsCommittedUiScale;
+    }
+
+    void EnsureSettingsAutoSaveBinding()
+    {
+        if (settingsProjectService == null)
+        {
+            settingsProjectService = EditorProjectService.Ensure(transform.root);
+        }
+
+        if (settingsProjectService == null) return;
+        settingsCommittedAutoSaveInterval = settingsProjectService.AutoSaveIntervalSeconds;
+        settingsPendingAutoSaveInterval = settingsCommittedAutoSaveInterval;
+    }
+
     void OnSettingsSensitivityChanged(float sliderValue)
     {
         float clamped = Mathf.Clamp(sliderValue, 0.2f, 2.5f);
@@ -1978,7 +2609,49 @@ public class CatalogUI : MonoBehaviour
         UpdateSensitivityValueText(clamped);
 
         if (settingsInitializingUi) return;
-        SetSettingsDirty(!Mathf.Approximately(settingsPendingSensitivityScale, settingsCommittedSensitivityScale));
+        RefreshSettingsDirtyState();
+    }
+
+    void OnSettingsSnapEnabledChanged(bool enabled)
+    {
+        settingsPendingSnapEnabled = enabled;
+        if (settingsInitializingUi) return;
+        RefreshSettingsDirtyState();
+    }
+
+    void OnSettingsGridSnapChanged(float value)
+    {
+        settingsPendingGridSnap = Mathf.Clamp(value, 0.05f, 1f);
+        UpdateSnapValueTexts();
+        if (settingsInitializingUi) return;
+        RefreshSettingsDirtyState();
+    }
+
+    void OnSettingsRotationSnapChanged(float value)
+    {
+        settingsPendingRotationSnap = Mathf.Clamp(Mathf.Round(value), 1f, 90f);
+        UpdateSnapValueTexts();
+        if (settingsInitializingUi) return;
+        RefreshSettingsDirtyState();
+    }
+
+    void OnSettingsUiScaleChanged(float value)
+    {
+        settingsPendingUiScale = Mathf.Clamp(value, 0.8f, 1.4f);
+        UpdateUiScaleValueText(settingsPendingUiScale);
+        if (settingsInitializingUi) return;
+        RefreshSettingsDirtyState();
+    }
+
+    void OnSettingsAutoSaveIntervalChanged(float value)
+    {
+        settingsPendingAutoSaveInterval = Mathf.Clamp(
+            Mathf.Round(value),
+            EditorProjectService.MinAutoSaveIntervalSeconds,
+            EditorProjectService.MaxAutoSaveIntervalSeconds);
+        UpdateAutoSaveIntervalValueText(settingsPendingAutoSaveInterval);
+        if (settingsInitializingUi) return;
+        RefreshSettingsDirtyState();
     }
 
     void UpdateSensitivityValueText(float scale)
@@ -1996,6 +2669,71 @@ public class CatalogUI : MonoBehaviour
         settingsCameraController.panSpeed = settingsBasePanSpeed * scale;
         settingsCameraController.zoomSpeed = settingsBaseZoomSpeed * scale;
         settingsCameraController.orthographicZoomSpeed = settingsBaseOrthographicZoomSpeed * scale;
+    }
+
+    void UpdateSnapValueTexts()
+    {
+        if (settingsGridSnapValueText != null)
+        {
+            settingsGridSnapValueText.text = $"{settingsPendingGridSnap:0.00} m";
+        }
+
+        if (settingsRotationSnapValueText != null)
+        {
+            settingsRotationSnapValueText.text = $"{settingsPendingRotationSnap:0}°";
+        }
+    }
+
+    void UpdateUiScaleValueText(float scale)
+    {
+        if (settingsUiScaleValueText == null) return;
+        settingsUiScaleValueText.text = $"{Mathf.RoundToInt(scale * 100f)}%";
+    }
+
+    void UpdateAutoSaveIntervalValueText(float seconds)
+    {
+        if (settingsAutoSaveIntervalValueText == null) return;
+        settingsAutoSaveIntervalValueText.text = $"{Mathf.RoundToInt(seconds)}秒";
+    }
+
+    void ApplyUiScale(float scale)
+    {
+        if (settingsUiScaleController == null)
+        {
+            settingsUiScaleController = UiScaleController.Ensure(transform.root);
+        }
+        settingsUiScaleController?.Apply(scale);
+    }
+
+    void ApplySnapSettings(float gridSize, float rotationDegrees, bool enabled)
+    {
+        EditSnapSettings.Configure(gridSize, rotationDegrees, enabled);
+
+        if (placementController == null)
+        {
+            placementController = FindFirstObjectByType<PlacementController>();
+        }
+        if (placementController != null) placementController.gridSize = EditSnapSettings.GridSize;
+
+        var moveTools = FindObjectsByType<MoveTool>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        foreach (var moveTool in moveTools)
+        {
+            if (moveTool == null) continue;
+            moveTool.gridSize = EditSnapSettings.GridSize;
+            moveTool.rotateSnapDegrees = EditSnapSettings.RotationDegrees;
+        }
+    }
+
+    void RefreshSettingsDirtyState()
+    {
+        bool dirty =
+            !Mathf.Approximately(settingsPendingSensitivityScale, settingsCommittedSensitivityScale) ||
+            !Mathf.Approximately(settingsPendingGridSnap, settingsCommittedGridSnap) ||
+            !Mathf.Approximately(settingsPendingRotationSnap, settingsCommittedRotationSnap) ||
+            !Mathf.Approximately(settingsPendingUiScale, settingsCommittedUiScale) ||
+            !Mathf.Approximately(settingsPendingAutoSaveInterval, settingsCommittedAutoSaveInterval) ||
+            settingsPendingSnapEnabled != settingsCommittedSnapEnabled;
+        SetSettingsDirty(dirty);
     }
 
     void SetSettingsDirty(bool dirty)
@@ -2020,12 +2758,40 @@ public class CatalogUI : MonoBehaviour
     void DiscardPendingSettingsChanges()
     {
         settingsPendingSensitivityScale = settingsCommittedSensitivityScale;
+        settingsPendingGridSnap = settingsCommittedGridSnap;
+        settingsPendingRotationSnap = settingsCommittedRotationSnap;
+        settingsPendingSnapEnabled = settingsCommittedSnapEnabled;
+        settingsPendingUiScale = settingsCommittedUiScale;
+        settingsPendingAutoSaveInterval = settingsCommittedAutoSaveInterval;
         settingsInitializingUi = true;
         if (settingsSensitivitySlider != null)
         {
             settingsSensitivitySlider.SetValueWithoutNotify(settingsCommittedSensitivityScale);
         }
+        if (settingsSnapEnabledToggle != null)
+        {
+            settingsSnapEnabledToggle.SetIsOnWithoutNotify(settingsCommittedSnapEnabled);
+        }
+        if (settingsGridSnapSlider != null)
+        {
+            settingsGridSnapSlider.SetValueWithoutNotify(settingsCommittedGridSnap);
+        }
+        if (settingsRotationSnapSlider != null)
+        {
+            settingsRotationSnapSlider.SetValueWithoutNotify(settingsCommittedRotationSnap);
+        }
+        if (settingsUiScaleSlider != null)
+        {
+            settingsUiScaleSlider.SetValueWithoutNotify(settingsCommittedUiScale);
+        }
+        if (settingsAutoSaveIntervalSlider != null)
+        {
+            settingsAutoSaveIntervalSlider.SetValueWithoutNotify(settingsCommittedAutoSaveInterval);
+        }
         UpdateSensitivityValueText(settingsCommittedSensitivityScale);
+        UpdateSnapValueTexts();
+        UpdateUiScaleValueText(settingsCommittedUiScale);
+        UpdateAutoSaveIntervalValueText(settingsCommittedAutoSaveInterval);
         settingsInitializingUi = false;
         SetSettingsDirty(false);
     }
@@ -2033,7 +2799,15 @@ public class CatalogUI : MonoBehaviour
     void OnClickSettingsApply()
     {
         settingsCommittedSensitivityScale = settingsPendingSensitivityScale;
+        settingsCommittedGridSnap = settingsPendingGridSnap;
+        settingsCommittedRotationSnap = settingsPendingRotationSnap;
+        settingsCommittedSnapEnabled = settingsPendingSnapEnabled;
+        settingsCommittedUiScale = settingsPendingUiScale;
+        settingsCommittedAutoSaveInterval = settingsPendingAutoSaveInterval;
         ApplySensitivityScaleToCamera(settingsCommittedSensitivityScale);
+        ApplySnapSettings(settingsCommittedGridSnap, settingsCommittedRotationSnap, settingsCommittedSnapEnabled);
+        ApplyUiScale(settingsCommittedUiScale);
+        settingsProjectService?.SetAutoSaveInterval(settingsCommittedAutoSaveInterval);
         SetSettingsDirty(false);
         CloseSettingsPanel();
     }
@@ -2083,40 +2857,49 @@ public class CatalogUI : MonoBehaviour
     void OnClickCard(string typeId)
     {
         if (string.IsNullOrWhiteSpace(typeId)) return;
-        if (removedTypeIds.Contains(typeId)) return;
-        onSelectType?.Invoke(typeId);
-        ClearStatus();
+        if (cards.IsRemoved(typeId)) return;
+        EnsureRuntimeBindings();
+        EnsureViewportReady(false);
+        Debug.Log($"[CatalogUI] Card clicked: type={typeId}, placementController={GetPlacementControllerName()}");
+
+        if (placementController != null)
+        {
+            placementController.EnterPlacement(typeId);
+        }
+        else
+        {
+            onSelectType?.Invoke(typeId);
+        }
+
+        SetStatus($"配置モード: {typeId}");
+    }
+
+    string GetPlacementControllerName()
+    {
+        return placementController != null ? placementController.name : "(null)";
     }
 
     void OnClickRemoveCard(string typeId)
     {
         if (string.IsNullOrWhiteSpace(typeId)) return;
-        removedTypeIds.Add(typeId);
-
-        for (int i = cards.Count - 1; i >= 0; i--)
+        var stored = importedModels.Find(item => string.Equals(item.typeId, typeId, StringComparison.OrdinalIgnoreCase));
+        if (stored != null)
         {
-            var card = cards[i];
-            if (card == null || string.IsNullOrWhiteSpace(card.typeId))
+            stored.hidden = true;
+            try { ImportedModelStore.Write(stored); }
+            catch (Exception ex)
             {
-                cards.RemoveAt(i);
-                continue;
+                stored.hidden = false;
+                SetStatus("カタログの変更を保存できません: " + ex.Message);
+                return;
             }
-
-            if (!string.Equals(card.typeId, typeId, StringComparison.OrdinalIgnoreCase)) continue;
-
+        }
+        foreach (var card in cards.Remove(typeId))
+        {
             if (card.root != null)
             {
                 Destroy(card.root);
             }
-            cards.RemoveAt(i);
-        }
-
-        if (string.Equals(runtimeImportedTypeId, typeId, StringComparison.OrdinalIgnoreCase))
-        {
-            runtimeImportedTypeId = null;
-            runtimeImportedCardLabel = null;
-            runtimeImportedDescription = null;
-            runtimeImportedPrefab = null;
         }
 
         ApplyFilter(searchInput != null ? searchInput.text : string.Empty);
@@ -2132,18 +2915,10 @@ public class CatalogUI : MonoBehaviour
     void ApplyFilter(string query)
     {
         var normalized = query?.Trim() ?? string.Empty;
-        var showAll = normalized.Length == 0;
-
         foreach (var card in cards)
         {
             if (card?.root == null) continue;
-            var matchesType = card.typeId.IndexOf(normalized, StringComparison.OrdinalIgnoreCase) >= 0;
-            var matchesLabel = !string.IsNullOrWhiteSpace(card.displayLabel) &&
-                               card.displayLabel.IndexOf(normalized, StringComparison.OrdinalIgnoreCase) >= 0;
-            var matchesDescription = !string.IsNullOrWhiteSpace(card.displayDescription) &&
-                                     card.displayDescription.IndexOf(normalized, StringComparison.OrdinalIgnoreCase) >= 0;
-            var visible = showAll || matchesType || matchesLabel || matchesDescription;
-            card.root.SetActive(visible);
+            card.root.SetActive(CatalogCardCollection.MatchesQuery(card, normalized));
         }
     }
 
@@ -2182,7 +2957,7 @@ public class CatalogUI : MonoBehaviour
         outline.enabled = true;
     }
 
-    void OnClickAdd()
+    async void OnClickAdd()
     {
 #if UNITY_EDITOR
         EnsureRuntimeBindings();
@@ -2195,16 +2970,38 @@ public class CatalogUI : MonoBehaviour
             return;
         }
 
-        var selectedPath = EditorUtility.OpenFilePanel("Select FBX", GetDefaultFbxDirectory(), "fbx");
+        var selectedPath = EditorModelImportService.SelectModelPath();
         if (string.IsNullOrWhiteSpace(selectedPath))
         {
-            SetStatus("FBX selection canceled.");
+            SetStatus("Object selection canceled.");
             return;
         }
 
-        if (!TryLoadFbxAsset(selectedPath, out var prefab, out var assetPath, out var errorMessage))
+        GameObject prefab = null;
+        string assetPath = selectedPath;
+        string errorMessage = null;
+        var selectedExtension = Path.GetExtension(selectedPath);
+        if (string.Equals(selectedExtension, ".fbx", StringComparison.OrdinalIgnoreCase))
         {
-            SetStatus(errorMessage);
+            if (!EditorModelImportService.TryLoadFbxAsset(selectedPath, out prefab, out assetPath, out errorMessage))
+            {
+                SetStatus(errorMessage);
+                return;
+            }
+        }
+        else if (RuntimeModelLoader.IsSupportedExtension(selectedPath))
+        {
+            SetStatus("Loading 3D model...");
+            prefab = await RuntimeModelLoader.LoadModelAsync(selectedPath);
+            if (prefab == null)
+            {
+                SetStatus("Failed to load selected 3D model.");
+                return;
+            }
+        }
+        else
+        {
+            SetStatus($"Please select {EditorSupportedModelExtensionsLabel}.");
             return;
         }
 
@@ -2272,7 +3069,7 @@ public class CatalogUI : MonoBehaviour
 
         if (newObjectNameInput != null)
         {
-            var defaultName = GetDefaultNewObjectNameFromAssetPath(assetPath);
+            var defaultName = CatalogModelImportNaming.GetDefaultName(assetPath);
             if (string.IsNullOrWhiteSpace(defaultName))
             {
                 defaultName = importedCardLabel;
@@ -2305,7 +3102,7 @@ public class CatalogUI : MonoBehaviour
     {
         if (pendingImportedPrefab == null || string.IsNullOrWhiteSpace(pendingImportedAssetPath))
         {
-            SetStatus("No imported FBX is pending.");
+            SetStatus("No imported object is pending.");
             CloseNewObjectSettings(clearPending: true);
             return;
         }
@@ -2326,25 +3123,27 @@ public class CatalogUI : MonoBehaviour
             }
         }
 
-        var typeId = BuildImportedTypeId(pendingImportedAssetPath, displayLabel);
+        var typeId = CatalogModelImportNaming.BuildImportedTypeId(pendingImportedAssetPath, displayLabel);
+        ImportedModelRecord saved;
+        try
+        {
+            saved = ImportedModelStore.Save(pendingImportedAssetPath, typeId, displayLabel,
+                newObjectDescriptionInput != null ? (newObjectDescriptionInput.text ?? string.Empty).Trim() : string.Empty);
+        }
+        catch (Exception ex) { SetStatus("モデルを保存できません: " + ex.Message); return; }
         if (!placementController.RegisterRuntimePrefab(typeId, pendingImportedPrefab))
         {
-            SetStatus("Failed to register imported FBX.");
+            SetStatus("Failed to register imported object.");
             return;
         }
 
-        runtimeImportedTypeId = typeId;
-        runtimeImportedPrefab = pendingImportedPrefab;
-        runtimeImportedCardLabel = displayLabel;
-        runtimeImportedDescription = newObjectDescriptionInput != null
-            ? (newObjectDescriptionInput.text ?? string.Empty).Trim()
-            : string.Empty;
-
+        saved.prefab = pendingImportedPrefab;
+        importedModels.Add(saved);
         if (searchInput != null) searchInput.text = string.Empty;
         RebuildCards();
 
         CloseNewObjectSettings(clearPending: true);
-        SetStatus("New object card added.");
+        SetStatus("モデルを追加しました。配置後「一覧」で内部の部品を個別に選択できます。");
     }
 
     void OnClickCancelNewObjectSettings()
@@ -2470,141 +3269,6 @@ public class CatalogUI : MonoBehaviour
         return input;
     }
 
-#if UNITY_EDITOR
-    static string GetDefaultFbxDirectory()
-    {
-        var importedRoot = Path.Combine(Application.dataPath, "ImportedFbx");
-        if (!Directory.Exists(importedRoot))
-        {
-            Directory.CreateDirectory(importedRoot);
-        }
-
-        return importedRoot;
-    }
-
-    static bool TryLoadFbxAsset(string absolutePath, out GameObject prefab, out string assetPath, out string errorMessage)
-    {
-        prefab = null;
-        assetPath = null;
-        errorMessage = null;
-
-        if (string.IsNullOrWhiteSpace(absolutePath))
-        {
-            errorMessage = "FBX path is empty.";
-            return false;
-        }
-
-        if (!string.Equals(Path.GetExtension(absolutePath), ".fbx", StringComparison.OrdinalIgnoreCase))
-        {
-            errorMessage = "Please select an .fbx file.";
-            return false;
-        }
-
-        if (!File.Exists(absolutePath))
-        {
-            errorMessage = "Selected FBX file does not exist.";
-            return false;
-        }
-
-        if (!TryToAssetPath(absolutePath, out assetPath))
-        {
-            var targetDir = EnsureImportedAssetFolders();
-            var fileStem = SanitizeName(Path.GetFileNameWithoutExtension(absolutePath));
-            if (string.IsNullOrWhiteSpace(fileStem))
-            {
-                fileStem = "ImportedModel";
-            }
-
-            var uniqueSuffix = DateTime.UtcNow.Ticks.ToString();
-            assetPath = $"{targetDir}/{fileStem}_{uniqueSuffix}.fbx";
-            FileUtil.CopyFileOrDirectory(absolutePath, assetPath);
-        }
-
-        AssetDatabase.ImportAsset(assetPath, ImportAssetOptions.ForceSynchronousImport | ImportAssetOptions.ForceUpdate);
-        prefab = AssetDatabase.LoadAssetAtPath<GameObject>(assetPath);
-        if (prefab == null)
-        {
-            errorMessage = "Failed to import selected FBX.";
-            return false;
-        }
-
-        return true;
-    }
-
-    static string EnsureImportedAssetFolders()
-    {
-        const string rootFolder = "Assets/ImportedFbx";
-        if (!AssetDatabase.IsValidFolder(rootFolder))
-        {
-            AssetDatabase.CreateFolder("Assets", "ImportedFbx");
-        }
-
-        return rootFolder;
-    }
-
-    static bool TryToAssetPath(string absolutePath, out string assetPath)
-    {
-        assetPath = null;
-
-        var normalizedAbsolute = NormalizePath(Path.GetFullPath(absolutePath));
-        var normalizedDataPath = NormalizePath(Application.dataPath);
-        if (!normalizedAbsolute.StartsWith(normalizedDataPath, StringComparison.OrdinalIgnoreCase))
-        {
-            return false;
-        }
-
-        var tail = normalizedAbsolute.Substring(normalizedDataPath.Length);
-        assetPath = "Assets" + tail;
-        return true;
-    }
-
-    static string NormalizePath(string path)
-    {
-        return path.Replace('\\', '/');
-    }
-#endif
-
-    static string BuildImportedTypeId(string assetPath, string displayLabel)
-    {
-        var stem = string.IsNullOrWhiteSpace(displayLabel)
-            ? Path.GetFileNameWithoutExtension(assetPath)
-            : displayLabel;
-        var sanitized = SanitizeName(stem);
-        if (string.IsNullOrWhiteSpace(sanitized))
-        {
-            sanitized = "Model";
-        }
-
-        return $"Imported/{sanitized}_{DateTime.UtcNow.Ticks}";
-    }
-
-    static string GetDefaultNewObjectNameFromAssetPath(string assetPath)
-    {
-        if (string.IsNullOrWhiteSpace(assetPath)) return string.Empty;
-
-        var stem = Path.GetFileNameWithoutExtension(assetPath);
-        if (string.IsNullOrWhiteSpace(stem)) return string.Empty;
-
-        return stem;
-    }
-
-    static string SanitizeName(string source)
-    {
-        if (string.IsNullOrWhiteSpace(source)) return string.Empty;
-
-        var chars = source.ToCharArray();
-        for (int i = 0; i < chars.Length; i++)
-        {
-            var ch = chars[i];
-            var valid = char.IsLetterOrDigit(ch) || ch == '_' || ch == '-';
-            if (!valid)
-            {
-                chars[i] = '_';
-            }
-        }
-
-        return new string(chars).Trim('_');
-    }
 }
 
 public class SettingsOverlayClickCatcher : MonoBehaviour, IPointerClickHandler
@@ -2695,7 +3359,7 @@ public class CatalogCardDragHandler : MonoBehaviour, IBeginDragHandler, IDragHan
     {
         if (owner == null) return;
 
-        bool droppedOverUi = EventSystem.current != null && EventSystem.current.IsPointerOverGameObject(eventData.pointerId);
+        bool droppedOverUi = PlacementController.IsScreenPositionOverBlockingUi(eventData.position);
         if (isDragging && !droppedOverUi)
         {
             owner.HandleCardDrop(typeId, eventData.position);

@@ -1,0 +1,177 @@
+using System;
+using System.Collections.Generic;
+using UnityEngine;
+
+[Serializable]
+public sealed class EditorProjectFile
+{
+    public const int CurrentSchemaVersion = 6;
+
+    public int schemaVersion = CurrentSchemaVersion;
+    public string projectName = "VRCourseEditor";
+    public string savedAtUtc;
+    public bool lastSaveWasAutomatic;
+    public Curriculum curriculum = new Curriculum();
+    public List<EditorProjectObject> objects = new List<EditorProjectObject>();
+}
+
+[Serializable]
+public sealed class EditorProjectObject
+{
+    public string sourceNodePath;
+    public string sourceSignature;
+    public List<ModelPartState> parts = new List<ModelPartState>();
+    public string id;
+    public string typeId;
+    public string displayName;
+    public string description;
+    public bool hasDescriptionOverride;
+    public Vector3 position;
+    public Quaternion rotation = Quaternion.identity;
+    public Vector3 scale = Vector3.one;
+    public bool hidden;
+    public bool locked;
+}
+
+public static class EditorProjectMigration
+{
+    [Serializable]
+    sealed class SchemaEnvelope
+    {
+        public int schemaVersion;
+    }
+
+    public static bool TryRead(string json, out EditorProjectFile project, out string error)
+    {
+        project = null;
+        error = null;
+
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            error = "プロジェクトファイルが空です。";
+            return false;
+        }
+
+        try
+        {
+            var envelope = JsonUtility.FromJson<SchemaEnvelope>(json);
+            project = JsonUtility.FromJson<EditorProjectFile>(json);
+            if (envelope == null || envelope.schemaVersion <= 0)
+            {
+                project.schemaVersion = 1;
+            }
+        }
+        catch (Exception ex)
+        {
+            error = "JSONを読み取れません: " + ex.Message;
+            return false;
+        }
+
+        if (project == null)
+        {
+            error = "プロジェクトデータを読み取れません。";
+            return false;
+        }
+
+        // schemaVersion が無い初期試作ファイルは v1 として扱う。
+        if (project.schemaVersion <= 0) project.schemaVersion = 1;
+        if (project.schemaVersion > EditorProjectFile.CurrentSchemaVersion)
+        {
+            error = $"このプロジェクトは新しい形式です (v{project.schemaVersion})。";
+            project = null;
+            return false;
+        }
+
+        if (project.curriculum != null && project.curriculum.schemaVersion > 5)
+        {
+            error = $"この教材は新しい形式です (v{project.curriculum.schemaVersion})。";
+            project = null;
+            return false;
+        }
+
+        if (project.schemaVersion == 1)
+        {
+            MigrateV1ToV2(project);
+        }
+
+        if (project.schemaVersion == 2)
+        {
+            MigrateV2ToV3(project);
+        }
+
+        if (project.schemaVersion == 3)
+        {
+            MigrateV3ToV4(project);
+        }
+
+        Normalize(project);
+        project.schemaVersion = EditorProjectFile.CurrentSchemaVersion;
+        return true;
+    }
+
+    static void MigrateV1ToV2(EditorProjectFile project)
+    {
+        // v2 で追加した表示名・説明・表示/ロック状態は、未設定なら既定値のまま維持する。
+        project.savedAtUtc ??= string.Empty;
+        project.schemaVersion = 2;
+    }
+
+    static void MigrateV2ToV3(EditorProjectFile project)
+    {
+        // v3 adds optional Step metadata; absent values are normalized to empty/zero.
+        if (project.curriculum != null) project.curriculum.schemaVersion = 3;
+        project.schemaVersion = 3;
+    }
+
+    static void MigrateV3ToV4(EditorProjectFile project)
+    {
+        if (project.curriculum != null) project.curriculum.schemaVersion = 4;
+        project.schemaVersion = 4;
+    }
+
+    public static void Normalize(EditorProjectFile project)
+    {
+        if (project == null) return;
+
+        project.projectName = string.IsNullOrWhiteSpace(project.projectName)
+            ? "VRCourseEditor"
+            : project.projectName.Trim();
+        project.curriculum ??= new Curriculum();
+        project.curriculum.projectName = project.projectName;
+        project.curriculum.rules ??= new RuleSet();
+        project.curriculum.nodes ??= new List<ScenarioNode>();
+        project.curriculum.edges ??= new List<ScenarioEdge>();
+        project.curriculum.schemaVersion = 5;
+        project.curriculum.rules.maxConditionsPerStep = Mathf.Clamp(
+            project.curriculum.rules.maxConditionsPerStep <= 0 ? 8 : project.curriculum.rules.maxConditionsPerStep,
+            1,
+            32);
+        project.objects ??= new List<EditorProjectObject>();
+
+        foreach (var node in project.curriculum.nodes)
+        {
+            if (node == null) continue;
+            node.step ??= new StepNodeData();
+            node.step.title ??= string.Empty;
+            node.step.body ??= string.Empty;
+            node.step.supplement ??= string.Empty;
+            node.step.caution ??= string.Empty;
+            node.step.durationMinutes = Math.Max(0, node.step.durationMinutes);
+            node.condition ??= new ConditionNodeData();
+            if (node.nodeType == ScenarioNodeType.Condition)
+            {
+                ConditionTypeCatalog.Normalize(node.condition, project.curriculum.rules);
+            }
+        }
+
+        foreach (var item in project.objects)
+        {
+            if (item == null) continue;
+            item.id = item.id?.Trim();
+            item.typeId = item.typeId?.Trim();
+            item.displayName ??= string.Empty;
+            item.description ??= string.Empty;
+            if (item.rotation == default) item.rotation = Quaternion.identity;
+        }
+    }
+}

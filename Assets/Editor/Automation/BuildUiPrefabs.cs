@@ -19,16 +19,20 @@ public static class BuildUiPrefabs
         canvas.renderMode = RenderMode.ScreenSpaceOverlay;
         var scaler = root.AddComponent<CanvasScaler>();
         scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-        scaler.referenceResolution = new Vector2(2560f, 1440f);
+        scaler.referenceResolution = DesignTokens.ReferenceResolution;
         root.AddComponent<GraphicRaycaster>();
 
         var catalogPanel = BuildCatalogPanel(root.transform);
         var scenarioPanel = BuildScenarioPanel(root.transform);
         BuildDetailPanel(root.transform);
+        HintPanelController.Ensure(root.transform);
+        root.AddComponent<ViewportStatusStrip>();
         var editModeRow = root.transform.Find("EditModeRow") as RectTransform;
         var settingsButton = root.transform.Find("Button_Settings") as RectTransform;
-        BuildDockSync(root, catalogPanel, scenarioPanel, editModeRow, settingsButton);
+        var hintButton = root.transform.Find("Button_Hints") as RectTransform;
+        BuildDockSync(root, catalogPanel, scenarioPanel, editModeRow, settingsButton, hintButton);
 
+        ApplyAuthoringFeatures.Prepare(root);
         PrefabUtility.SaveAsPrefabAsset(root, UiRootPrefabPath);
         Object.DestroyImmediate(root);
         AssetDatabase.SaveAssets();
@@ -39,7 +43,7 @@ public static class BuildUiPrefabs
     static RectTransform BuildCatalogPanel(Transform parent)
     {
         var panel = CreateUiRect("Panel_Catalog", parent);
-        SetRect(panel, new Vector2(0f, 0f), new Vector2(0f, 1f), new Vector2(0f, 0f), new Vector2(288f, 0f));
+        SetRect(panel, new Vector2(0f, 0f), new Vector2(0f, 1f), new Vector2(0f, 0f), new Vector2(DesignTokens.CatalogDefaultWidth, 0f));
         panel.gameObject.AddComponent<Image>().color = DesignTokens.BgPrimary;
 
         var editModeRow = CreateUiRect("EditModeRow", parent);
@@ -77,12 +81,12 @@ public static class BuildUiPrefabs
         scaleModeLayout.preferredWidth = 70f;
         scaleModeLayout.flexibleWidth = 1f;
 
-        var settingsButton = CreateButton("Button_Settings", parent, "\u2699");
-        SetRect(settingsButton.GetComponent<RectTransform>(), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-82f, -52f), new Vector2(-12f, -12f));
+        var settingsButton = CreateButton("Button_Settings", parent, "\u8A2D\u5B9A");
+        SetRect(settingsButton.GetComponent<RectTransform>(), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-92f, -52f), new Vector2(-12f, -12f));
         var settingsLabel = settingsButton.GetComponentInChildren<TMP_Text>(true);
         if (settingsLabel != null)
         {
-            settingsLabel.fontSize = 22;
+            settingsLabel.fontSize = DesignTokens.FontSizeBody;
             settingsLabel.alignment = TextAlignmentOptions.Center;
         }
 
@@ -109,21 +113,26 @@ public static class BuildUiPrefabs
         var resizeHandle = CreateUiRect("ResizeHandleX", panel);
         SetRect(resizeHandle, new Vector2(1f, 0f), new Vector2(1f, 1f), new Vector2(-6f, 0f), new Vector2(6f, 0f));
         resizeHandle.gameObject.AddComponent<Image>().color = DesignTokens.BgPrimary;
+        var catalogResizeGrip = CreateUiRect("Grip", resizeHandle);
+        SetRect(catalogResizeGrip, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(-1f, -32f), new Vector2(1f, 32f));
+        catalogResizeGrip.gameObject.AddComponent<Image>().color = DesignTokens.Divider;
         var resize = resizeHandle.gameObject.AddComponent<PanelHorizontalResizeHandle>();
         resize.targetPanel = panel;
+        resize.minWidth = DesignTokens.CatalogMinWidth;
+        resize.maxWidth = DesignTokens.CatalogMaxWidth;
 
-        var addButton = CreateButton("Button_AddObjectBottom", panel, "FBX\u3092\u8FFD\u52A0");
+        var addButton = CreateButton("Button_AddObjectBottom", panel, "\u30AA\u30D6\u30B8\u30A7\u30AF\u30C8\u3092\u8FFD\u52A0");
         SetRect(addButton.GetComponent<RectTransform>(), new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(10f, 10f), new Vector2(-10f, 48f));
         addButton.GetComponent<Image>().color = DesignTokens.BgSecondary;
 
         var scroll = CreateUiRect("Scroll_Catalog", panel);
         SetRect(scroll, new Vector2(0f, 0f), new Vector2(1f, 1f), new Vector2(8f, 56f), new Vector2(-8f, -72f));
-        scroll.gameObject.AddComponent<Image>().color = DesignTokens.Surface;
+        scroll.gameObject.AddComponent<Image>().color = DesignTokens.BgPrimary;
         var scrollRect = scroll.gameObject.AddComponent<ScrollRect>();
 
         var viewport = CreateUiRect("Viewport", scroll);
         SetRect(viewport, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
-        viewport.gameObject.AddComponent<Image>().color = DesignTokens.Surface;
+        viewport.gameObject.AddComponent<Image>().color = DesignTokens.BgPrimary;
         viewport.gameObject.AddComponent<Mask>().showMaskGraphic = false;
 
         var content = CreateUiRect("Content", viewport);
@@ -143,16 +152,41 @@ public static class BuildUiPrefabs
 
         var cardTemplate = CreateUiRect("Card_Template", content);
         SetRect(cardTemplate, new Vector2(0f, 1f), new Vector2(1f, 1f), Vector2.zero, Vector2.zero);
-        cardTemplate.gameObject.AddComponent<Image>().color = DesignTokens.BgSecondary;
+        cardTemplate.gameObject.AddComponent<Image>().color = DesignTokens.Surface;
+        EnsureThinOutline(cardTemplate.gameObject, DesignTokens.Divider);
         var cardButton = cardTemplate.gameObject.AddComponent<Button>();
         var cardLayout = cardTemplate.gameObject.AddComponent<LayoutElement>();
-        cardLayout.minHeight = 84f;
-        cardLayout.preferredHeight = 84f;
+        cardLayout.minHeight = 96f;
+        cardLayout.preferredHeight = 96f;
+
+        var categoryBadge = CreateUiRect("Badge_Category", cardTemplate);
+        SetRect(categoryBadge, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(16f, -34f), new Vector2(84f, -12f));
+        categoryBadge.gameObject.AddComponent<Image>().color = DesignTokens.BadgeBg(DesignTokens.Accent);
+        var categoryLabel = CreateText("LabelCategory", categoryBadge, "\u305D\u306E\u4ED6");
+        categoryLabel.fontSize = DesignTokens.FontSizeCaption;
+        categoryLabel.color = DesignTokens.Accent;
+        categoryLabel.alignment = TextAlignmentOptions.Center;
+        SetRect(categoryLabel.rectTransform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
 
         var labelMain = CreateText("LabelMain", cardTemplate, "Item");
-        labelMain.fontSize = 14;
-        labelMain.alignment = TextAlignmentOptions.Center;
-        SetRect(labelMain.rectTransform, new Vector2(0f, 0f), new Vector2(1f, 1f), new Vector2(10f, 0f), new Vector2(-10f, 0f));
+        labelMain.fontSize = DesignTokens.FontSizeBody;
+        labelMain.alignment = TextAlignmentOptions.MidlineLeft;
+        SetRect(labelMain.rectTransform, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(16f, -64f), new Vector2(-72f, -38f));
+
+        var technicalLabel = CreateText("LabelTechnicalId", cardTemplate, "Type/Id");
+        technicalLabel.fontSize = DesignTokens.FontSizeCaption;
+        technicalLabel.color = DesignTokens.TextSecondary;
+        technicalLabel.alignment = TextAlignmentOptions.MidlineLeft;
+        SetRect(technicalLabel.rectTransform, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(16f, -84f), new Vector2(-72f, -64f));
+
+        var categoryVisual = CreateUiRect("CategoryVisual", cardTemplate);
+        SetRect(categoryVisual, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-56f, -56f), new Vector2(-16f, -16f));
+        categoryVisual.gameObject.AddComponent<Image>().color = DesignTokens.BgSecondary;
+        var categoryVisualLabel = CreateText("LabelCategoryVisual", categoryVisual, "\u4ED6");
+        categoryVisualLabel.fontSize = DesignTokens.FontSizeSubheading;
+        categoryVisualLabel.color = DesignTokens.TextSecondary;
+        categoryVisualLabel.alignment = TextAlignmentOptions.Center;
+        SetRect(categoryVisualLabel.rectTransform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
 
         cardTemplate.gameObject.SetActive(false);
         var settingsPanel = BuildSettingsDialog(
@@ -239,7 +273,7 @@ public static class BuildUiPrefabs
     static RectTransform BuildScenarioPanel(Transform parent)
     {
         var panel = CreateUiRect("Panel_ScenarioGraph", parent);
-        SetRect(panel, new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(288f, 0f), new Vector2(0f, 300f));
+        SetRect(panel, new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(DesignTokens.CatalogDefaultWidth, 0f), new Vector2(0f, DesignTokens.ScenarioDefaultHeight));
         panel.gameObject.AddComponent<Image>().color = DesignTokens.BgPrimary;
 
         var topBar = CreateUiRect("TopBar", panel);
@@ -253,13 +287,13 @@ public static class BuildUiPrefabs
         var projectInput = CreateInputField("Input_ProjectName", topBar, "ProjectName");
         projectInput.gameObject.AddComponent<LayoutElement>().minWidth = 360f;
 
-        var addStepButton = CreateButton("Button_AddStep", topBar, "+ Step");
+        var addStepButton = CreateButton("Button_AddStep", topBar, "+ \u624B\u9806");
         addStepButton.gameObject.AddComponent<LayoutElement>().minWidth = 120f;
 
-        var addConditionButton = CreateButton("Button_AddCondition", topBar, "+ Condition");
+        var addConditionButton = CreateButton("Button_AddCondition", topBar, "+ \u6761\u4EF6");
         addConditionButton.gameObject.AddComponent<LayoutElement>().minWidth = 150f;
 
-        var saveButton = CreateButton("Button_SaveCurriculum", topBar, "Save");
+        var saveButton = CreateButton("Button_SaveCurriculum", topBar, "\u4FDD\u5B58");
         saveButton.gameObject.AddComponent<LayoutElement>().minWidth = 110f;
 
         var status = CreateText("Text_Status", topBar, "");
@@ -299,10 +333,16 @@ public static class BuildUiPrefabs
         var resizeHandle = CreateUiRect("ResizeHandle", panel);
         SetRect(resizeHandle, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0f, -6f), new Vector2(0f, 6f));
         resizeHandle.gameObject.AddComponent<Image>().color = DesignTokens.BgPrimary;
+        var scenarioResizeGrip = CreateUiRect("Grip", resizeHandle);
+        SetRect(scenarioResizeGrip, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(-32f, -1f), new Vector2(32f, 1f));
+        scenarioResizeGrip.gameObject.AddComponent<Image>().color = DesignTokens.Divider;
         var resizeComp = resizeHandle.gameObject.AddComponent<PanelVerticalResizeHandle>();
         resizeComp.targetPanel = panel;
+        resizeComp.minHeight = DesignTokens.ScenarioMinHeight;
+        resizeComp.maxHeight = DesignTokens.ScenarioMaxHeight;
 
         var scenarioUi = panel.gameObject.AddComponent<ScenarioGraphUI>();
+        var validationPanel = ScenarioValidationPanel.Ensure(panel);
         var scenarioSo = new SerializedObject(scenarioUi);
         scenarioSo.FindProperty("panelRoot").objectReferenceValue = panel;
         scenarioSo.FindProperty("projectNameInput").objectReferenceValue = projectInput;
@@ -311,6 +351,8 @@ public static class BuildUiPrefabs
         if (addConditionProp != null) addConditionProp.objectReferenceValue = addConditionButton;
         scenarioSo.FindProperty("saveButton").objectReferenceValue = saveButton;
         scenarioSo.FindProperty("statusText").objectReferenceValue = status;
+        var validationPanelProp = scenarioSo.FindProperty("validationPanel");
+        if (validationPanelProp != null) validationPanelProp.objectReferenceValue = validationPanel;
         scenarioSo.FindProperty("nodeArea").objectReferenceValue = nodeArea;
         var graphContentProp = scenarioSo.FindProperty("graphContent");
         if (graphContentProp != null) graphContentProp.objectReferenceValue = graphContent;
@@ -328,13 +370,20 @@ public static class BuildUiPrefabs
         return panel;
     }
 
-    static void BuildDockSync(GameObject root, RectTransform catalogPanel, RectTransform scenarioPanel, RectTransform editModeRow, RectTransform settingsButton)
+    static void BuildDockSync(
+        GameObject root,
+        RectTransform catalogPanel,
+        RectTransform scenarioPanel,
+        RectTransform editModeRow,
+        RectTransform settingsButton,
+        RectTransform hintButton)
     {
         var sync = root.AddComponent<UiPanelDockSync>();
         sync.catalogPanel = catalogPanel;
         sync.scenarioPanel = scenarioPanel;
         sync.editModePanel = editModeRow;
         sync.settingsButtonPanel = settingsButton;
+        sync.hintButtonPanel = hintButton;
         sync.gap = 0f;
     }
 
@@ -345,20 +394,27 @@ public static class BuildUiPrefabs
     static RectTransform BuildDetailPanel(Transform parent)
     {
         var panel = CreateUiRect("Panel_Detail", parent);
-        SetRect(panel, new Vector2(1f, 0f), new Vector2(1f, 1f), new Vector2(-288f, 0f), new Vector2(0f, 0f));
+        SetRect(panel, new Vector2(1f, 0f), new Vector2(1f, 1f), new Vector2(-320f, 0f), new Vector2(0f, 0f));
         panel.gameObject.AddComponent<Image>().color = DesignTokens.BgPrimary;
+        panel.gameObject.AddComponent<CanvasGroup>();
 
         var header = CreateUiRect("Header", panel);
-        SetRect(header, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(10f, -48f), new Vector2(-10f, -10f));
+        SetRect(header, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(16f, -72f), new Vector2(-16f, -8f));
         header.gameObject.AddComponent<Image>().color = DesignTokens.Surface;
 
-        var title = CreateText("Title", header, "\u30aa\u30d6\u30b8\u30a7\u30af\u30c8\u8a73\u7d30");
+        var title = CreateText("Text_DisplayName", header, "\u30AA\u30D6\u30B8\u30A7\u30AF\u30C8\u8A73\u7D30");
         title.fontSize = DesignTokens.FontSizeSubheading;
         title.alignment = TextAlignmentOptions.MidlineLeft;
-        SetRect(title.rectTransform, Vector2.zero, Vector2.one, new Vector2(10f, 0f), new Vector2(-10f, 0f));
+        SetRect(title.rectTransform, Vector2.zero, Vector2.one, new Vector2(12f, 32f), new Vector2(-12f, -4f));
+
+        var headerTechnicalId = CreateText("Text_TechnicalId", header, "Type/Technical_Id");
+        headerTechnicalId.fontSize = DesignTokens.FontSizeCaption;
+        headerTechnicalId.color = DesignTokens.TextSecondary;
+        headerTechnicalId.alignment = TextAlignmentOptions.MidlineLeft;
+        SetRect(headerTechnicalId.rectTransform, Vector2.zero, Vector2.one, new Vector2(12f, 4f), new Vector2(-12f, -36f));
 
         var scroll = CreateUiRect("Scroll_Detail", panel);
-        SetRect(scroll, new Vector2(0f, 0f), new Vector2(1f, 1f), new Vector2(0f, 0f), new Vector2(0f, -68f));
+        SetRect(scroll, new Vector2(0f, 0f), new Vector2(1f, 1f), new Vector2(0f, 0f), new Vector2(0f, -88f));
         var scrollRect = scroll.gameObject.AddComponent<ScrollRect>();
 
         var viewport = CreateUiRect("Viewport", scroll);
@@ -381,15 +437,18 @@ public static class BuildUiPrefabs
         scrollRect.content = content;
         scrollRect.horizontal = false;
 
-        var textPrefabLabel = BuildDetailRow(content, "Row_PrefabLabel", "\u30d7\u30ec\u30d5\u30a1\u30d6\u540d", "Text_PrefabLabel", out _);
+        BuildDetailSectionLabel(content, "Section_Basic", "\u57FA\u672C\u60C5\u5831");
+        var textPrefabLabel = BuildDetailRow(content, "Row_PrefabLabel", "\u6280\u8853ID", "Text_PrefabLabel", out _);
         BuildDetailDivider(content);
 
         var inputObjectName = BuildDetailNameRow(content, "Row_ObjectName", "\u30aa\u30d6\u30b8\u30a7\u30af\u30c8\u540d");
         BuildDetailDivider(content);
 
-        var inputDescription = BuildDetailDescriptionRow(content, "Row_Description", "\u8aac\u660e", out var rowDescriptionGo);
+        BuildDetailSectionLabel(content, "Section_Description", "\u8AAC\u660E");
+        var inputDescription = BuildDetailDescriptionRow(content, "Row_Description", "\u8AAC\u660E", out var rowDescriptionGo);
         BuildDetailDivider(content);
 
+        BuildDetailSectionLabel(content, "Section_Usage", "\u4F7F\u7528\u4E2D\u306E\u6761\u4EF6");
         var textConditionUsage = BuildDetailConditionUsageRow(
             content,
             out var usageNodeLabelText,
@@ -399,6 +458,8 @@ public static class BuildUiPrefabs
         var usageStyler = panel.gameObject.AddComponent<ObjectDetailConditionNodeStyler>();
         var detailPanel = panel.gameObject.AddComponent<ObjectDetailPanel>();
         var detailSo = new SerializedObject(detailPanel);
+        detailSo.FindProperty("headerDisplayNameText").objectReferenceValue = title;
+        detailSo.FindProperty("headerTechnicalIdText").objectReferenceValue = headerTechnicalId;
         detailSo.FindProperty("textPrefabLabel").objectReferenceValue = textPrefabLabel;
         detailSo.FindProperty("inputObjectName").objectReferenceValue = inputObjectName;
         detailSo.FindProperty("inputDescription").objectReferenceValue = inputDescription;
@@ -411,6 +472,19 @@ public static class BuildUiPrefabs
         detailSo.ApplyModifiedPropertiesWithoutUndo();
 
         return panel;
+    }
+
+    static TextMeshProUGUI BuildDetailSectionLabel(Transform parent, string objectName, string value)
+    {
+        var text = CreateText(objectName, parent, value);
+        text.fontSize = DesignTokens.FontSizeSubheading;
+        text.color = DesignTokens.TextPrimary;
+        text.alignment = TextAlignmentOptions.MidlineLeft;
+        text.margin = new Vector4(16f, 8f, 16f, 0f);
+        var layout = text.gameObject.AddComponent<LayoutElement>();
+        layout.minHeight = 48f;
+        layout.preferredHeight = 48f;
+        return text;
     }
 
     static TextMeshProUGUI BuildDetailConditionUsageRow(
@@ -441,7 +515,7 @@ public static class BuildUiPrefabs
         labelLayout.minHeight = DesignTokens.FontSizeCaption + 4f;
         labelLayout.preferredHeight = DesignTokens.FontSizeCaption + 4f;
 
-        var emptyText = CreateText("Text_ConditionUsage", row, "\u672A\u4F7F\u7528");
+        var emptyText = CreateText("Text_ConditionUsage", row, "\u3053\u306E\u30AA\u30D6\u30B8\u30A7\u30AF\u30C8\u306F\u307E\u3060\u624B\u9806\u3067\u4F7F\u308F\u308C\u3066\u3044\u307E\u305B\u3093");
         emptyText.fontSize = DesignTokens.FontSizeBody;
         emptyText.color = DesignTokens.TextPrimary;
         emptyText.alignment = TextAlignmentOptions.TopLeft;
@@ -612,7 +686,7 @@ public static class BuildUiPrefabs
         EnsureThinOutline(root.gameObject, DesignTokens.Divider);
         var stepNode = root.gameObject.AddComponent<StepNodeUI>();
 
-        var stepId = CreateText("Text_StepId", root, "STEP 1");
+        var stepId = CreateText("Text_StepId", root, "\u624B\u9806 1");
         stepId.fontStyle = FontStyles.Bold;
         SetRect(stepId.rectTransform, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(12f, -28f), new Vector2(-44f, -8f));
 

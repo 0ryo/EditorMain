@@ -8,8 +8,8 @@ using UnityEngine.UI;
 /// </summary>
 public static class DesignTokenApplier
 {
-    // Canvas 基準解像度（QHD）
-    static readonly Vector2 ReferenceResolution = new Vector2(2560f, 1440f);
+    // Canvas 基準解像度は design_rule.md と実装方針に合わせて 1920x1080 に統一する。
+    static readonly Vector2 ReferenceResolution = DesignTokens.ReferenceResolution;
     /// <summary>
     /// カタログパネル配下の全要素に DesignTokens カラーを適用する。
     /// </summary>
@@ -17,7 +17,7 @@ public static class DesignTokenApplier
     {
         if (panelRoot == null) return;
 
-        // Canvas 解像度を QHD に強制
+        // Canvas 解像度をデザイン基準へ補正
         ApplyCanvasResolution(panelRoot);
 
         // パネル背景
@@ -41,11 +41,11 @@ public static class DesignTokenApplier
 
         // スクロール領域
         var scroll = FindDeep(panelRoot, "Scroll_Catalog");
-        SetImageColor(scroll, DesignTokens.Surface);
+        SetImageColor(scroll, DesignTokens.BgPrimary);
         if (scroll != null)
         {
             var viewport = scroll.Find("Viewport");
-            SetImageColor(viewport, DesignTokens.Surface);
+            SetImageColor(viewport, DesignTokens.BgPrimary);
         }
 
         // リサイズハンドル
@@ -83,7 +83,7 @@ public static class DesignTokenApplier
     {
         if (panelRoot == null) return;
 
-        // Canvas 解像度を QHD に強制
+        // Canvas 解像度をデザイン基準へ補正
         ApplyCanvasResolution(panelRoot);
 
         // パネル背景
@@ -231,7 +231,8 @@ public static class DesignTokenApplier
             var button = child.GetComponent<Button>();
             if (image != null && button != null)
             {
-                image.color = DesignTokens.BgSecondary;
+                image.color = DesignTokens.Surface;
+                EnsureThinOutline(child, DesignTokens.Divider);
 
                 var thumb = child.Find("Thumbnail");
                 if (thumb != null) thumb.gameObject.SetActive(false);
@@ -380,7 +381,9 @@ public static class DesignTokenApplier
         if (scaler == null) return;
 
         scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-        scaler.referenceResolution = ReferenceResolution;
+        var scaleController = canvas.GetComponent<UiScaleController>();
+        float uiScale = scaleController != null ? Mathf.Clamp(scaleController.Scale, 0.8f, 1.4f) : 1f;
+        scaler.referenceResolution = ReferenceResolution / uiScale;
         scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
         scaler.matchWidthOrHeight = 0.5f;
         canvas.pixelPerfect = true;
@@ -412,8 +415,8 @@ public static class DesignTokenApplier
         if (term != null && term.labelText != null)
         {
             string label = term.labelText.text;
-            if (label == "START") return DesignTokens.NodeStart;
-            if (label == "END")   return DesignTokens.NodeEnd;
+            if (label == "START" || label == "開始") return DesignTokens.NodeStart;
+            if (label == "END" || label == "終了") return DesignTokens.NodeEnd;
         }
         return DesignTokens.BgSecondary;
     }
@@ -487,51 +490,116 @@ public static class DesignTokenApplier
             if (!child.name.StartsWith("Card_") && child.name != "Card_Template") continue;
             if (child.GetComponent<Button>() == null) continue;
 
-            // LabelMain を中央配置
-            var labelMain = child.Find("LabelMain");
-            if (labelMain != null)
-            {
-                var text = labelMain.GetComponent<TMP_Text>();
-                if (text != null)
-                {
-                    text.alignment = TextAlignmentOptions.Center;
-                }
-
-                var labelRect = labelMain as RectTransform;
-                if (labelRect != null)
-                {
-                    labelRect.anchorMin = Vector2.zero;
-                    labelRect.anchorMax = Vector2.one;
-                    labelRect.pivot = new Vector2(0.5f, 0.5f);
-                    labelRect.offsetMin = new Vector2(10f, 0f);
-                    labelRect.offsetMax = new Vector2(-10f, 0f);
-                }
-            }
-
-            // フォールバック: 最初の TMP_Text を中央配置
-            if (labelMain == null)
-            {
-                var text = child.GetComponentInChildren<TMP_Text>(true);
-                if (text != null)
-                {
-                    text.alignment = TextAlignmentOptions.Center;
-                    var textRect = text.rectTransform;
-                    if (textRect != null && textRect.parent == child)
-                    {
-                        textRect.anchorMin = Vector2.zero;
-                        textRect.anchorMax = Vector2.one;
-                        textRect.pivot = new Vector2(0.5f, 0.5f);
-                        textRect.offsetMin = new Vector2(10f, 0f);
-                        textRect.offsetMax = new Vector2(-10f, 0f);
-                    }
-                }
-            }
+            ApplyCatalogCardTextLayout(child);
 
             var thumb = child.Find("Thumbnail");
             if (thumb != null) thumb.gameObject.SetActive(false);
 
             var removeButton = child.Find("Button_RemoveCard");
             if (removeButton != null) removeButton.gameObject.SetActive(false);
+        }
+    }
+
+    static void ApplyCatalogCardTextLayout(Transform child)
+    {
+        if (child == null) return;
+
+        var categoryBadge = child.Find("Badge_Category") as RectTransform;
+        if (categoryBadge != null)
+        {
+            categoryBadge.anchorMin = new Vector2(0f, 1f);
+            categoryBadge.anchorMax = new Vector2(0f, 1f);
+            categoryBadge.pivot = new Vector2(0f, 1f);
+            categoryBadge.offsetMin = new Vector2(16f, -34f);
+            categoryBadge.offsetMax = new Vector2(84f, -12f);
+
+            var image = categoryBadge.GetComponent<Image>();
+            if (image != null) image.color = DesignTokens.BadgeBg(DesignTokens.Accent);
+
+            var categoryText = categoryBadge.Find("LabelCategory")?.GetComponent<TMP_Text>();
+            if (categoryText != null)
+            {
+                categoryText.fontSize = DesignTokens.FontSizeCaption;
+                categoryText.color = DesignTokens.Accent;
+                categoryText.alignment = TextAlignmentOptions.Center;
+            }
+        }
+
+        var technical = child.Find("LabelTechnicalId")?.GetComponent<TMP_Text>();
+        if (technical != null)
+        {
+            technical.fontSize = DesignTokens.FontSizeCaption;
+            technical.color = DesignTokens.TextSecondary;
+            technical.alignment = TextAlignmentOptions.MidlineLeft;
+            var technicalRect = technical.rectTransform;
+            technicalRect.anchorMin = new Vector2(0f, 1f);
+            technicalRect.anchorMax = new Vector2(1f, 1f);
+            technicalRect.pivot = new Vector2(0f, 1f);
+            technicalRect.offsetMin = new Vector2(16f, -84f);
+            technicalRect.offsetMax = new Vector2(-72f, -64f);
+        }
+
+        var categoryVisual = child.Find("CategoryVisual") as RectTransform;
+        if (categoryVisual != null)
+        {
+            categoryVisual.anchorMin = new Vector2(1f, 1f);
+            categoryVisual.anchorMax = new Vector2(1f, 1f);
+            categoryVisual.pivot = new Vector2(1f, 1f);
+            categoryVisual.offsetMin = new Vector2(-56f, -56f);
+            categoryVisual.offsetMax = new Vector2(-16f, -16f);
+            var visualImage = categoryVisual.GetComponent<Image>();
+            if (visualImage != null) visualImage.color = DesignTokens.BgSecondary;
+            var visualLabel = categoryVisual.Find("LabelCategoryVisual")?.GetComponent<TMP_Text>();
+            if (visualLabel != null)
+            {
+                visualLabel.fontSize = DesignTokens.FontSizeSubheading;
+                visualLabel.color = DesignTokens.TextSecondary;
+                visualLabel.alignment = TextAlignmentOptions.Center;
+            }
+        }
+
+        // LabelMain をカードタイトルとして左寄せ配置
+        {
+            var labelMain = child.Find("LabelMain");
+            if (labelMain != null)
+            {
+                var text = labelMain.GetComponent<TMP_Text>();
+                if (text != null)
+                {
+                    text.fontSize = DesignTokens.FontSizeBody;
+                    text.color = DesignTokens.TextPrimary;
+                    text.alignment = TextAlignmentOptions.MidlineLeft;
+                }
+
+                var labelRect = labelMain as RectTransform;
+                if (labelRect != null)
+                {
+                    labelRect.anchorMin = new Vector2(0f, 1f);
+                    labelRect.anchorMax = new Vector2(1f, 1f);
+                    labelRect.pivot = new Vector2(0f, 1f);
+                    labelRect.offsetMin = new Vector2(16f, -64f);
+                    labelRect.offsetMax = new Vector2(-72f, -38f);
+                }
+            }
+
+            // フォールバック: 最初の TMP_Text をカードタイトルとして扱う
+            if (labelMain == null)
+            {
+                var text = child.GetComponentInChildren<TMP_Text>(true);
+                if (text != null)
+                {
+                    text.alignment = TextAlignmentOptions.MidlineLeft;
+                    var textRect = text.rectTransform;
+                    if (textRect != null && textRect.parent == child)
+                    {
+                        textRect.anchorMin = new Vector2(0f, 1f);
+                        textRect.anchorMax = new Vector2(1f, 1f);
+                        textRect.pivot = new Vector2(0f, 1f);
+                        textRect.offsetMin = new Vector2(16f, -64f);
+                        textRect.offsetMax = new Vector2(-72f, -38f);
+                    }
+                }
+            }
         }
     }
 
@@ -572,8 +640,13 @@ public static class DesignTokenApplier
         SetImageColor(header, DesignTokens.Surface);
         if (header != null)
         {
-            var titleText = header.GetComponentInChildren<TMP_Text>(true);
-            if (titleText != null) titleText.color = DesignTokens.TextPrimary;
+            foreach (var headerText in header.GetComponentsInChildren<TMP_Text>(true))
+            {
+                if (headerText == null) continue;
+                headerText.color = headerText.name == "Text_TechnicalId"
+                    ? DesignTokens.TextSecondary
+                    : DesignTokens.TextPrimary;
+            }
         }
 
         // Viewport 背景
@@ -615,6 +688,11 @@ public static class DesignTokenApplier
             else if (child.name == "Divider")
             {
                 SetImageColor(child, DesignTokens.Divider);
+            }
+            else if (child.name.StartsWith("Section_"))
+            {
+                var sectionText = child.GetComponent<TMP_Text>();
+                if (sectionText != null) sectionText.color = DesignTokens.TextPrimary;
             }
         }
     }

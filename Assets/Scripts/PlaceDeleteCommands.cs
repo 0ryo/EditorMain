@@ -1,45 +1,182 @@
 using UnityEngine;
 
-public class PlaceObjectCommand : IEditorCommand {
+public class PlaceObjectCommand : IEditorCommand, IDiscardableEditorCommand {
     string typeId; Vector3 pos; Quaternion rot;
     GameObject instance;
+    Vector3 resolvedPosition;
+    bool hasResolvedPosition;
     System.Func<string, GameObject> factory; // typeId→Instantiateする関数
     public string Label => "Place " + typeId;
 
     public PlaceObjectCommand(string typeId, Vector3 pos, Quaternion rot, System.Func<string,GameObject> factory){
         this.typeId=typeId; this.pos=pos; this.rot=rot; this.factory=factory;
     }
-    public void Do()  {
-        instance = factory != null ? factory(typeId) : null;
+    public bool Do()  {
+        if (instance == null)
+        {
+            instance = factory != null ? factory(typeId) : null;
+        }
+
         if (instance == null)
         {
             Debug.LogWarning($"[PlaceObjectCommand] Factory returned null for typeId={typeId}");
-            return;
+            return false;
         }
 
-        instance.transform.SetPositionAndRotation(pos, rot);
+        try
+        {
+            instance.SetActive(true);
+            if (hasResolvedPosition)
+            {
+                instance.transform.SetPositionAndRotation(resolvedPosition, rot);
+            }
+            else
+            {
+                instance.transform.SetPositionAndRotation(pos, rot);
+                PlacedObjectGrounding.AlignRendererBoundsToGround(instance, EditWorkspace.GroundY, out resolvedPosition);
+                hasResolvedPosition = true;
+            }
+            return true;
+        }
+        catch
+        {
+            instance.SetActive(false);
+            if (Application.isPlaying) GameObject.Destroy(instance);
+            else GameObject.DestroyImmediate(instance);
+            instance = null;
+            hasResolvedPosition = false;
+            throw;
+        }
     }
-    public void Undo(){ if (instance!=null) GameObject.Destroy(instance); }
+    public bool Undo(){ if (instance==null) return false; instance.SetActive(false); return true; }
+    public void Discard(){ if (instance!=null && !instance.activeSelf) GameObject.Destroy(instance); }
 }
 
-public class DeleteObjectCommand : IEditorCommand {
-    GameObject target;
-    Vector3 pos; Quaternion rot; string typeId;
-    System.Func<string, GameObject> factory;
-    public string Label => "Delete " + (target? target.name : "obj");
-    public DeleteObjectCommand(GameObject target, string typeId, System.Func<string,GameObject> factory){
-        this.target=target; this.typeId=typeId; this.factory=factory;
-        if (target!=null){ pos=target.transform.position; rot=target.transform.rotation; }
+public class DuplicateObjectCommand : IEditorCommand, IDiscardableEditorCommand {
+    readonly GameObject source;
+    readonly Vector3 pos;
+    readonly Quaternion rot;
+    readonly string sourceName;
+    GameObject instance;
+    PlacedObject placed;
+
+    public string Label => "Duplicate " + sourceName;
+    public PlacedObject Result => placed;
+
+    public DuplicateObjectCommand(GameObject source, Vector3 offset){
+        this.source=source;
+        sourceName=source!=null ? source.name : "obj";
+        if (source!=null){
+            pos=source.transform.position+offset;
+            rot=source.transform.rotation;
+        }
     }
-    public void Do()  { if (target!=null) GameObject.Destroy(target); }
-    public void Undo(){
-        var go = factory != null ? factory(typeId) : null;
-        if (go == null)
-        {
-            Debug.LogWarning($"[DeleteObjectCommand] Factory returned null for typeId={typeId}");
-            return;
+
+    public bool Do(){
+        if (instance==null){
+            if (source==null){
+                Debug.LogWarning("[DuplicateObjectCommand] Source object is missing.");
+                return false;
+            }
+
+            instance=GameObject.Instantiate(source, pos, rot);
+            placed=instance.GetComponent<PlacedObject>();
+            if (placed==null) placed=instance.AddComponent<PlacedObject>();
+
+            var sourcePlaced=source.GetComponent<PlacedObject>();
+            if (string.IsNullOrEmpty(placed.typeId) && sourcePlaced!=null){
+                placed.typeId=sourcePlaced.typeId;
+            }
+
+            if (sourcePlaced != null) ImportedModelParts.ReidentifyDuplicate(placed, sourcePlaced);
+            else placed.ForceNewId();
+            instance.transform.localScale = source.transform.lossyScale;
+            var editState=instance.GetComponent<PlacedObjectEditState>();
+            if (editState!=null){
+                editState.SetLocked(false);
+                editState.SetVisible(true);
+                editState.RefreshSubtree();
+            }
+            PlacedObjectPickability.EnsurePickable(placed, true);
         }
 
-        go.transform.SetPositionAndRotation(pos, rot);
+        instance.SetActive(true);
+        instance.transform.SetPositionAndRotation(pos, rot);
+        return true;
+    }
+
+    public bool Undo(){ if (instance==null) return false; instance.SetActive(false); return true; }
+    public void Discard(){ if (instance!=null && !instance.activeSelf) GameObject.Destroy(instance); }
+}
+
+public class DeleteObjectCommand : IEditorCommand, IDiscardableEditorCommand {
+    GameObject target;
+    Transform parent;
+    int siblingIndex;
+    Vector3 pos; Quaternion rot; Vector3 scale; string typeId;
+    bool wasActiveSelf;
+    string id;
+    string displayName;
+    string description;
+    bool hasDescriptionOverride;
+    System.Func<string, GameObject> factory;
+    readonly string targetName;
+    public string Label => "Delete " + targetName;
+    public DeleteObjectCommand(GameObject target, string typeId, System.Func<string,GameObject> factory){
+        this.target=target; this.typeId=typeId; this.factory=factory;
+        targetName = target != null ? target.name : "obj";
+        if (target!=null){
+            parent=target.transform.parent;
+            siblingIndex=target.transform.GetSiblingIndex();
+            pos=target.transform.position;
+            rot=target.transform.rotation;
+            scale=target.transform.localScale;
+            wasActiveSelf=target.activeSelf;
+
+            var placed=target.GetComponent<PlacedObject>();
+            if (placed!=null){
+                id=placed.id;
+                displayName=placed.displayName;
+                description=placed.description;
+                hasDescriptionOverride=placed.hasDescriptionOverride;
+            }
+        }
+    }
+    public bool Do()  { if (target==null) return false; target.SetActive(false); return true; }
+    public bool Undo(){
+        if (target==null)
+        {
+            target = factory != null ? factory(typeId) : null;
+        }
+
+        if (target == null)
+        {
+            Debug.LogWarning($"[DeleteObjectCommand] Factory returned null for typeId={typeId}");
+            return false;
+        }
+
+        target.transform.SetParent(parent, true);
+        target.transform.SetSiblingIndex(siblingIndex);
+        target.transform.SetPositionAndRotation(pos, rot);
+        target.transform.localScale=scale;
+
+        var placed=target.GetComponent<PlacedObject>();
+        if (placed!=null){
+            placed.id=id;
+            placed.typeId=typeId;
+            placed.displayName=displayName;
+            placed.description=description;
+            placed.hasDescriptionOverride=hasDescriptionOverride;
+        }
+
+        target.SetActive(wasActiveSelf);
+        return true;
+    }
+    public void Discard(){
+        if (target==null || target.activeSelf) return;
+        var part = target.GetComponent<PlacedObject>();
+        // Keep removed source nodes as inactive tombstones so saving cannot resurrect them.
+        if (part != null && part.modelRoot != null) return;
+        GameObject.Destroy(target);
     }
 }

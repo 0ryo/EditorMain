@@ -1,5 +1,4 @@
 using UnityEngine;
-using UnityEngine.EventSystems;
 using UnityEngine.Rendering;
 
 public class MoveTool : MonoBehaviour
@@ -10,6 +9,7 @@ public class MoveTool : MonoBehaviour
     public Camera cam;
     public SelectionService sel;
     public float gridSize = 0.1f;
+    public bool enableDiagnostics = true;
 
     [Header("Transform Gizmo")]
     public float gizmoLineWidth = 0.04f;
@@ -37,21 +37,6 @@ public class MoveTool : MonoBehaviour
         new Color(0.35f, 0.59f, 0.96f, 1f)
     };
 
-    enum GizmoAxis
-    {
-        None = -1,
-        X = 0,
-        Y = 1,
-        Z = 2
-    }
-
-    enum GizmoDragMode
-    {
-        None = 0,
-        Move = 1,
-        Rotate = 2
-    }
-
     Transform gizmoRoot;
     readonly LineRenderer[] axisRenderers = new LineRenderer[3];
     readonly Transform[] axisConeTransforms = new Transform[3];
@@ -61,6 +46,14 @@ public class MoveTool : MonoBehaviour
     Material gizmoLineMaterial;
     Mesh gizmoConeMesh;
     bool gizmoInitialized;
+    PlacedObject gizmoVisualTarget;
+    Vector3 gizmoVisualPosition;
+    Quaternion gizmoVisualRotation;
+    Vector3 gizmoVisualScale;
+    GizmoDragMode gizmoVisualDragMode = GizmoDragMode.None;
+    GizmoAxis gizmoVisualAxis = GizmoAxis.None;
+    int gizmoVisualSettingsRevision = -1;
+    bool gizmoVisualDirty = true;
 
     GizmoDragMode activeGizmoDragMode;
     GizmoAxis activeGizmoAxis = GizmoAxis.None;
@@ -82,15 +75,17 @@ public class MoveTool : MonoBehaviour
         if (!IsTransformMode()) return false;
         if (sel == null || sel.Current == null) return false;
         if (activeGizmoDragMode != GizmoDragMode.None) return true;
-        if (!Input.GetMouseButtonDown(0)) return false;
-        if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject()) return false;
+        if (!EditInput.LeftPressedThisFrame()) return false;
+        if (PlacementController.IsScreenPositionOverBlockingUi(EditInput.MousePosition)) return false;
 
-        return TryGetHandleUnderPointer(Input.mousePosition, out _, out _);
+        return TryGetHandleUnderPointer(EditInput.MousePosition, out _, out _);
     }
 
     void Update()
     {
+        if (ObjectScreenPicker.Capturing) { CancelRuntimeDragStates(); SetGizmoVisible(false); return; }
         EnsureCamera();
+        EnsureSelection();
 
         if (!IsTransformMode())
         {
@@ -110,13 +105,13 @@ public class MoveTool : MonoBehaviour
 
         if (activeGizmoDragMode != GizmoDragMode.None)
         {
-            if (Input.GetMouseButtonUp(0))
+            if (EditInput.LeftReleasedThisFrame())
             {
                 CommitGizmoDragIfNeeded();
                 return;
             }
 
-            if (Input.GetMouseButton(0))
+            if (EditInput.LeftPressed())
             {
                 UpdateGizmoDrag();
                 return;
@@ -126,12 +121,12 @@ public class MoveTool : MonoBehaviour
             return;
         }
 
-        if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
+        if (PlacementController.IsScreenPositionOverBlockingUi(EditInput.MousePosition))
         {
             return;
         }
 
-        if (TryBeginGizmoDrag(Input.mousePosition))
+        if (TryBeginGizmoDrag(EditInput.MousePosition))
         {
             return;
         }
@@ -167,6 +162,7 @@ public class MoveTool : MonoBehaviour
     void HandleKeyboardNudgeMove()
     {
         if (sel == null || sel.Current == null) return;
+        if (EditWorkspace.IsTypingIntoInputField()) return;
 
         Vector3 nudge = Vector3.zero;
         bool modifierPressed =
@@ -192,17 +188,26 @@ public class MoveTool : MonoBehaviour
 
         if (nudge != Vector3.zero)
         {
-            sel.Current.transform.position += nudge;
+            var target = sel.Current.gameObject;
+            var from = target.transform.position;
+            var to = from + nudge;
+
+            var gesture = new SelectionTransformSession(sel);
+            target.transform.position = to;
+            gesture.Commit("Move selection");
         }
     }
 
+    SelectionTransformSession selectionGesture;
+
     bool TryBeginGizmoDrag(Vector2 pointer)
     {
-        if (!Input.GetMouseButtonDown(0)) return false;
+        if (!EditInput.LeftPressedThisFrame()) return false;
         if (!TryGetHandleUnderPointer(pointer, out var dragMode, out var axis)) return false;
         if (!TryGetSelectionCenterAndAxisLength(out var center, out var axisLength)) return false;
         if (!TryWorldToScreen(center, out var centerScreen)) return false;
 
+        selectionGesture = new SelectionTransformSession(sel);
         activeGizmoDragMode = dragMode;
         activeGizmoAxis = axis;
         gizmoDragStartPosition = sel.Current.transform.position;
@@ -210,7 +215,7 @@ public class MoveTool : MonoBehaviour
         gizmoDragStartCenter = center;
         gizmoDragStartCenterScreen = centerScreen;
 
-        Vector3 axisDir = AxisFromEnum(axis, gizmoDragStartRotation);
+        Vector3 axisDir = TransformGizmoUtility.AxisDirection(axis, gizmoDragStartRotation);
         gizmoDragAxisWorldDir = axisDir;
 
         if (dragMode == GizmoDragMode.Move)
@@ -232,6 +237,7 @@ public class MoveTool : MonoBehaviour
             gizmoDragAxisScreenDir = axisScreenVector / axisPixels;
             gizmoDragStartPointerProjection = Vector2.Dot(pointer - centerScreen, gizmoDragAxisScreenDir);
             gizmoDragWorldPerPixel = axisLength / axisPixels;
+            LogDebug($"Move drag started. axis={axis}, pointer={pointer}");
             return true;
         }
 
@@ -250,6 +256,7 @@ public class MoveTool : MonoBehaviour
         }
 
         gizmoRotationStartVector = startVector.normalized;
+        LogDebug($"Rotate drag started. axis={axis}, pointer={pointer}");
         return true;
     }
 
@@ -263,33 +270,35 @@ public class MoveTool : MonoBehaviour
 
         if (activeGizmoDragMode == GizmoDragMode.Move)
         {
-            float projection = Vector2.Dot((Vector2)Input.mousePosition - gizmoDragStartCenterScreen, gizmoDragAxisScreenDir);
+            float projection = Vector2.Dot(EditInput.MousePosition - gizmoDragStartCenterScreen, gizmoDragAxisScreenDir);
             float deltaWorld = (projection - gizmoDragStartPointerProjection) * gizmoDragWorldPerPixel;
 
-            if (gridSize > 0.0001f)
+            if (EditSnapSettings.ShouldSnap && gridSize > 0.0001f)
             {
                 deltaWorld = Mathf.Round(deltaWorld / gridSize) * gridSize;
             }
 
             sel.Current.transform.position = gizmoDragStartPosition + gizmoDragAxisWorldDir * deltaWorld;
+            selectionGesture?.Apply();
             return;
         }
 
         if (activeGizmoDragMode == GizmoDragMode.Rotate)
         {
-            if (!TryRaycastPlane(Input.mousePosition, gizmoRotationPlane, out var point)) return;
+            if (!TryRaycastPlane(EditInput.MousePosition, gizmoRotationPlane, out var point)) return;
 
-            Vector3 axisDir = AxisFromEnum(activeGizmoAxis, gizmoDragStartRotation);
+            Vector3 axisDir = TransformGizmoUtility.AxisDirection(activeGizmoAxis, gizmoDragStartRotation);
             Vector3 currentVector = Vector3.ProjectOnPlane(point - gizmoDragStartCenter, axisDir);
             if (currentVector.sqrMagnitude < 0.00001f) return;
 
             float angleDelta = Vector3.SignedAngle(gizmoRotationStartVector, currentVector.normalized, axisDir);
-            if (rotateSnapDegrees > 0.001f)
+            if (EditSnapSettings.ShouldSnap && rotateSnapDegrees > 0.001f)
             {
                 angleDelta = Mathf.Round(angleDelta / rotateSnapDegrees) * rotateSnapDegrees;
             }
 
             sel.Current.transform.rotation = Quaternion.AngleAxis(angleDelta, axisDir) * gizmoDragStartRotation;
+            selectionGesture?.Apply();
         }
     }
 
@@ -301,30 +310,8 @@ public class MoveTool : MonoBehaviour
             return;
         }
 
-        if (CommandService.I == null)
-        {
-            CancelRuntimeDragStates();
-            return;
-        }
-
-        if (activeGizmoDragMode == GizmoDragMode.Move)
-        {
-            Vector3 endPos = sel.Current.transform.position;
-            if ((endPos - gizmoDragStartPosition).sqrMagnitude > 0.000001f)
-            {
-                var cmd = new MoveObjectCommand(sel.Current.gameObject, gizmoDragStartPosition, endPos);
-                CommandService.I.Stack.Execute(cmd);
-            }
-        }
-        else if (activeGizmoDragMode == GizmoDragMode.Rotate)
-        {
-            Quaternion endRot = sel.Current.transform.rotation;
-            if (Quaternion.Angle(gizmoDragStartRotation, endRot) > 0.001f)
-            {
-                var cmd = new RotateObjectQuaternionCommand(sel.Current.gameObject, gizmoDragStartRotation, endRot);
-                CommandService.I.Stack.Execute(cmd);
-            }
-        }
+        selectionGesture?.Commit("Transform selection");
+        selectionGesture = null;
 
         CancelRuntimeDragStates();
     }
@@ -348,10 +335,10 @@ public class MoveTool : MonoBehaviour
         float bestMoveDistance = float.MaxValue;
         for (int i = 0; i < GizmoAxes.Length; i++)
         {
-            Vector3 axisDir = AxisFromEnum((GizmoAxis)i, sel.Current.transform.rotation);
+            Vector3 axisDir = TransformGizmoUtility.AxisDirection((GizmoAxis)i, sel.Current.transform.rotation);
             if (!TryWorldToScreen(center + axisDir * axisLength, out var tipScreen)) continue;
 
-            float distance = DistanceToSegment(pointer, centerScreen, tipScreen, out float t);
+            float distance = TransformGizmoUtility.DistanceToSegment(pointer, centerScreen, tipScreen, out float t);
             bool isInsideSegment = t > 0.12f && t < 0.9f;
             if (!isInsideSegment) continue;
             if (distance > moveHandlePickRadiusPixels) continue;
@@ -390,7 +377,7 @@ public class MoveTool : MonoBehaviour
                     if (colliders[j] == null) continue;
                     if (collider != colliders[j]) continue;
 
-                    axis = GetRotateArcRotationAxis(i);
+                    axis = TransformGizmoUtility.GetArcRotationAxis(i);
                     return true;
                 }
             }
@@ -404,6 +391,21 @@ public class MoveTool : MonoBehaviour
         EnsureGizmo();
 
         if (gizmoRoot == null)
+        {
+            return;
+        }
+
+        var current = sel != null ? sel.Current : null;
+        var currentTransform = current != null ? current.transform : null;
+        bool transformChanged = currentTransform != null &&
+                                (currentTransform.position != gizmoVisualPosition ||
+                                 currentTransform.rotation != gizmoVisualRotation ||
+                                 currentTransform.lossyScale != gizmoVisualScale);
+        bool stateChanged = current != gizmoVisualTarget ||
+                            activeGizmoDragMode != gizmoVisualDragMode ||
+                            activeGizmoAxis != gizmoVisualAxis ||
+                            gizmoVisualSettingsRevision != TransformToolSettings.Revision;
+        if (!gizmoVisualDirty && !transformChanged && !stateChanged && gizmoRoot.gameObject.activeSelf)
         {
             return;
         }
@@ -427,7 +429,7 @@ public class MoveTool : MonoBehaviour
 
         for (int i = 0; i < GizmoAxes.Length; i++)
         {
-            Vector3 axis = AxisFromEnum((GizmoAxis)i, objectRotation);
+            Vector3 axis = TransformGizmoUtility.AxisDirection((GizmoAxis)i, objectRotation);
             Vector3 tip = center + axis * axisLength;
             Vector3 shaftEnd = tip - axis * headLength;
             bool isMoveAxisActive = activeGizmoDragMode == GizmoDragMode.Move && activeGizmoAxis == (GizmoAxis)i;
@@ -455,7 +457,7 @@ public class MoveTool : MonoBehaviour
             var coneMaterial = axisConeMaterials[i];
             if (coneMaterial != null)
             {
-                SetMaterialColor(coneMaterial, axisColor);
+                TransformGizmoUtility.SetMaterialColor(coneMaterial, axisColor);
             }
         }
 
@@ -463,6 +465,15 @@ public class MoveTool : MonoBehaviour
         {
             UpdateRotateArcVisual(i, center, objectRotation, arcRadius, arcLineWidth, arcColliderThickness);
         }
+
+        gizmoVisualTarget = current;
+        gizmoVisualPosition = currentTransform.position;
+        gizmoVisualRotation = currentTransform.rotation;
+        gizmoVisualScale = currentTransform.lossyScale;
+        gizmoVisualDragMode = activeGizmoDragMode;
+        gizmoVisualAxis = activeGizmoAxis;
+        gizmoVisualSettingsRevision = TransformToolSettings.Revision;
+        gizmoVisualDirty = false;
     }
 
     void EnsureGizmo()
@@ -476,8 +487,8 @@ public class MoveTool : MonoBehaviour
 
         gizmoLineMaterial = new Material(shader);
         gizmoLineMaterial.hideFlags = HideFlags.DontSave;
-        ConfigureAlwaysOnTopMaterial(gizmoLineMaterial);
-        gizmoConeMesh = CreateConeMesh(10);
+        TransformGizmoUtility.ConfigureAlwaysOnTopMaterial(gizmoLineMaterial);
+        gizmoConeMesh = TransformGizmoUtility.CreateConeMesh(10);
 
         var root = new GameObject("RuntimeTransformGizmo");
         root.hideFlags = HideFlags.DontSave;
@@ -514,8 +525,8 @@ public class MoveTool : MonoBehaviour
             var meshRenderer = coneGo.AddComponent<MeshRenderer>();
             var coneMaterial = new Material(gizmoLineMaterial);
             coneMaterial.hideFlags = HideFlags.DontSave;
-            ConfigureAlwaysOnTopMaterial(coneMaterial);
-            SetMaterialColor(coneMaterial, GizmoColors[i]);
+            TransformGizmoUtility.ConfigureAlwaysOnTopMaterial(coneMaterial);
+            TransformGizmoUtility.SetMaterialColor(coneMaterial, GizmoColors[i]);
             meshRenderer.sharedMaterial = coneMaterial;
 
             axisConeTransforms[i] = coneGo.transform;
@@ -525,7 +536,7 @@ public class MoveTool : MonoBehaviour
         int colliderSegments = Mathf.Max(2, rotateArcColliderSegments);
         for (int i = 0; i < rotateArcRenderers.Length; i++)
         {
-            var arcGo = new GameObject($"RotateArc_{GetRotateArcLabel(i)}");
+            var arcGo = new GameObject($"RotateArc_{TransformGizmoUtility.GetArcLabel(i)}");
             arcGo.hideFlags = HideFlags.DontSave;
             arcGo.transform.SetParent(gizmoRoot, false);
 
@@ -539,7 +550,7 @@ public class MoveTool : MonoBehaviour
             arcRenderer.textureMode = LineTextureMode.Stretch;
             arcRenderer.numCapVertices = 0;
             arcRenderer.sortingOrder = short.MaxValue;
-            arcRenderer.startColor = GizmoColors[(int)GetRotateArcRotationAxis(i)];
+            arcRenderer.startColor = GizmoColors[(int)TransformGizmoUtility.GetArcRotationAxis(i)];
             arcRenderer.endColor = arcRenderer.startColor;
             rotateArcRenderers[i] = arcRenderer;
 
@@ -568,11 +579,14 @@ public class MoveTool : MonoBehaviour
         if (gizmoRoot.gameObject.activeSelf != visible)
         {
             gizmoRoot.gameObject.SetActive(visible);
+            if (!visible) gizmoVisualDirty = true;
         }
     }
 
     void CancelRuntimeDragStates()
     {
+        selectionGesture?.Cancel();
+        selectionGesture = null;
         activeGizmoDragMode = GizmoDragMode.None;
         activeGizmoAxis = GizmoAxis.None;
         gizmoDragStartPosition = Vector3.zero;
@@ -611,7 +625,9 @@ public class MoveTool : MonoBehaviour
             bounds.Encapsulate(renderers[i].bounds);
         }
 
-        center = bounds.center;
+        center = TransformToolSettings.PivotMode == TransformPivotMode.Pivot
+            ? target.transform.position
+            : bounds.center;
         float maxExtent = Mathf.Max(bounds.extents.x, bounds.extents.y, bounds.extents.z);
         axisLength = Mathf.Max(gizmoMinAxisLength, maxExtent * 2f * gizmoAxisLengthMultiplier);
         return true;
@@ -641,34 +657,6 @@ public class MoveTool : MonoBehaviour
         return true;
     }
 
-    static float DistanceToSegment(Vector2 point, Vector2 start, Vector2 end, out float t)
-    {
-        Vector2 segment = end - start;
-        float lenSq = segment.sqrMagnitude;
-        if (lenSq <= 0.00001f)
-        {
-            t = 0f;
-            return Vector2.Distance(point, start);
-        }
-
-        t = Mathf.Clamp01(Vector2.Dot(point - start, segment) / lenSq);
-        Vector2 projection = start + segment * t;
-        return Vector2.Distance(point, projection);
-    }
-
-    static Vector3 AxisFromEnum(GizmoAxis axis, Quaternion rotation)
-    {
-        Vector3 localAxis = axis switch
-        {
-            GizmoAxis.X => Vector3.right,
-            GizmoAxis.Y => Vector3.up,
-            GizmoAxis.Z => Vector3.forward,
-            _ => Vector3.right
-        };
-
-        return (rotation * localAxis).normalized;
-    }
-
     float GetScaledGizmoLineWidth(float axisLength)
     {
         if (gizmoMinAxisLength <= 0.0001f) return gizmoLineWidth;
@@ -680,12 +668,12 @@ public class MoveTool : MonoBehaviour
         var lr = rotateArcRenderers[arcIndex];
         if (lr == null) return;
 
-        GizmoAxis axisA = GetRotateArcStartAxis(arcIndex);
-        GizmoAxis axisB = GetRotateArcEndAxis(arcIndex);
-        GizmoAxis rotateAxis = GetRotateArcRotationAxis(arcIndex);
-        Vector3 dirA = AxisFromEnum(axisA, objectRotation);
-        Vector3 dirB = AxisFromEnum(axisB, objectRotation);
-        Vector3 normal = AxisFromEnum(rotateAxis, objectRotation);
+        GizmoAxis axisA = TransformGizmoUtility.GetArcStartAxis(arcIndex);
+        GizmoAxis axisB = TransformGizmoUtility.GetArcEndAxis(arcIndex);
+        GizmoAxis rotateAxis = TransformGizmoUtility.GetArcRotationAxis(arcIndex);
+        Vector3 dirA = TransformGizmoUtility.AxisDirection(axisA, objectRotation);
+        Vector3 dirB = TransformGizmoUtility.AxisDirection(axisB, objectRotation);
+        Vector3 normal = TransformGizmoUtility.AxisDirection(rotateAxis, objectRotation);
 
         int segmentCount = Mathf.Max(6, rotateArcLineSegments);
         lr.widthMultiplier = arcLineWidth;
@@ -693,7 +681,7 @@ public class MoveTool : MonoBehaviour
         for (int i = 0; i <= segmentCount; i++)
         {
             float t = i / (float)segmentCount;
-            lr.SetPosition(i, EvaluateArcPoint(center, dirA, dirB, arcRadius, t));
+            lr.SetPosition(i, TransformGizmoUtility.EvaluateArcPoint(center, dirA, dirB, arcRadius, t));
         }
 
         bool isActive = activeGizmoDragMode == GizmoDragMode.Rotate && activeGizmoAxis == rotateAxis;
@@ -712,8 +700,8 @@ public class MoveTool : MonoBehaviour
 
             float t0 = i / (float)colliders.Length;
             float t1 = (i + 1) / (float)colliders.Length;
-            Vector3 p0 = EvaluateArcPoint(center, dirA, dirB, arcRadius, t0);
-            Vector3 p1 = EvaluateArcPoint(center, dirA, dirB, arcRadius, t1);
+            Vector3 p0 = TransformGizmoUtility.EvaluateArcPoint(center, dirA, dirB, arcRadius, t0);
+            Vector3 p1 = TransformGizmoUtility.EvaluateArcPoint(center, dirA, dirB, arcRadius, t1);
             Vector3 segment = p1 - p0;
             float segmentLength = segment.magnitude;
             if (segmentLength < 0.0001f)
@@ -739,149 +727,6 @@ public class MoveTool : MonoBehaviour
         return Mathf.Clamp(rawRadius, minRadius, maxRadius);
     }
 
-    static Vector3 EvaluateArcPoint(Vector3 center, Vector3 axisA, Vector3 axisB, float radius, float t)
-    {
-        float radians = Mathf.Clamp01(t) * Mathf.PI * 0.5f;
-        Vector3 radial = (axisA * Mathf.Cos(radians)) + (axisB * Mathf.Sin(radians));
-        return center + radial.normalized * radius;
-    }
-
-    static GizmoAxis GetRotateArcStartAxis(int arcIndex)
-    {
-        return arcIndex switch
-        {
-            0 => GizmoAxis.X, // XY arc
-            1 => GizmoAxis.Y, // YZ arc
-            2 => GizmoAxis.Z, // ZX arc
-            _ => GizmoAxis.X
-        };
-    }
-
-    static GizmoAxis GetRotateArcEndAxis(int arcIndex)
-    {
-        return arcIndex switch
-        {
-            0 => GizmoAxis.Y, // XY arc
-            1 => GizmoAxis.Z, // YZ arc
-            2 => GizmoAxis.X, // ZX arc
-            _ => GizmoAxis.Y
-        };
-    }
-
-    static GizmoAxis GetRotateArcRotationAxis(int arcIndex)
-    {
-        return arcIndex switch
-        {
-            0 => GizmoAxis.Z, // XY arc -> rotate around Z
-            1 => GizmoAxis.X, // YZ arc -> rotate around X
-            2 => GizmoAxis.Y, // ZX arc -> rotate around Y
-            _ => GizmoAxis.None
-        };
-    }
-
-    static string GetRotateArcLabel(int arcIndex)
-    {
-        return arcIndex switch
-        {
-            0 => "XY",
-            1 => "YZ",
-            2 => "ZX",
-            _ => "Unknown"
-        };
-    }
-
-    static Mesh CreateConeMesh(int segmentCount)
-    {
-        int segments = Mathf.Max(8, segmentCount);
-        int vertexCount = segments + 2;
-        var vertices = new Vector3[vertexCount];
-        var normals = new Vector3[vertexCount];
-        var uvs = new Vector2[vertexCount];
-        int triangleCount = segments * 2;
-        var triangles = new int[triangleCount * 3];
-
-        vertices[0] = new Vector3(0f, 0f, 1f); // tip (+Z)
-        normals[0] = Vector3.forward;
-        uvs[0] = new Vector2(0.5f, 1f);
-
-        vertices[1] = Vector3.zero; // base center
-        normals[1] = Vector3.back;
-        uvs[1] = new Vector2(0.5f, 0.5f);
-
-        for (int i = 0; i < segments; i++)
-        {
-            float t = i / (float)segments;
-            float angle = t * Mathf.PI * 2f;
-            float x = Mathf.Cos(angle);
-            float y = Mathf.Sin(angle);
-            int v = i + 2;
-            vertices[v] = new Vector3(x, y, 0f);
-            normals[v] = new Vector3(x, y, 0.35f).normalized;
-            uvs[v] = new Vector2((x + 1f) * 0.5f, (y + 1f) * 0.5f);
-        }
-
-        int tri = 0;
-        for (int i = 0; i < segments; i++)
-        {
-            int current = i + 2;
-            int next = ((i + 1) % segments) + 2;
-
-            // Side triangle
-            triangles[tri++] = 0;
-            triangles[tri++] = current;
-            triangles[tri++] = next;
-
-            // Base triangle (facing -Z)
-            triangles[tri++] = 1;
-            triangles[tri++] = next;
-            triangles[tri++] = current;
-        }
-
-        var mesh = new Mesh
-        {
-            name = "RuntimeGizmoCone"
-        };
-        mesh.vertices = vertices;
-        mesh.normals = normals;
-        mesh.uv = uvs;
-        mesh.triangles = triangles;
-        mesh.RecalculateBounds();
-        return mesh;
-    }
-
-    static void ConfigureAlwaysOnTopMaterial(Material material)
-    {
-        if (material == null) return;
-
-        material.renderQueue = (int)RenderQueue.Overlay;
-        SetMaterialIntIfPresent(material, "_ZWrite", 0);
-        SetMaterialIntIfPresent(material, "_ZTest", (int)CompareFunction.Always);
-        SetMaterialIntIfPresent(material, "_Cull", (int)CullMode.Off);
-        SetMaterialIntIfPresent(material, "_SrcBlend", (int)BlendMode.SrcAlpha);
-        SetMaterialIntIfPresent(material, "_DstBlend", (int)BlendMode.OneMinusSrcAlpha);
-    }
-
-    static void SetMaterialIntIfPresent(Material material, string propertyName, int value)
-    {
-        if (material == null || !material.HasProperty(propertyName)) return;
-        material.SetInt(propertyName, value);
-    }
-
-    static void SetMaterialColor(Material material, Color color)
-    {
-        if (material == null) return;
-
-        if (material.HasProperty("_Color"))
-        {
-            material.SetColor("_Color", color);
-        }
-
-        if (material.HasProperty("_BaseColor"))
-        {
-            material.SetColor("_BaseColor", color);
-        }
-    }
-
     static Color ApplyGizmoOpacity(Color color)
     {
         color.a *= GizmoAlphaScale;
@@ -896,10 +741,18 @@ public class MoveTool : MonoBehaviour
     void EnsureCamera()
     {
         if (cam != null) return;
-        cam = Camera.main;
-        if (cam == null)
-        {
-            cam = FindFirstObjectByType<Camera>();
-        }
+        cam = EditWorkspace.ResolveCamera();
+    }
+
+    void EnsureSelection()
+    {
+        if (sel != null) return;
+        sel = FindFirstObjectByType<SelectionService>();
+    }
+
+    void LogDebug(string message)
+    {
+        if (!enableDiagnostics) return;
+        Debug.Log("[MoveTool] " + message);
     }
 }
