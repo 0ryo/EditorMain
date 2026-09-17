@@ -108,6 +108,16 @@ public class ScenarioGraphUI : MonoBehaviour
     Color validationFocusBaseColor;
     CommandStack validationCommandStack;
 
+    public void PrepareAuthoringPrefab()
+    {
+        if (stepNodeTemplate == null) stepNodeTemplate = nodeTemplate;
+        if (stepNodeTemplate == null) return;
+        ScenarioNodeTemplateFactory.Ensure(stepNodeTemplate, stepNodeTemplate.transform.parent,
+            ref startNodeTemplate, ref endNodeTemplate, ref conditionNodeTemplate);
+        conditionNodeTemplate?.PrepareTemplateControls();
+        previewPanel = ScenarioPreviewPanel.Ensure(nodeArea != null ? nodeArea : transform as RectTransform, previewPanel);
+    }
+
     void Awake()
     {
         EnsureGraphService();
@@ -1148,6 +1158,7 @@ public class ScenarioGraphUI : MonoBehaviour
         string finalPath = RuntimeExportPathUtility.BuildPath(fileName);
         try
         {
+            ScenarioModelBundle.Prepare(export, finalPath);
             ExportFileWriter.WriteAllTextWithBackup(finalPath, JsonUtility.ToJson(export, true));
         }
         catch (System.Exception ex)
@@ -1160,6 +1171,8 @@ public class ScenarioGraphUI : MonoBehaviour
         statusText.text = validation.warnings.Count > 0
             ? $"JSON出力しました（警告 {validation.warnings.Count} 件）: Exports/{fileName}"
             : $"JSON出力しました: Exports/{fileName}";
+        if (export.models.Any(model => model.requiresPreinstalledPrefab && model.typeId.StartsWith("Imported/")))
+            statusText.text += " / FBX等のモデルはVR側で事前登録が必要です。モデル同梱にはGLB/glTFを使用してください。";
         Debug.Log("[ScenarioGraph] " + statusText.text);
         validationPanel?.Hide();
         saveButton.interactable = true;

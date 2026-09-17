@@ -279,6 +279,12 @@ public class ViewportStatusStrip : MonoBehaviour
             return;
         }
 
+        if (selectionService != null && selectionService.Selected.Count > 1)
+        {
+            modeText.text = BuildModeLabel(editModeService != null ? editModeService.Mode : EditMode.Browse);
+            targetText.text = $"{selectionService.Selected.Count}個を選択 / 基準: {selectedObject?.Id}";
+            return;
+        }
         var mode = editModeService != null ? editModeService.Mode : EditMode.Browse;
         modeText.text = BuildModeLabel(mode);
         targetText.text = selectedObject != null

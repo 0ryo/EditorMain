@@ -5,6 +5,16 @@ using UnityEngine.InputSystem;
 
 public static class EditInput
 {
+    public static bool CancelPressedThisFrame()
+    {
+#if ENABLE_LEGACY_INPUT_MANAGER
+        return Input.GetKeyDown(KeyCode.Escape);
+#elif ENABLE_INPUT_SYSTEM
+        return Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame;
+#else
+        return false;
+#endif
+    }
     public static Vector2 MousePosition
     {
         get

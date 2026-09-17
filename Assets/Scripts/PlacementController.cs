@@ -181,6 +181,7 @@ public class PlacementController : MonoBehaviour
 
     void Update()
     {
+        if (ObjectScreenPicker.Capturing) return;
         bool leftPressedThisFrame = EditInput.LeftPressedThisFrame();
         if (string.IsNullOrEmpty(currentTypeId))
         {
@@ -240,23 +241,23 @@ public class PlacementController : MonoBehaviour
         };
 
         var cmd = new PlaceObjectCommand(typeId, placedPosition, Quaternion.identity, factory);
+        bool succeeded;
         if (CommandService.I != null && CommandService.I.Stack != null)
         {
-            CommandService.I.Stack.Execute(cmd);
+            succeeded = CommandService.I.Stack.Execute(cmd);
         }
         else
         {
             LogWarning("CommandService is missing. Placing object directly without undo stack.");
-            createdObject = factory(typeId);
-            if (createdObject == null)
+            try { succeeded = cmd.Do(); }
+            catch (System.Exception ex)
             {
-                LogWarning($"Direct placement failed. Factory returned null: {typeId}");
-                return false;
+                Debug.LogException(ex);
+                succeeded = false;
             }
-            createdObject.transform.SetPositionAndRotation(placedPosition, Quaternion.identity);
         }
 
-        if (createdObject == null || createdPlacedObject == null)
+        if (!succeeded || createdObject == null || createdPlacedObject == null)
         {
             LogWarning($"PlaceType failed. Object was not created: {typeId}");
             return false;
@@ -269,7 +270,7 @@ public class PlacementController : MonoBehaviour
 
         ObjectPlaced?.Invoke(createdPlacedObject, typeId);
 
-        LogDebug($"Placed OK: type={typeId}, id={createdPlacedObject?.Id ?? "(unknown)"}, position={placedPosition}");
+        LogDebug($"Placed OK: type={typeId}, id={createdPlacedObject.Id}, position={createdObject.transform.position}");
         return true;
     }
 
@@ -315,6 +316,10 @@ public class PlacementController : MonoBehaviour
 
 public class PlacedObject : MonoBehaviour
 {
+    public PlacedObject modelRoot;
+    public string partNodePath;
+    public string sourceNodePath;
+    public string sourceSignature;
     public string id;
     public string typeId;
     /// <summary>
@@ -327,6 +332,13 @@ public class PlacedObject : MonoBehaviour
     public static event System.Action<PlacedObject> OnDisplayNameChanged;
 
     static int fallbackSeq;
+
+    public static void ReserveExistingId(string value)
+    {
+        if (!string.IsNullOrEmpty(value) && value.StartsWith("obj-", System.StringComparison.Ordinal) &&
+            int.TryParse(value.Substring(4), out int sequence)) fallbackSeq = Mathf.Max(fallbackSeq, sequence);
+        IdGenerator.I?.ReserveExistingObjectId(value);
+    }
 
     public string Id => id;
     public string TypeId => typeId;
@@ -372,7 +384,9 @@ public class PlacedObject : MonoBehaviour
 
         if (IdGenerator.I != null)
         {
+            IdGenerator.I.ReserveExistingObjectId("obj-" + fallbackSeq.ToString("D4"));
             id = IdGenerator.I.NewObjectId();
+            ReserveExistingId(id);
             return;
         }
 

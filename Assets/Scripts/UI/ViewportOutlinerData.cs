@@ -18,7 +18,14 @@ public static class ViewportOutlinerData
         }
 
         placedObjects.Sort(ComparePlacedObjects);
-        return placedObjects;
+        var ordered = new List<PlacedObject>();
+        foreach (var root in placedObjects)
+        {
+            if (root.modelRoot != null) continue;
+            foreach (var item in root.GetComponentsInChildren<PlacedObject>(false))
+                if (placedObjects.Contains(item)) ordered.Add(item);
+        }
+        return ordered;
     }
 
     public static int CalculateSignature(IReadOnlyList<PlacedObject> placedObjects, int sourceCount)
@@ -48,6 +55,7 @@ public static class ViewportOutlinerData
     {
         if (placed == null || string.IsNullOrWhiteSpace(query)) return true;
         return ContainsIgnoreCase(placed.GetDisplayName(), query)
+            || (placed.modelRoot != null && ContainsIgnoreCase(placed.modelRoot.GetDisplayName(), query))
             || ContainsIgnoreCase(placed.Id, query)
             || ContainsIgnoreCase(placed.TypeId, query);
     }

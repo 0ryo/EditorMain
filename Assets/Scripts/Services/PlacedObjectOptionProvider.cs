@@ -25,7 +25,7 @@ public static class PlacedObjectOptionProvider
             var option = new Option
             {
                 id    = placed.id,
-                label = placed.GetDisplayName()
+                label = ImportedModelParts.Label(placed)
             };
 
             byId[option.id] = option;

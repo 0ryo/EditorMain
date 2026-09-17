@@ -6,6 +6,14 @@ public static class ConditionTypeCatalog
 {
     public const string SnapHold = "SnapHold";
     public const string Proximity = "Proximity";
+    public const string Separation = "Separation";
+    public const string RotationMatch = "RotationMatch";
+    public const string Grabbed = "Grabbed";
+    public const string Released = "Released";
+    public const string Push = "Push";
+    public const string Pull = "Pull";
+    public const string Turn = "Turn";
+    public const string AngleKey = "angleDegrees";
     public const string DistanceKey = "distanceMeters";
     public const string HoldSecondsKey = "holdSeconds";
 
@@ -22,6 +30,7 @@ public static class ConditionTypeCatalog
     {
         public string id;
         public string label;
+        public bool requiresObjectB = true;
         public IReadOnlyList<ParameterDefinition> parameters;
     }
 
@@ -45,10 +54,30 @@ public static class ConditionTypeCatalog
             {
                 Parameter(DistanceKey, "距離 (m)", 0.1f, 0.001f, 10f)
             }
-        }
+        },
+        new Definition
+        {
+            id = Separation, label = "離す",
+            parameters = new[] { Parameter(DistanceKey, "最小距離 (m)", 0.3f, 0.001f, 100f) }
+        },
+        new Definition
+        {
+            id = RotationMatch, label = "向きをそろえる",
+            parameters = new[] { Parameter(AngleKey, "角度の許容差 (度)", 10f, 0.1f, 180f),
+                Parameter(HoldSecondsKey, "保持 (秒)", 1f, 0f, 600f) }
+        },
+        new Definition { id = Grabbed, label = "もつ", requiresObjectB = false, parameters = Array.Empty<ParameterDefinition>() },
+        new Definition { id = Push, label = "押す", requiresObjectB = false, parameters = Array.Empty<ParameterDefinition>() },
+        new Definition { id = Pull, label = "引く", requiresObjectB = false, parameters = Array.Empty<ParameterDefinition>() },
+        new Definition { id = Turn, label = "回す", requiresObjectB = false,
+            parameters = new[] { Parameter(AngleKey, "回す角度 (度)", 90f, 0.1f, 36000f) } },
+        new Definition { id = Released, label = "つかんで手放す", requiresObjectB = false, parameters = Array.Empty<ParameterDefinition>() }
     };
 
-    public static IReadOnlyList<Definition> Definitions => definitions;
+    public static bool RequiresObjectB(string type) => Find(type)?.requiresObjectB != false;
+
+    public static IReadOnlyList<Definition> Definitions => new[]
+    { Find(Proximity), Find(SnapHold), Find(Push), Find(Pull), Find(Grabbed), Find(Turn) };
 
     public static Definition Find(string type)
     {
@@ -76,7 +105,8 @@ public static class ConditionTypeCatalog
         {
             if (condition.parameters.Any(item => item.key == parameter.key)) continue;
             float defaultValue = parameter.defaultValue;
-            if (parameter.key == DistanceKey && rules != null) defaultValue = rules.proximityDistance;
+            if (parameter.key == DistanceKey && rules != null && (condition.type == SnapHold || condition.type == Proximity))
+                defaultValue = rules.proximityDistance;
             if (parameter.key == HoldSecondsKey && rules != null) defaultValue = rules.holdSeconds;
             condition.parameters.Add(new ConditionParameterData
             {

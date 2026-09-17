@@ -228,6 +228,17 @@ public sealed class ObjectTransformPanel : MonoBehaviour
             return;
         }
 
+        var selection = FindFirstObjectByType<SelectionService>();
+        if (selection != null && selection.Current == currentObject && selection.Selected.Count > 1)
+        {
+            var gesture = new SelectionTransformSession(selection);
+            target.localPosition = after.localPosition;
+            target.localRotation = after.localRotation;
+            target.localScale = after.localScale;
+            gesture.Commit(label);
+            RefreshFields(true);
+            return;
+        }
         var command = new TransformObjectCommand(currentObject.gameObject, before, after, label);
         if (CommandService.I != null && CommandService.I.Stack != null)
         {

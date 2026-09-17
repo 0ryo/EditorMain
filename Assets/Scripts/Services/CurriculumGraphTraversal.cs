@@ -8,7 +8,7 @@ internal static class CurriculumGraphTraversal
         var ordered = new List<ScenarioNode>();
         var visited = new HashSet<string>();
 
-        if (TryBuildLinearStepSequence(curriculum, out var linear, out _))
+        if (ScenarioFlow.TryOrder(curriculum, out var linear, out _))
         {
             foreach (var step in linear)
             {
@@ -66,7 +66,7 @@ internal static class CurriculumGraphTraversal
         while (true)
         {
             var outEdges = curriculum.edges
-                .Where(e => e.edgeType == ScenarioEdgeType.StepFlow && e.fromNodeId == cursor)
+                .Where(e => e != null && e.edgeType == ScenarioEdgeType.StepFlow && e.fromNodeId == cursor)
                 .ToList();
             if (outEdges.Count != 1)
             {

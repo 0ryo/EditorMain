@@ -8,6 +8,7 @@ public static class EditWorkspace
 {
     public const float GroundY = 0f;
     public static readonly Vector3 DefaultCameraPosition = new Vector3(0f, 6f, -10f);
+    public static readonly Color BackgroundColor = new Color32(0x42, 0x42, 0x42, 0xFF);
 
     static readonly Plane GroundPlane = new Plane(Vector3.up, new Vector3(0f, GroundY, 0f));
     static readonly List<RaycastResult> UiRaycastResults = new List<RaycastResult>();
@@ -21,6 +22,13 @@ public static class EditWorkspace
 
     public static void EnsureWorkspaceVisuals()
     {
+        var camera = ResolveCamera();
+        if (camera != null)
+        {
+            camera.clearFlags = CameraClearFlags.SolidColor;
+            camera.backgroundColor = BackgroundColor;
+        }
+
         WorkspaceFloorGrid.EnsureExists();
     }
 
@@ -100,6 +108,7 @@ public static class EditWorkspace
 
     public static bool IsTypingIntoInputField()
     {
+        if (ObjectScreenPicker.Capturing) return true;
         if (EventSystem.current == null) return false;
 
         var selected = EventSystem.current.currentSelectedGameObject;

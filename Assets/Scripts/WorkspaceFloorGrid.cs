@@ -5,15 +5,18 @@ public class WorkspaceFloorGrid : MonoBehaviour
 {
     const string RuntimeName = "WorkspaceFloorGrid_Runtime";
     const string FloorSurfaceName = "Floor_Surface";
-    const int BuildRevision = 4;
+    const int BuildRevision = 6;
     const int HalfLineCount = 80;
     const float GridStep = 1f;
     const float SurfaceY = -0.012f;
     const float GridY = 0.012f;
-    const float LineWidth = 0.006f;
+    const float BaseLineWidth = 0.006f;
+    const float DefaultWorldUnitsPerPixel = 14f / 1080f;
+    const float GridLineWidth = BaseLineWidth;
+    const float AxisLineWidth = BaseLineWidth + DefaultWorldUnitsPerPixel * 2f;
 
-    static readonly Color SurfaceColor = new Color(0.93f, 0.95f, 0.98f, 0.42f);
-    static readonly Color GridLineColor = new Color(0.50f, 0.58f, 0.68f, 0.37f);
+    static readonly Color SurfaceColor = EditWorkspace.BackgroundColor;
+    static readonly Color GridLineColor = new Color32(0x4F, 0x4F, 0x4F, 0xFF);
     static readonly Color XAxisColor = new Color(0.72f, 0.40f, 0.40f, 0.41f);
     static readonly Color ZAxisColor = new Color(0.38f, 0.50f, 0.72f, 0.41f);
 
@@ -70,18 +73,18 @@ public class WorkspaceFloorGrid : MonoBehaviour
                 $"Grid_X_{i + HalfLineCount:000}",
                 new Vector3(-extent, GridY, offset),
                 new Vector3(extent, GridY, offset),
-                LineWidth,
+                GridLineWidth,
                 lineMaterial);
             CreateGroundLine(
                 $"Grid_Z_{i + HalfLineCount:000}",
                 new Vector3(offset, GridY, -extent),
                 new Vector3(offset, GridY, extent),
-                LineWidth,
+                GridLineWidth,
                 lineMaterial);
         }
 
-        CreateGroundLine("Axis_X", new Vector3(-extent, GridY + 0.004f, 0f), new Vector3(extent, GridY + 0.004f, 0f), LineWidth, xAxisMaterial);
-        CreateGroundLine("Axis_Z", new Vector3(0f, GridY + 0.006f, -extent), new Vector3(0f, GridY + 0.006f, extent), LineWidth, zAxisMaterial);
+        CreateGroundLine("Axis_X", new Vector3(-extent, GridY + 0.004f, 0f), new Vector3(extent, GridY + 0.004f, 0f), AxisLineWidth, xAxisMaterial);
+        CreateGroundLine("Axis_Z", new Vector3(0f, GridY + 0.006f, -extent), new Vector3(0f, GridY + 0.006f, extent), AxisLineWidth, zAxisMaterial);
         builtRevision = BuildRevision;
     }
 

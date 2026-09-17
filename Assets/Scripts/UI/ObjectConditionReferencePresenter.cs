@@ -25,7 +25,8 @@ internal static class ObjectConditionReferenceQuery
             if (node == null || node.nodeType != ScenarioNodeType.Condition || node.condition == null) continue;
 
             bool useA = string.Equals(node.condition.objectAId, objectId, StringComparison.Ordinal);
-            bool useB = string.Equals(node.condition.objectBId, objectId, StringComparison.Ordinal);
+            bool useB = ConditionTypeCatalog.RequiresObjectB(node.condition.type) &&
+                string.Equals(node.condition.objectBId, objectId, StringComparison.Ordinal);
             if (!useA && !useB) continue;
 
             results.Add(new ObjectConditionReference
@@ -57,6 +58,8 @@ internal static class ObjectConditionReferenceQuery
             builder.Append(reference.objectAId ?? string.Empty);
             builder.Append(':');
             builder.Append(reference.objectBId ?? string.Empty);
+            builder.Append(reference.node?.condition?.type ?? string.Empty);
+            builder.Append(ConditionTypeCatalog.BuildParameterSignature(reference.node?.condition));
         }
 
         return builder.ToString();
@@ -509,7 +512,9 @@ internal sealed class ObjectConditionReferencePresenter
 
         string aName = ResolveObjectLabel(reference.objectAId, objectLabelMap);
         string bName = ResolveObjectLabel(reference.objectBId, objectLabelMap);
-        body.text = $"{aName}{DescriptionPhraseMiddle}\n{bName}{DescriptionPhraseSuffix}";
+        string type = reference.node?.condition?.type;
+        string action = ConditionTypeCatalog.Find(type)?.label ?? type;
+        body.text = ConditionTypeCatalog.RequiresObjectB(type) ? $"{aName} / {bName}\n{action}" : $"{aName}\n{action}";
     }
 
     void ClearBlocks()

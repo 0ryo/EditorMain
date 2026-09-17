@@ -89,6 +89,8 @@ public class ConditionRowUI : MonoBehaviour
 
         ApplyDropdownVisualStyle(dropdownA);
         ApplyDropdownVisualStyle(dropdownB);
+        ObjectDropdownBrowser.Bind(dropdownA, displayOptions);
+        ObjectDropdownBrowser.Bind(dropdownB, displayOptions);
 
         if (textAfterA != null) textAfterA.text = LabelParticleA;
         if (textAfterB != null) textAfterB.text = LabelParticleB;
@@ -149,6 +151,16 @@ public class ConditionRowUI : MonoBehaviour
     public static void PrepareDropdown(TMP_Dropdown dropdown, bool hideSelectedOption = false)
     {
         if (dropdown == null) return;
+        if (hideSelectedOption)
+        {
+            var objectBrowser = dropdown.GetComponent<ObjectDropdownBrowser>();
+            if (objectBrowser) objectBrowser.enabled = false;
+            if (dropdown.template) foreach (string name in new[] { "ObjectSearch", "ScreenPick", "NoMatches" })
+            {
+                var control = dropdown.template.Find(name);
+                if (control) control.gameObject.SetActive(false);
+            }
+        }
         EnsureDropdownReferences(dropdown);
         var openFixer = dropdown.GetComponent<DropdownOpenFixer>();
         if (openFixer != null) openFixer.Bind(dropdown, hideSelectedOption);
@@ -440,7 +452,7 @@ public class DropdownOpenFixer : MonoBehaviour, IPointerClickHandler
 
         if (dropdown == null) yield break;
 
-        var root = dropdown.transform.root;
+        var root = dropdown.transform;
         var list = FindOpenDropdownList(root);
         if (list == null) yield break;
 
@@ -517,6 +529,8 @@ public class DropdownOpenFixer : MonoBehaviour, IPointerClickHandler
             StretchDropdownListContent(listRt);
             listRt.SetAsLastSibling();
             LayoutRebuilder.ForceRebuildLayoutImmediate(listRt);
+            var browser = dropdown.GetComponent<ObjectDropdownBrowser>();
+            if (browser) browser.ConfigureList(listRt);
         }
     }
 

@@ -7,14 +7,14 @@ internal static class ScenarioExportBuilder
     public static ScenarioExport Build(CurriculumGraphService graph)
     {
         var curriculum = graph.curriculum;
-        if (!graph.TryBuildLinearStepSequence(out var orderedSteps, out var reason))
+        if (!ScenarioFlow.TryOrder(curriculum, out var orderedSteps, out var reason))
         {
             throw new InvalidOperationException("Scenario export failed: " + reason);
         }
 
         var export = new ScenarioExport
         {
-            version = 4,
+            version = 6,
             projectName = string.IsNullOrWhiteSpace(curriculum.projectName) ? "VRCourseEditor" : curriculum.projectName,
             scenarioSettings = new ScenarioSettingsExport
             {
@@ -23,12 +23,19 @@ internal static class ScenarioExportBuilder
             }
         };
 
+        var actionIds = orderedSteps.Select((node, index) => new { node.nodeId, id = $"act-{index + 1:D3}" })
+            .ToDictionary(item => item.nodeId, item => item.id);
+        actionIds[graph.GetEndNode().nodeId] = ScenarioExport.EndActionId;
+        export.startActionId = actionIds[ScenarioFlow.Next(curriculum, graph.GetStartNode().nodeId)[0].nodeId];
+
         for (int i = 0; i < orderedSteps.Count; i++)
         {
             var step = orderedSteps[i];
             var action = new RequiredActionExport
             {
                 id = $"act-{(i + 1).ToString("D3")}",
+                sourceNodeId = step.nodeId,
+                nextActionIds = ScenarioFlow.Next(curriculum, step.nodeId).Select(node => actionIds[node.nodeId]).ToList(),
                 name = string.IsNullOrWhiteSpace(step.step.title) ? $"\u624B\u9806 {i + 1}" : step.step.title.Trim(),
                 body = step.step.body ?? string.Empty,
                 supplement = step.step.supplement ?? string.Empty,
@@ -49,7 +56,7 @@ internal static class ScenarioExportBuilder
                 {
                     type = condition.condition.type,
                     aObjectId = condition.condition.objectAId,
-                    bObjectId = condition.condition.objectBId,
+                    bObjectId = conditionDefinition.requiresObjectB ? condition.condition.objectBId : null,
                     holdSeconds = ConditionTypeCatalog.GetNumber(
                         condition.condition,
                         ConditionTypeCatalog.HoldSecondsKey,
@@ -77,6 +84,7 @@ internal static class ScenarioExportBuilder
         }
 
         var placed = UnityEngine.Object.FindObjectsByType<PlacedObject>(FindObjectsInactive.Exclude, FindObjectsSortMode.None)
+            .Where(p => p.modelRoot == null)
             .OrderBy(p => p.id)
             .ToList();
         foreach (var po in placed)
@@ -87,6 +95,9 @@ internal static class ScenarioExportBuilder
             export.objects.Add(new PlacementExportObject
             {
                 id = po.id,
+                sourceNodePath = po.sourceNodePath,
+                sourceSignature = po.sourceSignature,
+                parts = ImportedModelParts.Capture(po),
                 typeId = po.typeId,
                 position = po.transform.position,
                 rotation = po.transform.rotation,

@@ -7,6 +7,9 @@ public static class PlacedObjectPickability
     public static bool EnsurePickable(PlacedObject placed, bool log = false)
     {
         if (placed == null) return false;
+        // Groups are selected from the tree; a whole-model box would mask child hits.
+        foreach (var child in placed.GetComponentsInChildren<PlacedObject>(true))
+            if (child != placed && child.modelRoot != null) return false;
 
         var editState = placed.GetComponent<PlacedObjectEditState>();
         if (editState != null && (editState.Locked || editState.Hidden)) return false;

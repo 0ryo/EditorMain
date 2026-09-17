@@ -23,18 +23,30 @@ public class PlaceObjectCommand : IEditorCommand, IDiscardableEditorCommand {
             return false;
         }
 
-        instance.SetActive(true);
-        if (hasResolvedPosition)
+        try
         {
-            instance.transform.SetPositionAndRotation(resolvedPosition, rot);
+            instance.SetActive(true);
+            if (hasResolvedPosition)
+            {
+                instance.transform.SetPositionAndRotation(resolvedPosition, rot);
+            }
+            else
+            {
+                instance.transform.SetPositionAndRotation(pos, rot);
+                PlacedObjectGrounding.AlignRendererBoundsToGround(instance, EditWorkspace.GroundY, out resolvedPosition);
+                hasResolvedPosition = true;
+            }
+            return true;
         }
-        else
+        catch
         {
-            instance.transform.SetPositionAndRotation(pos, rot);
-            PlacedObjectGrounding.AlignRendererBoundsToGround(instance, EditWorkspace.GroundY, out resolvedPosition);
-            hasResolvedPosition = true;
+            instance.SetActive(false);
+            if (Application.isPlaying) GameObject.Destroy(instance);
+            else GameObject.DestroyImmediate(instance);
+            instance = null;
+            hasResolvedPosition = false;
+            throw;
         }
-        return true;
     }
     public bool Undo(){ if (instance==null) return false; instance.SetActive(false); return true; }
     public void Discard(){ if (instance!=null && !instance.activeSelf) GameObject.Destroy(instance); }
@@ -76,11 +88,14 @@ public class DuplicateObjectCommand : IEditorCommand, IDiscardableEditorCommand 
                 placed.typeId=sourcePlaced.typeId;
             }
 
-            placed.ForceNewId();
+            if (sourcePlaced != null) ImportedModelParts.ReidentifyDuplicate(placed, sourcePlaced);
+            else placed.ForceNewId();
+            instance.transform.localScale = source.transform.lossyScale;
             var editState=instance.GetComponent<PlacedObjectEditState>();
             if (editState!=null){
                 editState.SetLocked(false);
                 editState.SetVisible(true);
+                editState.RefreshSubtree();
             }
             PlacedObjectPickability.EnsurePickable(placed, true);
         }
@@ -157,5 +172,11 @@ public class DeleteObjectCommand : IEditorCommand, IDiscardableEditorCommand {
         target.SetActive(wasActiveSelf);
         return true;
     }
-    public void Discard(){ if (target!=null && !target.activeSelf) GameObject.Destroy(target); }
+    public void Discard(){
+        if (target==null || target.activeSelf) return;
+        var part = target.GetComponent<PlacedObject>();
+        // Keep removed source nodes as inactive tombstones so saving cannot resurrect them.
+        if (part != null && part.modelRoot != null) return;
+        GameObject.Destroy(target);
+    }
 }

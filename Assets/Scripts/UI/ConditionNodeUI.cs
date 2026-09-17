@@ -136,6 +136,13 @@ public class ConditionNodeUI : MonoBehaviour
         RefreshWarning();
     }
 
+    public void PrepareTemplateControls()
+    {
+        EnsureTitleInputReference();
+        EnsureConditionEditorControls();
+        ApplyTask2VisualLayout();
+    }
+
     void EnsureConditionEditorControls()
     {
         var root = transform as RectTransform;
@@ -211,6 +218,8 @@ public class ConditionNodeUI : MonoBehaviour
         if (conditionTypeDropdown != null)
         {
             var definitions = ConditionTypeCatalog.Definitions.ToList();
+            var legacy = ConditionTypeCatalog.Find(conditionNode.condition.type);
+            if (legacy != null && !definitions.Any(item => item.id == legacy.id)) definitions.Insert(0, legacy);
             if (ConditionTypeCatalog.Find(conditionNode.condition.type) == null)
             {
                 definitions.Insert(0, new ConditionTypeCatalog.Definition
@@ -249,25 +258,18 @@ public class ConditionNodeUI : MonoBehaviour
             });
         }
 
-        BindNumberParameter(
-            distanceInput,
-            ConditionTypeCatalog.DistanceKey,
-            "Set condition distance");
-        BindNumberParameter(
-            holdSecondsInput,
-            ConditionTypeCatalog.HoldSecondsKey,
-            "Set condition hold duration");
-
         var activeDefinition = ConditionTypeCatalog.Find(conditionNode.condition.type);
-        bool usesDistance = activeDefinition?.parameters
-            .Any(item => item.key == ConditionTypeCatalog.DistanceKey) == true;
-        bool usesHold = activeDefinition?.parameters
-            .Any(item => item.key == ConditionTypeCatalog.HoldSecondsKey) == true;
-        if (distanceInput != null) distanceInput.gameObject.SetActive(usesDistance);
-        if (distanceLabel != null) distanceLabel.gameObject.SetActive(usesDistance);
-        if (holdSecondsInput != null) holdSecondsInput.gameObject.SetActive(usesHold);
-        if (holdSecondsLabel != null) holdSecondsLabel.gameObject.SetActive(usesHold);
+        var parameters = activeDefinition?.parameters;
+        BindParameterSlot(distanceInput, distanceLabel, parameters != null && parameters.Count > 0 ? parameters[0] : null);
+        BindParameterSlot(holdSecondsInput, holdSecondsLabel, parameters != null && parameters.Count > 1 ? parameters[1] : null);
         UpdateConditionLabels();
+    }
+
+    void BindParameterSlot(TMP_InputField input, TMP_Text label, ConditionTypeCatalog.ParameterDefinition parameter)
+    {
+        if (input != null) input.gameObject.SetActive(parameter != null);
+        if (label != null) { label.gameObject.SetActive(parameter != null); if (parameter != null) label.text = parameter.label; }
+        if (parameter != null) BindNumberParameter(input, parameter.key, "Set condition parameter");
     }
 
     void BindNumberParameter(TMP_InputField input, string key, string commandLabel)
@@ -299,7 +301,10 @@ public class ConditionNodeUI : MonoBehaviour
     void UpdateConditionLabels()
     {
         if (conditionRow?.textAfterB == null) return;
-        conditionRow.textAfterB.text = "に";
+        bool needsB = ConditionTypeCatalog.RequiresObjectB(conditionNode.condition.type);
+        if (conditionRow.dropdownB != null) conditionRow.dropdownB.gameObject.SetActive(needsB);
+        conditionRow.textAfterB.gameObject.SetActive(needsB);
+        conditionRow.textAfterB.text = conditionNode.condition.type == ConditionTypeCatalog.Separation ? "から" : "に";
     }
 
     void RefreshConditionOptionsIfNeeded(bool force = false)
@@ -458,6 +463,14 @@ public class ConditionNodeUI : MonoBehaviour
 
     void ApplyTask2VisualLayout()
     {
+        bool needsB = conditionNode?.condition == null || ConditionTypeCatalog.RequiresObjectB(conditionNode.condition.type);
+        float compactOffset = needsB ? 0 : 56;
+        bool hasParameters = conditionNode?.condition == null || (ConditionTypeCatalog.Find(conditionNode.condition.type)?.parameters?.Count ?? 0) > 0;
+        var root = transform as RectTransform;
+        float height = needsB ? PreferredHeight : hasParameters ? PreferredHeight - compactOffset : 154;
+        if (root) root.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, height);
+        var layout = GetComponent<LayoutElement>();
+        if (layout) layout.minHeight = layout.preferredHeight = height;
         if (titleInput != null)
         {
             titleInput.gameObject.SetActive(false);
@@ -489,8 +502,8 @@ public class ConditionNodeUI : MonoBehaviour
                 0.5f,
                 ControlInset,
                 -(ParameterColumnGap * 0.5f),
-                -270f,
-                -230f);
+                -270f + compactOffset,
+                -230f + compactOffset);
         }
 
         if (holdSecondsInput != null)
@@ -501,8 +514,8 @@ public class ConditionNodeUI : MonoBehaviour
                 1f,
                 ParameterColumnGap * 0.5f,
                 -ControlInset,
-                -270f,
-                -230f);
+                -270f + compactOffset,
+                -230f + compactOffset);
         }
 
         if (distanceLabel != null)
@@ -513,8 +526,8 @@ public class ConditionNodeUI : MonoBehaviour
                 0.5f,
                 ControlInset,
                 -(ParameterColumnGap * 0.5f),
-                -222f,
-                -202f);
+                -222f + compactOffset,
+                -202f + compactOffset);
         }
 
         if (holdSecondsLabel != null)
@@ -525,8 +538,8 @@ public class ConditionNodeUI : MonoBehaviour
                 1f,
                 ParameterColumnGap * 0.5f,
                 -ControlInset,
-                -222f,
-                -202f);
+                -222f + compactOffset,
+                -202f + compactOffset);
         }
 
         if (conditionRow == null) return;
@@ -538,12 +551,12 @@ public class ConditionNodeUI : MonoBehaviour
         var areaFitter = conditionArea.GetComponent<ContentSizeFitter>();
         if (areaFitter != null) areaFitter.enabled = false;
 
-        SetTopStretchRect(conditionArea, AreaLeft, AreaRight, -194f, -46f);
+        SetTopStretchRect(conditionArea, AreaLeft, AreaRight, -194f + compactOffset, -46f);
         ClearContainerVisual(conditionArea);
-        LayoutConditionRow(conditionRow, conditionTypeDropdown);
+        LayoutConditionRow(conditionRow, conditionTypeDropdown, needsB);
     }
 
-    static void LayoutConditionRow(ConditionRowUI row, TMP_Dropdown actionDropdown)
+    static void LayoutConditionRow(ConditionRowUI row, TMP_Dropdown actionDropdown, bool needsB)
     {
         if (row == null) return;
 
@@ -562,9 +575,7 @@ public class ConditionNodeUI : MonoBehaviour
         ClearContainerVisual(lineA);
         ClearContainerVisual(lineB);
 
-        float rowHeight = rowRt.rect.height > 1f ? rowRt.rect.height : 100f;
-        float availableHeight = Mathf.Max(48f, rowHeight - (RowVerticalInset * 2f) - RowGap);
-        float lineHeight = Mathf.Max(24f, availableHeight * 0.5f);
+        float lineHeight = 48f;
         float lineATop = -RowVerticalInset;
         float lineABottom = -(RowVerticalInset + lineHeight);
         float lineBTop = -(RowVerticalInset + lineHeight + RowGap);
@@ -575,8 +586,18 @@ public class ConditionNodeUI : MonoBehaviour
         float rowWidth = rowRt.rect.width > 1f ? rowRt.rect.width : 300f;
         float suffixLeft = Mathf.Clamp(rowWidth * 0.66f, 170f, rowWidth - 96f);
 
-        LayoutConditionLine(lineA, row.dropdownA, row.textAfterA, suffixLeft, "\u3092");
-        LayoutConditionActionLine(lineB, row.dropdownB, row.textAfterB, actionDropdown, rowWidth);
+        if (needsB)
+        {
+            lineB.gameObject.SetActive(true);
+            LayoutConditionLine(lineA, row.dropdownA, row.textAfterA, suffixLeft, "\u3092");
+            LayoutConditionActionLine(lineB, row.dropdownB, row.textAfterB, actionDropdown, rowWidth);
+        }
+        else
+        {
+            LayoutConditionActionLine(lineA, row.dropdownA, row.textAfterA, actionDropdown, rowWidth);
+            if (row.textAfterA) row.textAfterA.text = "を";
+            lineB.gameObject.SetActive(false);
+        }
     }
 
     static void ClearContainerVisual(RectTransform target)

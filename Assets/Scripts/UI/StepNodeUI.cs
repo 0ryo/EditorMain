@@ -309,6 +309,8 @@ public class StepNodeUI : MonoBehaviour
         conditionSummaryText.text = conditionCount <= 0
             ? "\u6761\u4EF6\u3092\u8FFD\u52A0\u3057\u3066\u304F\u3060\u3055\u3044"
             : $"\u6761\u4EF6: {conditionCount}";
+        int nextCount = ScenarioFlow.Next(graphService.curriculum, stepNode.nodeId).Count;
+        if (nextCount > 1) conditionSummaryText.text += $" / 成功後 {nextCount}択";
         conditionSummaryText.color = conditionCount <= 0
             ? DesignTokens.TextTertiary
             : DesignTokens.TextSecondary;
@@ -446,7 +448,10 @@ public class StepNodeUI : MonoBehaviour
             int numDividers = embeddedCount - 1;
             int totalItems = embeddedCount + numDividers;
             float totalSpacing = totalItems > 1 ? (totalItems - 1) * EmbeddedSpacing : 0f;
-            embeddedHeight = (embeddedCount * embeddedNodeHeight)
+            float cardsHeight = runtimeEmbeddedConditions.Count == embeddedCount
+                ? runtimeEmbeddedConditions.Sum(card => LayoutUtility.GetPreferredHeight((RectTransform)card.transform))
+                : embeddedCount * embeddedNodeHeight;
+            embeddedHeight = cardsHeight
                            + (numDividers * DesignTokens.DividerHeight)
                            + totalSpacing;
         }

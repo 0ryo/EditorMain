@@ -9,8 +9,8 @@
 
 ## EDT — 3D編集機能
 
-- [P1][EDT-03] 複数選択、範囲選択、全選択、group化、copy/pasteを追加する。
-- [P1][EDT-04] 整列、等間隔配置、layer/category表示制御を追加する。
+- [P1][EDT-03] 範囲選択、全選択、group化、copy/pasteを追加する。
+- [P1][EDT-04] layer/category表示制御を追加する。
 - [P1][EDT-07] surface/object snap、衝突・重なり警告を追加する。
 
 ## SCN — Scenario制作
@@ -21,9 +21,9 @@
 
 ## ADV — 高度な教材表現
 
-- [P2][ADV-01] 分岐、選択肢、loop、parallel、wait、timeoutを表現できるgraph/modelへ拡張する。
+- [P2][ADV-01] loop、parallel、waitを表現できるgraph/modelへ拡張する。
 - [P2][ADV-02] 画像、動画、音声等の教材assetと参照管理を追加する。
-- [P2][ADV-03] 成功・失敗feedback、role/担当者、評価結果をmodelとpreviewへ追加する。
+- [P2][ADV-03] 成功feedback、role/担当者、評価結果をmodelとpreviewへ追加する。
 - [P2][ADV-04] user-facing textをlocalization可能な構造へ変更する。
 
 ## IMP — Catalog・モデル取込
@@ -33,7 +33,6 @@
 - [P1][IMP-03] import進捗、cancel、具体的な失敗理由を表示する。
 - [P1][IMP-04] file size、頂点数、texture容量、破損file、外部参照に制限と警告を設ける。
 - [P2][IMP-05] import前previewと単位・scale・axis・pivot補正を追加する。
-- [P1][IMP-06] runtime importしたmodel/cardをprojectへ永続化し、元file移動後も再読込できるようにする。
 - [P2][IMP-07] catalog項目の編集・削除確認と参照中objectへの影響表示を追加する。
 - [P2][IMP-08] Windowsの260文字native dialog依存を解消し、対応platform matrixを定義する。
 

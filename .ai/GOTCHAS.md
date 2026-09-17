@@ -14,6 +14,9 @@
 
 ## UI / Prefab
 
+- `MaterialPropertyBlock`などUnityネイティブ資源をMonoBehaviourのfield initializerで生成しない。`Awake`または明示的な初期化メソッドで生成する。候補輪郭でconstructor例外の後に描画callbackのNullReferenceが毎フレーム続き、スクロールまで重くなった。構文・型チェックでは検出できない。
+- `ScrollRect.AutoHideAndExpandViewport`はlayout時にviewportの余白を書き換える。検索欄などの固定ヘッダーをリスト上部に置く場合はviewport自動拡張を切り、検索欄・scrollbarの余白を共通設定する。
+
 - `SampleScene`はBuild Settingsで無効でもユーザーの通常作業・確認Scene。Main CameraとUIRootから`CatalogUI`が不足serviceとworkspace gridを補完するため、scene pathだけでruntime補完を止めない。
 - `CatalogUI.cs` は約3,000行あり、Catalogだけでなくservice補完、edit mode、settings、new object dialog、importまで担うhotspot。小変更でもStart/wiring/runtime補完/importの影響を検索する。
 - Prefab正本方針でもruntime `Ensure*` が多数ある。Hierarchy名を変えると `transform.Find`、name比較、blocking UI判定、builder、Prefabが同時に壊れる。
@@ -23,6 +26,8 @@
 
 ## 配置・選択・入力
 
+- Unityの`GetComponent<T>()`が返す欠損ComponentはEditorでCLRのnullとは異なる場合がある。`GetComponent<MeshFilter>()?.sharedMesh`は安全な欠損確認にならず、MeshFilterのないモデル親で`MissingComponentException`になった。Unityの`!= null`／truthinessで確認する。配置factoryは例外時に生成物を非アクティブ化して破棄し、接地・Collider設定前の孤立モデルが残らないようにする。
+
 - 表示Floorと配置面は別物。配置は`y=0` planeでXZをgrid snapした後、`PlacedObjectGrounding`がrenderer bounds下端を接地する。`placementYOffset`は旧serialized互換のためfieldだけ残り、配置Yには使わない。
 - 配置objectにusable Colliderがないと選択できないため、`PlacedObjectPickability` がrenderer boundsからBoxColliderを追加する。rendererもないmodelは自動修復できない。
 - `PrefabRegistry.LoadDefault()` は `#if UNITY_EDITOR` 内だけでAssetDatabaseから読む。Playerではserialized registry参照が正しく設定されているかが重要。
@@ -31,7 +36,7 @@
 
 ## Scenario
 
-- 保存可能条件は厳しい。Start/End各1、全Stepが単一のStart→…→End鎖、各Stepに1件以上かつ`RuleSet.maxConditionsPerStep`以下のCondition、各Conditionはちょうど1 Stepへbind、A/Bは別々の存在する `PlacedObject.id` が必要。上限既定値は8、許容設定範囲は1～32。
+- 保存可能条件は厳しい。Start/End各1、全StepがStartから到達できEndへ達する非循環経路、各Stepに1件以上かつ`RuleSet.maxConditionsPerStep`以下のCondition、各Conditionはちょうど1 Stepへbind、近接・保持・距離・回転条件ではA/Bは別々の存在する `PlacedObject.id` が必要。把持・手放しはAだけを使う。上限既定値は8、許容設定範囲は1～32。
 - 削除済みPlacedObject IDや不整合edgeは検証前に自動clearしない。欠損参照はE-10/E-11として残し、Conditionの差替え・削除または配置削除のUndoで解消する。Scenario検証の再評価はGraphChanged/CommandStack.HistoryChangedに連動する。
 - 編集model (`Curriculum`) と出力model (`ScenarioExport`) は別。node title等を追加してもexportへ自動で出るとは限らない。
 - 現行 `ConditionNodeData.DefaultTitle` は `手順1` で、UI上の `条件 n` 表記と一致しない。変更する場合はmigration/表示依存を確認する。
@@ -39,7 +44,7 @@
 ## モデル取込・platform
 
 - Unity EditorではFBXをAssetDatabaseへimportできる。PlayerではFBX経路はなく、Windows native dialog + `.glb/.gltf` のみ。
-- runtime imported modelはmemory上のPrefab map/card stateに登録されるだけで、`DefaultRegistry.asset` へ永続化されない。
+- runtime imported modelは `persistentDataPath/ImportedModels` に素材とmanifestを保存して復元する。`DefaultRegistry.asset`は変更しない。FBXはEditorのasset参照なのでPlayerでは事前登録またはGLB/glTF化が必要。
 - runtime project/exportは`Application.persistentDataPath`配下を使う。Editor限定FBX importのfile選択はOSのDocumentsを初期位置にし、project内path判定には`FileUtil.GetProjectRelativePath`を使う。Windows以外の保存実機確認はない。
 
 ## TMP

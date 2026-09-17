@@ -33,7 +33,7 @@ public sealed class PlacedObjectEditState : MonoBehaviour
 
     void OnEnable()
     {
-        if (locked || hidden)
+        if (IsEffectivelyBlocked())
         {
             if (colliderStates.Count > 0)
             {
@@ -49,7 +49,7 @@ public sealed class PlacedObjectEditState : MonoBehaviour
             }
         }
 
-        if (hidden)
+        if (IsEffectivelyHidden())
         {
             if (rendererStates.Count > 0)
             {
@@ -76,7 +76,7 @@ public sealed class PlacedObjectEditState : MonoBehaviour
     {
         if (locked == value) return;
         locked = value;
-        RefreshColliderLock();
+        RefreshSubtree();
         StateChanged?.Invoke(this);
     }
 
@@ -85,27 +85,57 @@ public sealed class PlacedObjectEditState : MonoBehaviour
         bool nextHidden = !value;
         if (hidden == nextHidden) return;
         hidden = nextHidden;
-        if (hidden) ApplyVisibility();
-        else RestoreRenderers();
-        RefreshColliderLock();
+        RefreshSubtree();
         StateChanged?.Invoke(this);
     }
 
     void RefreshColliderLock()
     {
-        if (locked || hidden) ApplyColliderLock();
+        if (IsEffectivelyBlocked()) ApplyColliderLock();
         else RestoreColliders();
     }
+
+    bool IsEffectivelyHidden()
+    {
+        for (var node = transform; node != null; node = node.parent)
+        {
+            var state = node.GetComponent<PlacedObjectEditState>();
+            if (state != null && state.hidden) return true;
+        }
+        return false;
+    }
+
+    bool IsEffectivelyBlocked()
+    {
+        for (var node = transform; node != null; node = node.parent)
+        {
+            var state = node.GetComponent<PlacedObjectEditState>();
+            if (state != null && (state.hidden || state.locked)) return true;
+        }
+        return false;
+    }
+
+    public void RefreshSubtree()
+    {
+        foreach (var state in GetComponentsInChildren<PlacedObjectEditState>(true))
+        {
+            if (state.IsEffectivelyHidden()) state.ApplyVisibility();
+            else state.RestoreRenderers();
+            state.RefreshColliderLock();
+        }
+    }
+
+    bool Owns(Component component) => component.GetComponentInParent<PlacedObject>(true) == GetComponent<PlacedObject>();
 
     void ApplyColliderLock()
     {
         if (colliderLockApplied) return;
 
-        colliderStates.Clear();
+        if (colliderStates.Count > 0) { colliderLockApplied = true; return; }
         var colliders = GetComponentsInChildren<Collider>(true);
         foreach (var collider in colliders)
         {
-            if (collider == null) continue;
+            if (collider == null || !Owns(collider)) continue;
             colliderStates.Add(new ColliderState { collider = collider, enabled = collider.enabled });
             collider.enabled = false;
         }
@@ -126,11 +156,11 @@ public sealed class PlacedObjectEditState : MonoBehaviour
     {
         if (visibilityApplied) return;
 
-        rendererStates.Clear();
+        if (rendererStates.Count > 0) { visibilityApplied = true; return; }
         var renderers = GetComponentsInChildren<Renderer>(true);
         foreach (var renderer in renderers)
         {
-            if (renderer == null) continue;
+            if (renderer == null || !Owns(renderer)) continue;
             rendererStates.Add(new RendererState { renderer = renderer, enabled = renderer.enabled });
             renderer.enabled = false;
         }

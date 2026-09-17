@@ -75,10 +75,8 @@ public class CatalogUI : MonoBehaviour
     const string CardTechnicalLabelName = "LabelTechnicalId";
     const string CardCategoryVisualName = "CategoryVisual";
     const string CardCategoryVisualLabelName = "LabelCategoryVisual";
-    string runtimeImportedTypeId;
-    string runtimeImportedCardLabel;
-    string runtimeImportedDescription;
-    GameObject runtimeImportedPrefab;
+    readonly System.Collections.Generic.List<ImportedModelRecord> importedModels = new();
+    public bool IsRestoringModels { get; private set; }
     GameObject pendingImportedPrefab;
     string pendingImportedAssetPath;
     EditModeService boundEditModeService;
@@ -114,7 +112,7 @@ public class CatalogUI : MonoBehaviour
         Account
     }
 
-    void Start()
+    async void Start()
     {
         cornerRadius = DesignTokens.CornerRadius;
         EnsureSingleEventSystem();
@@ -129,6 +127,41 @@ public class CatalogUI : MonoBehaviour
         ApplyRoundedTheme();
         DesignTokenApplier.ApplyCatalogPanel(transform);
         RefreshModeButtons();
+        await RestoreImportedModelsAsync();
+    }
+
+    async System.Threading.Tasks.Task RestoreImportedModelsAsync()
+    {
+        IsRestoringModels = true;
+        var warnings = new System.Collections.Generic.List<string>();
+        try
+        {
+            foreach (var record in ImportedModelStore.ReadAll(warnings.Add))
+            {
+                if (this == null) return;
+                try
+                {
+                    GameObject prefab = null;
+                    if (record.editorAsset)
+                    {
+#if UNITY_EDITOR
+                        prefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(record.modelPath);
+#endif
+                    }
+                    else prefab = await RuntimeModelLoader.LoadModelAsync(ImportedModelStore.ResolveModelPath(record));
+                    if (this == null) { if (prefab != null && !record.editorAsset) Destroy(prefab); return; }
+                    if (prefab == null || !placementController.RegisterRuntimePrefab(record.typeId, prefab))
+                        throw new System.IO.IOException("モデルを復元できません（FBXはEditor限定です）。");
+                    record.prefab = prefab;
+                    importedModels.Add(record);
+                }
+                catch (Exception ex) { warnings.Add(record.displayName + ": " + ex.Message); }
+            }
+            RebuildCards();
+            if (warnings.Count > 0) SetStatus("モデル復元: " + string.Join(" / ", warnings));
+        }
+        catch (Exception ex) { SetStatus("モデル一覧を読み取れません: " + ex.Message); }
+        finally { IsRestoringModels = false; }
     }
 
     void OnDestroy()
@@ -478,26 +511,22 @@ public class CatalogUI : MonoBehaviour
 
     void AddRuntimeImportedCardIfNeeded()
     {
-        if (string.IsNullOrWhiteSpace(runtimeImportedTypeId) || runtimeImportedPrefab == null) return;
         if (buttonTemplate == null || content == null) return;
-        if (cards.IsRemoved(runtimeImportedTypeId)) return;
-
-        var cardButton = Instantiate(buttonTemplate, content);
-        cardButton.gameObject.name = "Card_NewObject";
-        cardButton.gameObject.SetActive(true);
-        EnsureCardHeight(cardButton.gameObject);
-        var cardLabel = string.IsNullOrWhiteSpace(runtimeImportedCardLabel) ? importedCardLabel : runtimeImportedCardLabel;
-        var importedTypeId = runtimeImportedTypeId;
-        SetCardLabel(cardButton.gameObject, cardLabel, importedTypeId);
-        SetupCardInteractions(cardButton, importedTypeId);
-
-        cards.Add(new CatalogCardState
+        foreach (var record in importedModels)
         {
-            typeId = importedTypeId,
-            displayLabel = cardLabel,
-            displayDescription = runtimeImportedDescription,
-            root = cardButton.gameObject
-        });
+            if (record.prefab == null || record.hidden || cards.IsRemoved(record.typeId)) continue;
+            var cardButton = Instantiate(buttonTemplate, content);
+            cardButton.gameObject.name = "Card_" + record.typeId;
+            cardButton.gameObject.SetActive(true);
+            EnsureCardHeight(cardButton.gameObject);
+            SetCardLabel(cardButton.gameObject, record.displayName, record.typeId);
+            SetupCardInteractions(cardButton, record.typeId);
+            cards.Add(new CatalogCardState
+            {
+                typeId = record.typeId, displayLabel = record.displayName,
+                displayDescription = record.description, root = cardButton.gameObject
+            });
+        }
     }
 
     void SetupCardInteractions(Button cardButton, string typeId)
@@ -2853,20 +2882,24 @@ public class CatalogUI : MonoBehaviour
     void OnClickRemoveCard(string typeId)
     {
         if (string.IsNullOrWhiteSpace(typeId)) return;
+        var stored = importedModels.Find(item => string.Equals(item.typeId, typeId, StringComparison.OrdinalIgnoreCase));
+        if (stored != null)
+        {
+            stored.hidden = true;
+            try { ImportedModelStore.Write(stored); }
+            catch (Exception ex)
+            {
+                stored.hidden = false;
+                SetStatus("カタログの変更を保存できません: " + ex.Message);
+                return;
+            }
+        }
         foreach (var card in cards.Remove(typeId))
         {
             if (card.root != null)
             {
                 Destroy(card.root);
             }
-        }
-
-        if (string.Equals(runtimeImportedTypeId, typeId, StringComparison.OrdinalIgnoreCase))
-        {
-            runtimeImportedTypeId = null;
-            runtimeImportedCardLabel = null;
-            runtimeImportedDescription = null;
-            runtimeImportedPrefab = null;
         }
 
         ApplyFilter(searchInput != null ? searchInput.text : string.Empty);
@@ -3091,24 +3124,26 @@ public class CatalogUI : MonoBehaviour
         }
 
         var typeId = CatalogModelImportNaming.BuildImportedTypeId(pendingImportedAssetPath, displayLabel);
+        ImportedModelRecord saved;
+        try
+        {
+            saved = ImportedModelStore.Save(pendingImportedAssetPath, typeId, displayLabel,
+                newObjectDescriptionInput != null ? (newObjectDescriptionInput.text ?? string.Empty).Trim() : string.Empty);
+        }
+        catch (Exception ex) { SetStatus("モデルを保存できません: " + ex.Message); return; }
         if (!placementController.RegisterRuntimePrefab(typeId, pendingImportedPrefab))
         {
             SetStatus("Failed to register imported object.");
             return;
         }
 
-        runtimeImportedTypeId = typeId;
-        runtimeImportedPrefab = pendingImportedPrefab;
-        runtimeImportedCardLabel = displayLabel;
-        runtimeImportedDescription = newObjectDescriptionInput != null
-            ? (newObjectDescriptionInput.text ?? string.Empty).Trim()
-            : string.Empty;
-
+        saved.prefab = pendingImportedPrefab;
+        importedModels.Add(saved);
         if (searchInput != null) searchInput.text = string.Empty;
         RebuildCards();
 
         CloseNewObjectSettings(clearPending: true);
-        SetStatus("New object card added.");
+        SetStatus("モデルを追加しました。配置後「一覧」で内部の部品を個別に選択できます。");
     }
 
     void OnClickCancelNewObjectSettings()

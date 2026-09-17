@@ -39,23 +39,10 @@ internal static class CurriculumGraphConnectionRules
 
         if (edgeType == ScenarioEdgeType.StepFlow)
         {
-            int outCount = curriculum.edges.Count(e => e.edgeType == ScenarioEdgeType.StepFlow && e.fromNodeId == fromNode.nodeId);
-            if (outCount >= 1)
+            int outCount = curriculum.edges.Count(e => e != null && e.edgeType == ScenarioEdgeType.StepFlow && e.fromNodeId == fromNode.nodeId);
+            if (fromNode.nodeType == ScenarioNodeType.Start && outCount >= 1)
             {
                 reason = "STEPFLOW_OUT_LIMIT";
-                return false;
-            }
-
-            int inCount = curriculum.edges.Count(e => e.edgeType == ScenarioEdgeType.StepFlow && e.toNodeId == toNode.nodeId);
-            if (toNode.nodeType == ScenarioNodeType.Step && inCount >= 1)
-            {
-                reason = "STEPFLOW_IN_LIMIT";
-                return false;
-            }
-
-            if (toNode.nodeType == ScenarioNodeType.End && inCount >= 1)
-            {
-                reason = "END_IN_LIMIT";
                 return false;
             }
 
@@ -69,7 +56,7 @@ internal static class CurriculumGraphConnectionRules
         }
 
         int conditionOutCount = curriculum.edges.Count(e =>
-            e.edgeType == ScenarioEdgeType.ConditionBind &&
+            e != null && e.edgeType == ScenarioEdgeType.ConditionBind &&
             e.fromNodeId == fromNode.nodeId);
         if (conditionOutCount >= 1)
         {
@@ -78,7 +65,7 @@ internal static class CurriculumGraphConnectionRules
         }
 
         int stepConditionCount = curriculum.edges.Count(e =>
-            e.edgeType == ScenarioEdgeType.ConditionBind &&
+            e != null && e.edgeType == ScenarioEdgeType.ConditionBind &&
             e.toNodeId == toNode.nodeId);
         int maxConditionsPerStep = Mathf.Clamp(curriculum.rules.maxConditionsPerStep, 1, 32);
         if (stepConditionCount >= maxConditionsPerStep)
@@ -96,7 +83,7 @@ internal static class CurriculumGraphConnectionRules
         string toNodeId)
     {
         var adjacency = edges
-            .Where(e => e.edgeType == ScenarioEdgeType.StepFlow)
+            .Where(e => e != null && e.edgeType == ScenarioEdgeType.StepFlow)
             .GroupBy(e => e.fromNodeId)
             .ToDictionary(g => g.Key, g => g.Select(e => e.toNodeId).ToList());
 

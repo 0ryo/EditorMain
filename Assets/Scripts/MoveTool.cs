@@ -83,6 +83,7 @@ public class MoveTool : MonoBehaviour
 
     void Update()
     {
+        if (ObjectScreenPicker.Capturing) { CancelRuntimeDragStates(); SetGizmoVisible(false); return; }
         EnsureCamera();
         EnsureSelection();
 
@@ -191,17 +192,13 @@ public class MoveTool : MonoBehaviour
             var from = target.transform.position;
             var to = from + nudge;
 
-            if (CommandService.I != null && CommandService.I.Stack != null)
-            {
-                CommandService.I.Stack.Execute(new MoveObjectCommand(target, from, to));
-            }
-            else
-            {
-                target.transform.position = to;
-                LogDebug("Keyboard move applied without undo because CommandService is missing.");
-            }
+            var gesture = new SelectionTransformSession(sel);
+            target.transform.position = to;
+            gesture.Commit("Move selection");
         }
     }
+
+    SelectionTransformSession selectionGesture;
 
     bool TryBeginGizmoDrag(Vector2 pointer)
     {
@@ -210,6 +207,7 @@ public class MoveTool : MonoBehaviour
         if (!TryGetSelectionCenterAndAxisLength(out var center, out var axisLength)) return false;
         if (!TryWorldToScreen(center, out var centerScreen)) return false;
 
+        selectionGesture = new SelectionTransformSession(sel);
         activeGizmoDragMode = dragMode;
         activeGizmoAxis = axis;
         gizmoDragStartPosition = sel.Current.transform.position;
@@ -281,6 +279,7 @@ public class MoveTool : MonoBehaviour
             }
 
             sel.Current.transform.position = gizmoDragStartPosition + gizmoDragAxisWorldDir * deltaWorld;
+            selectionGesture?.Apply();
             return;
         }
 
@@ -299,6 +298,7 @@ public class MoveTool : MonoBehaviour
             }
 
             sel.Current.transform.rotation = Quaternion.AngleAxis(angleDelta, axisDir) * gizmoDragStartRotation;
+            selectionGesture?.Apply();
         }
     }
 
@@ -310,32 +310,8 @@ public class MoveTool : MonoBehaviour
             return;
         }
 
-        if (CommandService.I == null)
-        {
-            CancelRuntimeDragStates();
-            return;
-        }
-
-        if (activeGizmoDragMode == GizmoDragMode.Move)
-        {
-            Vector3 endPos = sel.Current.transform.position;
-            if ((endPos - gizmoDragStartPosition).sqrMagnitude > 0.000001f)
-            {
-                var cmd = new MoveObjectCommand(sel.Current.gameObject, gizmoDragStartPosition, endPos);
-                CommandService.I.Stack.Execute(cmd);
-                LogDebug($"Move drag committed. id={sel.Current.Id}, from={gizmoDragStartPosition}, to={endPos}");
-            }
-        }
-        else if (activeGizmoDragMode == GizmoDragMode.Rotate)
-        {
-            Quaternion endRot = sel.Current.transform.rotation;
-            if (Quaternion.Angle(gizmoDragStartRotation, endRot) > 0.001f)
-            {
-                var cmd = new RotateObjectQuaternionCommand(sel.Current.gameObject, gizmoDragStartRotation, endRot);
-                CommandService.I.Stack.Execute(cmd);
-                LogDebug($"Rotate drag committed. id={sel.Current.Id}");
-            }
-        }
+        selectionGesture?.Commit("Transform selection");
+        selectionGesture = null;
 
         CancelRuntimeDragStates();
     }
@@ -609,6 +585,8 @@ public class MoveTool : MonoBehaviour
 
     void CancelRuntimeDragStates()
     {
+        selectionGesture?.Cancel();
+        selectionGesture = null;
         activeGizmoDragMode = GizmoDragMode.None;
         activeGizmoAxis = GizmoAxis.None;
         gizmoDragStartPosition = Vector3.zero;

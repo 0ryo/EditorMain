@@ -154,6 +154,13 @@ public sealed class EditorProjectService : MonoBehaviour
 
     bool LoadInternal(string path, bool isRecovery, out string message)
     {
+        var catalog = FindFirstObjectByType<CatalogUI>();
+        if (catalog != null && catalog.IsRestoringModels)
+        {
+            message = "保存済みモデルを復元中です。完了後にプロジェクトを開いてください。";
+            return false;
+        }
+
         ResolveReferences();
         if (graph == null || placementController == null)
         {
@@ -262,7 +269,8 @@ public sealed class EditorProjectService : MonoBehaviour
             throw new InvalidOperationException("Prefabが見つかりません: " + item.typeId);
         }
 
-        var instance = Instantiate(prefab);
+        var source = ImportedModelParts.Resolve(prefab.transform, item.sourceNodePath);
+        var instance = Instantiate(source.gameObject);
         instance.SetActive(false);
         instance.transform.SetPositionAndRotation(item.position, item.rotation);
         instance.transform.localScale = item.scale;
@@ -274,6 +282,11 @@ public sealed class EditorProjectService : MonoBehaviour
         placed.displayName = item.displayName ?? string.Empty;
         placed.description = item.description ?? string.Empty;
         placed.hasDescriptionOverride = item.hasDescriptionOverride;
+        placed.modelRoot = null;
+        placed.sourceNodePath = item.sourceNodePath;
+        placed.sourceSignature = item.sourceSignature;
+        try { ImportedModelParts.Restore(placed, item.parts); }
+        catch { Destroy(instance); throw; }
         return placed;
     }
 
@@ -285,7 +298,7 @@ public sealed class EditorProjectService : MonoBehaviour
         var current = FindObjectsByType<PlacedObject>(FindObjectsInactive.Include, FindObjectsSortMode.None);
         foreach (var placed in current)
         {
-            if (placed == null || stagedSet.Contains(placed)) continue;
+            if (placed == null || placed.modelRoot != null || stagedSet.Contains(placed)) continue;
             placed.gameObject.SetActive(false);
             Destroy(placed.gameObject);
         }
@@ -302,7 +315,9 @@ public sealed class EditorProjectService : MonoBehaviour
             if (state == null) state = placed.gameObject.AddComponent<PlacedObjectEditState>();
             state.SetLocked(item.locked);
             state.SetVisible(!item.hidden);
-            IdGenerator.I?.ReserveExistingObjectId(placed.id);
+            PlacedObject.ReserveExistingId(placed.id);
+            foreach (var part in placed.GetComponentsInChildren<PlacedObject>(true))
+                PlacedObject.ReserveExistingId(part.id);
         }
 
         if (!graph.RestoreCommandSnapshot(JsonUtility.ToJson(project.curriculum)))

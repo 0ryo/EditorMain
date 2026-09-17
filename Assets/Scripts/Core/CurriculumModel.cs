@@ -4,7 +4,7 @@ using System.Collections.Generic;
 [Serializable]
 public class Curriculum
 {
-    public int schemaVersion = 4;
+    public int schemaVersion = 5;
     public string projectName = "VRCourseEditor";
     public string mode = "Graph";
     public RuleSet rules = new RuleSet();

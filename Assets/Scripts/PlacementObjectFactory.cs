@@ -41,17 +41,27 @@ public static class PlacementObjectFactory
         if (sourcePrefab == null) return null;
 
         var instance = UnityEngine.Object.Instantiate(sourcePrefab);
-        if (!instance.activeSelf)
+        try
         {
-            instance.SetActive(true);
+            if (!instance.activeSelf) instance.SetActive(true);
+
+            placed = instance.GetComponent<PlacedObject>();
+            if (placed == null) placed = instance.AddComponent<PlacedObject>();
+
+            placed.InitType(typeId);
+            placed.ForceNewId();
+            ImportedModelParts.Register(placed);
+            PlacedObjectPickability.EnsurePickable(placed, true);
+            return instance;
         }
-
-        placed = instance.GetComponent<PlacedObject>();
-        if (placed == null) placed = instance.AddComponent<PlacedObject>();
-
-        placed.InitType(typeId);
-        placed.ForceNewId();
-        PlacedObjectPickability.EnsurePickable(placed, true);
-        return instance;
+        catch
+        {
+            // Never leave a half-registered model in the world or autosave snapshot.
+            instance.SetActive(false);
+            if (Application.isPlaying) UnityEngine.Object.Destroy(instance);
+            else UnityEngine.Object.DestroyImmediate(instance);
+            placed = null;
+            throw;
+        }
     }
 }

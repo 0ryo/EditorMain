@@ -5,7 +5,7 @@ using UnityEngine;
 [Serializable]
 public sealed class EditorProjectFile
 {
-    public const int CurrentSchemaVersion = 4;
+    public const int CurrentSchemaVersion = 6;
 
     public int schemaVersion = CurrentSchemaVersion;
     public string projectName = "VRCourseEditor";
@@ -18,6 +18,9 @@ public sealed class EditorProjectFile
 [Serializable]
 public sealed class EditorProjectObject
 {
+    public string sourceNodePath;
+    public string sourceSignature;
+    public List<ModelPartState> parts = new List<ModelPartState>();
     public string id;
     public string typeId;
     public string displayName;
@@ -79,6 +82,13 @@ public static class EditorProjectMigration
             return false;
         }
 
+        if (project.curriculum != null && project.curriculum.schemaVersion > 5)
+        {
+            error = $"この教材は新しい形式です (v{project.curriculum.schemaVersion})。";
+            project = null;
+            return false;
+        }
+
         if (project.schemaVersion == 1)
         {
             MigrateV1ToV2(project);
@@ -131,7 +141,7 @@ public static class EditorProjectMigration
         project.curriculum.rules ??= new RuleSet();
         project.curriculum.nodes ??= new List<ScenarioNode>();
         project.curriculum.edges ??= new List<ScenarioEdge>();
-        project.curriculum.schemaVersion = 4;
+        project.curriculum.schemaVersion = 5;
         project.curriculum.rules.maxConditionsPerStep = Mathf.Clamp(
             project.curriculum.rules.maxConditionsPerStep <= 0 ? 8 : project.curriculum.rules.maxConditionsPerStep,
             1,

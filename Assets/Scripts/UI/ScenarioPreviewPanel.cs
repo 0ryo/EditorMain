@@ -1,4 +1,3 @@
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -8,23 +7,24 @@ using UnityEngine.UI;
 
 public sealed class ScenarioPreviewPanel : MonoBehaviour
 {
-    const float AutoAdvanceSeconds = 2f;
-
     CurriculumGraphService graph;
     readonly List<ScenarioNode> steps = new List<ScenarioNode>();
     int currentIndex;
-    Coroutine autoPlayCoroutine;
+    readonly Stack<int> history = new();
+    [SerializeField] RectTransform branchRoot;
+    bool simulatedSuccess;
+    bool finished;
 
-    TMP_Text progressText;
-    TMP_Text stepTitleText;
-    TMP_Text durationText;
-    TMP_Text bodyText;
-    TMP_Text supplementText;
-    TMP_Text cautionText;
-    TMP_Text conditionsText;
-    Button previousButton;
-    Button nextButton;
-    Button autoPlayButton;
+    [SerializeField] TMP_Text progressText;
+    [SerializeField] TMP_Text stepTitleText;
+    [SerializeField] TMP_Text durationText;
+    [SerializeField] TMP_Text bodyText;
+    [SerializeField] TMP_Text supplementText;
+    [SerializeField] TMP_Text cautionText;
+    [SerializeField] TMP_Text conditionsText;
+    [SerializeField] Button previousButton;
+    [SerializeField] Button nextButton;
+    [SerializeField] Button simulateButton;
 
     public static ScenarioPreviewPanel Ensure(RectTransform parent, ScenarioPreviewPanel existing = null)
     {
@@ -60,8 +60,13 @@ public sealed class ScenarioPreviewPanel : MonoBehaviour
         steps.AddRange(graph.GetDisplayOrderedSteps().Where(step => step != null));
         if (steps.Count == 0) return;
 
-        StopAutoPlay();
-        currentIndex = 0;
+        ResetSimulation();
+        var first = ScenarioFlow.Next(graph.curriculum, graph.GetStartNode().nodeId).FirstOrDefault();
+        currentIndex = first != null ? steps.FindIndex(step => step.nodeId == first.nodeId) : -1;
+        if (currentIndex < 0) return;
+        history.Clear();
+        finished = false;
+        simulatedSuccess = false;
         gameObject.SetActive(true);
         transform.SetAsLastSibling();
         RenderCurrentStep();
@@ -69,7 +74,7 @@ public sealed class ScenarioPreviewPanel : MonoBehaviour
 
     public void Hide()
     {
-        StopAutoPlay();
+        ResetSimulation();
         if (gameObject.activeSelf) gameObject.SetActive(false);
     }
 
@@ -83,15 +88,15 @@ public sealed class ScenarioPreviewPanel : MonoBehaviour
         }
         if (Input.GetKeyDown(KeyCode.LeftArrow)) ShowPrevious();
         if (Input.GetKeyDown(KeyCode.RightArrow)) ShowNext();
-        if (Input.GetKeyDown(KeyCode.Space)) ToggleAutoPlay();
+        if (Input.GetKeyDown(KeyCode.Space)) ToggleSimulatedSuccess();
     }
 
     void OnDisable()
     {
-        StopAutoPlay();
+        ResetSimulation();
     }
 
-    void BuildUiIfNeeded()
+    public void BuildUiIfNeeded()
     {
         var root = transform as RectTransform;
         if (root == null) return;
@@ -112,9 +117,9 @@ public sealed class ScenarioPreviewPanel : MonoBehaviour
         outline.effectDistance = new Vector2(2f, -2f);
         outline.useGraphicAlpha = false;
 
-        if (progressText != null) return;
+        if (progressText != null) { WireButtons(); return; }
 
-        var title = CreateText("Text_Title", transform, "シナリオプレビュー", DesignTokens.FontSizeSubheading, DesignTokens.TextPrimary);
+        var title = CreateText("Text_Title", transform, "進行の確認（成功を模擬）", DesignTokens.FontSizeSubheading, DesignTokens.TextPrimary);
         title.fontStyle = FontStyles.Bold;
         title.alignment = TextAlignmentOptions.MidlineLeft;
         SetRect(title.rectTransform, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(16f, -46f), new Vector2(-150f, -8f));
@@ -174,19 +179,40 @@ public sealed class ScenarioPreviewPanel : MonoBehaviour
         cautionText = CreateContentText("Text_Caution", content, 64f, DesignTokens.FontSizeBody, DesignTokens.Error);
         conditionsText = CreateContentText("Text_Conditions", content, 88f, DesignTokens.FontSizeBody, DesignTokens.TextPrimary);
 
+        var help = CreateContentText("Text_FlowHelp", content, 72f, DesignTokens.FontSizeCaption, DesignTokens.TextSecondary);
+        help.text = "全条件を達成したときだけ次へ進みます。ここでは成功を模擬して経路を確認します。\n手順の出力から複数の手順へ接続すると、成功後の選択肢になります。";
+        branchRoot = new GameObject("Branches", typeof(RectTransform), typeof(VerticalLayoutGroup), typeof(LayoutElement)).GetComponent<RectTransform>();
+        branchRoot.SetParent(content, false);
+        var branchLayout = branchRoot.GetComponent<VerticalLayoutGroup>();
+        branchLayout.spacing = 8f;
+        branchLayout.childControlWidth = branchLayout.childControlHeight = true;
+        branchLayout.childForceExpandHeight = false;
+
         previousButton = CreateButton("Button_Previous", transform, "前の手順", DesignTokens.BgSecondary, DesignTokens.TextPrimary);
         SetRect(previousButton.transform as RectTransform, new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(16f, 12f), new Vector2(116f, 52f));
         previousButton.onClick.AddListener(ShowPrevious);
 
-        autoPlayButton = CreateButton("Button_AutoPlay", transform, "自動再生", DesignTokens.Accent, DesignTokens.ButtonTextLight);
-        SetRect(autoPlayButton.transform as RectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(-60f, 12f), new Vector2(60f, 52f));
-        autoPlayButton.onClick.AddListener(ToggleAutoPlay);
+        simulateButton = CreateButton("Button_AutoPlay", transform, "成功を模擬", DesignTokens.Accent, DesignTokens.ButtonTextLight);
+        SetRect(simulateButton.transform as RectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(-88f, 12f), new Vector2(88f, 52f));
+        simulateButton.onClick.AddListener(ToggleSimulatedSuccess);
 
         nextButton = CreateButton("Button_Next", transform, "次の手順", DesignTokens.BgSecondary, DesignTokens.TextPrimary);
         SetRect(nextButton.transform as RectTransform, new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-116f, 12f), new Vector2(-16f, 52f));
         nextButton.onClick.AddListener(ShowNext);
 
         gameObject.SetActive(false);
+    }
+
+    void WireButtons()
+    {
+        previousButton.onClick.RemoveAllListeners();
+        previousButton.onClick.AddListener(ShowPrevious);
+        nextButton.onClick.RemoveAllListeners();
+        nextButton.onClick.AddListener(ShowNext);
+        simulateButton.onClick.RemoveAllListeners();
+        simulateButton.onClick.AddListener(ToggleSimulatedSuccess);
+        var close = transform.Find("Button_Close")?.GetComponent<Button>();
+        if (close != null) { close.onClick.RemoveAllListeners(); close.onClick.AddListener(Hide); }
     }
 
     void RenderCurrentStep()
@@ -197,7 +223,7 @@ public sealed class ScenarioPreviewPanel : MonoBehaviour
         var node = steps[currentIndex];
         var data = node.step ?? new StepNodeData();
 
-        progressText.text = $"{currentIndex + 1} / {steps.Count}";
+        progressText.text = finished ? "完了" : $"手順 {currentIndex + 1}";
         stepTitleText.text = string.IsNullOrWhiteSpace(data.title) ? $"手順 {currentIndex + 1}" : data.title;
         durationText.text = data.durationMinutes > 0 ? $"所要時間: {data.durationMinutes}分" : "所要時間: 未設定";
         bodyText.text = FormatSection("本文", data.body);
@@ -212,8 +238,31 @@ public sealed class ScenarioPreviewPanel : MonoBehaviour
             conditionLayout.preferredHeight = height;
         }
 
-        previousButton.interactable = currentIndex > 0;
-        nextButton.interactable = currentIndex < steps.Count - 1;
+        previousButton.interactable = history.Count > 0;
+        simulateButton.interactable = !finished;
+        SetButtonLabel(simulateButton, simulatedSuccess ? "達成済み（模擬）" : "成功を模擬");
+        RenderBranches();
+    }
+
+    void RenderBranches()
+    {
+        foreach (Transform child in branchRoot) { child.gameObject.SetActive(false); Destroy(child.gameObject); }
+        var next = ScenarioFlow.Next(graph.curriculum, steps[currentIndex].nodeId);
+        nextButton.interactable = simulatedSuccess && !finished && next.Count == 1;
+        SetButtonLabel(nextButton, next.Count == 1 && next[0].nodeType == ScenarioNodeType.End ? "終了" : "次の手順");
+        var layout = branchRoot.GetComponent<LayoutElement>();
+        layout.preferredHeight = next.Count > 1 && !finished ? next.Count * 48f : 0f;
+        if (next.Count <= 1 || finished) return;
+        foreach (var target in next)
+        {
+            string id = target.nodeId;
+            string label = target.nodeType == ScenarioNodeType.End ? "終了" : target.step.title;
+            if (string.IsNullOrWhiteSpace(label)) label = target.nodeId;
+            var button = CreateButton("Branch_" + id, branchRoot, "進む: " + label, DesignTokens.BgSecondary, DesignTokens.TextPrimary);
+            button.gameObject.AddComponent<LayoutElement>().preferredHeight = 40f;
+            button.interactable = simulatedSuccess;
+            button.onClick.AddListener(() => AdvanceTo(id));
+        }
     }
 
     string BuildConditionsText(string stepNodeId)
@@ -231,19 +280,17 @@ public sealed class ScenarioPreviewPanel : MonoBehaviour
             builder.Append(i + 1);
             builder.Append(". ");
             builder.Append(ResolveObjectLabel(condition.objectAId, labelById));
-            builder.Append(" を ");
-            builder.Append(ResolveObjectLabel(condition.objectBId, labelById));
-            builder.Append(condition.type == ConditionTypeCatalog.SnapHold ? " に近づけて保持" : " に近づける");
-            builder.Append("（距離 ");
-            builder.Append(ConditionTypeCatalog.GetNumber(condition, ConditionTypeCatalog.DistanceKey, 0.1f).ToString("0.###"));
-            builder.Append("m");
-            if (condition.type == ConditionTypeCatalog.SnapHold)
+            var definition = ConditionTypeCatalog.Find(condition.type);
+            if (ConditionTypeCatalog.RequiresObjectB(condition.type))
             {
-                builder.Append("、保持 ");
-                builder.Append(ConditionTypeCatalog.GetNumber(condition, ConditionTypeCatalog.HoldSecondsKey, 1f).ToString("0.###"));
-                builder.Append("秒");
+                builder.Append(" / ");
+                builder.Append(ResolveObjectLabel(condition.objectBId, labelById));
             }
-            builder.Append("）");
+            builder.Append(" — ");
+            builder.Append(definition?.label ?? condition.type);
+            if (definition != null)
+                foreach (var parameter in definition.parameters)
+                    builder.Append($" [{parameter.label}: {ConditionTypeCatalog.GetNumber(condition, parameter.key):0.###}]");
         }
         return builder.ToString();
     }
@@ -263,55 +310,42 @@ public sealed class ScenarioPreviewPanel : MonoBehaviour
 
     void ShowPrevious()
     {
-        StopAutoPlay();
-        if (currentIndex <= 0) return;
-        currentIndex--;
+        if (history.Count == 0) return;
+        currentIndex = history.Pop();
+        simulatedSuccess = false;
+        finished = false;
         RenderCurrentStep();
     }
 
     void ShowNext()
     {
-        StopAutoPlay();
-        if (currentIndex >= steps.Count - 1) return;
-        currentIndex++;
+        if (graph == null || steps.Count == 0) return;
+        var next = ScenarioFlow.Next(graph.curriculum, steps[currentIndex].nodeId);
+        if (next.Count == 1) AdvanceTo(next[0].nodeId);
+    }
+
+    void AdvanceTo(string nodeId)
+    {
+        if (!simulatedSuccess || finished) return;
+        var target = ScenarioFlow.Next(graph.curriculum, steps[currentIndex].nodeId).FirstOrDefault(n => n.nodeId == nodeId);
+        if (target == null) return;
+        history.Push(currentIndex);
+        finished = target.nodeType == ScenarioNodeType.End;
+        if (!finished) currentIndex = steps.FindIndex(n => n.nodeId == nodeId);
+        simulatedSuccess = false;
         RenderCurrentStep();
     }
 
-    void ToggleAutoPlay()
+    void ToggleSimulatedSuccess()
     {
-        if (autoPlayCoroutine != null)
-        {
-            StopAutoPlay();
-            return;
-        }
-
-        if (currentIndex >= steps.Count - 1) currentIndex = 0;
+        if (finished || graph == null || steps.Count == 0) return;
+        simulatedSuccess = !simulatedSuccess;
         RenderCurrentStep();
-        autoPlayCoroutine = StartCoroutine(AutoPlay());
-        SetButtonLabel(autoPlayButton, "停止");
     }
 
-    IEnumerator AutoPlay()
+    void ResetSimulation()
     {
-        while (currentIndex < steps.Count - 1)
-        {
-            yield return new WaitForSecondsRealtime(AutoAdvanceSeconds);
-            currentIndex++;
-            RenderCurrentStep();
-        }
-
-        autoPlayCoroutine = null;
-        SetButtonLabel(autoPlayButton, "自動再生");
-    }
-
-    void StopAutoPlay()
-    {
-        if (autoPlayCoroutine != null)
-        {
-            StopCoroutine(autoPlayCoroutine);
-            autoPlayCoroutine = null;
-        }
-        SetButtonLabel(autoPlayButton, "自動再生");
+        simulatedSuccess = false;
     }
 
     static TMP_Text CreateContentText(string name, Transform parent, float height, float fontSize, Color color)

@@ -5,6 +5,7 @@ public class RotateTool : MonoBehaviour {
     public int stepDeg = 15;
 
     void Update() {
+        if (ObjectScreenPicker.Capturing) return;
         if (EditModeService.I==null || EditModeService.I.Mode != EditMode.Transform) return;
         if (sel.Current == null) return;
         if (EditWorkspace.IsTypingIntoInputField()) return;
@@ -17,7 +18,10 @@ public class RotateTool : MonoBehaviour {
         float fromY = t.eulerAngles.y;
         float toY = Mathf.Round((fromY + d) / stepDeg) * stepDeg;
 
-        var cmd = new RotateObjectCommand(sel.Current.gameObject, fromY, toY);
-        CommandService.I.Stack.Execute(cmd);
+        var gesture = new SelectionTransformSession(sel);
+        var angles = t.eulerAngles;
+        angles.y = toY;
+        t.eulerAngles = angles;
+        gesture.Commit("Rotate selection");
     }
 }

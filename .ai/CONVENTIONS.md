@@ -31,7 +31,7 @@
 - Unity `JsonUtility` 用modelはpublic field + `[Serializable]`。
 - IDはzero-padded。`obj-0001`、`step-0001`、`cond-0001`、`act-001`。
 - `typeId` はslash区切りの技術ID。runtime importは `Imported/<sanitized-name>_<ticks>`。
-- schema/version fieldをexportに含める。現行Curriculum schemaとScenario exportはversion 2、placement exportはversion 1。
+- schema/version fieldをexportに含める。Curriculum schemaは5、Editor projectとScenario exportは6、placement exportは2。部品の永続IDは配置ルートID＋`/part-`＋GUIDで識別し、元モデル内のノード位置と分離する。
 
 ## 入力・platform分岐
 

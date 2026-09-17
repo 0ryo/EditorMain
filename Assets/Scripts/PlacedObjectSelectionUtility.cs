@@ -28,6 +28,7 @@ public static class PlacedObjectPicker
 
             PlacedObject placed = collider.GetComponentInParent<PlacedObject>();
             if (placed == null) continue;
+            if (!SelectionService.CanEdit(placed)) continue;
 
             if (fallback == null) fallback = placed;
 

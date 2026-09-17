@@ -50,10 +50,10 @@
 - **Consequences:** 新しいpointer操作も共通入口を使う。input backend変更時は `ProjectSettings.asset`、EventSystem、`EditInput` を一緒に確認する。
 - **Evidence:** `EditInput.cs`、`ProjectSettings/ProjectSettings.asset` (`activeInputHandler: 2`)、2026-08-19 commits。
 
-## D-007 — Scenario規則をServiceへ集約し、schema version 2を使う
+## D-007 — Scenario規則をServiceへ集約し、schema version 5を使う
 
 - **Decision:** Start/End/Step/Condition nodeとStepFlow/ConditionBind edgeを編集modelに持ち、接続・検証・export変換は `CurriculumGraphService` に集約する。
-- **Reason:** UI表示とgraph整合性を分離し、線形Step列、Condition所属、配置object参照を保存前に検証するため。
+- **Reason:** UI表示とgraph整合性を分離し、分岐・合流を含むStep経路、Condition所属、配置object参照を保存前に検証するため。
 - **Alternatives:** 旧 `StepNode` のlinear listだけを直接編集、各NodeUIがedge/listを直接変更、graph全体をそのままexport。
 - **Consequences:** model変更はservice、UI、validation、export、migration互換を同時に更新する。legacy `StepNode` / `ProximityPair` はmigration/fallback目的で残る。
 - **Evidence:** `Core/CurriculumModel.cs`、`CurriculumGraphService.cs`、`ScenarioGraphUI.cs`、`ScenarioExportModel.cs`。
@@ -63,5 +63,12 @@
 - **Decision:** 再編集用の配置・Scenario統合dataはschema version付き `.skillsync.json` として `persistentDataPath/Projects` に保存し、配布用Scenario/Placement JSONは `persistentDataPath/Exports` に出力する。
 - **Reason:** 編集状態を欠落なく復元しつつ、runtime buildでも追加permissionや書込可能なAssets directoryへ依存しないため。
 - **Alternatives:** graphと配置を別fileで管理する、配布JSONを再編集dataとして兼用する、`Application.dataPath/Exports`を維持する。
-- **Consequences:** project loadはmigrationとtypeId/ID検証後に一括置換する。dirty時のautosaveは通常projectを上書きせず `Projects/Recovery` へ置き、復元後は未保存projectとして明示保存を求める。runtime import modelの再読込は別途asset永続化が必要。
+- **Consequences:** project loadはmigrationとtypeId/ID検証後に一括置換する。保存先があるprojectは同じfileへautosaveし、未保存projectは `Projects/Recovery` へ置く。追加モデルはprojectとは別の `ImportedModels` ライブラリでtypeIdを永続化する。
 - **Evidence:** `Core/EditorProjectModel.cs`、`EditorProjectStore.cs`、`EditorProjectService.cs`、`RuntimeExportPathUtility.cs`。
+
+## D-009 — 成功するまで待機し、失敗設定を増やさない
+
+- **Decision:** 手順は全成功条件の達成まで待機する。失敗時の処理・失敗分岐は実装対象にしない。分岐は成功後に接続先から進路を選ぶ方式とし、未選択経路を合流時に待たない。
+- **Reason:** 教員の設定項目と操作負担を増やさず、成功しないと先に進めない制約でカバーするというユーザーの明示方針。
+- **Consequences:** 出力JSON version 5は接続先IDを保持する。配列順の実行を禁止し、実行側はバージョンを検査する。エディタプレビューの成功模擬とVR実機での条件判定を区別する。
+- **Evidence:** 2026-09-08のユーザー指示、`ScenarioFlow`、`ScenarioPlaybackSession`、`Docs/rules/scenario_rules.md`。

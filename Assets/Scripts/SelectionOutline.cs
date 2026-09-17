@@ -13,7 +13,7 @@ public class SelectionOutline : MonoBehaviour
 
     readonly List<LineRenderer> lines = new();
     readonly Vector3[] corners = new Vector3[8];
-    readonly Vector3[,] edges = new Vector3[12, 2];
+    bool scaleHandlesVisible;
 
     GameObject target;
     Camera cachedCamera;
@@ -35,6 +35,7 @@ public class SelectionOutline : MonoBehaviour
 
     void Update()
     {
+        if (ObjectScreenPicker.Capturing) { EnsureLines(0); ResetScaleState(); SetScaleCursor(false); outlineDirty = true; return; }
         if (target == null)
         {
             EnsureLines(0);
@@ -125,6 +126,8 @@ public class SelectionOutline : MonoBehaviour
         SetScaleCursor(shouldShow);
     }
 
+    SelectionTransformSession selectionGesture;
+
     void TryBeginScaleDrag(Vector2 pointer)
     {
         var cam = ResolveCamera();
@@ -140,6 +143,9 @@ public class SelectionOutline : MonoBehaviour
         dragStartScreenDistance = Vector2.Distance(centerScreen, nearestCorner);
         if (dragStartScreenDistance <= 0.001f) return;
 
+        var selection = FindFirstObjectByType<SelectionService>();
+        if (selection != null && selection.Current != null && selection.Current.gameObject == target)
+            selectionGesture = new SelectionTransformSession(selection);
         isScaling = true;
         LogDebug($"Scale drag started. target={target.name}, pointer={pointer}");
     }
@@ -164,6 +170,7 @@ public class SelectionOutline : MonoBehaviour
             Vector3 currentCenterWorld = target.transform.TransformPoint(GetTargetLocalBounds().center);
             target.transform.position += dragStartCenterWorld - currentCenterWorld;
         }
+        selectionGesture?.Apply();
         outlineDirty = true;
     }
 
@@ -171,6 +178,14 @@ public class SelectionOutline : MonoBehaviour
     {
         if (!isScaling)
         {
+            ResetScaleState();
+            return;
+        }
+
+        if (selectionGesture != null)
+        {
+            selectionGesture.Commit("Scale selection");
+            selectionGesture = null;
             ResetScaleState();
             return;
         }
@@ -211,6 +226,8 @@ public class SelectionOutline : MonoBehaviour
 
     void ResetScaleState()
     {
+        selectionGesture?.Cancel();
+        selectionGesture = null;
         isScaling = false;
         dragStartScale = Vector3.one;
         dragStartPosition = Vector3.zero;
@@ -248,6 +265,8 @@ public class SelectionOutline : MonoBehaviour
     void UpdateOutline(bool force = false)
     {
         if (target == null) return;
+        bool showHandles = IsScaleMode();
+        if (scaleHandlesVisible != showHandles) { scaleHandlesVisible = showHandles; force = true; }
 
         var targetTransform = target.transform;
         bool transformChanged = !transformSnapshotValid ||
@@ -269,24 +288,13 @@ public class SelectionOutline : MonoBehaviour
         corners[6] = targetTransform.TransformPoint(new Vector3(max.x, max.y, max.z));
         corners[7] = targetTransform.TransformPoint(new Vector3(min.x, max.y, max.z));
 
-        edges[0, 0] = corners[0]; edges[0, 1] = corners[1];
-        edges[1, 0] = corners[1]; edges[1, 1] = corners[2];
-        edges[2, 0] = corners[2]; edges[2, 1] = corners[3];
-        edges[3, 0] = corners[3]; edges[3, 1] = corners[0];
-        edges[4, 0] = corners[4]; edges[4, 1] = corners[5];
-        edges[5, 0] = corners[5]; edges[5, 1] = corners[6];
-        edges[6, 0] = corners[6]; edges[6, 1] = corners[7];
-        edges[7, 0] = corners[7]; edges[7, 1] = corners[4];
-        edges[8, 0] = corners[0]; edges[8, 1] = corners[4];
-        edges[9, 0] = corners[1]; edges[9, 1] = corners[5];
-        edges[10, 0] = corners[2]; edges[10, 1] = corners[6];
-        edges[11, 0] = corners[3]; edges[11, 1] = corners[7];
-
-        EnsureLines(12);
-        for (int i = 0; i < 12; i++)
+        // The silhouette is drawn by SelectionHighlightSet. Keep only the existing
+        // corner affordances for scaling; do not draw a rectangular selection cage.
+        EnsureLines(showHandles ? 8 : 0);
+        for (int i = 0; showHandles && i < 8; i++)
         {
-            lines[i].SetPosition(0, edges[i, 0]);
-            lines[i].SetPosition(1, edges[i, 1]);
+            lines[i].SetPosition(0, corners[i] - Vector3.right * OutlineLineWidth);
+            lines[i].SetPosition(1, corners[i] + Vector3.right * OutlineLineWidth);
         }
 
         lastWorldPosition = targetTransform.position;
@@ -397,7 +405,7 @@ public class SelectionOutline : MonoBehaviour
         return EditModeService.I != null && EditModeService.I.Mode == EditMode.Scale;
     }
 
-    Material GetRuntimeLineMaterial()
+    public Material GetRuntimeLineMaterial()
     {
         if (runtimeLineMaterial != null) return runtimeLineMaterial;
 
@@ -489,6 +497,8 @@ public class SelectionOutline : MonoBehaviour
 
     void OnDisable()
     {
+        EnsureLines(0);
+        outlineDirty = true;
         SetScaleCursor(false);
     }
 

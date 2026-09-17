@@ -45,7 +45,7 @@ public class PlacementExportService : MonoBehaviour
         error = null;
         var data = new PlacementExport
         {
-            version = 1,
+            version = 2,
             projectName = projectName
         };
 
@@ -53,11 +53,15 @@ public class PlacementExportService : MonoBehaviour
         for (int i = 0; i < all.Length; i++)
         {
             var po = all[i];
+            if (po.modelRoot != null) continue;
             po.EnsureHasId();
 
             data.objects.Add(new PlacementExportObject
             {
                 id = po.id,
+                sourceNodePath = po.sourceNodePath,
+                sourceSignature = po.sourceSignature,
+                parts = ImportedModelParts.Capture(po),
                 typeId = po.typeId,
                 position = po.transform.position,
                 rotation = po.transform.rotation,

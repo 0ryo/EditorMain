@@ -55,7 +55,7 @@
 - `typeId`: 配置Prefabの技術ID。例 `Vehicle/Car_Proxy`。
 - `PlacedObject`: Scene上に配置されたオブジェクトへ `id`、`typeId`、表示名、説明を付与するComponent。
 - `PrefabRegistry`: `typeId` とPrefabを対応付けるScriptableObject。
-- `Curriculum`: schema version 2の編集用グラフデータ。
+- `Curriculum`: schema version 5の編集用グラフデータ。
 - `StepFlow`: Start → Step群 → Endの順序接続。
 - `ConditionBind`: Condition → Stepの所属接続。
 - `workspace plane`: 配置座標の正本となる数学的な `y=0` 平面。表示Floor Colliderとは別。

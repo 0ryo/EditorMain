@@ -1,0 +1,64 @@
+{
+    "version": 2,
+    "projectName": "VRCourseEditor",
+    "scenarioSettings": {
+        "holdSeconds": 1.0,
+        "snapDistance_m": 0.10000000149011612
+    },
+    "requiredActions": [
+        {
+            "id": "act-001",
+            "name": "手順 1",
+            "conditions": [
+                {
+                    "type": "SnapHold",
+                    "aObjectId": "obj-0001",
+                    "bObjectId": "obj-0002",
+                    "holdSeconds": 1.0
+                }
+            ]
+        }
+    ],
+    "objects": [
+        {
+            "id": "obj-0001",
+            "typeId": "Tire/Replacement_Proxy",
+            "position": {
+                "x": -3.799999952316284,
+                "y": 0.5,
+                "z": 5.700000286102295
+            },
+            "rotation": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0,
+                "w": 1.0
+            },
+            "scale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            }
+        },
+        {
+            "id": "obj-0002",
+            "typeId": "Env/Wall_Min",
+            "position": {
+                "x": 0.4000000059604645,
+                "y": 0.5,
+                "z": 5.599999904632568
+            },
+            "rotation": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0,
+                "w": 1.0
+            },
+            "scale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            }
+        }
+    ]
+}

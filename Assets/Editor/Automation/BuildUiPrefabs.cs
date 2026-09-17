@@ -32,6 +32,7 @@ public static class BuildUiPrefabs
         var hintButton = root.transform.Find("Button_Hints") as RectTransform;
         BuildDockSync(root, catalogPanel, scenarioPanel, editModeRow, settingsButton, hintButton);
 
+        ApplyAuthoringFeatures.Prepare(root);
         PrefabUtility.SaveAsPrefabAsset(root, UiRootPrefabPath);
         Object.DestroyImmediate(root);
         AssetDatabase.SaveAssets();

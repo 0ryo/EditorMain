@@ -26,7 +26,7 @@ public static class EditorProjectSnapshotBuilder
 
         var placedObjects = UnityEngine.Object
             .FindObjectsByType<PlacedObject>(FindObjectsInactive.Exclude, FindObjectsSortMode.None)
-            .Where(item => item != null)
+            .Where(item => item != null && item.modelRoot == null)
             .OrderBy(item => item.id)
             .ToList();
         foreach (var placed in placedObjects)
@@ -36,6 +36,9 @@ public static class EditorProjectSnapshotBuilder
             project.objects.Add(new EditorProjectObject
             {
                 id = placed.id,
+                sourceNodePath = placed.sourceNodePath,
+                sourceSignature = placed.sourceSignature,
+                parts = ImportedModelParts.Capture(placed),
                 typeId = placed.typeId,
                 displayName = placed.displayName,
                 description = placed.description,
@@ -89,6 +92,7 @@ public static class EditorProjectLoadPreparation
     public static bool Validate(EditorProjectFile project, PlacementController placementController, out string error)
     {
         error = null;
+        var ids = new HashSet<string>(StringComparer.Ordinal);
         foreach (var item in project.objects)
         {
             if (item == null || string.IsNullOrWhiteSpace(item.id) || string.IsNullOrWhiteSpace(item.typeId))
@@ -97,11 +101,26 @@ public static class EditorProjectLoadPreparation
                 return false;
             }
 
-            if (!placementController.TryGetPrefab(item.typeId, out _))
+            if (!placementController.TryGetPrefab(item.typeId, out var prefab))
             {
                 error = $"現在のカタログにない種類を含んでいます: {item.typeId}";
                 return false;
             }
+            if (!ids.Add(item.id)) { error = "配置IDが重複しています。"; return false; }
+            try
+            {
+                var source = ImportedModelParts.Resolve(prefab.transform, item.sourceNodePath);
+                ImportedModelParts.ValidateSource(source, item.sourceSignature);
+                var paths = new HashSet<string>(StringComparer.Ordinal);
+                foreach (var part in item.parts ?? new List<ModelPartState>())
+                {
+                    if (part == null || string.IsNullOrWhiteSpace(part.id) || !ids.Add(part.id) ||
+                        string.IsNullOrEmpty(part.nodePath) || !paths.Add(part.nodePath))
+                        throw new InvalidOperationException("部品IDまたは対応情報が重複・欠損しています。");
+                    ImportedModelParts.Resolve(source, part.nodePath);
+                }
+            }
+            catch (Exception ex) { error = item.displayName + ": " + ex.Message; return false; }
         }
 
         return true;

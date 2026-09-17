@@ -43,6 +43,7 @@ internal static class CurriculumGraphValidator
 
         foreach (var edge in curriculum.edges)
         {
+            if (edge == null) { result.AddError("E-11", "Null edge."); continue; }
             if (string.IsNullOrWhiteSpace(edge.fromNodeId) || string.IsNullOrWhiteSpace(edge.toNodeId))
             {
                 result.AddError("E-11", "Edge has empty from/to nodeId.");
@@ -76,8 +77,8 @@ internal static class CurriculumGraphValidator
             }
         }
 
-        var stepFlowEdges = curriculum.edges.Where(e => e.edgeType == ScenarioEdgeType.StepFlow).ToList();
-        var conditionBindEdges = curriculum.edges.Where(e => e.edgeType == ScenarioEdgeType.ConditionBind).ToList();
+        var stepFlowEdges = curriculum.edges.Where(e => e != null && e.edgeType == ScenarioEdgeType.StepFlow).ToList();
+        var conditionBindEdges = curriculum.edges.Where(e => e != null && e.edgeType == ScenarioEdgeType.ConditionBind).ToList();
 
         if (startNodes.Count == 1)
         {
@@ -91,9 +92,9 @@ internal static class CurriculumGraphValidator
         if (endNodes.Count == 1)
         {
             int inCount = stepFlowEdges.Count(e => e.toNodeId == endNodes[0].nodeId);
-            if (inCount != 1)
+            if (inCount < 1)
             {
-                result.AddError("E-05", $"End must have exactly one incoming StepFlow edge (actual={inCount}).", endNodes[0].nodeId);
+                result.AddError("E-05", $"End must have an incoming StepFlow edge (actual={inCount}).", endNodes[0].nodeId);
             }
         }
 
@@ -101,9 +102,9 @@ internal static class CurriculumGraphValidator
         {
             int inCount = stepFlowEdges.Count(e => e.toNodeId == step.nodeId);
             int outCount = stepFlowEdges.Count(e => e.fromNodeId == step.nodeId);
-            if (inCount > 1 || outCount > 1)
+            if (inCount == 0 || outCount == 0)
             {
-                result.AddError("E-04", $"Step '{step.nodeId}' has multiple incoming or outgoing StepFlow edges.", step.nodeId);
+                result.AddError("E-04", $"Step '{step.nodeId}' has a missing incoming or outgoing StepFlow edge.", step.nodeId);
             }
         }
 
@@ -111,7 +112,7 @@ internal static class CurriculumGraphValidator
         {
             result.AddError("E-04", "No Step node exists.");
         }
-        else if (!graph.TryBuildLinearStepSequence(out _, out var linearReason))
+        else if (!ScenarioFlow.TryOrder(curriculum, out _, out var linearReason))
         {
             result.AddError("E-04", $"Step chain is invalid: {linearReason}");
         }
@@ -147,20 +148,21 @@ internal static class CurriculumGraphValidator
                 result.AddError("E-07", $"Condition '{condition.nodeId}' must bind to exactly one Step (actual={bindCount}).", condition.nodeId);
             }
 
+            bool requiresB = ConditionTypeCatalog.RequiresObjectB(condition.condition.type);
             if (string.IsNullOrWhiteSpace(condition.condition.objectAId) ||
-                string.IsNullOrWhiteSpace(condition.condition.objectBId))
+                (requiresB && string.IsNullOrWhiteSpace(condition.condition.objectBId)))
             {
                 result.AddError("E-08", $"Condition '{condition.nodeId}' has unassigned A/B object.", condition.nodeId);
             }
             else
             {
-                if (condition.condition.objectAId == condition.condition.objectBId)
+                if (requiresB && condition.condition.objectAId == condition.condition.objectBId)
                 {
                     result.AddError("E-09", $"Condition '{condition.nodeId}' cannot use the same object for A and B.", condition.nodeId);
                 }
 
                 if (!placedObjectIds.Contains(condition.condition.objectAId) ||
-                    !placedObjectIds.Contains(condition.condition.objectBId))
+                    (requiresB && !placedObjectIds.Contains(condition.condition.objectBId)))
                 {
                     result.AddError("E-10", $"Condition '{condition.nodeId}' references missing placed object id.", condition.nodeId);
                 }
@@ -182,7 +184,7 @@ internal static class CurriculumGraphValidator
             }
 
             var duplicateKeys = conditions
-                .Select(c => $"{c.condition.type}|{c.condition.objectAId}|{c.condition.objectBId}|{ConditionTypeCatalog.BuildParameterSignature(c.condition)}")
+                .Select(c => $"{c.condition.type}|{c.condition.objectAId}|{(ConditionTypeCatalog.RequiresObjectB(c.condition.type) ? c.condition.objectBId : string.Empty)}|{ConditionTypeCatalog.BuildParameterSignature(c.condition)}")
                 .GroupBy(k => k)
                 .Where(g => g.Count() > 1)
                 .Select(g => g.Key)

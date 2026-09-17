@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.EventSystems;
 
@@ -9,6 +11,21 @@ public class SelectionService : MonoBehaviour
     public Camera cam;
     public LayerMask pickMask = ~0;
     public PlacedObject Current;
+    readonly List<PlacedObject> selected = new();
+    public IReadOnlyList<PlacedObject> Selected => selected;
+    public bool Contains(PlacedObject item) => selected.Contains(item);
+    public static bool AdditiveSelection => Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift) ||
+        Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl);
+    public static bool CanEdit(PlacedObject item)
+    {
+        if (item == null || !item.gameObject.activeInHierarchy) return false;
+        for (var node = item.transform; node != null; node = node.parent)
+        {
+            var state = node.GetComponent<PlacedObjectEditState>();
+            if (state != null && (state.Hidden || state.Locked)) return false;
+        }
+        return true;
+    }
     public SelectionOutline outline;
 
     public PrefabRegistry registry;
@@ -22,11 +39,23 @@ public class SelectionService : MonoBehaviour
 
     void Awake()
     {
+        if (CanEdit(Current)) selected.Add(Current);
         EnsureOutline();
     }
 
+    readonly SelectionHighlightSet highlights = new();
+
+    void LateUpdate()
+    {
+        highlights.Refresh(this, selected);
+    }
+
+    void OnDisable() { highlights.Clear(); }
+    void OnDestroy() { highlights.Clear(); }
+
     void Update()
     {
+        if (ObjectScreenPicker.Capturing) return;
         EnsureOutline();
 
         if (placementController == null)
@@ -44,10 +73,7 @@ public class SelectionService : MonoBehaviour
             cam = EditWorkspace.ResolveCamera();
         }
 
-        if (Current != null && !Current.gameObject.activeInHierarchy)
-        {
-            Select(null);
-        }
+        if (selected.RemoveAll(item => !CanEdit(item)) > 0) PublishSelection();
 
         var mousePosition = EditInput.MousePosition;
         if (PlacementController.IsScreenPositionOverBlockingUi(mousePosition))
@@ -104,79 +130,99 @@ public class SelectionService : MonoBehaviour
                 {
                     LogDebug($"Picked placed object: id={picked.Id}, name={picked.name}, mouse={mousePosition}");
                 }
-                Select(picked);
+                if (AdditiveSelection || !Contains(picked)) Select(picked, AdditiveSelection);
+                else if (picked != Current)
+                {
+                    selected.Remove(picked);
+                    selected.Add(picked);
+                    PublishSelection();
+                }
             }
             else if (hitSomething)
             {
                 LogDebug($"Selection cleared by non-placed hit. mouse={mousePosition}");
-                Select(null);
+                if (!AdditiveSelection) Select(null);
             }
             else
             {
                 LogDebug($"Selection cleared by empty workspace click. mouse={mousePosition}");
-                Select(null);
+                if (!AdditiveSelection) Select(null);
             }
         }
 
         if (Current == null) return;
         if (EditWorkspace.IsTypingIntoInputField()) return;
 
-        if (Input.GetKeyDown(KeyCode.Delete))
-        {
-            System.Func<string, GameObject> factory = (tId) =>
-            {
-                return PlacedObjectRestoreFactory.Create(tId, registry, placementController);
-            };
-
-            var deleteCmd = new DeleteObjectCommand(Current.gameObject, Current.typeId, factory);
-            CommandService.I.Stack.Execute(deleteCmd);
-
-            Select(null);
-            return;
-        }
-
-        bool controlKey = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl);
-        bool commandKey = Input.GetKey(KeyCode.LeftCommand) || Input.GetKey(KeyCode.RightCommand);
-
-        if ((controlKey || commandKey) && Input.GetKeyDown(KeyCode.D))
-        {
-            var duplicateCmd = new DuplicateObjectCommand(
-                Current.gameObject,
-                new Vector3(0.2f, 0f, 0.2f)
-            );
-
-            if (CommandService.I != null && CommandService.I.Stack != null)
-            {
-                CommandService.I.Stack.Execute(duplicateCmd);
-            }
-            else
-            {
-                duplicateCmd.Do();
-                LogWarning("Duplicate applied without undo because CommandService is missing.");
-            }
-
-            var po = duplicateCmd.Result;
-            if (po == null) return;
-
-            Select(po);
-            return;
-        }
+        if (Input.GetKeyDown(KeyCode.Delete)) { DeleteSelected(); return; }
+        bool modifier = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl) ||
+            Input.GetKey(KeyCode.LeftCommand) || Input.GetKey(KeyCode.RightCommand);
+        if (modifier && Input.GetKeyDown(KeyCode.D)) DuplicateSelected();
     }
 
-    public void Select(PlacedObject po)
+    public void Select(PlacedObject po) => Select(po, false);
+
+    public void Select(PlacedObject po, bool additive)
     {
-        EnsureOutline();
-        if (Current == po)
+        if (!additive) selected.Clear();
+        if (CanEdit(po))
         {
-            if (outline != null) outline.ShowFor(po ? po.gameObject : null);
-            return;
+            if (additive && selected.Contains(po)) selected.Remove(po);
+            else if (!selected.Any(parent => po.transform.IsChildOf(parent.transform)))
+            {
+                // A selection is an antichain: parent motion already transforms its children.
+                selected.RemoveAll(child => child.transform.IsChildOf(po.transform));
+                selected.Add(po);
+            }
         }
-
-        Current = po;
-        if (outline != null) outline.ShowFor(po ? po.gameObject : null);
-        OnSelectionChanged?.Invoke(po);
-        LogDebug(po != null ? $"Selected: id={po.Id}, type={po.TypeId}" : "Selection cleared.");
+        PublishSelection();
     }
+
+    void PublishSelection()
+    {
+        Current = selected.LastOrDefault();
+        EnsureOutline();
+        if (outline != null) outline.ShowFor(Current != null ? Current.gameObject : null);
+        OnSelectionChanged?.Invoke(Current);
+    }
+
+    public void DeleteSelected()
+    {
+        var commands = selected.Where(CanEdit).Select(item => (IEditorCommand)new DeleteObjectCommand(
+            item.gameObject, item.typeId, typeId => PlacedObjectRestoreFactory.Create(typeId, registry, placementController))).ToList();
+        if (commands.Count == 0) return;
+        if (Execute(new CompositeEditorCommand("Delete selection", commands))) Select(null);
+    }
+
+    public void DuplicateSelected()
+    {
+        var commands = selected.Where(CanEdit).Select(item => new DuplicateObjectCommand(
+            item.gameObject, new Vector3(0.2f, 0f, 0.2f))).ToList();
+        if (commands.Count == 0 || !Execute(new CompositeEditorCommand("Duplicate selection", commands))) return;
+        selected.Clear();
+        selected.AddRange(commands.Select(command => command.Result).Where(item => item != null));
+        PublishSelection();
+    }
+
+    public void Align(int axis, bool distribute)
+    {
+        if (axis < 0 || axis > 2) return;
+        var items = selected.Where(CanEdit).OrderBy(item => item.transform.position[axis]).ToList();
+        if (items.Count < (distribute ? 3 : 2) || Current == null) return;
+        float first = items[0].transform.position[axis];
+        float last = items[items.Count - 1].transform.position[axis];
+        var commands = new List<IEditorCommand>();
+        for (int i = 0; i < items.Count; i++)
+        {
+            Vector3 from = items[i].transform.position;
+            Vector3 to = from;
+            to[axis] = distribute ? Mathf.Lerp(first, last, (float)i / (items.Count - 1)) : Current.transform.position[axis];
+            if ((to - from).sqrMagnitude > 0.00000001f) commands.Add(new MoveObjectCommand(items[i].gameObject, from, to));
+        }
+        if (commands.Count > 0) Execute(new CompositeEditorCommand(distribute ? "Distribute selection" : "Align selection", commands));
+    }
+
+    static bool Execute(IEditorCommand command) => CommandService.I != null
+        ? CommandService.I.Stack.Execute(command) : command.Do();
 
     void EnsureOutline()
     {

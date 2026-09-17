@@ -28,6 +28,7 @@
 |---|---|
 | uGUIレイアウト、Prefab、UI構造 | `Docs/rules/ui_editing_rules.md` → `Docs/worklog/worklog_UI/全体UI仕様.md` → 対象ウィンドウの仕様 |
 | 色、フォント、余白、コンポーネント外観 | `Docs/rules/design_rule.md`。実装値は `Assets/Scripts/UI/DesignTokens.cs` と突合する |
+| ビューポート、整列UI、透明グリッド、ギズモ・照明改善 | `.ai/BACKLOG/viewport-polish-plan.md` → `Docs/design_audit/viewport-lighting-study.md` |
 | オブジェクト一覧 | 上記に加えて `Docs/worklog/worklog_UI/worklog_オブジェクト一覧ウィンドウ.md` |
 | シナリオ作成・保存・権限 | `Docs/rules/scenario_rules.md` → `Assets/Scripts/Core/` と `Assets/Scripts/Services/CurriculumGraphService.cs`。既知差異は `GOTCHAS.md` を先に確認 |
 | 2026-06-29 UI監査の実装 | `Docs/design_audit/ui_design_implementation_policy_2026-06-29.md`。指摘根拠が必要な場合だけ監査本文と画像を見る |

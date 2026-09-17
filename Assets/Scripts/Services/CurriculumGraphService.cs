@@ -79,7 +79,7 @@ public class CurriculumGraphService : MonoBehaviour
             curriculum.edges = new List<ScenarioEdge>();
         }
 
-        curriculum.schemaVersion = 4;
+        curriculum.schemaVersion = 5;
         curriculum.rules ??= new RuleSet();
         curriculum.rules.maxConditionsPerStep = Mathf.Clamp(
             curriculum.rules.maxConditionsPerStep <= 0 ? 8 : curriculum.rules.maxConditionsPerStep,
@@ -208,7 +208,7 @@ public class CurriculumGraphService : MonoBehaviour
         if (node.nodeType == ScenarioNodeType.Start || node.nodeType == ScenarioNodeType.End) return;
 
         curriculum.nodes.Remove(node);
-        curriculum.edges.RemoveAll(e => e.fromNodeId == nodeId || e.toNodeId == nodeId);
+        curriculum.edges.RemoveAll(e => e != null && e.fromNodeId == nodeId || e.toNodeId == nodeId);
     }
 
     public ScenarioNode FindNode(string nodeId)
@@ -296,7 +296,7 @@ public class CurriculumGraphService : MonoBehaviour
         }
 
         bool duplicate = curriculum.edges.Any(e =>
-            e.edgeType == edgeType &&
+            e != null && e.edgeType == edgeType &&
             e.fromNodeId == fromNodeId &&
             e.toNodeId == toNodeId);
         if (duplicate)
@@ -311,14 +311,14 @@ public class CurriculumGraphService : MonoBehaviour
     public void RemoveEdge(string fromNodeId, string toNodeId)
     {
         EnsureGraphInitialized();
-        curriculum.edges.RemoveAll(e => e.fromNodeId == fromNodeId && e.toNodeId == toNodeId);
+        curriculum.edges.RemoveAll(e => e != null && e.fromNodeId == fromNodeId && e.toNodeId == toNodeId);
     }
 
     public void RemoveEdge(string fromNodeId, string toNodeId, ScenarioEdgeType edgeType)
     {
         EnsureGraphInitialized();
         curriculum.edges.RemoveAll(e =>
-            e.fromNodeId == fromNodeId &&
+            e != null && e.fromNodeId == fromNodeId &&
             e.toNodeId == toNodeId &&
             e.edgeType == edgeType);
     }
@@ -329,7 +329,7 @@ public class CurriculumGraphService : MonoBehaviour
         if (string.IsNullOrWhiteSpace(conditionNodeId)) return null;
 
         var edge = curriculum.edges.FirstOrDefault(e =>
-            e.edgeType == ScenarioEdgeType.ConditionBind &&
+            e != null && e.edgeType == ScenarioEdgeType.ConditionBind &&
             e.fromNodeId == conditionNodeId);
         return edge != null ? edge.toNodeId : null;
     }
@@ -348,7 +348,7 @@ public class CurriculumGraphService : MonoBehaviour
         if (conditionNode == null || conditionNode.nodeType != ScenarioNodeType.Condition) return false;
 
         int removed = curriculum.edges.RemoveAll(e =>
-            e.edgeType == ScenarioEdgeType.ConditionBind &&
+            e != null && e.edgeType == ScenarioEdgeType.ConditionBind &&
             e.fromNodeId == conditionNodeId);
         return removed > 0;
     }
@@ -379,7 +379,7 @@ public class CurriculumGraphService : MonoBehaviour
         }
 
         var existing = curriculum.edges
-            .Where(e => e.edgeType == ScenarioEdgeType.ConditionBind && e.fromNodeId == conditionNodeId)
+            .Where(e => e != null && e.edgeType == ScenarioEdgeType.ConditionBind && e.fromNodeId == conditionNodeId)
             .ToList();
         if (existing.Any(e => e.toNodeId == stepNodeId))
         {
@@ -387,7 +387,7 @@ public class CurriculumGraphService : MonoBehaviour
         }
 
         curriculum.edges.RemoveAll(e =>
-            e.edgeType == ScenarioEdgeType.ConditionBind &&
+            e != null && e.edgeType == ScenarioEdgeType.ConditionBind &&
             e.fromNodeId == conditionNodeId);
 
         if (TryAddEdge(conditionNodeId, stepNodeId, out reason))
@@ -404,7 +404,7 @@ public class CurriculumGraphService : MonoBehaviour
     {
         EnsureGraphInitialized();
         return curriculum.edges
-            .Where(e => e.edgeType == ScenarioEdgeType.StepFlow && e.toNodeId == nodeId)
+            .Where(e => e != null && e.edgeType == ScenarioEdgeType.StepFlow && e.toNodeId == nodeId)
             .Select(e => e.fromNodeId)
             .Distinct()
             .ToList();
@@ -414,7 +414,7 @@ public class CurriculumGraphService : MonoBehaviour
     {
         EnsureGraphInitialized();
         return curriculum.edges
-            .Where(e => e.edgeType == ScenarioEdgeType.ConditionBind && e.toNodeId == stepNodeId)
+            .Where(e => e != null && e.edgeType == ScenarioEdgeType.ConditionBind && e.toNodeId == stepNodeId)
             .Select(e => FindNode(e.fromNodeId))
             .Where(n => n != null && n.nodeType == ScenarioNodeType.Condition)
             .OrderBy(n => n.nodeId)
@@ -437,7 +437,8 @@ public class CurriculumGraphService : MonoBehaviour
         if (conditionNode == null || conditionNode.nodeType != ScenarioNodeType.Condition) return false;
         return ConditionTypeCatalog.Find(conditionNode.condition.type) != null &&
                !string.IsNullOrWhiteSpace(conditionNode.condition.objectAId) &&
-               !string.IsNullOrWhiteSpace(conditionNode.condition.objectBId);
+               (!ConditionTypeCatalog.RequiresObjectB(conditionNode.condition.type) ||
+                !string.IsNullOrWhiteSpace(conditionNode.condition.objectBId));
     }
 
     public bool HasUnconfiguredConditions(ScenarioNode stepNode)
