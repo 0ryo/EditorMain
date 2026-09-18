@@ -9,8 +9,8 @@ using UnityEditor;
 #endif
 
 /// <summary>
-/// TMP ‚ÌŠù’èƒtƒHƒ“ƒg‚É“ú–{ŒêƒtƒH[ƒ‹ƒoƒbƒN‚ğ•âŠ®‚·‚é‰Šú‰»ƒ†[ƒeƒBƒŠƒeƒBB
-/// Editor ‚Å‚Í‰i‘±ƒAƒZƒbƒg‚ğì¬‚µ‚Ä TMP Settings ‚É“o˜^‚µAPlay ’†‚Í‚»‚ê‚ğÄ—˜—p‚·‚éB
+/// TMP ã®æ—¢å®šãƒ•ã‚©ãƒ³ãƒˆã«æ—¥æœ¬èªãƒ•ã‚©ãƒ¼ãƒ«ãƒãƒƒã‚¯ã‚’è£œå®Œã™ã‚‹åˆæœŸåŒ–ãƒ¦ãƒ¼ãƒ†ã‚£ãƒªãƒ†ã‚£ã€‚
+/// Editor ã§ã¯æ°¸ç¶šã‚¢ã‚»ãƒƒãƒˆã‚’ä½œæˆã—ã¦ TMP Settings ã«ç™»éŒ²ã—ã€Play ä¸­ã¯ãã‚Œã‚’å†åˆ©ç”¨ã™ã‚‹ã€‚
 /// </summary>
 public static class TmpFontInitializer
 {
@@ -26,6 +26,11 @@ public static class TmpFontInitializer
 
     static readonly string[] JapaneseFontFamilies =
     {
+#if UNITY_EDITOR_OSX || UNITY_STANDALONE_OSX
+        "Hiragino Sans",
+        "Hiragino Kaku Gothic ProN",
+        "Hiragino Maru Gothic ProN",
+#endif
         "Yu Gothic UI",
         "Yu Gothic",
         "Meiryo UI",
@@ -39,9 +44,11 @@ public static class TmpFontInitializer
         "Regular",
         "Normal",
         "Book",
+        "W3",
+        "W4",
     };
 
-    static readonly char[] ProbeCharacters = { '‚ ', 'ƒA', 'Š¿', 'ğ', 'i', 'j' };
+    static readonly char[] ProbeCharacters = { 'ã‚', 'ã‚¢', 'æ¼¢', 'æ¡', 'ï¼ˆ', 'ï¼‰' };
 
 #if UNITY_EDITOR
     [InitializeOnLoadMethod]
@@ -103,7 +110,7 @@ public static class TmpFontInitializer
         changed |= EnsureFallbackRegistered(globalFallbacks, japaneseFallbackFontAsset);
 
 #if UNITY_EDITOR
-        if (changed)
+        if (changed && AssetDatabase.Contains(japaneseFallbackFontAsset))
         {
             PersistTmpSettings(defaultFont);
         }
@@ -124,6 +131,12 @@ public static class TmpFontInitializer
 
     static TMP_FontAsset LoadPreferredFallbackAsset()
     {
+#if UNITY_EDITOR_OSX || UNITY_STANDALONE_OSX
+        // Windows-created DynamicOS assets retain a Windows system-font path.
+        // Resolve a local font in memory without rewriting shared font assets.
+        if (japaneseFallbackFontAsset != null) return japaneseFallbackFontAsset;
+        return CreateTransientFallbackAsset();
+#else
 #if UNITY_EDITOR
         var persistent = LoadOrCreatePersistentFallbackAsset();
         if (persistent != null) return persistent;
@@ -133,6 +146,7 @@ public static class TmpFontInitializer
         if (resourceFont != null) return resourceFont;
 
         return CreateTransientFallbackAsset();
+#endif
     }
 
 #if UNITY_EDITOR
@@ -267,7 +281,8 @@ public static class TmpFontInitializer
         if (fontAsset.material == null) return true;
 
 #if UNITY_EDITOR
-        if (fontAsset.name.Contains(FallbackNameSuffix) && !AssetDatabase.Contains(fontAsset))
+        if (fontAsset != japaneseFallbackFontAsset &&
+            fontAsset.name.Contains(FallbackNameSuffix) && !AssetDatabase.Contains(fontAsset))
             return true;
 #endif
 

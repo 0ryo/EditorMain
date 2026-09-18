@@ -49,5 +49,6 @@
 
 ## TMP
 
+- Windowsで作成したDynamicOSフォントassetはWindowsのフォント絶対pathを保持する。macOSでは`TmpFontInitializer`がローカルのヒラギノから一時fallbackを作り、共有font assetへ保存せず使用する。
 - 日本語fallbackは `TmpFontInitializer` がEditor/runtimeでTMP内部cacheやsubmeshを更新する。reflectionとTMP内部stateに依存するため、font修正はFallback assetだけでなくinitializerとTMP Settingsも確認する。
 - 過去にTMP material cache/submesh更新中の例外が入力系調査を阻害した。現在はwarningへ落として継続する箇所があるため、warningを無関係として一括無視しない。

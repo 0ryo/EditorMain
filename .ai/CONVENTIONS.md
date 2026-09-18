@@ -4,6 +4,7 @@
 
 ## C#・ファイル構成
 
+- C#ソースはUTF-8で保存する。CP932の日本語文字リテラルはmacOSのUnityで誤読され、CS1012になる。既存CP932ファイルは内容を保持してUTF-8へ変換する。
 - 独自namespaceとasmdefはなく、runtime scriptはUnity既定の `Assembly-CSharp` に入る。
 - 主要class名とファイル名は一致する。小さなcommand/model/helper classは関連ファイルへ同居する場合がある。
 - MonoBehaviour service/controller、static helper、`[Serializable]` public-field model、ScriptableObject registryを使い分ける。
