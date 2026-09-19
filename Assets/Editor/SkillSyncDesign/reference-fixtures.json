@@ -1,0 +1,2633 @@
+{
+  "visuals": [
+    {
+      "x": 16.0,
+      "y": 275.0,
+      "w": 232.0,
+      "h": 154.0,
+      "alpha": 1.0,
+      "kind": "VECTOR",
+      "text": "",
+      "size": 0,
+      "weight": 400,
+      "baseline": 0,
+      "lineHeight": 0,
+      "color": "#FFFFFF",
+      "sprite": "vector_10f31dffbefdbdfb.png",
+      "role": "",
+      "region": "Chrome",
+      "mask": 9,
+      "sources": [
+        "26:265",
+        "26:1521"
+      ],
+      "order": 45,
+      "orders": [
+        45,
+        -1,
+        -1,
+        45,
+        -1,
+        -1
+      ]
+    },
+    {
+      "x": 78.80000019073486,
+      "y": 329.5999984741211,
+      "w": 104.0,
+      "h": 25.600000381469727,
+      "alpha": 0.09000000357627869,
+      "kind": "VECTOR",
+      "text": "",
+      "size": 0,
+      "weight": 400,
+      "baseline": 0,
+      "lineHeight": 0,
+      "color": "#FFFFFF",
+      "sprite": "vector_9e62d9bb7a1a650a.png",
+      "role": "",
+      "region": "Chrome",
+      "mask": 9,
+      "sources": [
+        "26:267",
+        "26:1523"
+      ],
+      "order": 47,
+      "orders": [
+        47,
+        -1,
+        -1,
+        47,
+        -1,
+        -1
+      ]
+    },
+    {
+      "x": 90.0,
+      "y": 292.0,
+      "w": 92.0,
+      "h": 32.79999923706055,
+      "alpha": 1.0,
+      "kind": "VECTOR",
+      "text": "",
+      "size": 0,
+      "weight": 400,
+      "baseline": 0,
+      "lineHeight": 0,
+      "color": "#FFFFFF",
+      "sprite": "vector_8ddbe42b1162750a.png",
+      "role": "",
+      "region": "Chrome",
+      "mask": 9,
+      "sources": [
+        "26:268",
+        "26:1524"
+      ],
+      "order": 48,
+      "orders": [
+        48,
+        -1,
+        -1,
+        48,
+        -1,
+        -1
+      ]
+    },
+    {
+      "x": 90.0,
+      "y": 304.80000019073486,
+      "w": 32.79999923706055,
+      "h": 51.20000076293945,
+      "alpha": 1.0,
+      "kind": "VECTOR",
+      "text": "",
+      "size": 0,
+      "weight": 400,
+      "baseline": 0,
+      "lineHeight": 0,
+      "color": "#FFFFFF",
+      "sprite": "vector_a90f23858a9f90de.png",
+      "role": "",
+      "region": "Chrome",
+      "mask": 9,
+      "sources": [
+        "26:269",
+        "26:1525"
+      ],
+      "order": 49,
+      "orders": [
+        49,
+        -1,
+        -1,
+        49,
+        -1,
+        -1
+      ]
+    },
+    {
+      "x": 122.79999923706055,
+      "y": 310.3999996185303,
+      "w": 59.20000076293945,
+      "h": 45.599998474121094,
+      "alpha": 1.0,
+      "kind": "VECTOR",
+      "text": "",
+      "size": 0,
+      "weight": 400,
+      "baseline": 0,
+      "lineHeight": 0,
+      "color": "#FFFFFF",
+      "sprite": "vector_15060ba7e653c66a.png",
+      "role": "",
+      "region": "Chrome",
+      "mask": 9,
+      "sources": [
+        "26:270",
+        "26:1526"
+      ],
+      "order": 50,
+      "orders": [
+        50,
+        -1,
+        -1,
+        50,
+        -1,
+        -1
+      ]
+    },
+    {
+      "x": 116.4000015258789,
+      "y": 302.3999996185303,
+      "w": 9.600000381469727,
+      "h": 4.800000190734863,
+      "alpha": 1.0,
+      "kind": "VECTOR",
+      "text": "",
+      "size": 0,
+      "weight": 400,
+      "baseline": 0,
+      "lineHeight": 0,
+      "color": "#FFFFFF",
+      "sprite": "vector_a30f047edbb801d0.png",
+      "role": "",
+      "region": "Chrome",
+      "mask": 9,
+      "sources": [
+        "26:271",
+        "26:1527"
+      ],
+      "order": 51,
+      "orders": [
+        51,
+        -1,
+        -1,
+        51,
+        -1,
+        -1
+      ]
+    },
+    {
+      "x": 147.5999984741211,
+      "y": 312.79999923706055,
+      "w": 9.600000381469727,
+      "h": 4.800000190734863,
+      "alpha": 1.0,
+      "kind": "VECTOR",
+      "text": "",
+      "size": 0,
+      "weight": 400,
+      "baseline": 0,
+      "lineHeight": 0,
+      "color": "#FFFFFF",
+      "sprite": "vector_a30f047edbb801d0.png",
+      "role": "",
+      "region": "Chrome",
+      "mask": 9,
+      "sources": [
+        "26:272",
+        "26:1528"
+      ],
+      "order": 52,
+      "orders": [
+        52,
+        -1,
+        -1,
+        52,
+        -1,
+        -1
+      ]
+    },
+    {
+      "x": 148.4000015258789,
+      "y": 328.79999923706055,
+      "w": 8.0,
+      "h": 11.199999809265137,
+      "alpha": 1.0,
+      "kind": "VECTOR",
+      "text": "",
+      "size": 0,
+      "weight": 400,
+      "baseline": 0,
+      "lineHeight": 0,
+      "color": "#FFFFFF",
+      "sprite": "vector_396ff2bb938792a9.png",
+      "role": "",
+      "region": "Chrome",
+      "mask": 9,
+      "sources": [
+        "26:273",
+        "26:1529"
+      ],
+      "order": 53,
+      "orders": [
+        53,
+        -1,
+        -1,
+        53,
+        -1,
+        -1
+      ]
+    },
+    {
+      "x": 32.0,
+      "y": 368.0,
+      "w": 64.0,
+      "h": 19.0,
+      "alpha": 1.0,
+      "kind": "TEXT",
+      "text": "基本部品",
+      "size": 16.0,
+      "weight": 700,
+      "baseline": 15.899999618530273,
+      "lineHeight": 19.200000762939453,
+      "color": "#172236",
+      "sprite": "",
+      "role": "",
+      "region": "Chrome",
+      "mask": 9,
+      "sources": [
+        "26:274",
+        "26:1530"
+      ],
+      "order": 54,
+      "orders": [
+        54,
+        -1,
+        -1,
+        54,
+        -1,
+        -1
+      ]
+    },
+    {
+      "x": 32.0,
+      "y": 396.0,
+      "w": 120.0,
+      "h": 14.0,
+      "alpha": 1.0,
+      "kind": "TEXT",
+      "text": "つかんで動かせる部品",
+      "size": 12.0,
+      "weight": 400,
+      "baseline": 11.800000190734863,
+      "lineHeight": 14.399999618530273,
+      "color": "#58677C",
+      "sprite": "",
+      "role": "",
+      "region": "Chrome",
+      "mask": 9,
+      "sources": [
+        "26:275",
+        "26:1531"
+      ],
+      "order": 55,
+      "orders": [
+        55,
+        -1,
+        -1,
+        55,
+        -1,
+        -1
+      ]
+    },
+    {
+      "x": 16.0,
+      "y": 445.0,
+      "w": 232.0,
+      "h": 137.0,
+      "alpha": 1.0,
+      "kind": "VECTOR",
+      "text": "",
+      "size": 0,
+      "weight": 400,
+      "baseline": 0,
+      "lineHeight": 0,
+      "color": "#FFFFFF",
+      "sprite": "vector_fa1f388a773f96fd.png",
+      "role": "",
+      "region": "Chrome",
+      "mask": 9,
+      "sources": [
+        "26:276",
+        "26:1532"
+      ],
+      "order": 56,
+      "orders": [
+        56,
+        -1,
+        -1,
+        56,
+        -1,
+        -1
+      ]
+    },
+    {
+      "x": 86.0,
+      "y": 465.0,
+      "w": 81.5999984741211,
+      "h": 32.29999923706055,
+      "alpha": 1.0,
+      "kind": "VECTOR",
+      "text": "",
+      "size": 0,
+      "weight": 400,
+      "baseline": 0,
+      "lineHeight": 0,
+      "color": "#FFFFFF",
+      "sprite": "vector_88fcf5a64b809437.png",
+      "role": "",
+      "region": "Chrome",
+      "mask": 9,
+      "sources": [
+        "26:278",
+        "26:1534"
+      ],
+      "order": 58,
+      "orders": [
+        58,
+        -1,
+        -1,
+        58,
+        -1,
+        -1
+      ]
+    },
+    {
+      "x": 86.0,
+      "y": 478.6000003814697,
+      "w": 81.5999984741211,
+      "h": 22.950000762939453,
+      "alpha": 1.0,
+      "kind": "VECTOR",
+      "text": "",
+      "size": 0,
+      "weight": 400,
+      "baseline": 0,
+      "lineHeight": 0,
+      "color": "#FFFFFF",
+      "sprite": "vector_36061d86ceae377b.png",
+      "role": "",
+      "region": "Chrome",
+      "mask": 9,
+      "sources": [
+        "26:279",
+        "26:1535"
+      ],
+      "order": 59,
+      "orders": [
+        59,
+        -1,
+        -1,
+        59,
+        -1,
+        -1
+      ]
+    },
+    {
+      "x": 32.0,
+      "y": 529.0,
+      "w": 80.0,
+      "h": 19.0,
+      "alpha": 1.0,
+      "kind": "TEXT",
+      "text": "配置の目印",
+      "size": 16.0,
+      "weight": 700,
+      "baseline": 15.899999618530273,
+      "lineHeight": 19.200000762939453,
+      "color": "#172236",
+      "sprite": "",
+      "role": "",
+      "region": "Chrome",
+      "mask": 9,
+      "sources": [
+        "26:280",
+        "26:1536"
+      ],
+      "order": 60,
+      "orders": [
+        60,
+        -1,
+        -1,
+        60,
+        -1,
+        -1
+      ]
+    },
+    {
+      "x": 32.0,
+      "y": 555.0,
+      "w": 132.0,
+      "h": 14.0,
+      "alpha": 1.0,
+      "kind": "TEXT",
+      "text": "部品を置く位置のガイド",
+      "size": 12.0,
+      "weight": 400,
+      "baseline": 11.800000190734863,
+      "lineHeight": 14.399999618530273,
+      "color": "#58677C",
+      "sprite": "",
+      "role": "",
+      "region": "Chrome",
+      "mask": 9,
+      "sources": [
+        "26:281",
+        "26:1537"
+      ],
+      "order": 61,
+      "orders": [
+        61,
+        -1,
+        -1,
+        61,
+        -1,
+        -1
+      ]
+    },
+    {
+      "x": 16.0,
+      "y": 598.0,
+      "w": 232.0,
+      "h": 137.0,
+      "alpha": 1.0,
+      "kind": "VECTOR",
+      "text": "",
+      "size": 0,
+      "weight": 400,
+      "baseline": 0,
+      "lineHeight": 0,
+      "color": "#FFFFFF",
+      "sprite": "vector_fa1f388a773f96fd.png",
+      "role": "",
+      "region": "Chrome",
+      "mask": 9,
+      "sources": [
+        "26:282",
+        "26:1538"
+      ],
+      "order": 62,
+      "orders": [
+        62,
+        -1,
+        -1,
+        62,
+        -1,
+        -1
+      ]
+    },
+    {
+      "x": 86.0,
+      "y": 616.0,
+      "w": 95.0,
+      "h": 58.0,
+      "alpha": 1.0,
+      "kind": "VECTOR",
+      "text": "",
+      "size": 0,
+      "weight": 400,
+      "baseline": 0,
+      "lineHeight": 0,
+      "color": "#FFFFFF",
+      "sprite": "vector_df0a314f337794e3.png",
+      "role": "",
+      "region": "Chrome",
+      "mask": 9,
+      "sources": [
+        "26:283",
+        "26:1539"
+      ],
+      "order": 63,
+      "orders": [
+        63,
+        -1,
+        -1,
+        63,
+        -1,
+        -1
+      ]
+    },
+    {
+      "x": 32.0,
+      "y": 682.0,
+      "w": 48.0,
+      "h": 19.0,
+      "alpha": 1.0,
+      "kind": "TEXT",
+      "text": "作業台",
+      "size": 16.0,
+      "weight": 700,
+      "baseline": 15.899999618530273,
+      "lineHeight": 19.200000762939453,
+      "color": "#172236",
+      "sprite": "",
+      "role": "",
+      "region": "Chrome",
+      "mask": 9,
+      "sources": [
+        "26:284",
+        "26:1540"
+      ],
+      "order": 64,
+      "orders": [
+        64,
+        -1,
+        -1,
+        64,
+        -1,
+        -1
+      ]
+    },
+    {
+      "x": 32.0,
+      "y": 708.0,
+      "w": 120.0,
+      "h": 14.0,
+      "alpha": 1.0,
+      "kind": "TEXT",
+      "text": "部品を配置する作業面",
+      "size": 12.0,
+      "weight": 400,
+      "baseline": 11.800000190734863,
+      "lineHeight": 14.399999618530273,
+      "color": "#58677C",
+      "sprite": "",
+      "role": "",
+      "region": "Chrome",
+      "mask": 9,
+      "sources": [
+        "26:285",
+        "26:1541"
+      ],
+      "order": 65,
+      "orders": [
+        65,
+        -1,
+        -1,
+        65,
+        -1,
+        -1
+      ]
+    },
+    {
+      "x": 288.0,
+      "y": 818.0,
+      "w": 848.0,
+      "h": 58.0,
+      "alpha": 1.0,
+      "kind": "VECTOR",
+      "text": "",
+      "size": 0,
+      "weight": 400,
+      "baseline": 0,
+      "lineHeight": 0,
+      "color": "#FFFFFF",
+      "sprite": "vector_de5ae48447f66e1d.png",
+      "role": "",
+      "region": "Chrome",
+      "mask": 43,
+      "sources": [
+        "26:365",
+        "26:147",
+        "26:1621",
+        "26:1841"
+      ],
+      "order": 145,
+      "orders": [
+        145,
+        140,
+        -1,
+        145,
+        -1,
+        140
+      ]
+    },
+    {
+      "x": 297.28000020980835,
+      "y": 849.5599994659424,
+      "w": 62.400001525878906,
+      "h": 15.359999656677246,
+      "alpha": 0.09000000357627869,
+      "kind": "VECTOR",
+      "text": "",
+      "size": 0,
+      "weight": 400,
+      "baseline": 0,
+      "lineHeight": 0,
+      "color": "#FFFFFF",
+      "sprite": "vector_392849c65c1f6f86.png",
+      "role": "",
+      "region": "Chrome",
+      "mask": 43,
+      "sources": [
+        "26:367",
+        "26:149",
+        "26:1623",
+        "26:1843"
+      ],
+      "order": 147,
+      "orders": [
+        147,
+        142,
+        -1,
+        147,
+        -1,
+        142
+      ]
+    },
+    {
+      "x": 304.0,
+      "y": 827.0,
+      "w": 55.20000076293945,
+      "h": 19.68000030517578,
+      "alpha": 1.0,
+      "kind": "VECTOR",
+      "text": "",
+      "size": 0,
+      "weight": 400,
+      "baseline": 0,
+      "lineHeight": 0,
+      "color": "#FFFFFF",
+      "sprite": "vector_2bbcce147e216f50.png",
+      "role": "",
+      "region": "Chrome",
+      "mask": 43,
+      "sources": [
+        "26:368",
+        "26:150",
+        "26:1624",
+        "26:1844"
+      ],
+      "order": 148,
+      "orders": [
+        148,
+        143,
+        -1,
+        148,
+        -1,
+        143
+      ]
+    },
+    {
+      "x": 304.0,
+      "y": 834.6799998283386,
+      "w": 19.68000030517578,
+      "h": 30.719999313354492,
+      "alpha": 1.0,
+      "kind": "VECTOR",
+      "text": "",
+      "size": 0,
+      "weight": 400,
+      "baseline": 0,
+      "lineHeight": 0,
+      "color": "#FFFFFF",
+      "sprite": "vector_cc892d927fc46053.png",
+      "role": "",
+      "region": "Chrome",
+      "mask": 43,
+      "sources": [
+        "26:369",
+        "26:151",
+        "26:1625",
+        "26:1845"
+      ],
+      "order": 149,
+      "orders": [
+        149,
+        144,
+        -1,
+        149,
+        -1,
+        144
+      ]
+    },
+    {
+      "x": 323.6800003051758,
+      "y": 838.039999961853,
+      "w": 35.52000045776367,
+      "h": 27.360000610351562,
+      "alpha": 1.0,
+      "kind": "VECTOR",
+      "text": "",
+      "size": 0,
+      "weight": 400,
+      "baseline": 0,
+      "lineHeight": 0,
+      "color": "#FFFFFF",
+      "sprite": "vector_f5c308a0f0356994.png",
+      "role": "",
+      "region": "Chrome",
+      "mask": 43,
+      "sources": [
+        "26:370",
+        "26:152",
+        "26:1626",
+        "26:1846"
+      ],
+      "order": 150,
+      "orders": [
+        150,
+        145,
+        -1,
+        150,
+        -1,
+        145
+      ]
+    },
+    {
+      "x": 319.8400001525879,
+      "y": 833.2399997711182,
+      "w": 5.760000228881836,
+      "h": 2.880000114440918,
+      "alpha": 1.0,
+      "kind": "VECTOR",
+      "text": "",
+      "size": 0,
+      "weight": 400,
+      "baseline": 0,
+      "lineHeight": 0,
+      "color": "#FFFFFF",
+      "sprite": "vector_9d978a32a28c1d89.png",
+      "role": "",
+      "region": "Chrome",
+      "mask": 43,
+      "sources": [
+        "26:371",
+        "26:153",
+        "26:1627",
+        "26:1847"
+      ],
+      "order": 151,
+      "orders": [
+        151,
+        146,
+        -1,
+        151,
+        -1,
+        146
+      ]
+    },
+    {
+      "x": 338.560001373291,
+      "y": 839.4799995422363,
+      "w": 5.760000228881836,
+      "h": 2.880000114440918,
+      "alpha": 1.0,
+      "kind": "VECTOR",
+      "text": "",
+      "size": 0,
+      "weight": 400,
+      "baseline": 0,
+      "lineHeight": 0,
+      "color": "#FFFFFF",
+      "sprite": "vector_9d978a32a28c1d89.png",
+      "role": "",
+      "region": "Chrome",
+      "mask": 43,
+      "sources": [
+        "26:372",
+        "26:154",
+        "26:1628",
+        "26:1848"
+      ],
+      "order": 152,
+      "orders": [
+        152,
+        147,
+        -1,
+        152,
+        -1,
+        147
+      ]
+    },
+    {
+      "x": 339.04000091552734,
+      "y": 849.079999923706,
+      "w": 4.800000190734863,
+      "h": 6.71999979019165,
+      "alpha": 1.0,
+      "kind": "VECTOR",
+      "text": "",
+      "size": 0,
+      "weight": 400,
+      "baseline": 0,
+      "lineHeight": 0,
+      "color": "#FFFFFF",
+      "sprite": "vector_52389d3971505194.png",
+      "role": "",
+      "region": "Chrome",
+      "mask": 43,
+      "sources": [
+        "26:373",
+        "26:155",
+        "26:1629",
+        "26:1849"
+      ],
+      "order": 153,
+      "orders": [
+        153,
+        148,
+        -1,
+        153,
+        -1,
+        148
+      ]
+    },
+    {
+      "x": 382.0,
+      "y": 827.0,
+      "w": 40.0,
+      "h": 18.0,
+      "alpha": 1.0,
+      "kind": "TEXT",
+      "text": "部品A",
+      "size": 15.0,
+      "weight": 700,
+      "baseline": 15.0,
+      "lineHeight": 18.0,
+      "color": "#0866E8",
+      "sprite": "",
+      "role": "",
+      "region": "Chrome",
+      "mask": 35,
+      "sources": [
+        "26:374",
+        "26:156",
+        "26:1850"
+      ],
+      "order": 154,
+      "orders": [
+        154,
+        149,
+        -1,
+        -1,
+        -1,
+        149
+      ]
+    },
+    {
+      "x": 382.0,
+      "y": 850.0,
+      "w": 72.0,
+      "h": 14.0,
+      "alpha": 1.0,
+      "kind": "TEXT",
+      "text": "動かせる部品",
+      "size": 12.0,
+      "weight": 400,
+      "baseline": 11.800000190734863,
+      "lineHeight": 14.399999618530273,
+      "color": "#58677C",
+      "sprite": "",
+      "role": "",
+      "region": "Chrome",
+      "mask": 43,
+      "sources": [
+        "26:375",
+        "26:157",
+        "26:1631",
+        "26:1851"
+      ],
+      "order": 155,
+      "orders": [
+        155,
+        150,
+        -1,
+        155,
+        -1,
+        150
+      ]
+    },
+    {
+      "x": 978.0,
+      "y": 837.0,
+      "w": 39.0,
+      "h": 16.0,
+      "alpha": 1.0,
+      "kind": "TEXT",
+      "text": "選択中",
+      "size": 13.0,
+      "weight": 400,
+      "baseline": 13.199999809265137,
+      "lineHeight": 16.0,
+      "color": "#0866E8",
+      "sprite": "",
+      "role": "",
+      "region": "Chrome",
+      "mask": 35,
+      "sources": [
+        "26:376",
+        "26:158",
+        "26:1852"
+      ],
+      "order": 156,
+      "orders": [
+        156,
+        151,
+        -1,
+        -1,
+        -1,
+        151
+      ]
+    },
+    {
+      "x": 288.0,
+      "y": 884.0,
+      "w": 848.0,
+      "h": 58.0,
+      "alpha": 1.0,
+      "kind": "VECTOR",
+      "text": "",
+      "size": 0,
+      "weight": 400,
+      "baseline": 0,
+      "lineHeight": 0,
+      "color": "#FFFFFF",
+      "sprite": "vector_7e042def13484bce.png",
+      "role": "",
+      "region": "Chrome",
+      "mask": 43,
+      "sources": [
+        "26:377",
+        "26:159",
+        "26:1633",
+        "26:1853"
+      ],
+      "order": 157,
+      "orders": [
+        157,
+        152,
+        -1,
+        157,
+        -1,
+        152
+      ]
+    },
+    {
+      "x": 307.0,
+      "y": 900.0,
+      "w": 53.7599983215332,
+      "h": 21.280000686645508,
+      "alpha": 1.0,
+      "kind": "VECTOR",
+      "text": "",
+      "size": 0,
+      "weight": 400,
+      "baseline": 0,
+      "lineHeight": 0,
+      "color": "#FFFFFF",
+      "sprite": "vector_1da61b1d96fa44d5.png",
+      "role": "",
+      "region": "Chrome",
+      "mask": 43,
+      "sources": [
+        "26:379",
+        "26:161",
+        "26:1635",
+        "26:1855"
+      ],
+      "order": 159,
+      "orders": [
+        159,
+        154,
+        -1,
+        159,
+        -1,
+        154
+      ]
+    },
+    {
+      "x": 307.0,
+      "y": 908.960000038147,
+      "w": 53.7599983215332,
+      "h": 15.119999885559082,
+      "alpha": 1.0,
+      "kind": "VECTOR",
+      "text": "",
+      "size": 0,
+      "weight": 400,
+      "baseline": 0,
+      "lineHeight": 0,
+      "color": "#FFFFFF",
+      "sprite": "vector_c65fa9d7cbd499bb.png",
+      "role": "",
+      "region": "Chrome",
+      "mask": 43,
+      "sources": [
+        "26:380",
+        "26:162",
+        "26:1636",
+        "26:1856"
+      ],
+      "order": 160,
+      "orders": [
+        160,
+        155,
+        -1,
+        160,
+        -1,
+        155
+      ]
+    },
+    {
+      "x": 382.0,
+      "y": 895.0,
+      "w": 40.0,
+      "h": 18.0,
+      "alpha": 1.0,
+      "kind": "TEXT",
+      "text": "目印B",
+      "size": 15.0,
+      "weight": 400,
+      "baseline": 15.0,
+      "lineHeight": 18.0,
+      "color": "#172236",
+      "sprite": "",
+      "role": "",
+      "region": "Chrome",
+      "mask": 43,
+      "sources": [
+        "26:381",
+        "26:163",
+        "26:1637",
+        "26:1857"
+      ],
+      "order": 161,
+      "orders": [
+        161,
+        156,
+        -1,
+        161,
+        -1,
+        156
+      ]
+    },
+    {
+      "x": 984.0,
+      "y": 903.0,
+      "w": 72.0,
+      "h": 14.0,
+      "alpha": 1.0,
+      "kind": "TEXT",
+      "text": "配置先の目印",
+      "size": 12.0,
+      "weight": 400,
+      "baseline": 11.800000190734863,
+      "lineHeight": 14.399999618530273,
+      "color": "#58677C",
+      "sprite": "",
+      "role": "",
+      "region": "Chrome",
+      "mask": 43,
+      "sources": [
+        "26:382",
+        "26:164",
+        "26:1638",
+        "26:1858"
+      ],
+      "order": 162,
+      "orders": [
+        162,
+        157,
+        -1,
+        162,
+        -1,
+        157
+      ]
+    },
+    {
+      "x": 16.0,
+      "y": 202.0,
+      "w": 232.0,
+      "h": 102.0,
+      "alpha": 1.0,
+      "kind": "VECTOR",
+      "text": "",
+      "size": 0,
+      "weight": 400,
+      "baseline": 0,
+      "lineHeight": 0,
+      "color": "#FFFFFF",
+      "sprite": "vector_48294453b1cea8f6.png",
+      "role": "",
+      "region": "Chrome",
+      "mask": 34,
+      "sources": [
+        "26:46",
+        "26:1740"
+      ],
+      "order": 39,
+      "orders": [
+        -1,
+        39,
+        -1,
+        -1,
+        -1,
+        39
+      ]
+    },
+    {
+      "x": 31.0,
+      "y": 217.0,
+      "w": 34.0,
+      "h": 34.0,
+      "alpha": 1.0,
+      "kind": "VECTOR",
+      "text": "",
+      "size": 0,
+      "weight": 400,
+      "baseline": 0,
+      "lineHeight": 0,
+      "color": "#FFFFFF",
+      "sprite": "vector_5110ca270d24e728.png",
+      "role": "",
+      "region": "Chrome",
+      "mask": 34,
+      "sources": [
+        "26:47",
+        "26:1741"
+      ],
+      "order": 40,
+      "orders": [
+        -1,
+        40,
+        -1,
+        -1,
+        -1,
+        40
+      ]
+    },
+    {
+      "x": 43.0,
+      "y": 224.0,
+      "w": 10.0,
+      "h": 19.0,
+      "alpha": 1.0,
+      "kind": "TEXT",
+      "text": "1",
+      "size": 16.0,
+      "weight": 700,
+      "baseline": 15.899999618530273,
+      "lineHeight": 19.200000762939453,
+      "color": "#172236",
+      "sprite": "",
+      "role": "",
+      "region": "Chrome",
+      "mask": 34,
+      "sources": [
+        "26:48",
+        "26:1742"
+      ],
+      "order": 41,
+      "orders": [
+        -1,
+        41,
+        -1,
+        -1,
+        -1,
+        41
+      ]
+    },
+    {
+      "x": 76.0,
+      "y": 220.0,
+      "w": 105.0,
+      "h": 18.0,
+      "alpha": 1.0,
+      "kind": "TEXT",
+      "text": "部品を確認する",
+      "size": 15.0,
+      "weight": 700,
+      "baseline": 15.0,
+      "lineHeight": 18.0,
+      "color": "#172236",
+      "sprite": "",
+      "role": "",
+      "region": "Chrome",
+      "mask": 54,
+      "sources": [
+        "26:49",
+        "26:487",
+        "26:888",
+        "26:1743"
+      ],
+      "order": 42,
+      "orders": [
+        -1,
+        42,
+        42,
+        -1,
+        42,
+        42
+      ]
+    },
+    {
+      "x": 32.0,
+      "y": 267.0,
+      "w": 120.0,
+      "h": 14.0,
+      "alpha": 1.0,
+      "kind": "TEXT",
+      "text": "対象と置き場所を確認",
+      "size": 12.0,
+      "weight": 400,
+      "baseline": 11.800000190734863,
+      "lineHeight": 14.399999618530273,
+      "color": "#58677C",
+      "sprite": "",
+      "role": "",
+      "region": "Chrome",
+      "mask": 34,
+      "sources": [
+        "26:50",
+        "26:1744"
+      ],
+      "order": 43,
+      "orders": [
+        -1,
+        43,
+        -1,
+        -1,
+        -1,
+        43
+      ]
+    },
+    {
+      "x": 16.0,
+      "y": 318.0,
+      "w": 232.0,
+      "h": 102.0,
+      "alpha": 1.0,
+      "kind": "VECTOR",
+      "text": "",
+      "size": 0,
+      "weight": 400,
+      "baseline": 0,
+      "lineHeight": 0,
+      "color": "#FFFFFF",
+      "sprite": "vector_6d3500cb0e77c31f.png",
+      "role": "",
+      "region": "Chrome",
+      "mask": 6,
+      "sources": [
+        "26:52",
+        "26:490"
+      ],
+      "order": 45,
+      "orders": [
+        -1,
+        45,
+        45,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    {
+      "x": 31.0,
+      "y": 333.0,
+      "w": 34.0,
+      "h": 34.0,
+      "alpha": 1.0,
+      "kind": "VECTOR",
+      "text": "",
+      "size": 0,
+      "weight": 400,
+      "baseline": 0,
+      "lineHeight": 0,
+      "color": "#FFFFFF",
+      "sprite": "vector_6c42f9cfed067f5b.png",
+      "role": "",
+      "region": "Chrome",
+      "mask": 6,
+      "sources": [
+        "26:53",
+        "26:491"
+      ],
+      "order": 46,
+      "orders": [
+        -1,
+        46,
+        46,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    {
+      "x": 43.0,
+      "y": 340.0,
+      "w": 10.0,
+      "h": 19.0,
+      "alpha": 1.0,
+      "kind": "TEXT",
+      "text": "2",
+      "size": 16.0,
+      "weight": 700,
+      "baseline": 15.899999618530273,
+      "lineHeight": 19.200000762939453,
+      "color": "#FFFFFF",
+      "sprite": "",
+      "role": "",
+      "region": "Chrome",
+      "mask": 6,
+      "sources": [
+        "26:54",
+        "26:492"
+      ],
+      "order": 47,
+      "orders": [
+        -1,
+        47,
+        47,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    {
+      "x": 76.0,
+      "y": 336.0,
+      "w": 120.0,
+      "h": 18.0,
+      "alpha": 1.0,
+      "kind": "TEXT",
+      "text": "部品を目印に置く",
+      "size": 15.0,
+      "weight": 700,
+      "baseline": 15.0,
+      "lineHeight": 18.0,
+      "color": "#0866E8",
+      "sprite": "",
+      "role": "",
+      "region": "Chrome",
+      "mask": 6,
+      "sources": [
+        "26:55",
+        "26:493"
+      ],
+      "order": 48,
+      "orders": [
+        -1,
+        48,
+        48,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    {
+      "x": 32.0,
+      "y": 383.0,
+      "w": 120.0,
+      "h": 14.0,
+      "alpha": 1.0,
+      "kind": "TEXT",
+      "text": "距離と保持時間を設定",
+      "size": 12.0,
+      "weight": 400,
+      "baseline": 11.800000190734863,
+      "lineHeight": 14.399999618530273,
+      "color": "#58677C",
+      "sprite": "",
+      "role": "",
+      "region": "Chrome",
+      "mask": 2,
+      "sources": [
+        "26:56"
+      ],
+      "order": 49,
+      "orders": [
+        -1,
+        49,
+        -1,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    {
+      "x": 16.0,
+      "y": 434.0,
+      "w": 232.0,
+      "h": 102.0,
+      "alpha": 1.0,
+      "kind": "VECTOR",
+      "text": "",
+      "size": 0,
+      "weight": 400,
+      "baseline": 0,
+      "lineHeight": 0,
+      "color": "#FFFFFF",
+      "sprite": "vector_48294453b1cea8f6.png",
+      "role": "",
+      "region": "Chrome",
+      "mask": 38,
+      "sources": [
+        "26:58",
+        "26:496",
+        "26:1752"
+      ],
+      "order": 51,
+      "orders": [
+        -1,
+        51,
+        51,
+        -1,
+        -1,
+        51
+      ]
+    },
+    {
+      "x": 31.0,
+      "y": 449.0,
+      "w": 34.0,
+      "h": 34.0,
+      "alpha": 1.0,
+      "kind": "VECTOR",
+      "text": "",
+      "size": 0,
+      "weight": 400,
+      "baseline": 0,
+      "lineHeight": 0,
+      "color": "#FFFFFF",
+      "sprite": "vector_5110ca270d24e728.png",
+      "role": "",
+      "region": "Chrome",
+      "mask": 38,
+      "sources": [
+        "26:59",
+        "26:497",
+        "26:1753"
+      ],
+      "order": 52,
+      "orders": [
+        -1,
+        52,
+        52,
+        -1,
+        -1,
+        52
+      ]
+    },
+    {
+      "x": 43.0,
+      "y": 456.0,
+      "w": 10.0,
+      "h": 19.0,
+      "alpha": 1.0,
+      "kind": "TEXT",
+      "text": "3",
+      "size": 16.0,
+      "weight": 700,
+      "baseline": 15.899999618530273,
+      "lineHeight": 19.200000762939453,
+      "color": "#172236",
+      "sprite": "",
+      "role": "",
+      "region": "Chrome",
+      "mask": 38,
+      "sources": [
+        "26:60",
+        "26:498",
+        "26:1754"
+      ],
+      "order": 53,
+      "orders": [
+        -1,
+        53,
+        53,
+        -1,
+        -1,
+        53
+      ]
+    },
+    {
+      "x": 76.0,
+      "y": 452.0,
+      "w": 105.0,
+      "h": 18.0,
+      "alpha": 1.0,
+      "kind": "TEXT",
+      "text": "配置を確認する",
+      "size": 15.0,
+      "weight": 700,
+      "baseline": 15.0,
+      "lineHeight": 18.0,
+      "color": "#172236",
+      "sprite": "",
+      "role": "",
+      "region": "Chrome",
+      "mask": 38,
+      "sources": [
+        "26:61",
+        "26:499",
+        "26:1755"
+      ],
+      "order": 54,
+      "orders": [
+        -1,
+        54,
+        54,
+        -1,
+        -1,
+        54
+      ]
+    },
+    {
+      "x": 32.0,
+      "y": 499.0,
+      "w": 108.0,
+      "h": 14.0,
+      "alpha": 1.0,
+      "kind": "TEXT",
+      "text": "完成した状態を確認",
+      "size": 12.0,
+      "weight": 400,
+      "baseline": 11.800000190734863,
+      "lineHeight": 14.399999618530273,
+      "color": "#58677C",
+      "sprite": "",
+      "role": "",
+      "region": "Chrome",
+      "mask": 34,
+      "sources": [
+        "26:62",
+        "26:1756"
+      ],
+      "order": 55,
+      "orders": [
+        -1,
+        55,
+        -1,
+        -1,
+        -1,
+        55
+      ]
+    },
+    {
+      "x": 1205.9800000190735,
+      "y": 470.20999908447266,
+      "w": 55.900001525878906,
+      "h": 13.760000228881836,
+      "alpha": 0.09000000357627869,
+      "kind": "VECTOR",
+      "text": "",
+      "size": 0,
+      "weight": 400,
+      "baseline": 0,
+      "lineHeight": 0,
+      "color": "#FFFFFF",
+      "sprite": "vector_623834ee62064f79.png",
+      "role": "",
+      "region": "Chrome",
+      "mask": 34,
+      "sources": [
+        "26:179",
+        "26:1873"
+      ],
+      "order": 172,
+      "orders": [
+        -1,
+        172,
+        -1,
+        -1,
+        -1,
+        172
+      ]
+    },
+    {
+      "x": 1212.0,
+      "y": 450.0,
+      "w": 49.45000076293945,
+      "h": 17.6299991607666,
+      "alpha": 1.0,
+      "kind": "VECTOR",
+      "text": "",
+      "size": 0,
+      "weight": 400,
+      "baseline": 0,
+      "lineHeight": 0,
+      "color": "#FFFFFF",
+      "sprite": "vector_056f7055061bca54.png",
+      "role": "",
+      "region": "Chrome",
+      "mask": 34,
+      "sources": [
+        "26:180",
+        "26:1874"
+      ],
+      "order": 173,
+      "orders": [
+        -1,
+        173,
+        -1,
+        -1,
+        -1,
+        173
+      ]
+    },
+    {
+      "x": 1212.0,
+      "y": 456.8800001144409,
+      "w": 17.6299991607666,
+      "h": 27.520000457763672,
+      "alpha": 1.0,
+      "kind": "VECTOR",
+      "text": "",
+      "size": 0,
+      "weight": 400,
+      "baseline": 0,
+      "lineHeight": 0,
+      "color": "#FFFFFF",
+      "sprite": "vector_20c7b56bd9f1ad25.png",
+      "role": "",
+      "region": "Chrome",
+      "mask": 34,
+      "sources": [
+        "26:181",
+        "26:1875"
+      ],
+      "order": 174,
+      "orders": [
+        -1,
+        174,
+        -1,
+        -1,
+        -1,
+        174
+      ]
+    },
+    {
+      "x": 1229.6299991607666,
+      "y": 459.89000034332275,
+      "w": 31.81999969482422,
+      "h": 24.510000228881836,
+      "alpha": 1.0,
+      "kind": "VECTOR",
+      "text": "",
+      "size": 0,
+      "weight": 400,
+      "baseline": 0,
+      "lineHeight": 0,
+      "color": "#FFFFFF",
+      "sprite": "vector_10c7c1b9eac4bd91.png",
+      "role": "",
+      "region": "Chrome",
+      "mask": 34,
+      "sources": [
+        "26:182",
+        "26:1876"
+      ],
+      "order": 175,
+      "orders": [
+        -1,
+        175,
+        -1,
+        -1,
+        -1,
+        175
+      ]
+    },
+    {
+      "x": 1226.189998626709,
+      "y": 455.5900001525879,
+      "w": 5.159999847412109,
+      "h": 2.5799999237060547,
+      "alpha": 1.0,
+      "kind": "VECTOR",
+      "text": "",
+      "size": 0,
+      "weight": 400,
+      "baseline": 0,
+      "lineHeight": 0,
+      "color": "#FFFFFF",
+      "sprite": "vector_59c138be536fe476.png",
+      "role": "",
+      "region": "Chrome",
+      "mask": 34,
+      "sources": [
+        "26:183",
+        "26:1877"
+      ],
+      "order": 176,
+      "orders": [
+        -1,
+        176,
+        -1,
+        -1,
+        -1,
+        176
+      ]
+    },
+    {
+      "x": 1242.9599990844727,
+      "y": 461.1800003051758,
+      "w": 5.159999847412109,
+      "h": 2.5799999237060547,
+      "alpha": 1.0,
+      "kind": "VECTOR",
+      "text": "",
+      "size": 0,
+      "weight": 400,
+      "baseline": 0,
+      "lineHeight": 0,
+      "color": "#FFFFFF",
+      "sprite": "vector_59c138be536fe476.png",
+      "role": "",
+      "region": "Chrome",
+      "mask": 34,
+      "sources": [
+        "26:184",
+        "26:1878"
+      ],
+      "order": 177,
+      "orders": [
+        -1,
+        177,
+        -1,
+        -1,
+        -1,
+        177
+      ]
+    },
+    {
+      "x": 1243.3899993896484,
+      "y": 469.7800006866455,
+      "w": 4.300000190734863,
+      "h": 6.019999980926514,
+      "alpha": 1.0,
+      "kind": "VECTOR",
+      "text": "",
+      "size": 0,
+      "weight": 400,
+      "baseline": 0,
+      "lineHeight": 0,
+      "color": "#FFFFFF",
+      "sprite": "vector_da3f98bf213bcd4b.png",
+      "role": "",
+      "region": "Chrome",
+      "mask": 34,
+      "sources": [
+        "26:185",
+        "26:1879"
+      ],
+      "order": 178,
+      "orders": [
+        -1,
+        178,
+        -1,
+        -1,
+        -1,
+        178
+      ]
+    },
+    {
+      "x": 1212.0,
+      "y": 553.0,
+      "w": 48.0,
+      "h": 19.0,
+      "alpha": 1.0,
+      "kind": "VECTOR",
+      "text": "",
+      "size": 0,
+      "weight": 400,
+      "baseline": 0,
+      "lineHeight": 0,
+      "color": "#FFFFFF",
+      "sprite": "vector_a9ee89377d0e9cc9.png",
+      "role": "",
+      "region": "Chrome",
+      "mask": 2,
+      "sources": [
+        "26:191"
+      ],
+      "order": 184,
+      "orders": [
+        -1,
+        184,
+        -1,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    {
+      "x": 1212.0,
+      "y": 561.0,
+      "w": 48.0,
+      "h": 13.5,
+      "alpha": 1.0,
+      "kind": "VECTOR",
+      "text": "",
+      "size": 0,
+      "weight": 400,
+      "baseline": 0,
+      "lineHeight": 0,
+      "color": "#FFFFFF",
+      "sprite": "vector_642794e1eee7190d.png",
+      "role": "",
+      "region": "Chrome",
+      "mask": 2,
+      "sources": [
+        "26:192"
+      ],
+      "order": 185,
+      "orders": [
+        -1,
+        185,
+        -1,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    {
+      "x": 16.0,
+      "y": 202.0,
+      "w": 232.0,
+      "h": 102.0,
+      "alpha": 1.0,
+      "kind": "VECTOR",
+      "text": "",
+      "size": 0,
+      "weight": 400,
+      "baseline": 0,
+      "lineHeight": 0,
+      "color": "#FFFFFF",
+      "sprite": "vector_729b05bac7c6d8c5.png",
+      "role": "",
+      "region": "Chrome",
+      "mask": 20,
+      "sources": [
+        "26:484",
+        "26:885"
+      ],
+      "order": 39,
+      "orders": [
+        -1,
+        -1,
+        39,
+        -1,
+        39,
+        -1
+      ]
+    },
+    {
+      "x": 31.0,
+      "y": 217.0,
+      "w": 34.0,
+      "h": 34.0,
+      "alpha": 1.0,
+      "kind": "VECTOR",
+      "text": "",
+      "size": 0,
+      "weight": 400,
+      "baseline": 0,
+      "lineHeight": 0,
+      "color": "#FFFFFF",
+      "sprite": "vector_7c46faaf7fafc74b.png",
+      "role": "",
+      "region": "Chrome",
+      "mask": 20,
+      "sources": [
+        "26:485",
+        "26:886"
+      ],
+      "order": 40,
+      "orders": [
+        -1,
+        -1,
+        40,
+        -1,
+        40,
+        -1
+      ]
+    },
+    {
+      "x": 42.0,
+      "y": 224.0,
+      "w": 12.0,
+      "h": 19.0,
+      "alpha": 1.0,
+      "kind": "TEXT",
+      "text": "✓",
+      "size": 16.0,
+      "weight": 700,
+      "baseline": 15.899999618530273,
+      "lineHeight": 19.200000762939453,
+      "color": "#FFFFFF",
+      "sprite": "",
+      "role": "",
+      "region": "Chrome",
+      "mask": 20,
+      "sources": [
+        "26:486",
+        "26:887"
+      ],
+      "order": 41,
+      "orders": [
+        -1,
+        -1,
+        41,
+        -1,
+        41,
+        -1
+      ]
+    },
+    {
+      "x": 32.0,
+      "y": 267.0,
+      "w": 24.0,
+      "h": 14.0,
+      "alpha": 1.0,
+      "kind": "TEXT",
+      "text": "完了",
+      "size": 12.0,
+      "weight": 400,
+      "baseline": 11.800000190734863,
+      "lineHeight": 14.399999618530273,
+      "color": "#58677C",
+      "sprite": "",
+      "role": "",
+      "region": "Chrome",
+      "mask": 20,
+      "sources": [
+        "26:488",
+        "26:889"
+      ],
+      "order": 43,
+      "orders": [
+        -1,
+        -1,
+        43,
+        -1,
+        43,
+        -1
+      ]
+    },
+    {
+      "x": 32.0,
+      "y": 383.0,
+      "w": 109.0,
+      "h": 14.0,
+      "alpha": 1.0,
+      "kind": "TEXT",
+      "text": "実行中 · 条件を確認",
+      "size": 12.0,
+      "weight": 400,
+      "baseline": 11.800000190734863,
+      "lineHeight": 14.399999618530273,
+      "color": "#58677C",
+      "sprite": "",
+      "role": "",
+      "region": "Chrome",
+      "mask": 4,
+      "sources": [
+        "26:494"
+      ],
+      "order": 49,
+      "orders": [
+        -1,
+        -1,
+        49,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    {
+      "x": 32.0,
+      "y": 499.0,
+      "w": 36.0,
+      "h": 14.0,
+      "alpha": 1.0,
+      "kind": "TEXT",
+      "text": "待機中",
+      "size": 12.0,
+      "weight": 400,
+      "baseline": 11.800000190734863,
+      "lineHeight": 14.399999618530273,
+      "color": "#58677C",
+      "sprite": "",
+      "role": "",
+      "region": "Chrome",
+      "mask": 4,
+      "sources": [
+        "26:500"
+      ],
+      "order": 55,
+      "orders": [
+        -1,
+        -1,
+        55,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    {
+      "x": 382.0,
+      "y": 827.0,
+      "w": 115.0,
+      "h": 18.0,
+      "alpha": 1.0,
+      "kind": "TEXT",
+      "text": "部品A（仮配置）",
+      "size": 15.0,
+      "weight": 700,
+      "baseline": 15.0,
+      "lineHeight": 18.0,
+      "color": "#0866E8",
+      "sprite": "",
+      "role": "",
+      "region": "Chrome",
+      "mask": 8,
+      "sources": [
+        "26:1630"
+      ],
+      "order": 154,
+      "orders": [
+        -1,
+        -1,
+        -1,
+        154,
+        -1,
+        -1
+      ]
+    },
+    {
+      "x": 978.0,
+      "y": 837.0,
+      "w": 39.0,
+      "h": 16.0,
+      "alpha": 1.0,
+      "kind": "TEXT",
+      "text": "未確定",
+      "size": 13.0,
+      "weight": 400,
+      "baseline": 13.199999809265137,
+      "lineHeight": 16.0,
+      "color": "#0866E8",
+      "sprite": "",
+      "role": "",
+      "region": "Chrome",
+      "mask": 8,
+      "sources": [
+        "26:1632"
+      ],
+      "order": 156,
+      "orders": [
+        -1,
+        -1,
+        -1,
+        156,
+        -1,
+        -1
+      ]
+    },
+    {
+      "x": 16.0,
+      "y": 318.0,
+      "w": 232.0,
+      "h": 102.0,
+      "alpha": 1.0,
+      "kind": "VECTOR",
+      "text": "",
+      "size": 0,
+      "weight": 400,
+      "baseline": 0,
+      "lineHeight": 0,
+      "color": "#FFFFFF",
+      "sprite": "vector_729b05bac7c6d8c5.png",
+      "role": "",
+      "region": "Chrome",
+      "mask": 16,
+      "sources": [
+        "26:891"
+      ],
+      "order": 45,
+      "orders": [
+        -1,
+        -1,
+        -1,
+        -1,
+        45,
+        -1
+      ]
+    },
+    {
+      "x": 31.0,
+      "y": 333.0,
+      "w": 34.0,
+      "h": 34.0,
+      "alpha": 1.0,
+      "kind": "VECTOR",
+      "text": "",
+      "size": 0,
+      "weight": 400,
+      "baseline": 0,
+      "lineHeight": 0,
+      "color": "#FFFFFF",
+      "sprite": "vector_7c46faaf7fafc74b.png",
+      "role": "",
+      "region": "Chrome",
+      "mask": 16,
+      "sources": [
+        "26:892"
+      ],
+      "order": 46,
+      "orders": [
+        -1,
+        -1,
+        -1,
+        -1,
+        46,
+        -1
+      ]
+    },
+    {
+      "x": 42.0,
+      "y": 340.0,
+      "w": 12.0,
+      "h": 19.0,
+      "alpha": 1.0,
+      "kind": "TEXT",
+      "text": "✓",
+      "size": 16.0,
+      "weight": 700,
+      "baseline": 15.899999618530273,
+      "lineHeight": 19.200000762939453,
+      "color": "#FFFFFF",
+      "sprite": "",
+      "role": "",
+      "region": "Chrome",
+      "mask": 16,
+      "sources": [
+        "26:893"
+      ],
+      "order": 47,
+      "orders": [
+        -1,
+        -1,
+        -1,
+        -1,
+        47,
+        -1
+      ]
+    },
+    {
+      "x": 76.0,
+      "y": 336.0,
+      "w": 120.0,
+      "h": 18.0,
+      "alpha": 1.0,
+      "kind": "TEXT",
+      "text": "部品を目印に置く",
+      "size": 15.0,
+      "weight": 700,
+      "baseline": 15.0,
+      "lineHeight": 18.0,
+      "color": "#172236",
+      "sprite": "",
+      "role": "",
+      "region": "Chrome",
+      "mask": 48,
+      "sources": [
+        "26:894",
+        "26:1749"
+      ],
+      "order": 48,
+      "orders": [
+        -1,
+        -1,
+        -1,
+        -1,
+        48,
+        48
+      ]
+    },
+    {
+      "x": 32.0,
+      "y": 383.0,
+      "w": 24.0,
+      "h": 14.0,
+      "alpha": 1.0,
+      "kind": "TEXT",
+      "text": "完了",
+      "size": 12.0,
+      "weight": 400,
+      "baseline": 11.800000190734863,
+      "lineHeight": 14.399999618530273,
+      "color": "#58677C",
+      "sprite": "",
+      "role": "",
+      "region": "Chrome",
+      "mask": 16,
+      "sources": [
+        "26:895"
+      ],
+      "order": 49,
+      "orders": [
+        -1,
+        -1,
+        -1,
+        -1,
+        49,
+        -1
+      ]
+    },
+    {
+      "x": 16.0,
+      "y": 434.0,
+      "w": 232.0,
+      "h": 102.0,
+      "alpha": 1.0,
+      "kind": "VECTOR",
+      "text": "",
+      "size": 0,
+      "weight": 400,
+      "baseline": 0,
+      "lineHeight": 0,
+      "color": "#FFFFFF",
+      "sprite": "vector_6d3500cb0e77c31f.png",
+      "role": "",
+      "region": "Chrome",
+      "mask": 16,
+      "sources": [
+        "26:897"
+      ],
+      "order": 51,
+      "orders": [
+        -1,
+        -1,
+        -1,
+        -1,
+        51,
+        -1
+      ]
+    },
+    {
+      "x": 31.0,
+      "y": 449.0,
+      "w": 34.0,
+      "h": 34.0,
+      "alpha": 1.0,
+      "kind": "VECTOR",
+      "text": "",
+      "size": 0,
+      "weight": 400,
+      "baseline": 0,
+      "lineHeight": 0,
+      "color": "#FFFFFF",
+      "sprite": "vector_6c42f9cfed067f5b.png",
+      "role": "",
+      "region": "Chrome",
+      "mask": 16,
+      "sources": [
+        "26:898"
+      ],
+      "order": 52,
+      "orders": [
+        -1,
+        -1,
+        -1,
+        -1,
+        52,
+        -1
+      ]
+    },
+    {
+      "x": 43.0,
+      "y": 456.0,
+      "w": 10.0,
+      "h": 19.0,
+      "alpha": 1.0,
+      "kind": "TEXT",
+      "text": "3",
+      "size": 16.0,
+      "weight": 700,
+      "baseline": 15.899999618530273,
+      "lineHeight": 19.200000762939453,
+      "color": "#FFFFFF",
+      "sprite": "",
+      "role": "",
+      "region": "Chrome",
+      "mask": 16,
+      "sources": [
+        "26:899"
+      ],
+      "order": 53,
+      "orders": [
+        -1,
+        -1,
+        -1,
+        -1,
+        53,
+        -1
+      ]
+    },
+    {
+      "x": 76.0,
+      "y": 452.0,
+      "w": 105.0,
+      "h": 18.0,
+      "alpha": 1.0,
+      "kind": "TEXT",
+      "text": "配置を確認する",
+      "size": 15.0,
+      "weight": 700,
+      "baseline": 15.0,
+      "lineHeight": 18.0,
+      "color": "#0866E8",
+      "sprite": "",
+      "role": "",
+      "region": "Chrome",
+      "mask": 16,
+      "sources": [
+        "26:900"
+      ],
+      "order": 54,
+      "orders": [
+        -1,
+        -1,
+        -1,
+        -1,
+        54,
+        -1
+      ]
+    },
+    {
+      "x": 32.0,
+      "y": 499.0,
+      "w": 48.0,
+      "h": 14.0,
+      "alpha": 1.0,
+      "kind": "TEXT",
+      "text": "次の手順",
+      "size": 12.0,
+      "weight": 400,
+      "baseline": 11.800000190734863,
+      "lineHeight": 14.399999618530273,
+      "color": "#58677C",
+      "sprite": "",
+      "role": "",
+      "region": "Chrome",
+      "mask": 16,
+      "sources": [
+        "26:901"
+      ],
+      "order": 55,
+      "orders": [
+        -1,
+        -1,
+        -1,
+        -1,
+        55,
+        -1
+      ]
+    },
+    {
+      "x": 16.0,
+      "y": 318.0,
+      "w": 232.0,
+      "h": 102.0,
+      "alpha": 1.0,
+      "kind": "VECTOR",
+      "text": "",
+      "size": 0,
+      "weight": 400,
+      "baseline": 0,
+      "lineHeight": 0,
+      "color": "#FFFFFF",
+      "sprite": "vector_f927c840038eb035.png",
+      "role": "",
+      "region": "Chrome",
+      "mask": 32,
+      "sources": [
+        "26:1746"
+      ],
+      "order": 45,
+      "orders": [
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        45
+      ]
+    },
+    {
+      "x": 31.0,
+      "y": 333.0,
+      "w": 34.0,
+      "h": 34.0,
+      "alpha": 1.0,
+      "kind": "VECTOR",
+      "text": "",
+      "size": 0,
+      "weight": 400,
+      "baseline": 0,
+      "lineHeight": 0,
+      "color": "#FFFFFF",
+      "sprite": "vector_5110ca270d24e728.png",
+      "role": "",
+      "region": "Chrome",
+      "mask": 32,
+      "sources": [
+        "26:1747"
+      ],
+      "order": 46,
+      "orders": [
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        46
+      ]
+    },
+    {
+      "x": 43.0,
+      "y": 340.0,
+      "w": 10.0,
+      "h": 19.0,
+      "alpha": 1.0,
+      "kind": "TEXT",
+      "text": "2",
+      "size": 16.0,
+      "weight": 700,
+      "baseline": 15.899999618530273,
+      "lineHeight": 19.200000762939453,
+      "color": "#172236",
+      "sprite": "",
+      "role": "",
+      "region": "Chrome",
+      "mask": 32,
+      "sources": [
+        "26:1748"
+      ],
+      "order": 47,
+      "orders": [
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        47
+      ]
+    },
+    {
+      "x": 32.0,
+      "y": 383.0,
+      "w": 120.0,
+      "h": 14.0,
+      "alpha": 1.0,
+      "kind": "TEXT",
+      "text": "対象を選んでください",
+      "size": 12.0,
+      "weight": 400,
+      "baseline": 11.800000190734863,
+      "lineHeight": 14.399999618530273,
+      "color": "#58677C",
+      "sprite": "",
+      "role": "",
+      "region": "Chrome",
+      "mask": 32,
+      "sources": [
+        "26:1750"
+      ],
+      "order": 49,
+      "orders": [
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        49
+      ]
+    }
+  ],
+  "fields": [
+    {
+      "state": 0,
+      "role": "project",
+      "value": "部品の配置練習"
+    },
+    {
+      "state": 0,
+      "role": "name",
+      "value": "部品A"
+    },
+    {
+      "state": 0,
+      "role": "height",
+      "value": "90"
+    },
+    {
+      "state": 0,
+      "role": "angle",
+      "value": "0"
+    },
+    {
+      "state": 1,
+      "role": "project",
+      "value": "部品の配置練習"
+    },
+    {
+      "state": 1,
+      "role": "stepTitle",
+      "value": "部品を目印に置く"
+    },
+    {
+      "state": 1,
+      "role": "body",
+      "value": "部品Aを目印Bに近づけ、"
+    },
+    {
+      "state": 1,
+      "role": "distance",
+      "value": "50"
+    },
+    {
+      "state": 1,
+      "role": "hold",
+      "value": "3"
+    },
+    {
+      "state": 2,
+      "role": "project",
+      "value": "部品の配置練習"
+    },
+    {
+      "state": 3,
+      "role": "project",
+      "value": "部品の配置練習"
+    },
+    {
+      "state": 3,
+      "role": "name",
+      "value": "部品A（新規）"
+    },
+    {
+      "state": 3,
+      "role": "height",
+      "value": "90"
+    },
+    {
+      "state": 3,
+      "role": "angle",
+      "value": "0"
+    },
+    {
+      "state": 4,
+      "role": "project",
+      "value": "部品の配置練習"
+    },
+    {
+      "state": 5,
+      "role": "project",
+      "value": "部品の配置練習"
+    },
+    {
+      "state": 5,
+      "role": "stepTitle",
+      "value": "部品を目印に置く"
+    },
+    {
+      "state": 5,
+      "role": "body",
+      "value": "部品Aを目印Bに近づけ、"
+    },
+    {
+      "state": 5,
+      "role": "distance",
+      "value": "50"
+    },
+    {
+      "state": 5,
+      "role": "hold",
+      "value": "3"
+    }
+  ]
+}

@@ -119,6 +119,14 @@ public class CatalogUI : MonoBehaviour
         EnsureSingleEventSystem();
         EnsureRuntimeBindings();
         EnsureViewportReady(true);
+        if (transform.root.GetComponentInChildren<SkillSyncEditorController>(true) != null)
+        {
+            // Keep the existing import/service boundary without rebuilding the retired layout.
+            EnsureRuntimeNewObjectSettingsDialog(transform as RectTransform);
+            WireUiEvents();
+            await RestoreImportedModelsAsync();
+            return;
+        }
         EnsureRuntimeCatalogControls();
         EnsureEditModeServiceBinding();
         EnsureContentTopAligned();
@@ -176,6 +184,26 @@ public class CatalogUI : MonoBehaviour
     public void NotifyDragState(bool isDragging)
     {
         PlacementController.SetUiDragInProgress(isDragging);
+    }
+
+    public void ImportForDesignUi() => OnClickAdd();
+    public void ShowDesignSettings()
+    {
+        EnsureRuntimeSettingsDialog(transform as RectTransform);
+        if (settingsPanel == null) return;
+        ApplySettingsPanelDesign(settingsPanel);
+        RefreshSettingsTabs();
+        settingsPanel.gameObject.SetActive(true);
+        settingsPanel.SetAsLastSibling();
+    }
+
+    public System.Collections.Generic.List<PrefabEntry> GetDesignLibraryEntries()
+    {
+        var result = new System.Collections.Generic.List<PrefabEntry>();
+        if (registry != null && registry.entries != null) result.AddRange(registry.entries.FindAll(e=>!cards.IsRemoved(e.typeId)));
+        foreach (var record in importedModels)
+            if (record.prefab != null && !record.hidden && !cards.IsRemoved(record.typeId)) result.Add(new PrefabEntry { typeId = record.typeId, prefab = record.prefab });
+        return result;
     }
 
     public void HandleCardDrop(string typeId, Vector2 screenPosition)
@@ -2881,6 +2909,7 @@ public class CatalogUI : MonoBehaviour
         return placementController != null ? placementController.name : "(null)";
     }
 
+    public void RemoveDesignLibraryEntry(string typeId) {OnClickRemoveCard(typeId);}
     void OnClickRemoveCard(string typeId)
     {
         if (string.IsNullOrWhiteSpace(typeId)) return;

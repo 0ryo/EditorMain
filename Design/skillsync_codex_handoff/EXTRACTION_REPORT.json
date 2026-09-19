@@ -1,0 +1,20 @@
+{
+  "targetPageId": "25:2",
+  "targetPageName": "XR教材エディタ · UI案",
+  "targetNodeCount": 1298,
+  "typeCounts": {
+    "CANVAS": 1,
+    "FRAME": 220,
+    "VECTOR": 620,
+    "TEXT": 440,
+    "ROUNDED_RECTANGLE": 8,
+    "SYMBOL": 9
+  },
+  "boardCount": 9,
+  "variableCount": 54,
+  "variableSetCount": 2,
+  "componentCount": 9,
+  "mappedVectorNodeCount": 578,
+  "uniqueSvgCount": 149,
+  "rawGeometryBlobCount": 287
+}

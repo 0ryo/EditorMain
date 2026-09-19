@@ -39,6 +39,7 @@ public sealed class ScenarioConditionEvaluator
     bool interactionStarted;
     ScenarioInteractionState interactionStart;
     public bool Succeeded { get; private set; }
+    public float HeldSeconds => heldSeconds;
 
     public void Begin(ConditionExport condition, IScenarioObjectStateSource source)
     {

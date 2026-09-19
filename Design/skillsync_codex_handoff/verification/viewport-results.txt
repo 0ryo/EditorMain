@@ -1,0 +1,1 @@
+PASS: 2560x1440, full 16:9 canvas, original #424242 background, long/short label sizing, static text removed, camera-relative gizmo geometry.

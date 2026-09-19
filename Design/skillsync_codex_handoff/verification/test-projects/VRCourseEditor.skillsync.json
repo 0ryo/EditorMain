@@ -1,0 +1,298 @@
+{
+    "schemaVersion": 6,
+    "projectName": "VRCourseEditor",
+    "savedAtUtc": "2026-09-19T13:35:03.8778541Z",
+    "lastSaveWasAutomatic": true,
+    "curriculum": {
+        "schemaVersion": 5,
+        "projectName": "VRCourseEditor",
+        "mode": "Graph",
+        "rules": {
+            "proximityDistance": 0.10000000149011612,
+            "holdSeconds": 1.0,
+            "maxConditionsPerStep": 8
+        },
+        "nodes": [
+            {
+                "nodeId": "start-0001",
+                "nodeType": 0,
+                "step": {
+                    "title": "",
+                    "body": "",
+                    "supplement": "",
+                    "caution": "",
+                    "durationMinutes": 0
+                },
+                "condition": {
+                    "title": "手順1",
+                    "type": "SnapHold",
+                    "objectAId": "",
+                    "objectBId": "",
+                    "parameters": []
+                }
+            },
+            {
+                "nodeId": "end-0001",
+                "nodeType": 1,
+                "step": {
+                    "title": "",
+                    "body": "",
+                    "supplement": "",
+                    "caution": "",
+                    "durationMinutes": 0
+                },
+                "condition": {
+                    "title": "手順1",
+                    "type": "SnapHold",
+                    "objectAId": "",
+                    "objectBId": "",
+                    "parameters": []
+                }
+            },
+            {
+                "nodeId": "step-0001",
+                "nodeType": 2,
+                "step": {
+                    "title": "部品を確認する",
+                    "body": "部品Aを目印Bに近づけ、\nそのまま3秒間保ってください。",
+                    "supplement": "",
+                    "caution": "",
+                    "durationMinutes": 0
+                },
+                "condition": {
+                    "title": "手順1",
+                    "type": "SnapHold",
+                    "objectAId": "",
+                    "objectBId": "",
+                    "parameters": []
+                }
+            },
+            {
+                "nodeId": "cond-0001",
+                "nodeType": 3,
+                "step": {
+                    "title": "",
+                    "body": "",
+                    "supplement": "",
+                    "caution": "",
+                    "durationMinutes": 0
+                },
+                "condition": {
+                    "title": "手順1",
+                    "type": "SnapHold",
+                    "objectAId": "obj-0001",
+                    "objectBId": "obj-0002",
+                    "parameters": [
+                        {
+                            "key": "distanceMeters",
+                            "numberValue": 0.5,
+                            "textValue": "",
+                            "boolValue": false
+                        },
+                        {
+                            "key": "holdSeconds",
+                            "numberValue": 3.0,
+                            "textValue": "",
+                            "boolValue": false
+                        }
+                    ]
+                }
+            },
+            {
+                "nodeId": "step-0002",
+                "nodeType": 2,
+                "step": {
+                    "title": "部品を目印に置く",
+                    "body": "部品Aを目印Bに近づけ、\nそのまま3秒間保ってください。",
+                    "supplement": "",
+                    "caution": "",
+                    "durationMinutes": 0
+                },
+                "condition": {
+                    "title": "手順1",
+                    "type": "SnapHold",
+                    "objectAId": "",
+                    "objectBId": "",
+                    "parameters": []
+                }
+            },
+            {
+                "nodeId": "cond-0002",
+                "nodeType": 3,
+                "step": {
+                    "title": "",
+                    "body": "",
+                    "supplement": "",
+                    "caution": "",
+                    "durationMinutes": 0
+                },
+                "condition": {
+                    "title": "手順1",
+                    "type": "SnapHold",
+                    "objectAId": "obj-0001",
+                    "objectBId": "obj-0002",
+                    "parameters": [
+                        {
+                            "key": "distanceMeters",
+                            "numberValue": 0.5,
+                            "textValue": "",
+                            "boolValue": false
+                        },
+                        {
+                            "key": "holdSeconds",
+                            "numberValue": 3.0,
+                            "textValue": "",
+                            "boolValue": false
+                        }
+                    ]
+                }
+            },
+            {
+                "nodeId": "step-0003",
+                "nodeType": 2,
+                "step": {
+                    "title": "配置を確認する",
+                    "body": "部品Aを目印Bに近づけ、\nそのまま3秒間保ってください。",
+                    "supplement": "",
+                    "caution": "",
+                    "durationMinutes": 0
+                },
+                "condition": {
+                    "title": "手順1",
+                    "type": "SnapHold",
+                    "objectAId": "",
+                    "objectBId": "",
+                    "parameters": []
+                }
+            },
+            {
+                "nodeId": "cond-0003",
+                "nodeType": 3,
+                "step": {
+                    "title": "",
+                    "body": "",
+                    "supplement": "",
+                    "caution": "",
+                    "durationMinutes": 0
+                },
+                "condition": {
+                    "title": "手順1",
+                    "type": "SnapHold",
+                    "objectAId": "obj-0001",
+                    "objectBId": "obj-0002",
+                    "parameters": [
+                        {
+                            "key": "distanceMeters",
+                            "numberValue": 0.5,
+                            "textValue": "",
+                            "boolValue": false
+                        },
+                        {
+                            "key": "holdSeconds",
+                            "numberValue": 3.0,
+                            "textValue": "",
+                            "boolValue": false
+                        }
+                    ]
+                }
+            }
+        ],
+        "edges": [
+            {
+                "fromNodeId": "cond-0001",
+                "toNodeId": "step-0001",
+                "edgeType": 1
+            },
+            {
+                "fromNodeId": "cond-0002",
+                "toNodeId": "step-0002",
+                "edgeType": 1
+            },
+            {
+                "fromNodeId": "cond-0003",
+                "toNodeId": "step-0003",
+                "edgeType": 1
+            },
+            {
+                "fromNodeId": "start-0001",
+                "toNodeId": "step-0001",
+                "edgeType": 0
+            },
+            {
+                "fromNodeId": "step-0001",
+                "toNodeId": "step-0002",
+                "edgeType": 0
+            },
+            {
+                "fromNodeId": "step-0002",
+                "toNodeId": "step-0003",
+                "edgeType": 0
+            },
+            {
+                "fromNodeId": "step-0003",
+                "toNodeId": "end-0001",
+                "edgeType": 0
+            }
+        ]
+    },
+    "objects": [
+        {
+            "sourceNodePath": "",
+            "sourceSignature": "",
+            "parts": [],
+            "id": "obj-0001",
+            "typeId": "Verification/Part",
+            "displayName": "部品A",
+            "description": "動かせる部品",
+            "editorGroupId": "",
+            "hasDescriptionOverride": true,
+            "position": {
+                "x": -0.10000000149011612,
+                "y": 0.8999999761581421,
+                "z": 0.0
+            },
+            "rotation": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0,
+                "w": 1.0
+            },
+            "scale": {
+                "x": 0.30000001192092898,
+                "y": 0.20000000298023225,
+                "z": 0.25
+            },
+            "hidden": false,
+            "locked": false
+        },
+        {
+            "sourceNodePath": "",
+            "sourceSignature": "",
+            "parts": [],
+            "id": "obj-0002",
+            "typeId": "Verification/Marker",
+            "displayName": "目印B",
+            "description": "配置先の目印",
+            "editorGroupId": "",
+            "hasDescriptionOverride": true,
+            "position": {
+                "x": 0.550000011920929,
+                "y": 0.8999999761581421,
+                "z": 0.0
+            },
+            "rotation": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0,
+                "w": 1.0
+            },
+            "scale": {
+                "x": 0.30000001192092898,
+                "y": 0.02500000037252903,
+                "z": 0.23999999463558198
+            },
+            "hidden": false,
+            "locked": false
+        }
+    ]
+}

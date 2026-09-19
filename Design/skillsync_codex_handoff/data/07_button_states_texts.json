@@ -1,0 +1,313 @@
+{
+  "boardId": "31:20",
+  "boardKey": "07_button_states",
+  "textCount": 6,
+  "texts": [
+    {
+      "id": "31:9",
+      "name": "ボタン",
+      "characters": "ボタン",
+      "x": 91.0,
+      "y": 40.0,
+      "width": 42.0,
+      "height": 20.0,
+      "fontName": {
+        "family": "Noto Sans JP",
+        "style": "Medium",
+        "postscript": ""
+      },
+      "rawFontSize": 12.0,
+      "effectiveFontSizes": [
+        14.0
+      ],
+      "lineHeight": {
+        "value": 100.0,
+        "units": "PERCENT"
+      },
+      "baselines": [
+        {
+          "position": {
+            "x": 0.0,
+            "y": 15.600000381469727
+          },
+          "width": 42.0,
+          "lineY": 3.814697322468419e-07,
+          "lineHeight": 20.0,
+          "lineAscent": 14.0,
+          "firstCharacter": 0,
+          "endCharacter": 3
+        }
+      ],
+      "fills": [
+        {
+          "type": "SOLID",
+          "opacity": 1.0,
+          "visible": true,
+          "blendMode": "NORMAL",
+          "color": {
+            "hex": "#FFFFFF",
+            "r": 1.0,
+            "g": 1.0,
+            "b": 1.0,
+            "a": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "31:11",
+      "name": "ボタン",
+      "characters": "ボタン",
+      "x": 287.0,
+      "y": 40.0,
+      "width": 42.0,
+      "height": 20.0,
+      "fontName": {
+        "family": "Noto Sans JP",
+        "style": "Medium",
+        "postscript": ""
+      },
+      "rawFontSize": 12.0,
+      "effectiveFontSizes": [
+        14.0
+      ],
+      "lineHeight": {
+        "value": 100.0,
+        "units": "PERCENT"
+      },
+      "baselines": [
+        {
+          "position": {
+            "x": 0.0,
+            "y": 15.600000381469727
+          },
+          "width": 42.0,
+          "lineY": 3.814697322468419e-07,
+          "lineHeight": 20.0,
+          "lineAscent": 14.0,
+          "firstCharacter": 0,
+          "endCharacter": 3
+        }
+      ],
+      "fills": [
+        {
+          "type": "SOLID",
+          "opacity": 1.0,
+          "visible": true,
+          "blendMode": "NORMAL",
+          "color": {
+            "hex": "#172236",
+            "r": 0.09019608050584793,
+            "g": 0.13333334028720856,
+            "b": 0.21176470816135406,
+            "a": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "31:13",
+      "name": "ボタン",
+      "characters": "ボタン",
+      "x": 483.0,
+      "y": 40.0,
+      "width": 42.0,
+      "height": 20.0,
+      "fontName": {
+        "family": "Noto Sans JP",
+        "style": "Medium",
+        "postscript": ""
+      },
+      "rawFontSize": 12.0,
+      "effectiveFontSizes": [
+        14.0
+      ],
+      "lineHeight": {
+        "value": 100.0,
+        "units": "PERCENT"
+      },
+      "baselines": [
+        {
+          "position": {
+            "x": 0.0,
+            "y": 15.600000381469727
+          },
+          "width": 42.0,
+          "lineY": 3.814697322468419e-07,
+          "lineHeight": 20.0,
+          "lineAscent": 14.0,
+          "firstCharacter": 0,
+          "endCharacter": 3
+        }
+      ],
+      "fills": [
+        {
+          "type": "SOLID",
+          "opacity": 1.0,
+          "visible": true,
+          "blendMode": "NORMAL",
+          "color": {
+            "hex": "#0866E8",
+            "r": 0.0313725508749485,
+            "g": 0.4000000059604645,
+            "b": 0.9098039269447327,
+            "a": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "31:15",
+      "name": "ボタン",
+      "characters": "ボタン",
+      "x": 679.0,
+      "y": 40.0,
+      "width": 42.0,
+      "height": 20.0,
+      "fontName": {
+        "family": "Noto Sans JP",
+        "style": "Medium",
+        "postscript": ""
+      },
+      "rawFontSize": 12.0,
+      "effectiveFontSizes": [
+        14.0
+      ],
+      "lineHeight": {
+        "value": 100.0,
+        "units": "PERCENT"
+      },
+      "baselines": [
+        {
+          "position": {
+            "x": 0.0,
+            "y": 15.600000381469727
+          },
+          "width": 42.0,
+          "lineY": 3.814697322468419e-07,
+          "lineHeight": 20.0,
+          "lineAscent": 14.0,
+          "firstCharacter": 0,
+          "endCharacter": 3
+        }
+      ],
+      "fills": [
+        {
+          "type": "SOLID",
+          "opacity": 1.0,
+          "visible": true,
+          "blendMode": "NORMAL",
+          "color": {
+            "hex": "#172236",
+            "r": 0.09019608050584793,
+            "g": 0.13333334028720856,
+            "b": 0.21176470816135406,
+            "a": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "31:17",
+      "name": "ボタン",
+      "characters": "ボタン",
+      "x": 875.0,
+      "y": 40.0,
+      "width": 42.0,
+      "height": 20.0,
+      "fontName": {
+        "family": "Noto Sans JP",
+        "style": "Medium",
+        "postscript": ""
+      },
+      "rawFontSize": 12.0,
+      "effectiveFontSizes": [
+        14.0
+      ],
+      "lineHeight": {
+        "value": 100.0,
+        "units": "PERCENT"
+      },
+      "baselines": [
+        {
+          "position": {
+            "x": 0.0,
+            "y": 15.600000381469727
+          },
+          "width": 42.0,
+          "lineY": 3.814697322468419e-07,
+          "lineHeight": 20.0,
+          "lineAscent": 14.0,
+          "firstCharacter": 0,
+          "endCharacter": 3
+        }
+      ],
+      "fills": [
+        {
+          "type": "SOLID",
+          "opacity": 1.0,
+          "visible": true,
+          "blendMode": "NORMAL",
+          "color": {
+            "hex": "#58677C",
+            "r": 0.3450980484485626,
+            "g": 0.40392157435417175,
+            "b": 0.48627451062202454,
+            "a": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "31:19",
+      "name": "ボタン",
+      "characters": "ボタン",
+      "x": 1071.0,
+      "y": 40.0,
+      "width": 42.0,
+      "height": 20.0,
+      "fontName": {
+        "family": "Noto Sans JP",
+        "style": "Medium",
+        "postscript": ""
+      },
+      "rawFontSize": 12.0,
+      "effectiveFontSizes": [
+        14.0
+      ],
+      "lineHeight": {
+        "value": 100.0,
+        "units": "PERCENT"
+      },
+      "baselines": [
+        {
+          "position": {
+            "x": 0.0,
+            "y": 15.600000381469727
+          },
+          "width": 42.0,
+          "lineY": 3.814697322468419e-07,
+          "lineHeight": 20.0,
+          "lineAscent": 14.0,
+          "firstCharacter": 0,
+          "endCharacter": 3
+        }
+      ],
+      "fills": [
+        {
+          "type": "SOLID",
+          "opacity": 1.0,
+          "visible": true,
+          "blendMode": "NORMAL",
+          "color": {
+            "hex": "#172236",
+            "r": 0.09019608050584793,
+            "g": 0.13333334028720856,
+            "b": 0.21176470816135406,
+            "a": 1.0
+          }
+        }
+      ]
+    }
+  ]
+}

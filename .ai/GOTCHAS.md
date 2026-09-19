@@ -14,6 +14,10 @@
 
 ## UI / Prefab
 
+- TextureImporterの`textureType = Sprite`だけでは`textureShape`は保証されない。SkillSync画像で`textureShape: 2`（Cubemap）が残り、再import成功後もSpriteが生成されなかった。UI画像はEditor APIで`TextureImporterShape.Texture2D`を明示し、設定済み判定にもshapeを含める。
+- Figma取得済みSVGには幅／高さ0のVECTOR（区切り線）が含まれない場合がある。nodes.jsonのstrokeWeight・色・座標から別途描画する。Sprite対応だけの照合では欠落を検出できない。
+- Unityの背景実行による撮影では、Editorの更新継続だけでなくPlay側の`Application.runInBackground`も確認する。Game viewの古いRenderTextureを取得できてしまうため、解像度だけでなく状態変化とフレーム進行も確認する。
+
 - `StartCoroutine`は最初のyieldまで同期実行する。選択直後の詳細パネルでは、UI生成直後に`unscaledDeltaTime`を加算すると重いフレームでスライド終端へ飛び得る。現在位置を適用して一度yieldし、1フレームの進行を上限1/30秒に抑える。開閉は同じroutineで現在位置から反転する。
 
 - `MaterialPropertyBlock`などUnityネイティブ資源をMonoBehaviourのfield initializerで生成しない。`Awake`または明示的な初期化メソッドで生成する。候補輪郭でconstructor例外の後に描画callbackのNullReferenceが毎フレーム続き、スクロールまで重くなった。構文・型チェックでは検出できない。
@@ -28,7 +32,7 @@
 
 ## 配置・選択・入力
 
-- Unityの`GetComponent<T>()`が返す欠損ComponentはEditorでCLRのnullとは異なる場合がある。`GetComponent<MeshFilter>()?.sharedMesh`は安全な欠損確認にならず、MeshFilterのないモデル親で`MissingComponentException`になった。Unityの`!= null`／truthinessで確認する。配置factoryは例外時に生成物を非アクティブ化して破棄し、接地・Collider設定前の孤立モデルが残らないようにする。
+- Unityの`GetComponent<T>()`が返す欠損ComponentはEditorでCLRのnullとは異なる場合がある。`GetComponent<MeshFilter>()?.sharedMesh`は安全な欠損確認にならず、MeshFilterのないモデル親で`MissingComponentException`になった。`GetComponent<T>() ?? AddComponent<T>()`も追加をスキップするため使用しない。Unityの`== null`／`!= null`／truthinessで確認する。配置factoryは例外時に生成物を非アクティブ化して破棄し、接地・Collider設定前の孤立モデルが残らないようにする。
 
 - 表示Floorと配置面は別物。配置は`y=0` planeでXZをgrid snapした後、`PlacedObjectGrounding`がrenderer bounds下端を接地する。`placementYOffset`は旧serialized互換のためfieldだけ残り、配置Yには使わない。
 - 配置objectにusable Colliderがないと選択できないため、`PlacedObjectPickability` がrenderer boundsからBoxColliderを追加する。rendererもないmodelは自動修復できない。

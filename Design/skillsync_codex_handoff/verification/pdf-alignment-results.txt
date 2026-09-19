@@ -1,0 +1,6 @@
+State 0: 16 visible captions share the button rectangle, use geometry-centered alignment, no text overflow.
+State 1: 12 visible captions share the button rectangle, use geometry-centered alignment, no text overflow.
+State 2: 11 visible captions share the button rectangle, use geometry-centered alignment, no text overflow.
+State 3: 16 visible captions share the button rectangle, use geometry-centered alignment, no text overflow.
+State 4: 11 visible captions share the button rectangle, use geometry-centered alignment, no text overflow.
+State 5: 14 visible captions share the button rectangle, use geometry-centered alignment, no text overflow.

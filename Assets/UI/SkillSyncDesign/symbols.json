@@ -1,0 +1,40 @@
+{
+  "glyphs": [
+    {
+      "character": "↶",
+      "sprite": "symbol_21b6.png",
+      "advance": 18.85500133037567,
+      "width": 20,
+      "height": 18,
+      "offsetX": -0.5,
+      "offsetY": 0.0
+    },
+    {
+      "character": "↷",
+      "sprite": "symbol_21b7.png",
+      "advance": 18.85500133037567,
+      "width": 20,
+      "height": 18,
+      "offsetX": -0.5,
+      "offsetY": 0.0
+    },
+    {
+      "character": "⌄",
+      "sprite": "symbol_2304.png",
+      "advance": 8.192000389099121,
+      "width": 9,
+      "height": 19,
+      "offsetX": 0.0,
+      "offsetY": 0.0
+    },
+    {
+      "character": "⌕",
+      "sprite": "symbol_2315.png",
+      "advance": 8.876000046730042,
+      "width": 9,
+      "height": 17,
+      "offsetX": 0.0,
+      "offsetY": 0.0
+    }
+  ]
+}

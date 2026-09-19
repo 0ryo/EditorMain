@@ -1,0 +1,47 @@
+Model restoration finished
+Place part through command service
+Place marker through command service
+Nudge command changes placement (PDF removes its button)
+Enabled: ↶ 元に戻す
+Undo restores placement
+Name field updates actual object
+Enabled: ↶ 元に戻す
+Undo restores name
+Ghost state
+Enabled: キャンセル
+Cancel ghost preserves data
+Enabled: ここに配置
+Confirm ghost creates exactly one object
+Enabled: ↶ 元に戻す
+Ghost confirmation undo
+Search filters the actual library
+Search placeholder hides while typing
+Refresh preserves search placeholder state
+Enabled: 手順を編集
+Step edit state
+Step selection connects to graph
+Enabled: ▶ この条件を試す
+Trial state
+Real condition evaluator session
+Hold progresses in range
+Enabled: Ⅱ 一時停止
+Pause freezes the actual hold evaluator
+Enabled: Ⅱ 一時停止
+Trial resumes
+Enabled: 初期配置に戻す
+Reset restores trial pose and timer
+Holding resumes after reset
+Leaving range resets hold
+Condition completion state
+Trial does not mutate original pose
+Enabled: 次の手順を確認
+Completion returns to next step
+Original rendering restored after trial
+Enabled: ↑ 教材を書き出す
+Validation modal opens for missing target
+Draft saved to isolated verification directory
+Modal blocks workspace input
+Enabled: 該当箇所を修正
+Validation navigates to missing target
+Target picking updates graph
+Enabled: 配置を編集

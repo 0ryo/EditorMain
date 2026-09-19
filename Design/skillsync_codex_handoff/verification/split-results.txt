@@ -1,0 +1,1 @@
+PASS: list reaches bottom; pointer drag adjusts viewport/list with stable bottom; hover enter/exit; catalog removal preserves placed objects.

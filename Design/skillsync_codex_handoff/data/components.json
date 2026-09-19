@@ -1,0 +1,213 @@
+{
+  "source": "skillsync_ui.fig",
+  "componentCount": 9,
+  "components": [
+    {
+      "id": "31:8",
+      "name": "State=Primary",
+      "parentId": "31:20",
+      "size": {
+        "x": 176.0,
+        "y": 44.0
+      },
+      "pagePosition": {
+        "x": 104.0,
+        "y": 2618.0
+      },
+      "nodeCount": 2,
+      "typeCounts": {
+        "SYMBOL": 1,
+        "TEXT": 1
+      },
+      "descendantIds": [
+        "31:8",
+        "31:9"
+      ]
+    },
+    {
+      "id": "31:10",
+      "name": "State=Secondary",
+      "parentId": "31:20",
+      "size": {
+        "x": 176.0,
+        "y": 44.0
+      },
+      "pagePosition": {
+        "x": 300.0,
+        "y": 2618.0
+      },
+      "nodeCount": 2,
+      "typeCounts": {
+        "SYMBOL": 1,
+        "TEXT": 1
+      },
+      "descendantIds": [
+        "31:10",
+        "31:11"
+      ]
+    },
+    {
+      "id": "31:12",
+      "name": "State=Selected",
+      "parentId": "31:20",
+      "size": {
+        "x": 176.0,
+        "y": 44.0
+      },
+      "pagePosition": {
+        "x": 496.0,
+        "y": 2618.0
+      },
+      "nodeCount": 2,
+      "typeCounts": {
+        "SYMBOL": 1,
+        "TEXT": 1
+      },
+      "descendantIds": [
+        "31:12",
+        "31:13"
+      ]
+    },
+    {
+      "id": "31:14",
+      "name": "State=Quiet",
+      "parentId": "31:20",
+      "size": {
+        "x": 176.0,
+        "y": 44.0
+      },
+      "pagePosition": {
+        "x": 692.0,
+        "y": 2618.0
+      },
+      "nodeCount": 2,
+      "typeCounts": {
+        "SYMBOL": 1,
+        "TEXT": 1
+      },
+      "descendantIds": [
+        "31:14",
+        "31:15"
+      ]
+    },
+    {
+      "id": "31:16",
+      "name": "State=Disabled",
+      "parentId": "31:20",
+      "size": {
+        "x": 176.0,
+        "y": 44.0
+      },
+      "pagePosition": {
+        "x": 888.0,
+        "y": 2618.0
+      },
+      "nodeCount": 2,
+      "typeCounts": {
+        "SYMBOL": 1,
+        "TEXT": 1
+      },
+      "descendantIds": [
+        "31:16",
+        "31:17"
+      ]
+    },
+    {
+      "id": "31:18",
+      "name": "State=Focus",
+      "parentId": "31:20",
+      "size": {
+        "x": 176.0,
+        "y": 44.0
+      },
+      "pagePosition": {
+        "x": 1084.0,
+        "y": 2618.0
+      },
+      "nodeCount": 2,
+      "typeCounts": {
+        "SYMBOL": 1,
+        "TEXT": 1
+      },
+      "descendantIds": [
+        "31:18",
+        "31:19"
+      ]
+    },
+    {
+      "id": "32:2",
+      "name": "State=Default",
+      "parentId": "32:14",
+      "size": {
+        "x": 344.0,
+        "y": 84.0
+      },
+      "pagePosition": {
+        "x": 104.0,
+        "y": 2800.0
+      },
+      "nodeCount": 4,
+      "typeCounts": {
+        "SYMBOL": 1,
+        "TEXT": 2,
+        "FRAME": 1
+      },
+      "descendantIds": [
+        "32:2",
+        "32:3",
+        "32:4",
+        "32:5"
+      ]
+    },
+    {
+      "id": "32:6",
+      "name": "State=Focus",
+      "parentId": "32:14",
+      "size": {
+        "x": 344.0,
+        "y": 84.0
+      },
+      "pagePosition": {
+        "x": 480.0,
+        "y": 2800.0
+      },
+      "nodeCount": 4,
+      "typeCounts": {
+        "SYMBOL": 1,
+        "TEXT": 2,
+        "FRAME": 1
+      },
+      "descendantIds": [
+        "32:6",
+        "32:7",
+        "32:8",
+        "32:9"
+      ]
+    },
+    {
+      "id": "32:10",
+      "name": "State=Error",
+      "parentId": "32:14",
+      "size": {
+        "x": 344.0,
+        "y": 84.0
+      },
+      "pagePosition": {
+        "x": 856.0,
+        "y": 2800.0
+      },
+      "nodeCount": 4,
+      "typeCounts": {
+        "SYMBOL": 1,
+        "TEXT": 2,
+        "FRAME": 1
+      },
+      "descendantIds": [
+        "32:10",
+        "32:11",
+        "32:12",
+        "32:13"
+      ]
+    }
+  ]
+}

@@ -33,6 +33,7 @@ public class ViewportStatusStrip : MonoBehaviour
 
     void Awake()
     {
+        if (GetComponentInChildren<SkillSyncDesignView>(true) != null) { enabled = false; return; }
         EnsureVisualTree();
         ResolveReferences();
         BindEvents();

@@ -117,7 +117,7 @@ public class PlacementController : MonoBehaviour
         return prefabCatalog.TryGet(typeId, out prefab);
     }
 
-    void CancelPlacement()
+    public void CancelPlacement()
     {
         if (!string.IsNullOrEmpty(currentTypeId))
         {
@@ -222,7 +222,7 @@ public class PlacementController : MonoBehaviour
         return EditWorkspace.TryScreenToGround(cam, screenPosition, out point, out resolveReason);
     }
 
-    bool PlaceType(string typeId, Vector3 floorPoint)
+    bool PlaceType(string typeId, Vector3 floorPoint, Quaternion? rotation = null, Vector3? scale = null, string displayName = null, bool groundToPlane = true)
     {
         if (!TryGetPrefab(typeId, out _))
         {
@@ -230,17 +230,19 @@ public class PlacementController : MonoBehaviour
             return false;
         }
 
-        var placedPosition = EditWorkspace.SnapPlacementPoint(floorPoint, gridSize, placementYOffset);
+        var placedPosition = groundToPlane ? EditWorkspace.SnapPlacementPoint(floorPoint, gridSize, placementYOffset) : floorPoint;
 
         PlacedObject createdPlacedObject = null;
         GameObject createdObject = null;
         System.Func<string, GameObject> factory = tId =>
         {
             createdObject = CreatePlacedObject(tId, out createdPlacedObject);
+            if (createdObject != null && scale.HasValue) createdObject.transform.localScale = scale.Value;
+            if (createdPlacedObject != null && displayName != null) createdPlacedObject.SetDisplayName(displayName);
             return createdObject;
         };
 
-        var cmd = new PlaceObjectCommand(typeId, placedPosition, Quaternion.identity, factory);
+        var cmd = new PlaceObjectCommand(typeId, placedPosition, rotation ?? Quaternion.identity, factory, groundToPlane);
         bool succeeded;
         if (CommandService.I != null && CommandService.I.Stack != null)
         {
@@ -272,6 +274,11 @@ public class PlacementController : MonoBehaviour
 
         LogDebug($"Placed OK: type={typeId}, id={createdPlacedObject.Id}, position={createdObject.transform.position}");
         return true;
+    }
+
+    public bool PlaceForDesignUi(string typeId, Vector3 position, Quaternion rotation, Vector3 scale, string displayName)
+    {
+        return PlaceType(typeId, position, rotation, scale, displayName, false);
     }
 
     GameObject CreatePlacedObject(string typeId, out PlacedObject placed)

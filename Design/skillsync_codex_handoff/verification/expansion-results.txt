@@ -1,0 +1,1 @@
+PASS: intermediate animation; +440 logical px viewport/list/rows; hidden inspector does not block; expanded viewport accepts input; snap caption centered.

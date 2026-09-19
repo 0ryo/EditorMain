@@ -1,0 +1,856 @@
+{
+  "source": "skillsync_ui.fig",
+  "coordinateSystem": "Each board top-left is (0,0), +x right, +y down. Values are Figma design units.",
+  "boards": {
+    "00_foundations": {
+      "boardId": "29:2",
+      "boardName": "00 / Design foundations",
+      "size": {
+        "x": 1600.0,
+        "y": 420.0
+      },
+      "children": [
+        {
+          "id": "29:3",
+          "type": "TEXT",
+          "name": "XR教材エディタ — 教える内容に集中できる道具",
+          "x": 32.0,
+          "y": 32.0,
+          "width": 776.0,
+          "height": 48.0,
+          "visible": true
+        },
+        {
+          "id": "29:4",
+          "type": "TEXT",
+          "name": "UI CONCEPT  /  2026.09   ·   配置 → 手順 → 動作確認を自由に行き来する",
+          "x": 32.0,
+          "y": 104.0,
+          "width": 454.0,
+          "height": 22.0,
+          "visible": true
+        },
+        {
+          "id": "29:5",
+          "type": "FRAME",
+          "name": "Color tokens",
+          "x": 32.0,
+          "y": 150.0,
+          "width": 1536.0,
+          "height": 74.0,
+          "visible": true
+        },
+        {
+          "id": "29:30",
+          "type": "FRAME",
+          "name": "Typography",
+          "x": 32.0,
+          "y": 248.0,
+          "width": 1536.0,
+          "height": 60.0,
+          "visible": true
+        },
+        {
+          "id": "29:35",
+          "type": "TEXT",
+          "name": "余白 4・8・12・16・24・32   /   角丸 6・10・14   /   文字 Noto Sans ",
+          "x": 32.0,
+          "y": 332.0,
+          "width": 443.0,
+          "height": 22.0,
+          "visible": true
+        },
+        {
+          "id": "29:36",
+          "type": "TEXT",
+          "name": "共通ルール：色だけで状態を伝えない · ドラッグにはボタン操作を併設 · 未完成でも保存 · 試行は初期配置を",
+          "x": 32.0,
+          "y": 378.0,
+          "width": 743.0,
+          "height": 22.0,
+          "visible": true
+        }
+      ]
+    },
+    "01_layout": {
+      "boardId": "26:220",
+      "boardName": "01 配置を編集 — UI",
+      "size": {
+        "x": 1600.0,
+        "y": 1000.0
+      },
+      "children": [
+        {
+          "id": "26:221",
+          "type": "VECTOR",
+          "name": "Vector",
+          "x": 0.0,
+          "y": 0.0,
+          "width": 1600.0,
+          "height": 1000.0,
+          "visible": true
+        },
+        {
+          "id": "26:222",
+          "type": "FRAME",
+          "name": "共通ヘッダー",
+          "x": 0.0,
+          "y": 0.0,
+          "width": 1600.0,
+          "height": 88.0,
+          "visible": true
+        },
+        {
+          "id": "26:253",
+          "type": "FRAME",
+          "name": "部品ライブラリ",
+          "x": 0.0,
+          "y": 88.0,
+          "width": 264.0,
+          "height": 876.0,
+          "visible": true
+        },
+        {
+          "id": "26:291",
+          "type": "FRAME",
+          "name": "Workspace toolbar",
+          "x": 288.0,
+          "y": 112.0,
+          "width": 848.0,
+          "height": 47.0,
+          "visible": true
+        },
+        {
+          "id": "26:303",
+          "type": "FRAME",
+          "name": "3D viewport / normal",
+          "x": 288.0,
+          "y": 170.0,
+          "width": 848.0,
+          "height": 550.0,
+          "visible": true
+        },
+        {
+          "id": "26:360",
+          "type": "VECTOR",
+          "name": "Vector",
+          "x": 288.0,
+          "y": 732.0,
+          "width": 848.0,
+          "height": 34.0,
+          "visible": true
+        },
+        {
+          "id": "26:361",
+          "type": "TEXT",
+          "name": "● 選択中：部品A | Escで選択解除",
+          "x": 302.0,
+          "y": 740.0,
+          "width": 182.0,
+          "height": 14.0,
+          "visible": true
+        },
+        {
+          "id": "26:362",
+          "type": "FRAME",
+          "name": "配置した部品",
+          "x": 288.0,
+          "y": 782.0,
+          "width": 848.0,
+          "height": 160.0,
+          "visible": true
+        },
+        {
+          "id": "26:383",
+          "type": "FRAME",
+          "name": "配置の設定",
+          "x": 1160.0,
+          "y": 88.0,
+          "width": 440.0,
+          "height": 876.0,
+          "visible": true
+        },
+        {
+          "id": "26:439",
+          "type": "FRAME",
+          "name": "Status bar",
+          "x": 0.0,
+          "y": 964.0,
+          "width": 1600.0,
+          "height": 36.0,
+          "visible": true
+        }
+      ]
+    },
+    "02_steps": {
+      "boardId": "26:7",
+      "boardName": "02 手順を編集 — UI",
+      "size": {
+        "x": 1600.0,
+        "y": 1000.0
+      },
+      "children": [
+        {
+          "id": "26:8",
+          "type": "VECTOR",
+          "name": "Vector",
+          "x": 0.0,
+          "y": 0.0,
+          "width": 1600.0,
+          "height": 1000.0,
+          "visible": true
+        },
+        {
+          "id": "26:9",
+          "type": "FRAME",
+          "name": "共通ヘッダー",
+          "x": 0.0,
+          "y": 0.0,
+          "width": 1600.0,
+          "height": 88.0,
+          "visible": true
+        },
+        {
+          "id": "26:40",
+          "type": "FRAME",
+          "name": "作業手順パネル",
+          "x": 0.0,
+          "y": 88.0,
+          "width": 264.0,
+          "height": 876.0,
+          "visible": true
+        },
+        {
+          "id": "26:74",
+          "type": "FRAME",
+          "name": "Workspace toolbar",
+          "x": 288.0,
+          "y": 112.0,
+          "width": 848.0,
+          "height": 47.0,
+          "visible": true
+        },
+        {
+          "id": "26:86",
+          "type": "FRAME",
+          "name": "3D viewport / normal",
+          "x": 288.0,
+          "y": 170.0,
+          "width": 848.0,
+          "height": 550.0,
+          "visible": true
+        },
+        {
+          "id": "26:142",
+          "type": "VECTOR",
+          "name": "Vector",
+          "x": 288.0,
+          "y": 732.0,
+          "width": 848.0,
+          "height": 34.0,
+          "visible": true
+        },
+        {
+          "id": "26:143",
+          "type": "TEXT",
+          "name": "● 選択中：部品A | Escで選択解除",
+          "x": 302.0,
+          "y": 740.0,
+          "width": 182.0,
+          "height": 14.0,
+          "visible": true
+        },
+        {
+          "id": "26:144",
+          "type": "FRAME",
+          "name": "配置した部品",
+          "x": 288.0,
+          "y": 782.0,
+          "width": 848.0,
+          "height": 160.0,
+          "visible": true
+        },
+        {
+          "id": "26:165",
+          "type": "FRAME",
+          "name": "手順の設定",
+          "x": 1160.0,
+          "y": 88.0,
+          "width": 440.0,
+          "height": 876.0,
+          "visible": true
+        },
+        {
+          "id": "26:214",
+          "type": "FRAME",
+          "name": "Status bar",
+          "x": 0.0,
+          "y": 964.0,
+          "width": 1600.0,
+          "height": 36.0,
+          "visible": true
+        }
+      ]
+    },
+    "03_preview": {
+      "boardId": "26:445",
+      "boardName": "03 動作を確認 — UI",
+      "size": {
+        "x": 1600.0,
+        "y": 1000.0
+      },
+      "children": [
+        {
+          "id": "26:446",
+          "type": "VECTOR",
+          "name": "Vector",
+          "x": 0.0,
+          "y": 0.0,
+          "width": 1600.0,
+          "height": 1000.0,
+          "visible": true
+        },
+        {
+          "id": "26:447",
+          "type": "FRAME",
+          "name": "共通ヘッダー",
+          "x": 0.0,
+          "y": 0.0,
+          "width": 1600.0,
+          "height": 88.0,
+          "visible": true
+        },
+        {
+          "id": "26:478",
+          "type": "FRAME",
+          "name": "作業手順パネル",
+          "x": 0.0,
+          "y": 88.0,
+          "width": 264.0,
+          "height": 876.0,
+          "visible": true
+        },
+        {
+          "id": "26:506",
+          "type": "FRAME",
+          "name": "Workspace toolbar",
+          "x": 288.0,
+          "y": 112.0,
+          "width": 848.0,
+          "height": 47.0,
+          "visible": true
+        },
+        {
+          "id": "26:518",
+          "type": "FRAME",
+          "name": "3D viewport / normal",
+          "x": 288.0,
+          "y": 170.0,
+          "width": 848.0,
+          "height": 550.0,
+          "visible": true
+        },
+        {
+          "id": "26:574",
+          "type": "VECTOR",
+          "name": "Vector",
+          "x": 288.0,
+          "y": 732.0,
+          "width": 848.0,
+          "height": 34.0,
+          "visible": true
+        },
+        {
+          "id": "26:575",
+          "type": "TEXT",
+          "name": "▶ 試行中：部品を動かして条件を確かめます",
+          "x": 302.0,
+          "y": 740.0,
+          "width": 243.0,
+          "height": 14.0,
+          "visible": true
+        },
+        {
+          "id": "26:576",
+          "type": "FRAME",
+          "name": "Preview control",
+          "x": 288.0,
+          "y": 786.0,
+          "width": 848.0,
+          "height": 156.0,
+          "visible": true
+        },
+        {
+          "id": "26:588",
+          "type": "FRAME",
+          "name": "判定モニター",
+          "x": 1160.0,
+          "y": 88.0,
+          "width": 440.0,
+          "height": 876.0,
+          "visible": true
+        },
+        {
+          "id": "26:615",
+          "type": "FRAME",
+          "name": "Status bar",
+          "x": 0.0,
+          "y": 964.0,
+          "width": 1600.0,
+          "height": 36.0,
+          "visible": true
+        }
+      ]
+    },
+    "04_placement_ghost": {
+      "boardId": "26:1476",
+      "boardName": "04 配置する場所を選択 — UI",
+      "size": {
+        "x": 1600.0,
+        "y": 1000.0
+      },
+      "children": [
+        {
+          "id": "26:1477",
+          "type": "VECTOR",
+          "name": "Vector",
+          "x": 0.0,
+          "y": 0.0,
+          "width": 1600.0,
+          "height": 1000.0,
+          "visible": true
+        },
+        {
+          "id": "26:1478",
+          "type": "FRAME",
+          "name": "共通ヘッダー",
+          "x": 0.0,
+          "y": 0.0,
+          "width": 1600.0,
+          "height": 88.0,
+          "visible": true
+        },
+        {
+          "id": "26:1509",
+          "type": "FRAME",
+          "name": "部品ライブラリ",
+          "x": 0.0,
+          "y": 88.0,
+          "width": 264.0,
+          "height": 876.0,
+          "visible": true
+        },
+        {
+          "id": "26:1547",
+          "type": "FRAME",
+          "name": "Workspace toolbar",
+          "x": 288.0,
+          "y": 112.0,
+          "width": 848.0,
+          "height": 47.0,
+          "visible": true
+        },
+        {
+          "id": "26:1559",
+          "type": "FRAME",
+          "name": "3D viewport / ghost",
+          "x": 288.0,
+          "y": 170.0,
+          "width": 848.0,
+          "height": 550.0,
+          "visible": true
+        },
+        {
+          "id": "26:1616",
+          "type": "VECTOR",
+          "name": "Vector",
+          "x": 288.0,
+          "y": 732.0,
+          "width": 848.0,
+          "height": 34.0,
+          "visible": true
+        },
+        {
+          "id": "26:1617",
+          "type": "TEXT",
+          "name": "＋ 仮配置中：クリックで確定 / Escで中止",
+          "x": 302.0,
+          "y": 740.0,
+          "width": 224.0,
+          "height": 14.0,
+          "visible": true
+        },
+        {
+          "id": "26:1618",
+          "type": "FRAME",
+          "name": "配置した部品",
+          "x": 288.0,
+          "y": 782.0,
+          "width": 848.0,
+          "height": 160.0,
+          "visible": true
+        },
+        {
+          "id": "26:1639",
+          "type": "FRAME",
+          "name": "配置の設定",
+          "x": 1160.0,
+          "y": 88.0,
+          "width": 440.0,
+          "height": 876.0,
+          "visible": true
+        },
+        {
+          "id": "26:1695",
+          "type": "FRAME",
+          "name": "Status bar",
+          "x": 0.0,
+          "y": 964.0,
+          "width": 1600.0,
+          "height": 36.0,
+          "visible": true
+        }
+      ]
+    },
+    "05_completed": {
+      "boardId": "26:846",
+      "boardName": "05 条件成立・手順完了 — UI",
+      "size": {
+        "x": 1600.0,
+        "y": 1000.0
+      },
+      "children": [
+        {
+          "id": "26:847",
+          "type": "VECTOR",
+          "name": "Vector",
+          "x": 0.0,
+          "y": 0.0,
+          "width": 1600.0,
+          "height": 1000.0,
+          "visible": true
+        },
+        {
+          "id": "26:848",
+          "type": "FRAME",
+          "name": "共通ヘッダー",
+          "x": 0.0,
+          "y": 0.0,
+          "width": 1600.0,
+          "height": 88.0,
+          "visible": true
+        },
+        {
+          "id": "26:879",
+          "type": "FRAME",
+          "name": "作業手順パネル",
+          "x": 0.0,
+          "y": 88.0,
+          "width": 264.0,
+          "height": 876.0,
+          "visible": true
+        },
+        {
+          "id": "26:907",
+          "type": "FRAME",
+          "name": "Workspace toolbar",
+          "x": 288.0,
+          "y": 112.0,
+          "width": 848.0,
+          "height": 47.0,
+          "visible": true
+        },
+        {
+          "id": "26:919",
+          "type": "FRAME",
+          "name": "3D viewport / complete",
+          "x": 288.0,
+          "y": 170.0,
+          "width": 848.0,
+          "height": 550.0,
+          "visible": true
+        },
+        {
+          "id": "26:975",
+          "type": "VECTOR",
+          "name": "Vector",
+          "x": 288.0,
+          "y": 732.0,
+          "width": 848.0,
+          "height": 34.0,
+          "visible": true
+        },
+        {
+          "id": "26:976",
+          "type": "TEXT",
+          "name": "✓ 手順2が完了しました",
+          "x": 302.0,
+          "y": 740.0,
+          "width": 126.0,
+          "height": 14.0,
+          "visible": true
+        },
+        {
+          "id": "26:977",
+          "type": "FRAME",
+          "name": "Preview control",
+          "x": 288.0,
+          "y": 786.0,
+          "width": 848.0,
+          "height": 156.0,
+          "visible": true
+        },
+        {
+          "id": "26:989",
+          "type": "FRAME",
+          "name": "判定モニター",
+          "x": 1160.0,
+          "y": 88.0,
+          "width": 440.0,
+          "height": 876.0,
+          "visible": true
+        },
+        {
+          "id": "26:1016",
+          "type": "FRAME",
+          "name": "Status bar",
+          "x": 0.0,
+          "y": 964.0,
+          "width": 1600.0,
+          "height": 36.0,
+          "visible": true
+        }
+      ]
+    },
+    "06_export_validation": {
+      "boardId": "26:1701",
+      "boardName": "06 書き出し前の確認 — UI",
+      "size": {
+        "x": 1600.0,
+        "y": 1000.0
+      },
+      "children": [
+        {
+          "id": "26:1702",
+          "type": "VECTOR",
+          "name": "Vector",
+          "x": 0.0,
+          "y": 0.0,
+          "width": 1600.0,
+          "height": 1000.0,
+          "visible": true
+        },
+        {
+          "id": "26:1703",
+          "type": "FRAME",
+          "name": "共通ヘッダー",
+          "x": 0.0,
+          "y": 0.0,
+          "width": 1600.0,
+          "height": 88.0,
+          "visible": true
+        },
+        {
+          "id": "26:1734",
+          "type": "FRAME",
+          "name": "作業手順パネル",
+          "x": 0.0,
+          "y": 88.0,
+          "width": 264.0,
+          "height": 876.0,
+          "visible": true
+        },
+        {
+          "id": "26:1768",
+          "type": "FRAME",
+          "name": "Workspace toolbar",
+          "x": 288.0,
+          "y": 112.0,
+          "width": 848.0,
+          "height": 47.0,
+          "visible": true
+        },
+        {
+          "id": "26:1780",
+          "type": "FRAME",
+          "name": "3D viewport / error",
+          "x": 288.0,
+          "y": 170.0,
+          "width": 848.0,
+          "height": 550.0,
+          "visible": true
+        },
+        {
+          "id": "26:1836",
+          "type": "VECTOR",
+          "name": "Vector",
+          "x": 288.0,
+          "y": 732.0,
+          "width": 848.0,
+          "height": 34.0,
+          "visible": true
+        },
+        {
+          "id": "26:1837",
+          "type": "TEXT",
+          "name": "● 選択中：部品A | Escで選択解除",
+          "x": 302.0,
+          "y": 740.0,
+          "width": 182.0,
+          "height": 14.0,
+          "visible": true
+        },
+        {
+          "id": "26:1838",
+          "type": "FRAME",
+          "name": "配置した部品",
+          "x": 288.0,
+          "y": 782.0,
+          "width": 848.0,
+          "height": 160.0,
+          "visible": true
+        },
+        {
+          "id": "26:1859",
+          "type": "FRAME",
+          "name": "手順の設定",
+          "x": 1160.0,
+          "y": 88.0,
+          "width": 440.0,
+          "height": 876.0,
+          "visible": true
+        },
+        {
+          "id": "26:1905",
+          "type": "FRAME",
+          "name": "Status bar",
+          "x": 0.0,
+          "y": 964.0,
+          "width": 1600.0,
+          "height": 36.0,
+          "visible": true
+        },
+        {
+          "id": "26:1910",
+          "type": "FRAME",
+          "name": "書き出し前の確認ダイアログ",
+          "x": 0.0,
+          "y": 88.0,
+          "width": 1600.0,
+          "height": 876.0,
+          "visible": true
+        }
+      ]
+    },
+    "07_button_states": {
+      "boardId": "31:20",
+      "boardName": "XR / Button",
+      "size": {
+        "x": 1220.0,
+        "y": 100.0
+      },
+      "children": [
+        {
+          "id": "31:8",
+          "type": "SYMBOL",
+          "name": "State=Primary",
+          "x": 24.0,
+          "y": 28.0,
+          "width": 176.0,
+          "height": 44.0,
+          "visible": true
+        },
+        {
+          "id": "31:10",
+          "type": "SYMBOL",
+          "name": "State=Secondary",
+          "x": 220.0,
+          "y": 28.0,
+          "width": 176.0,
+          "height": 44.0,
+          "visible": true
+        },
+        {
+          "id": "31:12",
+          "type": "SYMBOL",
+          "name": "State=Selected",
+          "x": 416.0,
+          "y": 28.0,
+          "width": 176.0,
+          "height": 44.0,
+          "visible": true
+        },
+        {
+          "id": "31:14",
+          "type": "SYMBOL",
+          "name": "State=Quiet",
+          "x": 612.0,
+          "y": 28.0,
+          "width": 176.0,
+          "height": 44.0,
+          "visible": true
+        },
+        {
+          "id": "31:16",
+          "type": "SYMBOL",
+          "name": "State=Disabled",
+          "x": 808.0,
+          "y": 28.0,
+          "width": 176.0,
+          "height": 44.0,
+          "visible": true
+        },
+        {
+          "id": "31:18",
+          "type": "SYMBOL",
+          "name": "State=Focus",
+          "x": 1004.0,
+          "y": 28.0,
+          "width": 176.0,
+          "height": 44.0,
+          "visible": true
+        }
+      ]
+    },
+    "08_field_states": {
+      "boardId": "32:14",
+      "boardName": "XR / Field",
+      "size": {
+        "x": 1144.0,
+        "y": 152.0
+      },
+      "children": [
+        {
+          "id": "32:2",
+          "type": "SYMBOL",
+          "name": "State=Default",
+          "x": 24.0,
+          "y": 30.0,
+          "width": 344.0,
+          "height": 84.0,
+          "visible": true
+        },
+        {
+          "id": "32:6",
+          "type": "SYMBOL",
+          "name": "State=Focus",
+          "x": 400.0,
+          "y": 30.0,
+          "width": 344.0,
+          "height": 84.0,
+          "visible": true
+        },
+        {
+          "id": "32:10",
+          "type": "SYMBOL",
+          "name": "State=Error",
+          "x": 776.0,
+          "y": 30.0,
+          "width": 344.0,
+          "height": 84.0,
+          "visible": true
+        }
+      ]
+    }
+  }
+}

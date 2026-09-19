@@ -10,7 +10,14 @@ public static class EditorProjectStore
     const string RecoveryDirectoryName = "Recovery";
     const string RecoveryFileName = "autosave" + FileSuffix;
 
+#if UNITY_EDITOR
+    // Explicit sandbox for live Editor verification; never present in a Player build.
+    public static string EditorVerificationProjectsDirectory { get; set; }
+#endif
     public static string ProjectsDirectory =>
+#if UNITY_EDITOR
+        EditorVerificationProjectsDirectory ??
+#endif
         Path.Combine(Application.persistentDataPath, "Projects");
     public static string RecoveryPath =>
         Path.Combine(ProjectsDirectory, RecoveryDirectoryName, RecoveryFileName);

@@ -1,0 +1,3 @@
+Library: wheel notch = 48 logical px
+Objects: wheel notch = 48 logical px
+Steps: wheel notch = 48 logical px

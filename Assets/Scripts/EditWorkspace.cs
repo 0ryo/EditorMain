@@ -76,6 +76,11 @@ public static class EditWorkspace
     public static bool TryGetBlockingUiName(Vector2 screenPosition, string[] blockingNames, out string blockingUiName)
     {
         blockingUiName = null;
+        if (SkillSyncEditorController.Active != null && SkillSyncEditorController.Active.BlocksWorkspace(screenPosition))
+        {
+            blockingUiName = "SkillSyncDesign";
+            return true;
+        }
         var eventSystem = EventSystem.current;
         if (eventSystem == null || blockingNames == null || blockingNames.Length == 0) return false;
 
@@ -109,6 +114,7 @@ public static class EditWorkspace
 
     public static bool IsTypingIntoInputField()
     {
+        if (SkillSyncEditorController.Active != null && SkillSyncEditorController.Active.CapturesTextSensitiveInput) return true;
         if (ObjectScreenPicker.Capturing) return true;
         if (EventSystem.current == null) return false;
 
@@ -133,8 +139,4 @@ public static class EditWorkspace
 
         return false;
     }
-}
-
-public sealed class EditorUiInputBlocker : MonoBehaviour
-{
 }

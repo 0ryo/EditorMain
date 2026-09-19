@@ -1,0 +1,3067 @@
+{
+  "boardId": "26:846",
+  "boardKey": "05_completed",
+  "textCount": 60,
+  "texts": [
+    {
+      "id": "26:853",
+      "name": "XR教材エディタ",
+      "characters": "XR教材エディタ",
+      "x": 76.0,
+      "y": 28.0,
+      "width": 138.0,
+      "height": 23.0,
+      "fontName": {
+        "family": "Noto Sans JP",
+        "style": "Bold",
+        "postscript": ""
+      },
+      "rawFontSize": 19.0,
+      "effectiveFontSizes": [
+        19.0
+      ],
+      "lineHeight": {
+        "value": 100.0,
+        "units": "PERCENT"
+      },
+      "baselines": [
+        {
+          "position": {
+            "x": 0.0,
+            "y": 19.100000381469727
+          },
+          "width": 137.52734375,
+          "lineY": 3.814697322468419e-07,
+          "lineHeight": 23.0,
+          "lineAscent": 19.0,
+          "firstCharacter": 0,
+          "endCharacter": 8
+        }
+      ],
+      "fills": [
+        {
+          "type": "SOLID",
+          "opacity": 1.0,
+          "visible": true,
+          "blendMode": "NORMAL",
+          "color": {
+            "hex": "#172236",
+            "r": 0.09019608050584793,
+            "g": 0.13333334028720856,
+            "b": 0.21176470816135406,
+            "a": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "26:855",
+      "name": "部品の配置練習",
+      "characters": "部品の配置練習",
+      "x": 276.0,
+      "y": 18.0,
+      "width": 119.0,
+      "height": 20.0,
+      "fontName": {
+        "family": "Noto Sans JP",
+        "style": "Regular",
+        "postscript": "NotoSansJP-Regular"
+      },
+      "rawFontSize": 17.0,
+      "effectiveFontSizes": [
+        17.0
+      ],
+      "lineHeight": {
+        "value": 100.0,
+        "units": "PERCENT"
+      },
+      "baselines": [
+        {
+          "position": {
+            "x": 0.0,
+            "y": 16.799999237060547
+          },
+          "width": 119.0,
+          "lineY": -7.629394644936838e-07,
+          "lineHeight": 20.399999618530273,
+          "lineAscent": 17.0,
+          "firstCharacter": 0,
+          "endCharacter": 7
+        }
+      ],
+      "fills": [
+        {
+          "type": "SOLID",
+          "opacity": 1.0,
+          "visible": true,
+          "blendMode": "NORMAL",
+          "color": {
+            "hex": "#172236",
+            "r": 0.09019608050584793,
+            "g": 0.13333334028720856,
+            "b": 0.21176470816135406,
+            "a": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "26:856",
+      "name": "✓ 保存済み",
+      "characters": "✓ 保存済み",
+      "x": 276.0,
+      "y": 48.0,
+      "width": 59.0,
+      "height": 14.0,
+      "fontName": {
+        "family": "Noto Sans JP",
+        "style": "Regular",
+        "postscript": "NotoSansJP-Regular"
+      },
+      "rawFontSize": 12.0,
+      "effectiveFontSizes": [
+        12.0
+      ],
+      "lineHeight": {
+        "value": 100.0,
+        "units": "PERCENT"
+      },
+      "baselines": [
+        {
+          "position": {
+            "x": 0.0,
+            "y": 11.800000190734863
+          },
+          "width": 58.875,
+          "lineY": 1.9073486612342094e-07,
+          "lineHeight": 14.399999618530273,
+          "lineAscent": 12.0,
+          "firstCharacter": 0,
+          "endCharacter": 6
+        }
+      ],
+      "fills": [
+        {
+          "type": "SOLID",
+          "opacity": 1.0,
+          "visible": true,
+          "blendMode": "NORMAL",
+          "color": {
+            "hex": "#58677C",
+            "r": 0.3450980484485626,
+            "g": 0.40392157435417175,
+            "b": 0.48627451062202454,
+            "a": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "26:860",
+      "name": "配置を編集",
+      "characters": "配置を編集",
+      "x": 582.5,
+      "y": 34.0,
+      "width": 75.0,
+      "height": 18.0,
+      "fontName": {
+        "family": "Noto Sans JP",
+        "style": "Regular",
+        "postscript": "NotoSansJP-Regular"
+      },
+      "rawFontSize": 15.0,
+      "effectiveFontSizes": [
+        15.0
+      ],
+      "lineHeight": {
+        "value": 100.0,
+        "units": "PERCENT"
+      },
+      "baselines": [
+        {
+          "position": {
+            "x": 0.0,
+            "y": 15.0
+          },
+          "width": 75.0,
+          "lineY": 0.0,
+          "lineHeight": 18.0,
+          "lineAscent": 15.0,
+          "firstCharacter": 0,
+          "endCharacter": 5
+        }
+      ],
+      "fills": [
+        {
+          "type": "SOLID",
+          "opacity": 1.0,
+          "visible": true,
+          "blendMode": "NORMAL",
+          "color": {
+            "hex": "#172236",
+            "r": 0.09019608050584793,
+            "g": 0.13333334028720856,
+            "b": 0.21176470816135406,
+            "a": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "26:863",
+      "name": "手順を編集",
+      "characters": "手順を編集",
+      "x": 726.5,
+      "y": 34.0,
+      "width": 75.0,
+      "height": 18.0,
+      "fontName": {
+        "family": "Noto Sans JP",
+        "style": "Regular",
+        "postscript": "NotoSansJP-Regular"
+      },
+      "rawFontSize": 15.0,
+      "effectiveFontSizes": [
+        15.0
+      ],
+      "lineHeight": {
+        "value": 100.0,
+        "units": "PERCENT"
+      },
+      "baselines": [
+        {
+          "position": {
+            "x": 0.0,
+            "y": 15.0
+          },
+          "width": 75.0,
+          "lineY": 0.0,
+          "lineHeight": 18.0,
+          "lineAscent": 15.0,
+          "firstCharacter": 0,
+          "endCharacter": 5
+        }
+      ],
+      "fills": [
+        {
+          "type": "SOLID",
+          "opacity": 1.0,
+          "visible": true,
+          "blendMode": "NORMAL",
+          "color": {
+            "hex": "#172236",
+            "r": 0.09019608050584793,
+            "g": 0.13333334028720856,
+            "b": 0.21176470816135406,
+            "a": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "26:866",
+      "name": "動作を確認",
+      "characters": "動作を確認",
+      "x": 870.5,
+      "y": 34.0,
+      "width": 75.0,
+      "height": 18.0,
+      "fontName": {
+        "family": "Noto Sans JP",
+        "style": "Regular",
+        "postscript": "NotoSansJP-Regular"
+      },
+      "rawFontSize": 15.0,
+      "effectiveFontSizes": [
+        15.0
+      ],
+      "lineHeight": {
+        "value": 100.0,
+        "units": "PERCENT"
+      },
+      "baselines": [
+        {
+          "position": {
+            "x": 0.0,
+            "y": 15.0
+          },
+          "width": 75.0,
+          "lineY": 0.0,
+          "lineHeight": 18.0,
+          "lineAscent": 15.0,
+          "firstCharacter": 0,
+          "endCharacter": 5
+        }
+      ],
+      "fills": [
+        {
+          "type": "SOLID",
+          "opacity": 1.0,
+          "visible": true,
+          "blendMode": "NORMAL",
+          "color": {
+            "hex": "#FFFFFF",
+            "r": 1.0,
+            "g": 1.0,
+            "b": 1.0,
+            "a": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "26:869",
+      "name": "↶ 元に戻す",
+      "characters": "↶ 元に戻す",
+      "x": 1020.5,
+      "y": 34.0,
+      "width": 83.0,
+      "height": 18.0,
+      "fontName": {
+        "family": "Noto Sans JP",
+        "style": "Regular",
+        "postscript": "NotoSansJP-Regular"
+      },
+      "rawFontSize": 15.0,
+      "effectiveFontSizes": [
+        15.0
+      ],
+      "lineHeight": {
+        "value": 100.0,
+        "units": "PERCENT"
+      },
+      "baselines": [
+        {
+          "position": {
+            "x": 0.396484375,
+            "y": 15.0
+          },
+          "width": 82.20703125,
+          "lineY": 0.0,
+          "lineHeight": 18.0,
+          "lineAscent": 15.0,
+          "firstCharacter": 0,
+          "endCharacter": 6
+        }
+      ],
+      "fills": [
+        {
+          "type": "SOLID",
+          "opacity": 1.0,
+          "visible": true,
+          "blendMode": "NORMAL",
+          "color": {
+            "hex": "#58677C",
+            "r": 0.3450980484485626,
+            "g": 0.40392157435417175,
+            "b": 0.48627451062202454,
+            "a": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "26:872",
+      "name": "↷",
+      "characters": "↷",
+      "x": 1134.5,
+      "y": 34.0,
+      "width": 19.0,
+      "height": 18.0,
+      "fontName": {
+        "family": "Noto Sans JP",
+        "style": "Regular",
+        "postscript": "NotoSansJP-Regular"
+      },
+      "rawFontSize": 15.0,
+      "effectiveFontSizes": [
+        15.0
+      ],
+      "lineHeight": {
+        "value": 100.0,
+        "units": "PERCENT"
+      },
+      "baselines": [
+        {
+          "position": {
+            "x": 0.07373046875,
+            "y": 15.0
+          },
+          "width": 18.8525390625,
+          "lineY": 0.0,
+          "lineHeight": 18.0,
+          "lineAscent": 15.0,
+          "firstCharacter": 0,
+          "endCharacter": 1
+        }
+      ],
+      "fills": [
+        {
+          "type": "SOLID",
+          "opacity": 1.0,
+          "visible": true,
+          "blendMode": "NORMAL",
+          "color": {
+            "hex": "#172236",
+            "r": 0.09019608050584793,
+            "g": 0.13333334028720856,
+            "b": 0.21176470816135406,
+            "a": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "26:875",
+      "name": "ヘルプ",
+      "characters": "ヘルプ",
+      "x": 1200.5,
+      "y": 34.0,
+      "width": 45.0,
+      "height": 18.0,
+      "fontName": {
+        "family": "Noto Sans JP",
+        "style": "Regular",
+        "postscript": "NotoSansJP-Regular"
+      },
+      "rawFontSize": 15.0,
+      "effectiveFontSizes": [
+        15.0
+      ],
+      "lineHeight": {
+        "value": 100.0,
+        "units": "PERCENT"
+      },
+      "baselines": [
+        {
+          "position": {
+            "x": 0.0,
+            "y": 15.0
+          },
+          "width": 45.0,
+          "lineY": 0.0,
+          "lineHeight": 18.0,
+          "lineAscent": 15.0,
+          "firstCharacter": 0,
+          "endCharacter": 3
+        }
+      ],
+      "fills": [
+        {
+          "type": "SOLID",
+          "opacity": 1.0,
+          "visible": true,
+          "blendMode": "NORMAL",
+          "color": {
+            "hex": "#172236",
+            "r": 0.09019608050584793,
+            "g": 0.13333334028720856,
+            "b": 0.21176470816135406,
+            "a": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "26:878",
+      "name": "↑ 教材を書き出す",
+      "characters": "↑ 教材を書き出す",
+      "x": 1410.0,
+      "y": 34.0,
+      "width": 124.0,
+      "height": 18.0,
+      "fontName": {
+        "family": "Noto Sans JP",
+        "style": "Regular",
+        "postscript": "NotoSansJP-Regular"
+      },
+      "rawFontSize": 15.0,
+      "effectiveFontSizes": [
+        15.0
+      ],
+      "lineHeight": {
+        "value": 100.0,
+        "units": "PERCENT"
+      },
+      "baselines": [
+        {
+          "position": {
+            "x": 0.32275390625,
+            "y": 15.0
+          },
+          "width": 123.3544921875,
+          "lineY": 0.0,
+          "lineHeight": 18.0,
+          "lineAscent": 15.0,
+          "firstCharacter": 0,
+          "endCharacter": 9
+        }
+      ],
+      "fills": [
+        {
+          "type": "SOLID",
+          "opacity": 1.0,
+          "visible": true,
+          "blendMode": "NORMAL",
+          "color": {
+            "hex": "#172236",
+            "r": 0.09019608050584793,
+            "g": 0.13333334028720856,
+            "b": 0.21176470816135406,
+            "a": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "26:882",
+      "name": "試行中の手順",
+      "characters": "試行中の手順",
+      "x": 24.0,
+      "y": 119.0,
+      "width": 126.0,
+      "height": 25.0,
+      "fontName": {
+        "family": "Noto Sans JP",
+        "style": "Bold",
+        "postscript": ""
+      },
+      "rawFontSize": 21.0,
+      "effectiveFontSizes": [
+        21.0
+      ],
+      "lineHeight": {
+        "value": 100.0,
+        "units": "PERCENT"
+      },
+      "baselines": [
+        {
+          "position": {
+            "x": 0.0,
+            "y": 20.899999618530273
+          },
+          "width": 126.0,
+          "lineY": -3.814697322468419e-07,
+          "lineHeight": 25.200000762939453,
+          "lineAscent": 21.0,
+          "firstCharacter": 0,
+          "endCharacter": 6
+        }
+      ],
+      "fills": [
+        {
+          "type": "SOLID",
+          "opacity": 1.0,
+          "visible": true,
+          "blendMode": "NORMAL",
+          "color": {
+            "hex": "#172236",
+            "r": 0.09019608050584793,
+            "g": 0.13333334028720856,
+            "b": 0.21176470816135406,
+            "a": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "26:883",
+      "name": "3つの手順",
+      "characters": "3つの手順",
+      "x": 24.0,
+      "y": 156.0,
+      "width": 60.0,
+      "height": 16.0,
+      "fontName": {
+        "family": "Noto Sans JP",
+        "style": "Regular",
+        "postscript": "NotoSansJP-Regular"
+      },
+      "rawFontSize": 13.0,
+      "effectiveFontSizes": [
+        13.0
+      ],
+      "lineHeight": {
+        "value": 100.0,
+        "units": "PERCENT"
+      },
+      "baselines": [
+        {
+          "position": {
+            "x": 0.0,
+            "y": 13.199999809265137
+          },
+          "width": 59.2109375,
+          "lineY": -1.9073486612342094e-07,
+          "lineHeight": 16.0,
+          "lineAscent": 13.0,
+          "firstCharacter": 0,
+          "endCharacter": 5
+        }
+      ],
+      "fills": [
+        {
+          "type": "SOLID",
+          "opacity": 1.0,
+          "visible": true,
+          "blendMode": "NORMAL",
+          "color": {
+            "hex": "#58677C",
+            "r": 0.3450980484485626,
+            "g": 0.40392157435417175,
+            "b": 0.48627451062202454,
+            "a": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "26:887",
+      "name": "✓",
+      "characters": "✓",
+      "x": 42.0,
+      "y": 224.0,
+      "width": 12.0,
+      "height": 19.0,
+      "fontName": {
+        "family": "Noto Sans JP",
+        "style": "Bold",
+        "postscript": ""
+      },
+      "rawFontSize": 16.0,
+      "effectiveFontSizes": [
+        16.0
+      ],
+      "lineHeight": {
+        "value": 100.0,
+        "units": "PERCENT"
+      },
+      "baselines": [
+        {
+          "position": {
+            "x": 0.21875,
+            "y": 15.899999618530273
+          },
+          "width": 11.5625,
+          "lineY": -3.814697322468419e-07,
+          "lineHeight": 19.200000762939453,
+          "lineAscent": 16.0,
+          "firstCharacter": 0,
+          "endCharacter": 1
+        }
+      ],
+      "fills": [
+        {
+          "type": "SOLID",
+          "opacity": 1.0,
+          "visible": true,
+          "blendMode": "NORMAL",
+          "color": {
+            "hex": "#FFFFFF",
+            "r": 1.0,
+            "g": 1.0,
+            "b": 1.0,
+            "a": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "26:888",
+      "name": "部品を確認する",
+      "characters": "部品を確認する",
+      "x": 76.0,
+      "y": 220.0,
+      "width": 105.0,
+      "height": 18.0,
+      "fontName": {
+        "family": "Noto Sans JP",
+        "style": "Bold",
+        "postscript": ""
+      },
+      "rawFontSize": 15.0,
+      "effectiveFontSizes": [
+        15.0
+      ],
+      "lineHeight": {
+        "value": 100.0,
+        "units": "PERCENT"
+      },
+      "baselines": [
+        {
+          "position": {
+            "x": 0.0,
+            "y": 15.0
+          },
+          "width": 105.0,
+          "lineY": 0.0,
+          "lineHeight": 18.0,
+          "lineAscent": 15.0,
+          "firstCharacter": 0,
+          "endCharacter": 7
+        }
+      ],
+      "fills": [
+        {
+          "type": "SOLID",
+          "opacity": 1.0,
+          "visible": true,
+          "blendMode": "NORMAL",
+          "color": {
+            "hex": "#172236",
+            "r": 0.09019608050584793,
+            "g": 0.13333334028720856,
+            "b": 0.21176470816135406,
+            "a": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "26:889",
+      "name": "完了",
+      "characters": "完了",
+      "x": 32.0,
+      "y": 267.0,
+      "width": 24.0,
+      "height": 14.0,
+      "fontName": {
+        "family": "Noto Sans JP",
+        "style": "Regular",
+        "postscript": "NotoSansJP-Regular"
+      },
+      "rawFontSize": 12.0,
+      "effectiveFontSizes": [
+        12.0
+      ],
+      "lineHeight": {
+        "value": 100.0,
+        "units": "PERCENT"
+      },
+      "baselines": [
+        {
+          "position": {
+            "x": 0.0,
+            "y": 11.800000190734863
+          },
+          "width": 24.0,
+          "lineY": 1.9073486612342094e-07,
+          "lineHeight": 14.399999618530273,
+          "lineAscent": 12.0,
+          "firstCharacter": 0,
+          "endCharacter": 2
+        }
+      ],
+      "fills": [
+        {
+          "type": "SOLID",
+          "opacity": 1.0,
+          "visible": true,
+          "blendMode": "NORMAL",
+          "color": {
+            "hex": "#58677C",
+            "r": 0.3450980484485626,
+            "g": 0.40392157435417175,
+            "b": 0.48627451062202454,
+            "a": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "26:893",
+      "name": "✓",
+      "characters": "✓",
+      "x": 42.0,
+      "y": 340.0,
+      "width": 12.0,
+      "height": 19.0,
+      "fontName": {
+        "family": "Noto Sans JP",
+        "style": "Bold",
+        "postscript": ""
+      },
+      "rawFontSize": 16.0,
+      "effectiveFontSizes": [
+        16.0
+      ],
+      "lineHeight": {
+        "value": 100.0,
+        "units": "PERCENT"
+      },
+      "baselines": [
+        {
+          "position": {
+            "x": 0.21875,
+            "y": 15.899999618530273
+          },
+          "width": 11.5625,
+          "lineY": -3.814697322468419e-07,
+          "lineHeight": 19.200000762939453,
+          "lineAscent": 16.0,
+          "firstCharacter": 0,
+          "endCharacter": 1
+        }
+      ],
+      "fills": [
+        {
+          "type": "SOLID",
+          "opacity": 1.0,
+          "visible": true,
+          "blendMode": "NORMAL",
+          "color": {
+            "hex": "#FFFFFF",
+            "r": 1.0,
+            "g": 1.0,
+            "b": 1.0,
+            "a": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "26:894",
+      "name": "部品を目印に置く",
+      "characters": "部品を目印に置く",
+      "x": 76.0,
+      "y": 336.0,
+      "width": 120.0,
+      "height": 18.0,
+      "fontName": {
+        "family": "Noto Sans JP",
+        "style": "Bold",
+        "postscript": ""
+      },
+      "rawFontSize": 15.0,
+      "effectiveFontSizes": [
+        15.0
+      ],
+      "lineHeight": {
+        "value": 100.0,
+        "units": "PERCENT"
+      },
+      "baselines": [
+        {
+          "position": {
+            "x": 0.0,
+            "y": 15.0
+          },
+          "width": 120.0,
+          "lineY": 0.0,
+          "lineHeight": 18.0,
+          "lineAscent": 15.0,
+          "firstCharacter": 0,
+          "endCharacter": 8
+        }
+      ],
+      "fills": [
+        {
+          "type": "SOLID",
+          "opacity": 1.0,
+          "visible": true,
+          "blendMode": "NORMAL",
+          "color": {
+            "hex": "#172236",
+            "r": 0.09019608050584793,
+            "g": 0.13333334028720856,
+            "b": 0.21176470816135406,
+            "a": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "26:895",
+      "name": "完了",
+      "characters": "完了",
+      "x": 32.0,
+      "y": 383.0,
+      "width": 24.0,
+      "height": 14.0,
+      "fontName": {
+        "family": "Noto Sans JP",
+        "style": "Regular",
+        "postscript": "NotoSansJP-Regular"
+      },
+      "rawFontSize": 12.0,
+      "effectiveFontSizes": [
+        12.0
+      ],
+      "lineHeight": {
+        "value": 100.0,
+        "units": "PERCENT"
+      },
+      "baselines": [
+        {
+          "position": {
+            "x": 0.0,
+            "y": 11.800000190734863
+          },
+          "width": 24.0,
+          "lineY": 1.9073486612342094e-07,
+          "lineHeight": 14.399999618530273,
+          "lineAscent": 12.0,
+          "firstCharacter": 0,
+          "endCharacter": 2
+        }
+      ],
+      "fills": [
+        {
+          "type": "SOLID",
+          "opacity": 1.0,
+          "visible": true,
+          "blendMode": "NORMAL",
+          "color": {
+            "hex": "#58677C",
+            "r": 0.3450980484485626,
+            "g": 0.40392157435417175,
+            "b": 0.48627451062202454,
+            "a": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "26:899",
+      "name": "3",
+      "characters": "3",
+      "x": 43.0,
+      "y": 456.0,
+      "width": 10.0,
+      "height": 19.0,
+      "fontName": {
+        "family": "Noto Sans JP",
+        "style": "Bold",
+        "postscript": ""
+      },
+      "rawFontSize": 16.0,
+      "effectiveFontSizes": [
+        16.0
+      ],
+      "lineHeight": {
+        "value": 100.0,
+        "units": "PERCENT"
+      },
+      "baselines": [
+        {
+          "position": {
+            "x": 0.28125,
+            "y": 15.899999618530273
+          },
+          "width": 9.4375,
+          "lineY": -3.814697322468419e-07,
+          "lineHeight": 19.200000762939453,
+          "lineAscent": 16.0,
+          "firstCharacter": 0,
+          "endCharacter": 1
+        }
+      ],
+      "fills": [
+        {
+          "type": "SOLID",
+          "opacity": 1.0,
+          "visible": true,
+          "blendMode": "NORMAL",
+          "color": {
+            "hex": "#FFFFFF",
+            "r": 1.0,
+            "g": 1.0,
+            "b": 1.0,
+            "a": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "26:900",
+      "name": "配置を確認する",
+      "characters": "配置を確認する",
+      "x": 76.0,
+      "y": 452.0,
+      "width": 105.0,
+      "height": 18.0,
+      "fontName": {
+        "family": "Noto Sans JP",
+        "style": "Bold",
+        "postscript": ""
+      },
+      "rawFontSize": 15.0,
+      "effectiveFontSizes": [
+        15.0
+      ],
+      "lineHeight": {
+        "value": 100.0,
+        "units": "PERCENT"
+      },
+      "baselines": [
+        {
+          "position": {
+            "x": 0.0,
+            "y": 15.0
+          },
+          "width": 105.0,
+          "lineY": 0.0,
+          "lineHeight": 18.0,
+          "lineAscent": 15.0,
+          "firstCharacter": 0,
+          "endCharacter": 7
+        }
+      ],
+      "fills": [
+        {
+          "type": "SOLID",
+          "opacity": 1.0,
+          "visible": true,
+          "blendMode": "NORMAL",
+          "color": {
+            "hex": "#0866E8",
+            "r": 0.0313725508749485,
+            "g": 0.4000000059604645,
+            "b": 0.9098039269447327,
+            "a": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "26:901",
+      "name": "次の手順",
+      "characters": "次の手順",
+      "x": 32.0,
+      "y": 499.0,
+      "width": 48.0,
+      "height": 14.0,
+      "fontName": {
+        "family": "Noto Sans JP",
+        "style": "Regular",
+        "postscript": "NotoSansJP-Regular"
+      },
+      "rawFontSize": 12.0,
+      "effectiveFontSizes": [
+        12.0
+      ],
+      "lineHeight": {
+        "value": 100.0,
+        "units": "PERCENT"
+      },
+      "baselines": [
+        {
+          "position": {
+            "x": 0.0,
+            "y": 11.800000190734863
+          },
+          "width": 48.0,
+          "lineY": 1.9073486612342094e-07,
+          "lineHeight": 14.399999618530273,
+          "lineAscent": 12.0,
+          "firstCharacter": 0,
+          "endCharacter": 4
+        }
+      ],
+      "fills": [
+        {
+          "type": "SOLID",
+          "opacity": 1.0,
+          "visible": true,
+          "blendMode": "NORMAL",
+          "color": {
+            "hex": "#58677C",
+            "r": 0.3450980484485626,
+            "g": 0.40392157435417175,
+            "b": 0.48627451062202454,
+            "a": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "26:904",
+      "name": "最初から試す",
+      "characters": "最初から試す",
+      "x": 87.0,
+      "y": 581.0,
+      "width": 90.0,
+      "height": 18.0,
+      "fontName": {
+        "family": "Noto Sans JP",
+        "style": "Regular",
+        "postscript": "NotoSansJP-Regular"
+      },
+      "rawFontSize": 15.0,
+      "effectiveFontSizes": [
+        15.0
+      ],
+      "lineHeight": {
+        "value": 100.0,
+        "units": "PERCENT"
+      },
+      "baselines": [
+        {
+          "position": {
+            "x": 0.0,
+            "y": 15.0
+          },
+          "width": 90.0,
+          "lineY": 0.0,
+          "lineHeight": 18.0,
+          "lineAscent": 15.0,
+          "firstCharacter": 0,
+          "endCharacter": 6
+        }
+      ],
+      "fills": [
+        {
+          "type": "SOLID",
+          "opacity": 1.0,
+          "visible": true,
+          "blendMode": "NORMAL",
+          "color": {
+            "hex": "#172236",
+            "r": 0.09019608050584793,
+            "g": 0.13333334028720856,
+            "b": 0.21176470816135406,
+            "a": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "26:905",
+      "name": "編集中の内容は保持されます",
+      "characters": "編集中の内容は保持されます",
+      "x": 24.0,
+      "y": 875.0,
+      "width": 156.0,
+      "height": 14.0,
+      "fontName": {
+        "family": "Noto Sans JP",
+        "style": "Regular",
+        "postscript": "NotoSansJP-Regular"
+      },
+      "rawFontSize": 12.0,
+      "effectiveFontSizes": [
+        12.0
+      ],
+      "lineHeight": {
+        "value": 100.0,
+        "units": "PERCENT"
+      },
+      "baselines": [
+        {
+          "position": {
+            "x": 0.0,
+            "y": 11.800000190734863
+          },
+          "width": 156.0,
+          "lineY": 1.9073486612342094e-07,
+          "lineHeight": 14.399999618530273,
+          "lineAscent": 12.0,
+          "firstCharacter": 0,
+          "endCharacter": 13
+        }
+      ],
+      "fills": [
+        {
+          "type": "SOLID",
+          "opacity": 1.0,
+          "visible": true,
+          "blendMode": "NORMAL",
+          "color": {
+            "hex": "#58677C",
+            "r": 0.3450980484485626,
+            "g": 0.40392157435417175,
+            "b": 0.48627451062202454,
+            "a": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "26:906",
+      "name": "終了すると元の配置に戻ります",
+      "characters": "終了すると元の配置に戻ります",
+      "x": 24.0,
+      "y": 896.0,
+      "width": 168.0,
+      "height": 14.0,
+      "fontName": {
+        "family": "Noto Sans JP",
+        "style": "Regular",
+        "postscript": "NotoSansJP-Regular"
+      },
+      "rawFontSize": 12.0,
+      "effectiveFontSizes": [
+        12.0
+      ],
+      "lineHeight": {
+        "value": 100.0,
+        "units": "PERCENT"
+      },
+      "baselines": [
+        {
+          "position": {
+            "x": 0.0,
+            "y": 11.800000190734863
+          },
+          "width": 168.0,
+          "lineY": 1.9073486612342094e-07,
+          "lineHeight": 14.399999618530273,
+          "lineAscent": 12.0,
+          "firstCharacter": 0,
+          "endCharacter": 14
+        }
+      ],
+      "fills": [
+        {
+          "type": "SOLID",
+          "opacity": 1.0,
+          "visible": true,
+          "blendMode": "NORMAL",
+          "color": {
+            "hex": "#58677C",
+            "r": 0.3450980484485626,
+            "g": 0.40392157435417175,
+            "b": 0.48627451062202454,
+            "a": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "26:908",
+      "name": "動作のプレビュー",
+      "characters": "動作のプレビュー",
+      "x": 288.0,
+      "y": 114.0,
+      "width": 168.0,
+      "height": 25.0,
+      "fontName": {
+        "family": "Noto Sans JP",
+        "style": "Bold",
+        "postscript": ""
+      },
+      "rawFontSize": 21.0,
+      "effectiveFontSizes": [
+        21.0
+      ],
+      "lineHeight": {
+        "value": 100.0,
+        "units": "PERCENT"
+      },
+      "baselines": [
+        {
+          "position": {
+            "x": 0.0,
+            "y": 20.899999618530273
+          },
+          "width": 168.0,
+          "lineY": -3.814697322468419e-07,
+          "lineHeight": 25.200000762939453,
+          "lineAscent": 21.0,
+          "firstCharacter": 0,
+          "endCharacter": 8
+        }
+      ],
+      "fills": [
+        {
+          "type": "SOLID",
+          "opacity": 1.0,
+          "visible": true,
+          "blendMode": "NORMAL",
+          "color": {
+            "hex": "#172236",
+            "r": 0.09019608050584793,
+            "g": 0.13333334028720856,
+            "b": 0.21176470816135406,
+            "a": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "26:909",
+      "name": "学習者の操作と完了条件を確認",
+      "characters": "学習者の操作と完了条件を確認",
+      "x": 288.0,
+      "y": 145.0,
+      "width": 168.0,
+      "height": 14.0,
+      "fontName": {
+        "family": "Noto Sans JP",
+        "style": "Regular",
+        "postscript": "NotoSansJP-Regular"
+      },
+      "rawFontSize": 12.0,
+      "effectiveFontSizes": [
+        12.0
+      ],
+      "lineHeight": {
+        "value": 100.0,
+        "units": "PERCENT"
+      },
+      "baselines": [
+        {
+          "position": {
+            "x": 0.0,
+            "y": 11.800000190734863
+          },
+          "width": 168.0,
+          "lineY": 1.9073486612342094e-07,
+          "lineHeight": 14.399999618530273,
+          "lineAscent": 12.0,
+          "firstCharacter": 0,
+          "endCharacter": 14
+        }
+      ],
+      "fills": [
+        {
+          "type": "SOLID",
+          "opacity": 1.0,
+          "visible": true,
+          "blendMode": "NORMAL",
+          "color": {
+            "hex": "#58677C",
+            "r": 0.3450980484485626,
+            "g": 0.40392157435417175,
+            "b": 0.48627451062202454,
+            "a": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "26:912",
+      "name": "全体を見る",
+      "characters": "全体を見る",
+      "x": 748.5,
+      "y": 123.0,
+      "width": 75.0,
+      "height": 18.0,
+      "fontName": {
+        "family": "Noto Sans JP",
+        "style": "Regular",
+        "postscript": "NotoSansJP-Regular"
+      },
+      "rawFontSize": 15.0,
+      "effectiveFontSizes": [
+        15.0
+      ],
+      "lineHeight": {
+        "value": 100.0,
+        "units": "PERCENT"
+      },
+      "baselines": [
+        {
+          "position": {
+            "x": 0.0,
+            "y": 15.0
+          },
+          "width": 75.0,
+          "lineY": 0.0,
+          "lineHeight": 18.0,
+          "lineAscent": 15.0,
+          "firstCharacter": 0,
+          "endCharacter": 5
+        }
+      ],
+      "fills": [
+        {
+          "type": "SOLID",
+          "opacity": 1.0,
+          "visible": true,
+          "blendMode": "NORMAL",
+          "color": {
+            "hex": "#172236",
+            "r": 0.09019608050584793,
+            "g": 0.13333334028720856,
+            "b": 0.21176470816135406,
+            "a": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "26:915",
+      "name": "上から見る",
+      "characters": "上から見る",
+      "x": 884.5,
+      "y": 123.0,
+      "width": 75.0,
+      "height": 18.0,
+      "fontName": {
+        "family": "Noto Sans JP",
+        "style": "Regular",
+        "postscript": "NotoSansJP-Regular"
+      },
+      "rawFontSize": 15.0,
+      "effectiveFontSizes": [
+        15.0
+      ],
+      "lineHeight": {
+        "value": 100.0,
+        "units": "PERCENT"
+      },
+      "baselines": [
+        {
+          "position": {
+            "x": 0.0,
+            "y": 15.0
+          },
+          "width": 75.0,
+          "lineY": 0.0,
+          "lineHeight": 18.0,
+          "lineAscent": 15.0,
+          "firstCharacter": 0,
+          "endCharacter": 5
+        }
+      ],
+      "fills": [
+        {
+          "type": "SOLID",
+          "opacity": 1.0,
+          "visible": true,
+          "blendMode": "NORMAL",
+          "color": {
+            "hex": "#172236",
+            "r": 0.09019608050584793,
+            "g": 0.13333334028720856,
+            "b": 0.21176470816135406,
+            "a": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "26:918",
+      "name": "選択を表示",
+      "characters": "選択を表示",
+      "x": 1028.0,
+      "y": 123.0,
+      "width": 75.0,
+      "height": 18.0,
+      "fontName": {
+        "family": "Noto Sans JP",
+        "style": "Regular",
+        "postscript": "NotoSansJP-Regular"
+      },
+      "rawFontSize": 15.0,
+      "effectiveFontSizes": [
+        15.0
+      ],
+      "lineHeight": {
+        "value": 100.0,
+        "units": "PERCENT"
+      },
+      "baselines": [
+        {
+          "position": {
+            "x": 0.0,
+            "y": 15.0
+          },
+          "width": 75.0,
+          "lineY": 0.0,
+          "lineHeight": 18.0,
+          "lineAscent": 15.0,
+          "firstCharacter": 0,
+          "endCharacter": 5
+        }
+      ],
+      "fills": [
+        {
+          "type": "SOLID",
+          "opacity": 1.0,
+          "visible": true,
+          "blendMode": "NORMAL",
+          "color": {
+            "hex": "#172236",
+            "r": 0.09019608050584793,
+            "g": 0.13333334028720856,
+            "b": 0.21176470816135406,
+            "a": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "26:962",
+      "name": "現在の距離 32 cm",
+      "characters": "現在の距離 32 cm",
+      "x": 719.0,
+      "y": 558.0,
+      "width": 112.0,
+      "height": 17.0,
+      "fontName": {
+        "family": "Noto Sans JP",
+        "style": "Regular",
+        "postscript": "NotoSansJP-Regular"
+      },
+      "rawFontSize": 14.0,
+      "effectiveFontSizes": [
+        14.0
+      ],
+      "lineHeight": {
+        "value": 100.0,
+        "units": "PERCENT"
+      },
+      "baselines": [
+        {
+          "position": {
+            "x": 0.0,
+            "y": 14.100000381469727
+          },
+          "width": 111.890625,
+          "lineY": 3.814697322468419e-07,
+          "lineHeight": 17.0,
+          "lineAscent": 14.0,
+          "firstCharacter": 0,
+          "endCharacter": 11
+        }
+      ],
+      "fills": [
+        {
+          "type": "SOLID",
+          "opacity": 1.0,
+          "visible": true,
+          "blendMode": "NORMAL",
+          "color": {
+            "hex": "#15734A",
+            "r": 0.08235294371843338,
+            "g": 0.45098039507865906,
+            "b": 0.29019609093666077,
+            "a": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "26:964",
+      "name": "部品A",
+      "characters": "部品A",
+      "x": 753.0,
+      "y": 404.0,
+      "width": 40.0,
+      "height": 18.0,
+      "fontName": {
+        "family": "Noto Sans JP",
+        "style": "Bold",
+        "postscript": ""
+      },
+      "rawFontSize": 15.0,
+      "effectiveFontSizes": [
+        15.0
+      ],
+      "lineHeight": {
+        "value": 100.0,
+        "units": "PERCENT"
+      },
+      "baselines": [
+        {
+          "position": {
+            "x": 0.0,
+            "y": 15.0
+          },
+          "width": 39.609375,
+          "lineY": 0.0,
+          "lineHeight": 18.0,
+          "lineAscent": 15.0,
+          "firstCharacter": 0,
+          "endCharacter": 3
+        }
+      ],
+      "fills": [
+        {
+          "type": "SOLID",
+          "opacity": 1.0,
+          "visible": true,
+          "blendMode": "NORMAL",
+          "color": {
+            "hex": "#0866E8",
+            "r": 0.0313725508749485,
+            "g": 0.4000000059604645,
+            "b": 0.9098039269447327,
+            "a": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "26:966",
+      "name": "目印B",
+      "characters": "目印B",
+      "x": 873.0,
+      "y": 440.0,
+      "width": 41.0,
+      "height": 18.0,
+      "fontName": {
+        "family": "Noto Sans JP",
+        "style": "Bold",
+        "postscript": ""
+      },
+      "rawFontSize": 15.0,
+      "effectiveFontSizes": [
+        15.0
+      ],
+      "lineHeight": {
+        "value": 100.0,
+        "units": "PERCENT"
+      },
+      "baselines": [
+        {
+          "position": {
+            "x": 0.0,
+            "y": 15.0
+          },
+          "width": 40.2099609375,
+          "lineY": 0.0,
+          "lineHeight": 18.0,
+          "lineAscent": 15.0,
+          "firstCharacter": 0,
+          "endCharacter": 3
+        }
+      ],
+      "fills": [
+        {
+          "type": "SOLID",
+          "opacity": 1.0,
+          "visible": true,
+          "blendMode": "NORMAL",
+          "color": {
+            "hex": "#147E83",
+            "r": 0.0784313753247261,
+            "g": 0.4941176474094391,
+            "b": 0.5137255191802979,
+            "a": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "26:968",
+      "name": "作業台 / 上面を表示",
+      "characters": "作業台 / 上面を表示",
+      "x": 320.0,
+      "y": 197.0,
+      "width": 115.0,
+      "height": 16.0,
+      "fontName": {
+        "family": "Noto Sans JP",
+        "style": "Regular",
+        "postscript": "NotoSansJP-Regular"
+      },
+      "rawFontSize": 13.0,
+      "effectiveFontSizes": [
+        13.0
+      ],
+      "lineHeight": {
+        "value": 100.0,
+        "units": "PERCENT"
+      },
+      "baselines": [
+        {
+          "position": {
+            "x": 0.0,
+            "y": 13.199999809265137
+          },
+          "width": 114.9052734375,
+          "lineY": -1.9073486612342094e-07,
+          "lineHeight": 16.0,
+          "lineAscent": 13.0,
+          "firstCharacter": 0,
+          "endCharacter": 11
+        }
+      ],
+      "fills": [
+        {
+          "type": "SOLID",
+          "opacity": 1.0,
+          "visible": true,
+          "blendMode": "NORMAL",
+          "color": {
+            "hex": "#58677C",
+            "r": 0.3450980484485626,
+            "g": 0.40392157435417175,
+            "b": 0.48627451062202454,
+            "a": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "26:970",
+      "name": "上",
+      "characters": "上",
+      "x": 1078.0,
+      "y": 200.0,
+      "width": 17.0,
+      "height": 20.0,
+      "fontName": {
+        "family": "Noto Sans JP",
+        "style": "Regular",
+        "postscript": "NotoSansJP-Regular"
+      },
+      "rawFontSize": 17.0,
+      "effectiveFontSizes": [
+        17.0
+      ],
+      "lineHeight": {
+        "value": 100.0,
+        "units": "PERCENT"
+      },
+      "baselines": [
+        {
+          "position": {
+            "x": 0.0,
+            "y": 16.799999237060547
+          },
+          "width": 17.0,
+          "lineY": -7.629394644936838e-07,
+          "lineHeight": 20.399999618530273,
+          "lineAscent": 17.0,
+          "firstCharacter": 0,
+          "endCharacter": 1
+        }
+      ],
+      "fills": [
+        {
+          "type": "SOLID",
+          "opacity": 1.0,
+          "visible": true,
+          "blendMode": "NORMAL",
+          "color": {
+            "hex": "#172236",
+            "r": 0.09019608050584793,
+            "g": 0.13333334028720856,
+            "b": 0.21176470816135406,
+            "a": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "26:973",
+      "name": "判定範囲を表示中",
+      "characters": "判定範囲を表示中",
+      "x": 320.0,
+      "y": 673.0,
+      "width": 96.0,
+      "height": 14.0,
+      "fontName": {
+        "family": "Noto Sans JP",
+        "style": "Regular",
+        "postscript": "NotoSansJP-Regular"
+      },
+      "rawFontSize": 12.0,
+      "effectiveFontSizes": [
+        12.0
+      ],
+      "lineHeight": {
+        "value": 100.0,
+        "units": "PERCENT"
+      },
+      "baselines": [
+        {
+          "position": {
+            "x": 0.0,
+            "y": 11.800000190734863
+          },
+          "width": 96.0,
+          "lineY": 1.9073486612342094e-07,
+          "lineHeight": 14.399999618530273,
+          "lineAscent": 12.0,
+          "firstCharacter": 0,
+          "endCharacter": 8
+        }
+      ],
+      "fills": [
+        {
+          "type": "SOLID",
+          "opacity": 1.0,
+          "visible": true,
+          "blendMode": "NORMAL",
+          "color": {
+            "hex": "#58677C",
+            "r": 0.3450980484485626,
+            "g": 0.40392157435417175,
+            "b": 0.48627451062202454,
+            "a": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "26:974",
+      "name": "グリッド 10 cm",
+      "characters": "グリッド 10 cm",
+      "x": 969.0,
+      "y": 677.0,
+      "width": 84.0,
+      "height": 14.0,
+      "fontName": {
+        "family": "Noto Sans JP",
+        "style": "Regular",
+        "postscript": "NotoSansJP-Regular"
+      },
+      "rawFontSize": 12.0,
+      "effectiveFontSizes": [
+        12.0
+      ],
+      "lineHeight": {
+        "value": 100.0,
+        "units": "PERCENT"
+      },
+      "baselines": [
+        {
+          "position": {
+            "x": 0.0,
+            "y": 11.800000190734863
+          },
+          "width": 83.90625,
+          "lineY": 1.9073486612342094e-07,
+          "lineHeight": 14.399999618530273,
+          "lineAscent": 12.0,
+          "firstCharacter": 0,
+          "endCharacter": 10
+        }
+      ],
+      "fills": [
+        {
+          "type": "SOLID",
+          "opacity": 1.0,
+          "visible": true,
+          "blendMode": "NORMAL",
+          "color": {
+            "hex": "#58677C",
+            "r": 0.3450980484485626,
+            "g": 0.40392157435417175,
+            "b": 0.48627451062202454,
+            "a": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "26:976",
+      "name": "✓ 手順2が完了しました",
+      "characters": "✓ 手順2が完了しました",
+      "x": 302.0,
+      "y": 740.0,
+      "width": 126.0,
+      "height": 14.0,
+      "fontName": {
+        "family": "Noto Sans JP",
+        "style": "Regular",
+        "postscript": "NotoSansJP-Regular"
+      },
+      "rawFontSize": 12.0,
+      "effectiveFontSizes": [
+        12.0
+      ],
+      "lineHeight": {
+        "value": 100.0,
+        "units": "PERCENT"
+      },
+      "baselines": [
+        {
+          "position": {
+            "x": 0.0,
+            "y": 11.800000190734863
+          },
+          "width": 125.53125,
+          "lineY": 1.9073486612342094e-07,
+          "lineHeight": 14.399999618530273,
+          "lineAscent": 12.0,
+          "firstCharacter": 0,
+          "endCharacter": 12
+        }
+      ],
+      "fills": [
+        {
+          "type": "SOLID",
+          "opacity": 1.0,
+          "visible": true,
+          "blendMode": "NORMAL",
+          "color": {
+            "hex": "#15734A",
+            "r": 0.08235294371843338,
+            "g": 0.45098039507865906,
+            "b": 0.29019609093666077,
+            "a": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "26:979",
+      "name": "学習者への表示",
+      "characters": "学習者への表示",
+      "x": 308.0,
+      "y": 806.0,
+      "width": 98.0,
+      "height": 17.0,
+      "fontName": {
+        "family": "Noto Sans JP",
+        "style": "Regular",
+        "postscript": "NotoSansJP-Regular"
+      },
+      "rawFontSize": 14.0,
+      "effectiveFontSizes": [
+        14.0
+      ],
+      "lineHeight": {
+        "value": 100.0,
+        "units": "PERCENT"
+      },
+      "baselines": [
+        {
+          "position": {
+            "x": 0.0,
+            "y": 14.100000381469727
+          },
+          "width": 98.0,
+          "lineY": 3.814697322468419e-07,
+          "lineHeight": 17.0,
+          "lineAscent": 14.0,
+          "firstCharacter": 0,
+          "endCharacter": 7
+        }
+      ],
+      "fills": [
+        {
+          "type": "SOLID",
+          "opacity": 1.0,
+          "visible": true,
+          "blendMode": "NORMAL",
+          "color": {
+            "hex": "#58677C",
+            "r": 0.3450980484485626,
+            "g": 0.40392157435417175,
+            "b": 0.48627451062202454,
+            "a": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "26:980",
+      "name": "部品を置けました。次の手順へ進みます。",
+      "characters": "部品を置けました。次の手順へ進みます。",
+      "x": 308.0,
+      "y": 838.0,
+      "width": 341.0,
+      "height": 22.0,
+      "fontName": {
+        "family": "Noto Sans JP",
+        "style": "Regular",
+        "postscript": "NotoSansJP-Regular"
+      },
+      "rawFontSize": 18.0,
+      "effectiveFontSizes": [
+        18.0
+      ],
+      "lineHeight": {
+        "value": 100.0,
+        "units": "PERCENT"
+      },
+      "baselines": [
+        {
+          "position": {
+            "x": 0.0,
+            "y": 18.200000762939453
+          },
+          "width": 340.20703125,
+          "lineY": 7.629394644936838e-07,
+          "lineHeight": 22.0,
+          "lineAscent": 18.0,
+          "firstCharacter": 0,
+          "endCharacter": 19
+        }
+      ],
+      "fills": [
+        {
+          "type": "SOLID",
+          "opacity": 1.0,
+          "visible": true,
+          "blendMode": "NORMAL",
+          "color": {
+            "hex": "#172236",
+            "r": 0.09019608050584793,
+            "g": 0.13333334028720856,
+            "b": 0.21176470816135406,
+            "a": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "26:983",
+      "name": "もう一度試す",
+      "characters": "もう一度試す",
+      "x": 353.0,
+      "y": 900.0,
+      "width": 90.0,
+      "height": 18.0,
+      "fontName": {
+        "family": "Noto Sans JP",
+        "style": "Regular",
+        "postscript": "NotoSansJP-Regular"
+      },
+      "rawFontSize": 15.0,
+      "effectiveFontSizes": [
+        15.0
+      ],
+      "lineHeight": {
+        "value": 100.0,
+        "units": "PERCENT"
+      },
+      "baselines": [
+        {
+          "position": {
+            "x": 0.22705078125,
+            "y": 15.0
+          },
+          "width": 89.5458984375,
+          "lineY": 0.0,
+          "lineHeight": 18.0,
+          "lineAscent": 15.0,
+          "firstCharacter": 0,
+          "endCharacter": 6
+        }
+      ],
+      "fills": [
+        {
+          "type": "SOLID",
+          "opacity": 1.0,
+          "visible": true,
+          "blendMode": "NORMAL",
+          "color": {
+            "hex": "#172236",
+            "r": 0.09019608050584793,
+            "g": 0.13333334028720856,
+            "b": 0.21176470816135406,
+            "a": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "26:986",
+      "name": "初期配置に戻す",
+      "characters": "初期配置に戻す",
+      "x": 553.5,
+      "y": 900.0,
+      "width": 105.0,
+      "height": 18.0,
+      "fontName": {
+        "family": "Noto Sans JP",
+        "style": "Regular",
+        "postscript": "NotoSansJP-Regular"
+      },
+      "rawFontSize": 15.0,
+      "effectiveFontSizes": [
+        15.0
+      ],
+      "lineHeight": {
+        "value": 100.0,
+        "units": "PERCENT"
+      },
+      "baselines": [
+        {
+          "position": {
+            "x": 0.0,
+            "y": 15.0
+          },
+          "width": 105.0,
+          "lineY": 0.0,
+          "lineHeight": 18.0,
+          "lineAscent": 15.0,
+          "firstCharacter": 0,
+          "endCharacter": 7
+        }
+      ],
+      "fills": [
+        {
+          "type": "SOLID",
+          "opacity": 1.0,
+          "visible": true,
+          "blendMode": "NORMAL",
+          "color": {
+            "hex": "#172236",
+            "r": 0.09019608050584793,
+            "g": 0.13333334028720856,
+            "b": 0.21176470816135406,
+            "a": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "26:988",
+      "name": "試行モード",
+      "characters": "試行モード",
+      "x": 965.0,
+      "y": 896.0,
+      "width": 60.0,
+      "height": 14.0,
+      "fontName": {
+        "family": "Noto Sans JP",
+        "style": "Regular",
+        "postscript": "NotoSansJP-Regular"
+      },
+      "rawFontSize": 12.0,
+      "effectiveFontSizes": [
+        12.0
+      ],
+      "lineHeight": {
+        "value": 100.0,
+        "units": "PERCENT"
+      },
+      "baselines": [
+        {
+          "position": {
+            "x": 0.0,
+            "y": 11.800000190734863
+          },
+          "width": 60.0,
+          "lineY": 1.9073486612342094e-07,
+          "lineHeight": 14.399999618530273,
+          "lineAscent": 12.0,
+          "firstCharacter": 0,
+          "endCharacter": 5
+        }
+      ],
+      "fills": [
+        {
+          "type": "SOLID",
+          "opacity": 1.0,
+          "visible": true,
+          "blendMode": "NORMAL",
+          "color": {
+            "hex": "#0866E8",
+            "r": 0.0313725508749485,
+            "g": 0.4000000059604645,
+            "b": 0.9098039269447327,
+            "a": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "26:993",
+      "name": "手順2 完了",
+      "characters": "手順2 完了",
+      "x": 1196.0,
+      "y": 120.0,
+      "width": 58.0,
+      "height": 14.0,
+      "fontName": {
+        "family": "Noto Sans JP",
+        "style": "Regular",
+        "postscript": "NotoSansJP-Regular"
+      },
+      "rawFontSize": 12.0,
+      "effectiveFontSizes": [
+        12.0
+      ],
+      "lineHeight": {
+        "value": 100.0,
+        "units": "PERCENT"
+      },
+      "baselines": [
+        {
+          "position": {
+            "x": 0.0,
+            "y": 11.800000190734863
+          },
+          "width": 57.33984375,
+          "lineY": 1.9073486612342094e-07,
+          "lineHeight": 14.399999618530273,
+          "lineAscent": 12.0,
+          "firstCharacter": 0,
+          "endCharacter": 6
+        }
+      ],
+      "fills": [
+        {
+          "type": "SOLID",
+          "opacity": 1.0,
+          "visible": true,
+          "blendMode": "NORMAL",
+          "color": {
+            "hex": "#15734A",
+            "r": 0.08235294371843338,
+            "g": 0.45098039507865906,
+            "b": 0.29019609093666077,
+            "a": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "26:994",
+      "name": "条件を満たしました",
+      "characters": "条件を満たしました",
+      "x": 1184.0,
+      "y": 163.0,
+      "width": 225.0,
+      "height": 30.0,
+      "fontName": {
+        "family": "Noto Sans JP",
+        "style": "Bold",
+        "postscript": ""
+      },
+      "rawFontSize": 25.0,
+      "effectiveFontSizes": [
+        25.0
+      ],
+      "lineHeight": {
+        "value": 100.0,
+        "units": "PERCENT"
+      },
+      "baselines": [
+        {
+          "position": {
+            "x": 0.0,
+            "y": 25.0
+          },
+          "width": 225.0,
+          "lineY": 0.0,
+          "lineHeight": 30.0,
+          "lineAscent": 25.0,
+          "firstCharacter": 0,
+          "endCharacter": 9
+        }
+      ],
+      "fills": [
+        {
+          "type": "SOLID",
+          "opacity": 1.0,
+          "visible": true,
+          "blendMode": "NORMAL",
+          "color": {
+            "hex": "#172236",
+            "r": 0.09019608050584793,
+            "g": 0.13333334028720856,
+            "b": 0.21176470816135406,
+            "a": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "26:995",
+      "name": "部品Aを目印Bに近づけ、",
+      "characters": "部品Aを目印Bに近づけ、",
+      "x": 1184.0,
+      "y": 217.0,
+      "width": 180.0,
+      "height": 19.0,
+      "fontName": {
+        "family": "Noto Sans JP",
+        "style": "Regular",
+        "postscript": "NotoSansJP-Regular"
+      },
+      "rawFontSize": 16.0,
+      "effectiveFontSizes": [
+        16.0
+      ],
+      "lineHeight": {
+        "value": 100.0,
+        "units": "PERCENT"
+      },
+      "baselines": [
+        {
+          "position": {
+            "x": 0.0,
+            "y": 15.899999618530273
+          },
+          "width": 179.453125,
+          "lineY": -3.814697322468419e-07,
+          "lineHeight": 19.200000762939453,
+          "lineAscent": 16.0,
+          "firstCharacter": 0,
+          "endCharacter": 12
+        }
+      ],
+      "fills": [
+        {
+          "type": "SOLID",
+          "opacity": 1.0,
+          "visible": true,
+          "blendMode": "NORMAL",
+          "color": {
+            "hex": "#172236",
+            "r": 0.09019608050584793,
+            "g": 0.13333334028720856,
+            "b": 0.21176470816135406,
+            "a": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "26:996",
+      "name": "そのまま3秒間保ってください。",
+      "characters": "そのまま3秒間保ってください。",
+      "x": 1184.0,
+      "y": 245.0,
+      "width": 232.0,
+      "height": 19.0,
+      "fontName": {
+        "family": "Noto Sans JP",
+        "style": "Regular",
+        "postscript": "NotoSansJP-Regular"
+      },
+      "rawFontSize": 16.0,
+      "effectiveFontSizes": [
+        16.0
+      ],
+      "lineHeight": {
+        "value": 100.0,
+        "units": "PERCENT"
+      },
+      "baselines": [
+        {
+          "position": {
+            "x": 0.0,
+            "y": 15.899999618530273
+          },
+          "width": 231.59375,
+          "lineY": -3.814697322468419e-07,
+          "lineHeight": 19.200000762939453,
+          "lineAscent": 16.0,
+          "firstCharacter": 0,
+          "endCharacter": 15
+        }
+      ],
+      "fills": [
+        {
+          "type": "SOLID",
+          "opacity": 1.0,
+          "visible": true,
+          "blendMode": "NORMAL",
+          "color": {
+            "hex": "#172236",
+            "r": 0.09019608050584793,
+            "g": 0.13333334028720856,
+            "b": 0.21176470816135406,
+            "a": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "26:998",
+      "name": "✓ 距離の条件を満たしています",
+      "characters": "✓ 距離の条件を満たしています",
+      "x": 1204.0,
+      "y": 331.0,
+      "width": 223.0,
+      "height": 19.0,
+      "fontName": {
+        "family": "Noto Sans JP",
+        "style": "Bold",
+        "postscript": ""
+      },
+      "rawFontSize": 16.0,
+      "effectiveFontSizes": [
+        16.0
+      ],
+      "lineHeight": {
+        "value": 100.0,
+        "units": "PERCENT"
+      },
+      "baselines": [
+        {
+          "position": {
+            "x": 0.0,
+            "y": 15.899999618530273
+          },
+          "width": 222.703125,
+          "lineY": -3.814697322468419e-07,
+          "lineHeight": 19.200000762939453,
+          "lineAscent": 16.0,
+          "firstCharacter": 0,
+          "endCharacter": 15
+        }
+      ],
+      "fills": [
+        {
+          "type": "SOLID",
+          "opacity": 1.0,
+          "visible": true,
+          "blendMode": "NORMAL",
+          "color": {
+            "hex": "#15734A",
+            "r": 0.08235294371843338,
+            "g": 0.45098039507865906,
+            "b": 0.29019609093666077,
+            "a": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "26:999",
+      "name": "32",
+      "characters": "32",
+      "x": 1204.0,
+      "y": 369.0,
+      "width": 43.0,
+      "height": 43.0,
+      "fontName": {
+        "family": "Noto Sans JP",
+        "style": "Bold",
+        "postscript": ""
+      },
+      "rawFontSize": 36.0,
+      "effectiveFontSizes": [
+        36.0
+      ],
+      "lineHeight": {
+        "value": 100.0,
+        "units": "PERCENT"
+      },
+      "baselines": [
+        {
+          "position": {
+            "x": 0.0,
+            "y": 35.900001525878906
+          },
+          "width": 42.46875,
+          "lineY": 1.5258789289873675e-06,
+          "lineHeight": 43.20000076293945,
+          "lineAscent": 36.0,
+          "firstCharacter": 0,
+          "endCharacter": 2
+        }
+      ],
+      "fills": [
+        {
+          "type": "SOLID",
+          "opacity": 1.0,
+          "visible": true,
+          "blendMode": "NORMAL",
+          "color": {
+            "hex": "#15734A",
+            "r": 0.08235294371843338,
+            "g": 0.45098039507865906,
+            "b": 0.29019609093666077,
+            "a": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "26:1000",
+      "name": "cm / 50 cm以内",
+      "characters": "cm / 50 cm以内",
+      "x": 1262.0,
+      "y": 390.0,
+      "width": 106.0,
+      "height": 18.0,
+      "fontName": {
+        "family": "Noto Sans JP",
+        "style": "Regular",
+        "postscript": "NotoSansJP-Regular"
+      },
+      "rawFontSize": 15.0,
+      "effectiveFontSizes": [
+        15.0
+      ],
+      "lineHeight": {
+        "value": 100.0,
+        "units": "PERCENT"
+      },
+      "baselines": [
+        {
+          "position": {
+            "x": 0.0,
+            "y": 15.0
+          },
+          "width": 105.64453125,
+          "lineY": 0.0,
+          "lineHeight": 18.0,
+          "lineAscent": 15.0,
+          "firstCharacter": 0,
+          "endCharacter": 12
+        }
+      ],
+      "fills": [
+        {
+          "type": "SOLID",
+          "opacity": 1.0,
+          "visible": true,
+          "blendMode": "NORMAL",
+          "color": {
+            "hex": "#15734A",
+            "r": 0.08235294371843338,
+            "g": 0.45098039507865906,
+            "b": 0.29019609093666077,
+            "a": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "26:1002",
+      "name": "✓ 保持時間の条件を満たしました",
+      "characters": "✓ 保持時間の条件を満たしました",
+      "x": 1204.0,
+      "y": 477.0,
+      "width": 240.0,
+      "height": 19.0,
+      "fontName": {
+        "family": "Noto Sans JP",
+        "style": "Bold",
+        "postscript": ""
+      },
+      "rawFontSize": 16.0,
+      "effectiveFontSizes": [
+        16.0
+      ],
+      "lineHeight": {
+        "value": 100.0,
+        "units": "PERCENT"
+      },
+      "baselines": [
+        {
+          "position": {
+            "x": 0.0,
+            "y": 15.899999618530273
+          },
+          "width": 239.1875,
+          "lineY": -3.814697322468419e-07,
+          "lineHeight": 19.200000762939453,
+          "lineAscent": 16.0,
+          "firstCharacter": 0,
+          "endCharacter": 16
+        }
+      ],
+      "fills": [
+        {
+          "type": "SOLID",
+          "opacity": 1.0,
+          "visible": true,
+          "blendMode": "NORMAL",
+          "color": {
+            "hex": "#15734A",
+            "r": 0.08235294371843338,
+            "g": 0.45098039507865906,
+            "b": 0.29019609093666077,
+            "a": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "26:1003",
+      "name": "3.0",
+      "characters": "3.0",
+      "x": 1204.0,
+      "y": 514.0,
+      "width": 55.0,
+      "height": 43.0,
+      "fontName": {
+        "family": "Noto Sans JP",
+        "style": "Bold",
+        "postscript": ""
+      },
+      "rawFontSize": 36.0,
+      "effectiveFontSizes": [
+        36.0
+      ],
+      "lineHeight": {
+        "value": 100.0,
+        "units": "PERCENT"
+      },
+      "baselines": [
+        {
+          "position": {
+            "x": 0.0,
+            "y": 35.900001525878906
+          },
+          "width": 54.17578125,
+          "lineY": 1.5258789289873675e-06,
+          "lineHeight": 43.20000076293945,
+          "lineAscent": 36.0,
+          "firstCharacter": 0,
+          "endCharacter": 3
+        }
+      ],
+      "fills": [
+        {
+          "type": "SOLID",
+          "opacity": 1.0,
+          "visible": true,
+          "blendMode": "NORMAL",
+          "color": {
+            "hex": "#15734A",
+            "r": 0.08235294371843338,
+            "g": 0.45098039507865906,
+            "b": 0.29019609093666077,
+            "a": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "26:1004",
+      "name": "秒 / 3.0秒",
+      "characters": "秒 / 3.0秒",
+      "x": 1275.0,
+      "y": 534.0,
+      "width": 64.0,
+      "height": 18.0,
+      "fontName": {
+        "family": "Noto Sans JP",
+        "style": "Regular",
+        "postscript": "NotoSansJP-Regular"
+      },
+      "rawFontSize": 15.0,
+      "effectiveFontSizes": [
+        15.0
+      ],
+      "lineHeight": {
+        "value": 100.0,
+        "units": "PERCENT"
+      },
+      "baselines": [
+        {
+          "position": {
+            "x": 0.0,
+            "y": 15.0
+          },
+          "width": 63.3984375,
+          "lineY": 0.0,
+          "lineHeight": 18.0,
+          "lineAscent": 15.0,
+          "firstCharacter": 0,
+          "endCharacter": 8
+        }
+      ],
+      "fills": [
+        {
+          "type": "SOLID",
+          "opacity": 1.0,
+          "visible": true,
+          "blendMode": "NORMAL",
+          "color": {
+            "hex": "#58677C",
+            "r": 0.3450980484485626,
+            "g": 0.40392157435417175,
+            "b": 0.48627451062202454,
+            "a": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "26:1007",
+      "name": "部品Aが50 cm以内に3秒間とどまり、",
+      "characters": "部品Aが50 cm以内に3秒間とどまり、",
+      "x": 1184.0,
+      "y": 643.0,
+      "width": 237.0,
+      "height": 17.0,
+      "fontName": {
+        "family": "Noto Sans JP",
+        "style": "Regular",
+        "postscript": "NotoSansJP-Regular"
+      },
+      "rawFontSize": 14.0,
+      "effectiveFontSizes": [
+        14.0
+      ],
+      "lineHeight": {
+        "value": 100.0,
+        "units": "PERCENT"
+      },
+      "baselines": [
+        {
+          "position": {
+            "x": 0.0,
+            "y": 14.100000381469727
+          },
+          "width": 236.482421875,
+          "lineY": 3.814697322468419e-07,
+          "lineHeight": 17.0,
+          "lineAscent": 14.0,
+          "firstCharacter": 0,
+          "endCharacter": 20
+        }
+      ],
+      "fills": [
+        {
+          "type": "SOLID",
+          "opacity": 1.0,
+          "visible": true,
+          "blendMode": "NORMAL",
+          "color": {
+            "hex": "#58677C",
+            "r": 0.3450980484485626,
+            "g": 0.40392157435417175,
+            "b": 0.48627451062202454,
+            "a": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "26:1008",
+      "name": "この手順の条件が成立しました。",
+      "characters": "この手順の条件が成立しました。",
+      "x": 1184.0,
+      "y": 667.0,
+      "width": 210.0,
+      "height": 17.0,
+      "fontName": {
+        "family": "Noto Sans JP",
+        "style": "Regular",
+        "postscript": "NotoSansJP-Regular"
+      },
+      "rawFontSize": 14.0,
+      "effectiveFontSizes": [
+        14.0
+      ],
+      "lineHeight": {
+        "value": 100.0,
+        "units": "PERCENT"
+      },
+      "baselines": [
+        {
+          "position": {
+            "x": 0.0,
+            "y": 14.100000381469727
+          },
+          "width": 210.0,
+          "lineY": 3.814697322468419e-07,
+          "lineHeight": 17.0,
+          "lineAscent": 14.0,
+          "firstCharacter": 0,
+          "endCharacter": 15
+        }
+      ],
+      "fills": [
+        {
+          "type": "SOLID",
+          "opacity": 1.0,
+          "visible": true,
+          "blendMode": "NORMAL",
+          "color": {
+            "hex": "#58677C",
+            "r": 0.3450980484485626,
+            "g": 0.40392157435417175,
+            "b": 0.48627451062202454,
+            "a": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "26:1010",
+      "name": "判定ログ",
+      "characters": "判定ログ",
+      "x": 1184.0,
+      "y": 742.0,
+      "width": 60.0,
+      "height": 18.0,
+      "fontName": {
+        "family": "Noto Sans JP",
+        "style": "Bold",
+        "postscript": ""
+      },
+      "rawFontSize": 15.0,
+      "effectiveFontSizes": [
+        15.0
+      ],
+      "lineHeight": {
+        "value": 100.0,
+        "units": "PERCENT"
+      },
+      "baselines": [
+        {
+          "position": {
+            "x": 0.0,
+            "y": 15.0
+          },
+          "width": 60.0,
+          "lineY": 0.0,
+          "lineHeight": 18.0,
+          "lineAscent": 15.0,
+          "firstCharacter": 0,
+          "endCharacter": 4
+        }
+      ],
+      "fills": [
+        {
+          "type": "SOLID",
+          "opacity": 1.0,
+          "visible": true,
+          "blendMode": "NORMAL",
+          "color": {
+            "hex": "#172236",
+            "r": 0.09019608050584793,
+            "g": 0.13333334028720856,
+            "b": 0.21176470816135406,
+            "a": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "26:1011",
+      "name": "00:04 距離の条件が成立",
+      "characters": "00:04 距離の条件が成立",
+      "x": 1184.0,
+      "y": 785.0,
+      "width": 140.0,
+      "height": 16.0,
+      "fontName": {
+        "family": "Noto Sans JP",
+        "style": "Regular",
+        "postscript": "NotoSansJP-Regular"
+      },
+      "rawFontSize": 13.0,
+      "effectiveFontSizes": [
+        13.0
+      ],
+      "lineHeight": {
+        "value": 100.0,
+        "units": "PERCENT"
+      },
+      "baselines": [
+        {
+          "position": {
+            "x": 0.0,
+            "y": 13.199999809265137
+          },
+          "width": 139.369140625,
+          "lineY": -1.9073486612342094e-07,
+          "lineHeight": 16.0,
+          "lineAscent": 13.0,
+          "firstCharacter": 0,
+          "endCharacter": 14
+        }
+      ],
+      "fills": [
+        {
+          "type": "SOLID",
+          "opacity": 1.0,
+          "visible": true,
+          "blendMode": "NORMAL",
+          "color": {
+            "hex": "#58677C",
+            "r": 0.3450980484485626,
+            "g": 0.40392157435417175,
+            "b": 0.48627451062202454,
+            "a": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "26:1012",
+      "name": "00:07 手順2が完了",
+      "characters": "00:07 手順2が完了",
+      "x": 1184.0,
+      "y": 817.0,
+      "width": 108.0,
+      "height": 16.0,
+      "fontName": {
+        "family": "Noto Sans JP",
+        "style": "Regular",
+        "postscript": "NotoSansJP-Regular"
+      },
+      "rawFontSize": 13.0,
+      "effectiveFontSizes": [
+        13.0
+      ],
+      "lineHeight": {
+        "value": 100.0,
+        "units": "PERCENT"
+      },
+      "baselines": [
+        {
+          "position": {
+            "x": 0.0,
+            "y": 13.199999809265137
+          },
+          "width": 107.580078125,
+          "lineY": -1.9073486612342094e-07,
+          "lineHeight": 16.0,
+          "lineAscent": 13.0,
+          "firstCharacter": 0,
+          "endCharacter": 12
+        }
+      ],
+      "fills": [
+        {
+          "type": "SOLID",
+          "opacity": 1.0,
+          "visible": true,
+          "blendMode": "NORMAL",
+          "color": {
+            "hex": "#15734A",
+            "r": 0.08235294371843338,
+            "g": 0.45098039507865906,
+            "b": 0.29019609093666077,
+            "a": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "26:1015",
+      "name": "次の手順を確認",
+      "characters": "次の手順を確認",
+      "x": 1327.5,
+      "y": 916.0,
+      "width": 105.0,
+      "height": 18.0,
+      "fontName": {
+        "family": "Noto Sans JP",
+        "style": "Regular",
+        "postscript": "NotoSansJP-Regular"
+      },
+      "rawFontSize": 15.0,
+      "effectiveFontSizes": [
+        15.0
+      ],
+      "lineHeight": {
+        "value": 100.0,
+        "units": "PERCENT"
+      },
+      "baselines": [
+        {
+          "position": {
+            "x": 0.0,
+            "y": 15.0
+          },
+          "width": 105.0,
+          "lineY": 0.0,
+          "lineHeight": 18.0,
+          "lineAscent": 15.0,
+          "firstCharacter": 0,
+          "endCharacter": 7
+        }
+      ],
+      "fills": [
+        {
+          "type": "SOLID",
+          "opacity": 1.0,
+          "visible": true,
+          "blendMode": "NORMAL",
+          "color": {
+            "hex": "#FFFFFF",
+            "r": 1.0,
+            "g": 1.0,
+            "b": 1.0,
+            "a": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "26:1019",
+      "name": "試行中の操作は教材の初期配置に保存されません",
+      "characters": "試行中の操作は教材の初期配置に保存されません",
+      "x": 24.0,
+      "y": 974.0,
+      "width": 264.0,
+      "height": 14.0,
+      "fontName": {
+        "family": "Noto Sans JP",
+        "style": "Regular",
+        "postscript": "NotoSansJP-Regular"
+      },
+      "rawFontSize": 12.0,
+      "effectiveFontSizes": [
+        12.0
+      ],
+      "lineHeight": {
+        "value": 100.0,
+        "units": "PERCENT"
+      },
+      "baselines": [
+        {
+          "position": {
+            "x": 0.0,
+            "y": 11.800000190734863
+          },
+          "width": 263.63671875,
+          "lineY": 1.9073486612342094e-07,
+          "lineHeight": 14.399999618530273,
+          "lineAscent": 12.0,
+          "firstCharacter": 0,
+          "endCharacter": 22
+        }
+      ],
+      "fills": [
+        {
+          "type": "SOLID",
+          "opacity": 1.0,
+          "visible": true,
+          "blendMode": "NORMAL",
+          "color": {
+            "hex": "#58677C",
+            "r": 0.3450980484485626,
+            "g": 0.40392157435417175,
+            "b": 0.48627451062202454,
+            "a": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "26:1020",
+      "name": "操作ガイド · ショートカット",
+      "characters": "操作ガイド · ショートカット",
+      "x": 1286.0,
+      "y": 974.0,
+      "width": 157.0,
+      "height": 14.0,
+      "fontName": {
+        "family": "Noto Sans JP",
+        "style": "Regular",
+        "postscript": "NotoSansJP-Regular"
+      },
+      "rawFontSize": 12.0,
+      "effectiveFontSizes": [
+        12.0
+      ],
+      "lineHeight": {
+        "value": 100.0,
+        "units": "PERCENT"
+      },
+      "baselines": [
+        {
+          "position": {
+            "x": 0.0,
+            "y": 11.800000190734863
+          },
+          "width": 156.09375,
+          "lineY": 1.9073486612342094e-07,
+          "lineHeight": 14.399999618530273,
+          "lineAscent": 12.0,
+          "firstCharacter": 0,
+          "endCharacter": 15
+        }
+      ],
+      "fills": [
+        {
+          "type": "SOLID",
+          "opacity": 1.0,
+          "visible": true,
+          "blendMode": "NORMAL",
+          "color": {
+            "hex": "#58677C",
+            "r": 0.3450980484485626,
+            "g": 0.40392157435417175,
+            "b": 0.48627451062202454,
+            "a": 1.0
+          }
+        }
+      ]
+    }
+  ]
+}

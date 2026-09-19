@@ -1,0 +1,32 @@
+[
+  {
+    "state": 1,
+    "uiMeanAbsoluteChannelError": 1.4657286520818633,
+    "note": "3D viewport excluded from metric; visual review and interactions still required."
+  },
+  {
+    "state": 2,
+    "uiMeanAbsoluteChannelError": 1.7419571865443426,
+    "note": "3D viewport excluded from metric; visual review and interactions still required."
+  },
+  {
+    "state": 3,
+    "uiMeanAbsoluteChannelError": 1.5890331686661963,
+    "note": "3D viewport excluded from metric; visual review and interactions still required."
+  },
+  {
+    "state": 4,
+    "uiMeanAbsoluteChannelError": 1.7329534227240648,
+    "note": "3D viewport excluded from metric; visual review and interactions still required."
+  },
+  {
+    "state": 5,
+    "uiMeanAbsoluteChannelError": 1.4172747588802634,
+    "note": "3D viewport excluded from metric; visual review and interactions still required."
+  },
+  {
+    "state": 6,
+    "uiMeanAbsoluteChannelError": 4.1754154904728304,
+    "note": "3D viewport excluded from metric; visual review and interactions still required."
+  }
+]

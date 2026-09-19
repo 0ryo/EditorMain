@@ -1,0 +1,177 @@
+{
+  "source": "skillsync_ui.fig",
+  "pageId": "25:2",
+  "boards": [
+    {
+      "key": "00_foundations",
+      "id": "29:2",
+      "name": "00 / Design foundations",
+      "pagePosition": {
+        "x": 80.0,
+        "y": -560.0
+      },
+      "size": {
+        "x": 1600.0,
+        "y": 420.0
+      },
+      "nodeCount": 35,
+      "typeCounts": {
+        "FRAME": 11,
+        "TEXT": 16,
+        "ROUNDED_RECTANGLE": 8
+      }
+    },
+    {
+      "key": "01_layout",
+      "id": "26:220",
+      "name": "01 配置を編集 — UI",
+      "pagePosition": {
+        "x": 80.0,
+        "y": 80.0
+      },
+      "size": {
+        "x": 1600.0,
+        "y": 1000.0
+      },
+      "nodeCount": 224,
+      "typeCounts": {
+        "FRAME": 38,
+        "VECTOR": 114,
+        "TEXT": 72
+      }
+    },
+    {
+      "key": "02_steps",
+      "id": "26:7",
+      "name": "02 手順を編集 — UI",
+      "pagePosition": {
+        "x": 1840.0,
+        "y": 80.0
+      },
+      "size": {
+        "x": 1600.0,
+        "y": 1000.0
+      },
+      "nodeCount": 212,
+      "typeCounts": {
+        "FRAME": 35,
+        "VECTOR": 107,
+        "TEXT": 70
+      }
+    },
+    {
+      "key": "03_preview",
+      "id": "26:445",
+      "name": "03 動作を確認 — UI",
+      "pagePosition": {
+        "x": 3600.0,
+        "y": 80.0
+      },
+      "size": {
+        "x": 1600.0,
+        "y": 1000.0
+      },
+      "nodeCount": 175,
+      "typeCounts": {
+        "FRAME": 28,
+        "VECTOR": 87,
+        "TEXT": 60
+      }
+    },
+    {
+      "key": "04_placement_ghost",
+      "id": "26:1476",
+      "name": "04 配置する場所を選択 — UI",
+      "pagePosition": {
+        "x": 80.0,
+        "y": 1260.0
+      },
+      "size": {
+        "x": 1600.0,
+        "y": 1000.0
+      },
+      "nodeCount": 224,
+      "typeCounts": {
+        "FRAME": 38,
+        "VECTOR": 114,
+        "TEXT": 72
+      }
+    },
+    {
+      "key": "05_completed",
+      "id": "26:846",
+      "name": "05 条件成立・手順完了 — UI",
+      "pagePosition": {
+        "x": 1840.0,
+        "y": 1260.0
+      },
+      "size": {
+        "x": 1600.0,
+        "y": 1000.0
+      },
+      "nodeCount": 175,
+      "typeCounts": {
+        "FRAME": 28,
+        "VECTOR": 87,
+        "TEXT": 60
+      }
+    },
+    {
+      "key": "06_export_validation",
+      "id": "26:1701",
+      "name": "06 書き出し前の確認 — UI",
+      "pagePosition": {
+        "x": 3600.0,
+        "y": 1260.0
+      },
+      "size": {
+        "x": 1600.0,
+        "y": 1000.0
+      },
+      "nodeCount": 226,
+      "typeCounts": {
+        "FRAME": 37,
+        "VECTOR": 111,
+        "TEXT": 78
+      }
+    },
+    {
+      "key": "07_button_states",
+      "id": "31:20",
+      "name": "XR / Button",
+      "pagePosition": {
+        "x": 80.0,
+        "y": 2590.0
+      },
+      "size": {
+        "x": 1220.0,
+        "y": 100.0
+      },
+      "nodeCount": 13,
+      "typeCounts": {
+        "FRAME": 1,
+        "SYMBOL": 6,
+        "TEXT": 6
+      }
+    },
+    {
+      "key": "08_field_states",
+      "id": "32:14",
+      "name": "XR / Field",
+      "pagePosition": {
+        "x": 80.0,
+        "y": 2770.0
+      },
+      "size": {
+        "x": 1144.0,
+        "y": 152.0
+      },
+      "nodeCount": 13,
+      "typeCounts": {
+        "FRAME": 4,
+        "SYMBOL": 3,
+        "TEXT": 6
+      }
+    }
+  ]
+}

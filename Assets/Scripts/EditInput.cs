@@ -5,6 +5,19 @@ using UnityEngine.InputSystem;
 
 public static class EditInput
 {
+    public static bool ProjectShortcutPressedThisFrame(bool save)
+    {
+#if ENABLE_LEGACY_INPUT_MANAGER
+        bool modifier=Input.GetKey(KeyCode.LeftControl)||Input.GetKey(KeyCode.RightControl)||Input.GetKey(KeyCode.LeftCommand)||Input.GetKey(KeyCode.RightCommand);
+        return modifier && Input.GetKeyDown(save?KeyCode.S:KeyCode.O);
+#elif ENABLE_INPUT_SYSTEM
+        var keyboard=Keyboard.current;
+        return keyboard!=null && (keyboard.ctrlKey.isPressed||keyboard.metaKey.isPressed) &&
+            (save?keyboard.sKey.wasPressedThisFrame:keyboard.oKey.wasPressedThisFrame);
+#else
+        return false;
+#endif
+    }
     public static bool CancelPressedThisFrame()
     {
 #if ENABLE_LEGACY_INPUT_MANAGER

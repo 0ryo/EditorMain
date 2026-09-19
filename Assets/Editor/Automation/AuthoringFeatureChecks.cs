@@ -50,8 +50,10 @@ public static class AuthoringFeatureChecks
         var hold = Condition(ConditionTypeCatalog.SnapHold);
         var evaluator = new ScenarioConditionEvaluator();
         Check(!evaluator.Tick(hold, source, 0.5f), "Hold does not succeed early");
+        Check(System.Math.Abs(evaluator.HeldSeconds - 0.5f) < 0.0001f, "Authoring UI reads the actual evaluator hold time");
         source.values["b"] = new ScenarioObjectState { position = new Vector3(2f, 0f, 0f), rotation = Quaternion.identity };
         Check(!evaluator.Tick(hold, source, 2f), "Leaving range resets hold");
+        Check(evaluator.HeldSeconds == 0f, "Authoring UI observes reset to zero");
         source.values["b"] = new ScenarioObjectState { rotation = Quaternion.identity };
         Check(!evaluator.Tick(hold, source, 0.5f), "Hold restarts from zero");
         Check(evaluator.Tick(hold, source, 0.5f), "Continuous hold succeeds");

@@ -258,6 +258,13 @@ public sealed class EditorProjectPanel : MonoBehaviour
         modal.SetAsLastSibling();
     }
 
+    public void OpenForDesignUi()
+    {
+        gameObject.SetActive(true);
+        if (projectService == null) Build();
+        Open();
+    }
+
     void Close()
     {
         HideConfirmation();
