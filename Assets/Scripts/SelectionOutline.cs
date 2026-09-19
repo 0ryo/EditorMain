@@ -273,7 +273,7 @@ public class SelectionOutline : MonoBehaviour
                                 targetTransform.position != lastWorldPosition ||
                                 targetTransform.rotation != lastWorldRotation ||
                                 targetTransform.lossyScale != lastWorldScale;
-        if (!force && !outlineDirty && !transformChanged) return;
+        if (!force && !outlineDirty && !transformChanged && !showHandles) return;
 
         var bounds = GetTargetLocalBounds();
         Vector3 min = bounds.min;
@@ -293,8 +293,7 @@ public class SelectionOutline : MonoBehaviour
         EnsureLines(showHandles ? 8 : 0);
         for (int i = 0; showHandles && i < 8; i++)
         {
-            lines[i].SetPosition(0, corners[i] - Vector3.right * OutlineLineWidth);
-            lines[i].SetPosition(1, corners[i] + Vector3.right * OutlineLineWidth);
+            TransformGizmoUtility.SetScreenCircle(lines[i], ResolveCamera(), corners[i], 4f);
         }
 
         lastWorldPosition = targetTransform.position;

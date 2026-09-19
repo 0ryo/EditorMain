@@ -28,13 +28,14 @@ public class ObjectDetailPanel : MonoBehaviour
     CanvasGroup panelCanvasGroup;
     UiPanelDockSync panelDockSync;
     PlacedObject currentPo;
+    MaterialSearchPanel materialSearchPanel;
 
     Vector2 restOffsetMin;
     Vector2 restOffsetMax;
     Coroutine slideCoroutine;
     bool isShown;
 
-    const float SlideDuration = 0.2f;
+    const float SlideDuration = 0.28f;
     const float DescriptionInputMinHeight = 96f;
     const string UsageRowName = "Row_ConditionUsage";
     const string DescriptionPlaceholder = "\u8AAC\u660E\u3092\u5165\u529B...";
@@ -58,6 +59,7 @@ public class ObjectDetailPanel : MonoBehaviour
         }
 
         EnsureDescriptionInputField();
+        materialSearchPanel = MaterialSearchPanel.Ensure(transform);
         conditionReferencePresenter = new ObjectConditionReferencePresenter(
             transform,
             usageNodeLabelText,
@@ -96,6 +98,7 @@ public class ObjectDetailPanel : MonoBehaviour
 
     void OnDestroy()
     {
+        conditionReferencePresenter?.Dispose();
         if (panelDockSync != null)
         {
             panelDockSync.SetDetailPanelVisibleWidth(0f);
@@ -119,7 +122,7 @@ public class ObjectDetailPanel : MonoBehaviour
 
     void ResolveRuntimeReferences()
     {
-        var selection = FindFirstObjectByType<SelectionService>();
+        var selection = selectionService != null ? selectionService : FindFirstObjectByType<SelectionService>();
         if (selection != selectionService)
         {
             if (selectionService != null)
@@ -149,8 +152,30 @@ public class ObjectDetailPanel : MonoBehaviour
         OnSelectionChanged(selectionService.Current);
     }
 
+    public bool UserCollapsed { get; private set; }
+
+    public void ToggleUserCollapsed()
+    {
+        UserCollapsed = !UserCollapsed;
+        if (UserCollapsed)
+        {
+            if (!isShown) return;
+            isShown = false;
+            if (slideCoroutine != null) StopCoroutine(slideCoroutine);
+            slideCoroutine = StartCoroutine(Slide(false));
+        }
+        else OnSelectionChanged(selectionService != null ? selectionService.Current : currentPo);
+    }
+
     void OnSelectionChanged(PlacedObject po)
     {
+        if (materialSearchPanel != null) materialSearchPanel.Select(po);
+        if (UserCollapsed)
+        {
+            currentPo = po;
+            conditionReferencePresenter?.ClearSelection();
+            return;
+        }
         if (po == null)
         {
             currentPo = null;
@@ -159,7 +184,7 @@ public class ObjectDetailPanel : MonoBehaviour
             {
                 isShown = false;
                 if (slideCoroutine != null) StopCoroutine(slideCoroutine);
-                slideCoroutine = StartCoroutine(SlideOut());
+                slideCoroutine = StartCoroutine(Slide(false));
             }
             return;
         }
@@ -171,7 +196,7 @@ public class ObjectDetailPanel : MonoBehaviour
         {
             isShown = true;
             if (slideCoroutine != null) StopCoroutine(slideCoroutine);
-            slideCoroutine = StartCoroutine(SlideIn());
+            slideCoroutine = StartCoroutine(Slide(true));
         }
     }
 
@@ -490,70 +515,51 @@ public class ObjectDetailPanel : MonoBehaviour
         }
     }
 
-    IEnumerator SlideIn()
+    IEnumerator Slide(bool show)
     {
         float panelWidth = restOffsetMax.x - restOffsetMin.x;
         float elapsed = 0f;
         float startShift = rt.offsetMin.x - restOffsetMin.x;
         float startAlpha = panelCanvasGroup != null ? panelCanvasGroup.alpha : 0f;
+        float targetShift = show ? 0f : panelWidth;
 
         if (panelCanvasGroup != null)
         {
-            panelCanvasGroup.interactable = true;
+            panelCanvasGroup.interactable = show;
             panelCanvasGroup.blocksRaycasts = true;
         }
 
+        // StartCoroutine runs synchronously. Render the current pose first: the
+        // selection frame may contain expensive text/layout/condition generation.
+        ApplySlidePose(panelWidth, startShift, startAlpha);
         while (elapsed < SlideDuration)
         {
-            elapsed += Time.unscaledDeltaTime;
-            float t = Mathf.Clamp01(elapsed / SlideDuration);
-            float eased = 1f - (1f - t) * (1f - t);
-
-            float shift = Mathf.Lerp(startShift, 0f, eased);
-            rt.offsetMin = new Vector2(restOffsetMin.x + shift, restOffsetMin.y);
-            rt.offsetMax = new Vector2(restOffsetMax.x + shift, restOffsetMax.y);
-            UpdateGlobalButtonDock(panelWidth, shift);
-            if (panelCanvasGroup != null) panelCanvasGroup.alpha = Mathf.Lerp(startAlpha, 1f, eased);
             yield return null;
+            elapsed = AdvanceSlideTime(elapsed, Time.unscaledDeltaTime);
+            float t = elapsed / SlideDuration;
+            float eased = 1f - (1f - t) * (1f - t) * (1f - t);
+            ApplySlidePose(panelWidth, Mathf.Lerp(startShift, targetShift, eased),
+                Mathf.Lerp(startAlpha, show ? 1f : 0f, eased));
         }
 
-        rt.offsetMin = restOffsetMin;
-        rt.offsetMax = restOffsetMax;
-        UpdateGlobalButtonDock(panelWidth, 0f);
-        if (panelCanvasGroup != null) panelCanvasGroup.alpha = 1f;
+        if (show) ApplySlidePose(panelWidth, 0f, 1f);
+        else SetHiddenImmediately();
         slideCoroutine = null;
     }
 
-    IEnumerator SlideOut()
+    internal static float AdvanceSlideTime(float elapsed, float deltaTime)
     {
-        float panelWidth = restOffsetMax.x - restOffsetMin.x;
-        float elapsed = 0f;
-        float startShift = rt.offsetMin.x - restOffsetMin.x;
-        float startAlpha = panelCanvasGroup != null ? panelCanvasGroup.alpha : 1f;
-        if (panelCanvasGroup != null)
-        {
-            panelCanvasGroup.interactable = false;
-            panelCanvasGroup.blocksRaycasts = false;
-        }
-
-        while (elapsed < SlideDuration)
-        {
-            elapsed += Time.unscaledDeltaTime;
-            float t = Mathf.Clamp01(elapsed / SlideDuration);
-            float eased = t * t;
-
-            float shift = Mathf.Lerp(startShift, panelWidth, eased);
-            rt.offsetMin = new Vector2(restOffsetMin.x + shift, restOffsetMin.y);
-            rt.offsetMax = new Vector2(restOffsetMax.x + shift, restOffsetMax.y);
-            UpdateGlobalButtonDock(panelWidth, shift);
-            if (panelCanvasGroup != null) panelCanvasGroup.alpha = Mathf.Lerp(startAlpha, 0f, eased);
-            yield return null;
-        }
-
-        SetHiddenImmediately();
-        slideCoroutine = null;
+        // A single stalled frame must not skip the entire visible movement.
+        return Mathf.Min(SlideDuration, elapsed + Mathf.Clamp(deltaTime, 0f, 1f / 30f));
     }
 
+    void ApplySlidePose(float panelWidth, float shift, float alpha)
+    {
+        rt.offsetMin = new Vector2(restOffsetMin.x + shift, restOffsetMin.y);
+        rt.offsetMax = new Vector2(restOffsetMax.x + shift, restOffsetMax.y);
+        UpdateGlobalButtonDock(panelWidth, shift);
+        if (panelCanvasGroup != null) panelCanvasGroup.alpha = alpha;
+    }
     void SetHiddenImmediately()
     {
         float panelWidth = restOffsetMax.x - restOffsetMin.x;

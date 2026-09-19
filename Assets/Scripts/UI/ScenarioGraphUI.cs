@@ -5,7 +5,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-public class ScenarioGraphUI : MonoBehaviour
+public partial class ScenarioGraphUI : MonoBehaviour
 {
     const string AddStepLabel = "+ 手順";
     const string AddConditionLabel = "+ 条件";
@@ -161,6 +161,7 @@ public class ScenarioGraphUI : MonoBehaviour
     void Update()
     {
         if (graph == null || !isActiveAndEnabled) return;
+        HandleSelectionShortcuts();
         if (graphRebuildRequested)
         {
             graphRebuildRequested = false;
@@ -609,6 +610,7 @@ public class ScenarioGraphUI : MonoBehaviour
         };
 
         ConfigureNodeDragCallbacks(node.nodeId, node.nodeType, root);
+        BindNodeSelection(node.nodeId, root);
     }
 
     Vector2 FindAvailableNodePosition(string nodeId, RectTransform root, Vector2 preferred)
@@ -651,9 +653,11 @@ public class ScenarioGraphUI : MonoBehaviour
             drag.onBeginDrag = () =>
             {
                 dragStart = root.anchoredPosition;
+                BeginSelectionDrag(nodeId);
             };
             drag.onDrag = () =>
             {
+                MoveSelectionWith(nodeId, root.anchoredPosition);
                 nodePositions[nodeId] = root.anchoredPosition;
                 RefreshMinimapNodes();
             };
@@ -661,6 +665,7 @@ public class ScenarioGraphUI : MonoBehaviour
             {
                 Vector2 dragEnd = root.anchoredPosition;
                 nodePositions[nodeId] = dragEnd;
+                if (FinishSelectionDrag(nodeId)) return;
                 if ((dragEnd - dragStart).sqrMagnitude > 0.01f &&
                     CommandService.I != null && CommandService.I.Stack != null)
                 {

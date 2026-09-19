@@ -64,7 +64,10 @@ internal static class EditorCameraNavigationMath
 
     public static float NormalizeScroll(float rawScrollY)
     {
-        return Mathf.Abs(rawScrollY) > 1f ? rawScrollY / 120f : rawScrollY;
+        // Snap each frame's input to wheel steps; discard small tails without
+        // accumulating them into delayed movement after the wheel stops.
+        if (!float.IsFinite(rawScrollY)) return 0f;
+        return Mathf.Sign(rawScrollY) * Mathf.Floor(Mathf.Abs(rawScrollY) + 0.5f);
     }
 
     public static float CalculateOrthographicSize(
@@ -87,8 +90,13 @@ internal static class EditorCameraNavigationMath
         float minDistance,
         float maxDistance)
     {
-        currentDistance = Mathf.Max(0.0001f, currentDistance);
-        return Mathf.Clamp(currentDistance - (scroll * zoomSpeed), minDistance, maxDistance);
+        float minimum = Mathf.Max(0.0001f, minDistance);
+        float maximum = Mathf.Max(minimum, maxDistance);
+        currentDistance = Mathf.Clamp(currentDistance, minimum, maximum);
+        if (!float.IsFinite(scroll) || !float.IsFinite(zoomSpeed) || zoomSpeed <= 0f)
+            return currentDistance;
+        // Exponential zoom gives equal relative steps and reversible in/out scrolling.
+        return Mathf.Clamp(currentDistance * Mathf.Exp(-scroll * zoomSpeed), minimum, maximum);
     }
 
     public static float CalculatePerspectiveDistanceForSize(

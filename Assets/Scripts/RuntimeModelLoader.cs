@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
+using System.Threading;
 using UnityEngine;
 using GLTFast;
 
@@ -21,37 +22,81 @@ public static class RuntimeModelLoader
         return false;
     }
 
-    public static async Task<GameObject> LoadModelAsync(string absolutePath)
+    // The limit is for the input file; textures and decompressed geometry may use more memory.
+    public const long MaximumFileBytes = 256L * 1024 * 1024;
+
+    public static async Task<GameObject> LoadModelAsync(string absolutePath,
+        CancellationToken cancellationToken = default, Action<string> progress = null)
     {
-        if (string.IsNullOrWhiteSpace(absolutePath))
-            return null;
-
-        if (!File.Exists(absolutePath))
-        {
-            Debug.LogError($"[RuntimeModelLoader] File not found: {absolutePath}");
-            return null;
-        }
-
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!IsSupportedExtension(absolutePath)) throw new IOException("GLBまたはglTFを選択してください。");
+        var file = new FileInfo(absolutePath);
+        if (!file.Exists) throw new FileNotFoundException("モデルファイルが見つかりません。", absolutePath);
+        if (file.Length == 0 || file.Length > MaximumFileBytes)
+            throw new IOException("モデルは空でない256 MB以下のファイルを使用してください。");
+        progress?.Invoke("ファイルと参照素材を検証中…");
+        ImportedModelStore.ValidateInput(file.FullName, MaximumFileBytes);
+        cancellationToken.ThrowIfCancellationRequested();
         var gltf = new GltfImport();
-        var uri = new Uri(absolutePath).AbsoluteUri;
-        var success = await gltf.Load(uri);
-        if (!success)
+        GameObject go = null;
+        bool retained = false;
+        try
         {
-            Debug.LogError($"[RuntimeModelLoader] Failed to load: {absolutePath}");
-            return null;
+            progress?.Invoke("モデルを読み込み中…（追加ボタンで中止）");
+            if (!await gltf.Load(new Uri(file.FullName), cancellationToken: cancellationToken))
+                throw new IOException("モデルを読み込めません。形式、外部素材、破損の有無を確認してください。");
+            cancellationToken.ThrowIfCancellationRequested();
+            progress?.Invoke("形状・材質を構築中…（追加ボタンで中止）");
+            go = new GameObject(Path.GetFileNameWithoutExtension(absolutePath));
+            var resources = go.AddComponent<RuntimeModelResources>();
+            go.SetActive(false);
+            if (!await gltf.InstantiateMainSceneAsync(go.transform, cancellationToken))
+                throw new IOException("モデルのシーンを構築できません。");
+            cancellationToken.ThrowIfCancellationRequested();
+            ValidateRuntimeModel(go);
+            // The catalog prototype owns glTF assets for the lifetime of its placed copies.
+            resources.Initialize(gltf);
+            retained = true;
+            return go;
         }
-
-        var go = new GameObject(Path.GetFileNameWithoutExtension(absolutePath));
-        var instantiated = await gltf.InstantiateMainSceneAsync(go.transform);
-        if (!instantiated)
+        finally
         {
-            UnityEngine.Object.Destroy(go);
-            Debug.LogError($"[RuntimeModelLoader] Failed to instantiate: {absolutePath}");
-            return null;
+            if (!retained)
+            {
+                if (go != null) UnityEngine.Object.Destroy(go);
+                gltf.Dispose();
+            }
         }
+    }
 
-        go.SetActive(false);
-        return go;
+    static void ValidateRuntimeModel(GameObject model)
+    {
+        long vertices = 0, textureBytes = 0;
+        var meshes = new System.Collections.Generic.HashSet<Mesh>();
+        var textures = new System.Collections.Generic.HashSet<Texture>();
+        foreach (var filter in model.GetComponentsInChildren<MeshFilter>(true))
+            if (filter.sharedMesh != null) meshes.Add(filter.sharedMesh);
+        foreach (var skin in model.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+            if (skin.sharedMesh != null) meshes.Add(skin.sharedMesh);
+        foreach (var mesh in meshes) vertices += mesh.vertexCount;
+        if (vertices == 0) throw new IOException("表示可能な形状がありません。");
+        if (vertices > 5000000) throw new IOException("モデルの頂点数を500万以下に減らしてください。");
+        foreach (var renderer in model.GetComponentsInChildren<Renderer>(true))
+            foreach (var material in renderer.sharedMaterials)
+            {
+                if (material == null) continue;
+                foreach (var key in material.GetTexturePropertyNames())
+                {
+                    var texture = material.GetTexture(key);
+                    if (texture != null) textures.Add(texture);
+                }
+            }
+        foreach (var texture in textures)
+        {
+            if (texture.width > 8192 || texture.height > 8192) throw new IOException("テクスチャの縦横を8192px以下に減らしてください。");
+            textureBytes += UnityEngine.Profiling.Profiler.GetRuntimeMemorySizeLong(texture);
+        }
+        if (textureBytes > MaximumFileBytes) throw new IOException("展開後のテクスチャ容量を合計256 MB以下に減らしてください。");
     }
 
 #if UNITY_STANDALONE_WIN

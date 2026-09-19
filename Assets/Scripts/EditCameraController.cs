@@ -22,7 +22,8 @@ public class EditorCameraController : MonoBehaviour
     [Header("Sensitivity")]
     public float orbitSpeed = 12f;
     public float panSpeed = 0.01f;
-    public float zoomSpeed = 18f;
+    public const float DefaultPerspectiveZoomSpeed = 0.08f;
+    public float zoomSpeed = DefaultPerspectiveZoomSpeed;
     public float orthographicZoomSpeed = 0.12f;
 
     [Header("Limits")]
@@ -190,18 +191,30 @@ public class EditorCameraController : MonoBehaviour
 
         if (cachedCamera != null)
         {
-            cachedCamera.orthographic = true;
+            cachedCamera.orthographic = false;
             cachedCamera.orthographicSize = 7f;
             cachedCamera.nearClipPlane = 0.01f;
             cachedCamera.farClipPlane = 1000f;
-            SyncOrthographicCameraDistance(cachedCamera.orthographicSize);
         }
     }
 
     public bool FocusSelected()
     {
         var selection = FindFirstObjectByType<SelectionService>();
-        return selection != null && FocusOn(selection.Current);
+        if (selection == null) return false;
+        Bounds bounds = default;
+        bool found = false;
+        foreach (var item in selection.Selected)
+        {
+            if (!SelectionService.CanEdit(item)) continue;
+            SelectionRegionUtility.TryGetBounds(item, out var itemBounds);
+            if (!found) bounds = itemBounds;
+            else bounds.Encapsulate(itemBounds);
+            found = true;
+        }
+        if (!found) return false;
+        FocusBounds(bounds.center, Mathf.Max(0.5f, bounds.extents.magnitude));
+        return true;
     }
 
     public bool FocusOn(PlacedObject placedObject)
@@ -210,21 +223,28 @@ public class EditorCameraController : MonoBehaviour
 
         EnsureCameraRig();
         EditorCameraNavigationMath.GetFocusTarget(placedObject, out var center, out var radius);
+        FocusBounds(center, radius);
+        return true;
+    }
+
+    void FocusBounds(Vector3 center, float radius)
+    {
+        EnsureCameraRig();
         pivot.position = center;
 
         if (cachedCamera != null && cachedCamera.orthographic)
         {
-            cachedCamera.orthographicSize = Mathf.Clamp(radius * 1.35f, minOrthographicSize, maxOrthographicSize);
+            float aspect = Mathf.Min(1f, Mathf.Max(0.01f, cachedCamera.aspect));
+            cachedCamera.orthographicSize = Mathf.Clamp(radius * 1.35f / aspect, minOrthographicSize, maxOrthographicSize);
             SyncOrthographicCameraDistance(cachedCamera.orthographicSize);
         }
         else
         {
             float halfFov = cachedCamera != null ? cachedCamera.fieldOfView * 0.5f * Mathf.Deg2Rad : 30f * Mathf.Deg2Rad;
-            float distance = Mathf.Clamp((radius / Mathf.Tan(halfFov)) * 1.25f, minDistance, maxDistance);
+            if (cachedCamera != null) halfFov = Mathf.Min(halfFov, Mathf.Atan(Mathf.Tan(halfFov) * Mathf.Max(0.01f, cachedCamera.aspect)));
+            float distance = Mathf.Clamp((radius / Mathf.Sin(halfFov)) * 1.25f, minDistance, maxDistance);
             SetCameraDistance(distance);
         }
-
-        return true;
     }
 
     public void SetViewPreset(ViewPreset preset)
@@ -324,12 +344,18 @@ public class EditorCameraController : MonoBehaviour
         if (!enforceHighSensitivity) return;
 
         orbitSpeed = Mathf.Max(orbitSpeed, 12f);
-        zoomSpeed = Mathf.Max(zoomSpeed, 18f);
         orthographicZoomSpeed = Mathf.Clamp(orthographicZoomSpeed, 0.04f, 0.3f);
     }
 
     void NormalizeZoomSensitivity()
     {
+        // Old scenes store an additive world-distance speed (normally 18).
+        // Migrate those values before CatalogUI captures its sensitivity baseline.
+        if (!float.IsFinite(zoomSpeed) || zoomSpeed <= 0f)
+            zoomSpeed = DefaultPerspectiveZoomSpeed;
+        else if (zoomSpeed > 0.5f)
+            zoomSpeed = Mathf.Clamp(zoomSpeed / 18f * DefaultPerspectiveZoomSpeed, 0.01f, 0.3f);
+
         if (!float.IsFinite(orthographicZoomSpeed) || orthographicZoomSpeed <= 0f || orthographicZoomSpeed > 0.5f)
         {
             orthographicZoomSpeed = 0.12f;
@@ -378,9 +404,8 @@ public class EditorCameraController : MonoBehaviour
 
     void HandleZoom(float rawScrollY)
     {
-        if (Mathf.Abs(rawScrollY) <= 0.0001f) return;
-
         float scroll = EditorCameraNavigationMath.NormalizeScroll(rawScrollY);
+        if (scroll == 0f) return;
 
         if (cachedCamera != null && cachedCamera.orthographic)
         {
@@ -404,7 +429,7 @@ public class EditorCameraController : MonoBehaviour
             minDistance,
             maxDistance);
 
-        transform.localPosition = transform.localPosition.normalized * targetDistance;
+        SetCameraDistance(targetDistance);
         LogDiagnostics("Zoom", true, Vector2.zero, rawScrollY);
     }
 

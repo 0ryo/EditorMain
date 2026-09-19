@@ -162,6 +162,14 @@ public class ConditionNodeUI : MonoBehaviour
             conditionTypeDropdown = Instantiate(conditionRow.dropdownA, transform);
             conditionTypeDropdown.gameObject.name = "Dropdown_ConditionType";
         }
+        foreach (string obsoleteName in new[] { "Input_ThirdParameter", "Text_ThirdParameterLabel", "Text_OperationBase", "Dropdown_OperationBase" })
+        {
+            var obsolete = transform.Find(obsoleteName);
+            if (obsolete == null) continue;
+            obsolete.gameObject.SetActive(false);
+            if (Application.isPlaying) Destroy(obsolete.gameObject);
+            else DestroyImmediate(obsolete.gameObject);
+        }
         distanceInput = EnsureParameterInput(distanceInput, "Input_Distance", "距離 (m)");
         holdSecondsInput = EnsureParameterInput(holdSecondsInput, "Input_HoldSeconds", "保持 (秒)");
         distanceLabel = EnsureParameterLabel(distanceLabel, "Text_DistanceLabel", "距離 (m)");

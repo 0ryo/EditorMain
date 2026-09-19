@@ -49,7 +49,7 @@
 
 ## テスト・検証
 
-- プロジェクト固有のEditMode/PlayMode test、asmdef、Lint、CIは確認できていない。
+- `Tools/RegressionChecks`は依存追加なしの.NET 8回帰runner。productionの条件判定・保存・migration・CommandStackを直接リンクし、Unity数学/JSONの代替を使う。Unity固有のserialization・PlayModeを代替しない。`Tools/Automation/Check Authoring Logic`で同じ条件チェックをUnity上でも実行できる。独自asmdef、Lint、CIは未整備。
 - Codexの標準静的確認は `git diff --check`、対象pathの存在確認、`rg` による参照/旧値確認、必要に応じたJSON parse。
 - Unity compile/runtime/buildの最終確認はユーザーが行う。失敗logを受けて修正する。
 

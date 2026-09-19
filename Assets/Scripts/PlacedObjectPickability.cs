@@ -64,6 +64,7 @@ public static class PlacedObjectPickability
             if (collider == null) continue;
             if (!collider.enabled) continue;
             if (collider.isTrigger) continue;
+            if (collider is MeshCollider mesh && mesh.sharedMesh == null) continue;
             return true;
         }
 

@@ -10,10 +10,14 @@ public class HintPanelController : MonoBehaviour
         "視点操作\n" +
         "・右ドラッグ または 中ドラッグ: 回転\n" +
         "・Shift + 右/中ドラッグ: 平行移動　ホイール: ズーム\n" +
-        "・F: 選択へ　1/3/7: 正面/右/上　O: 平行/透視　Home: 初期化\n\n" +
+        "・F: 選択全体へ　1/3/7: 正面/右/上　O: 投影切替　Home: 初期化\n\n" +
         "オブジェクト編集\n" +
+        "・3Dビューの空白をドラッグ: 枠に触れた対象を選択（Shiftで追加）\n" +
+        "・3Dビュー上で Ctrl/Cmd + A: 全選択　Esc: 選択解除/範囲中止\n" +
+        "・一覧のShiftクリック: 範囲選択　Ctrl/Cmdクリック: 個別追加/解除\n" +
         "・W/A/S/D または 矢印: グリッド幅ずつ移動\n" +
         "・Delete: 削除　Ctrl/Cmd + D: 複製\n" +
+        "・Ctrl/Cmd+C/V: コピー/貼付　Ctrl/Cmd+Shift+V: 元位置へ\n" +
         "・スナップ: 位置や角度を設定した間隔に自動で揃える機能\n" +
         "・Altを押している間: 配置・移動・回転のスナップを一時解除\n\n" +
         "各ボタンにポインターを重ねると、その操作の説明を確認できます。";
@@ -112,7 +116,7 @@ public class HintPanelController : MonoBehaviour
         var rect = transform as RectTransform;
         if (rect != null)
         {
-            rect.sizeDelta = new Vector2(560f, 440f);
+            rect.sizeDelta = new Vector2(600f, 540f);
         }
 
         var title = transform.Find("Text_Title")?.GetComponent<TMP_Text>();
@@ -193,7 +197,7 @@ public class HintPanelController : MonoBehaviour
         root.anchorMin = new Vector2(0.5f, 0.5f);
         root.anchorMax = new Vector2(0.5f, 0.5f);
         root.pivot = new Vector2(0.5f, 0.5f);
-        root.sizeDelta = new Vector2(560f, 440f);
+        root.sizeDelta = new Vector2(600f, 540f);
         root.anchoredPosition = Vector2.zero;
 
         var image = root.gameObject.AddComponent<Image>();

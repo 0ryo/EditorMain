@@ -14,6 +14,8 @@
 
 ## UI / Prefab
 
+- `StartCoroutine`は最初のyieldまで同期実行する。選択直後の詳細パネルでは、UI生成直後に`unscaledDeltaTime`を加算すると重いフレームでスライド終端へ飛び得る。現在位置を適用して一度yieldし、1フレームの進行を上限1/30秒に抑える。開閉は同じroutineで現在位置から反転する。
+
 - `MaterialPropertyBlock`などUnityネイティブ資源をMonoBehaviourのfield initializerで生成しない。`Awake`または明示的な初期化メソッドで生成する。候補輪郭でconstructor例外の後に描画callbackのNullReferenceが毎フレーム続き、スクロールまで重くなった。構文・型チェックでは検出できない。
 - `ScrollRect.AutoHideAndExpandViewport`はlayout時にviewportの余白を書き換える。検索欄などの固定ヘッダーをリスト上部に置く場合はviewport自動拡張を切り、検索欄・scrollbarの余白を共通設定する。
 

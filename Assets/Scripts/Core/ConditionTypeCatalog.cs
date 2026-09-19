@@ -172,6 +172,7 @@ public static class ConditionTypeCatalog
     static float Clamp(ParameterDefinition definition, float value)
     {
         if (float.IsNaN(value) || float.IsInfinity(value)) value = definition.defaultValue;
-        return Math.Max(definition.minValue, Math.Min(definition.maxValue, value));
+        value = Math.Max(definition.minValue, Math.Min(definition.maxValue, value));
+        return value;
     }
 }

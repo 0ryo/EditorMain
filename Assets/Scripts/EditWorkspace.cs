@@ -27,6 +27,7 @@ public static class EditWorkspace
         {
             camera.clearFlags = CameraClearFlags.SolidColor;
             camera.backgroundColor = BackgroundColor;
+            ViewportLightingController.Ensure(camera);
         }
 
         WorkspaceFloorGrid.EnsureExists();

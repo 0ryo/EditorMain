@@ -18,6 +18,32 @@ internal enum GizmoDragMode
 
 internal static class TransformGizmoUtility
 {
+    // Use camera depth (not distance) so panning and orthographic views keep the same size.
+    public static float WorldUnitsPerPixel(Camera camera, Vector3 position)
+    {
+        if (camera == null || camera.pixelHeight <= 0) return 0.001f;
+        float height = camera.orthographic ? camera.orthographicSize * 2f :
+            2f * Mathf.Max(camera.nearClipPlane, camera.WorldToScreenPoint(position).z) *
+            Mathf.Tan(camera.fieldOfView * Mathf.Deg2Rad * 0.5f);
+        return Mathf.Max(0.000001f, height / camera.pixelHeight);
+    }
+
+    public static void SetScreenCircle(LineRenderer line, Camera camera, Vector3 center, float radiusPixels)
+    {
+        const int segments = 32;
+        float radius = WorldUnitsPerPixel(camera, center) * radiusPixels;
+        Vector3 right = camera != null ? camera.transform.right : Vector3.right;
+        Vector3 up = camera != null ? camera.transform.up : Vector3.up;
+        line.loop = true;
+        line.positionCount = segments;
+        line.widthMultiplier = WorldUnitsPerPixel(camera, center) * 1.8f;
+        for (int i = 0; i < segments; i++)
+        {
+            float angle = i * Mathf.PI * 2f / segments;
+            line.SetPosition(i, center + radius * (right * Mathf.Cos(angle) + up * Mathf.Sin(angle)));
+        }
+    }
+
     public static float DistanceToSegment(Vector2 point, Vector2 start, Vector2 end, out float t)
     {
         Vector2 segment = end - start;

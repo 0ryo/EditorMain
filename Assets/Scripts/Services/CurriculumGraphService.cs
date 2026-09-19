@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 
-public class CurriculumGraphService : MonoBehaviour
+public partial class CurriculumGraphService : MonoBehaviour
 {
     const string StartNodeId = "start-0001";
     const string EndNodeId = "end-0001";

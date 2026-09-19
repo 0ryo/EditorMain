@@ -118,7 +118,10 @@ public sealed class EditorProjectService : MonoBehaviour
         {
             suppressTracking = true;
             var project = EditorProjectSnapshotBuilder.Capture(graph, projectName);
-            CurrentProjectPath = EditorProjectStore.Save(project, project.projectName);
+            bool sameName = string.Equals(project.projectName, CurrentProjectName, StringComparison.Ordinal);
+            CurrentProjectPath = sameName && !string.IsNullOrEmpty(CurrentProjectPath)
+                ? EditorProjectStore.SaveExisting(project, CurrentProjectPath)
+                : EditorProjectStore.Save(project, project.projectName);
             CurrentProjectName = project.projectName;
             if (!string.Equals(graph.curriculum.projectName, project.projectName, StringComparison.Ordinal))
             {
@@ -145,6 +148,45 @@ public sealed class EditorProjectService : MonoBehaviour
     public bool Load(string path, out string message)
     {
         return LoadInternal(path, false, out message);
+    }
+
+    public bool DuplicateSaved(string path, bool asTemplate, out string message)
+    {
+        try
+        {
+            string created = EditorProjectStore.Duplicate(path, asTemplate);
+            message = (asTemplate ? "保存済み内容をテンプレート化しました: " : "保存済み内容を複製しました: ") + System.IO.Path.GetFileName(created);
+            StatusChanged?.Invoke(message, true);
+            return true;
+        }
+        catch (Exception ex) { return Fail("複製できません: " + ex.Message, out message); }
+    }
+
+    public bool ArchiveSaved(string path, out string message)
+    {
+        try
+        {
+            if (!string.IsNullOrEmpty(CurrentProjectPath) && string.Equals(System.IO.Path.GetFullPath(path),
+                System.IO.Path.GetFullPath(CurrentProjectPath), StringComparison.OrdinalIgnoreCase))
+                return Fail("編集中の教材は削除できません。別の教材を開いてから削除してください。", out message);
+            EditorProjectStore.Archive(path);
+            message = "削除済みへ移しました。削除済み一覧から復元できます。";
+            StatusChanged?.Invoke(message, true);
+            return true;
+        }
+        catch (Exception ex) { return Fail("削除できません: " + ex.Message, out message); }
+    }
+
+    public bool RestoreSaved(string path, out string message)
+    {
+        try
+        {
+            EditorProjectStore.RestoreArchived(path);
+            message = "復元しました。同名の教材がある場合は番号付きで復元します。";
+            StatusChanged?.Invoke(message, true);
+            return true;
+        }
+        catch (Exception ex) { return Fail("復元できません: " + ex.Message, out message); }
     }
 
     public bool LoadRecovery(out string message)
@@ -279,6 +321,7 @@ public sealed class EditorProjectService : MonoBehaviour
         if (placed == null) placed = instance.AddComponent<PlacedObject>();
         placed.id = item.id;
         placed.typeId = item.typeId;
+        placed.editorGroupId = item.editorGroupId;
         placed.displayName = item.displayName ?? string.Empty;
         placed.description = item.description ?? string.Empty;
         placed.hasDescriptionOverride = item.hasDescriptionOverride;

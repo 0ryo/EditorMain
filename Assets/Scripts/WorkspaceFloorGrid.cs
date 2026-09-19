@@ -5,26 +5,25 @@ public class WorkspaceFloorGrid : MonoBehaviour
 {
     const string RuntimeName = "WorkspaceFloorGrid_Runtime";
     const string FloorSurfaceName = "Floor_Surface";
-    const int BuildRevision = 6;
+    const int BuildRevision = 7;
     const int HalfLineCount = 80;
     const float GridStep = 1f;
-    const float SurfaceY = -0.012f;
     const float GridY = 0.012f;
     const float BaseLineWidth = 0.006f;
     const float DefaultWorldUnitsPerPixel = 14f / 1080f;
     const float GridLineWidth = BaseLineWidth;
     const float AxisLineWidth = BaseLineWidth + DefaultWorldUnitsPerPixel * 2f;
 
-    static readonly Color SurfaceColor = EditWorkspace.BackgroundColor;
     static readonly Color GridLineColor = new Color32(0x4F, 0x4F, 0x4F, 0xFF);
     static readonly Color XAxisColor = new Color(0.72f, 0.40f, 0.40f, 0.41f);
     static readonly Color ZAxisColor = new Color(0.38f, 0.50f, 0.72f, 0.41f);
 
-    Material surfaceMaterial;
     Material lineMaterial;
     Material xAxisMaterial;
     Material zAxisMaterial;
     [SerializeField] int builtRevision;
+    Renderer legacyFloor;
+    bool legacyFloorWasEnabled;
 
     public static WorkspaceFloorGrid EnsureExists()
     {
@@ -44,26 +43,48 @@ public class WorkspaceFloorGrid : MonoBehaviour
     void Awake()
     {
         BuildGrid();
+        // Only the legacy workspace floor; never hide imported or placed models.
+        foreach (var root in gameObject.scene.GetRootGameObjects())
+        {
+            if (root.name != "Floor" || root.GetComponentInChildren<PlacedObject>(true) != null) continue;
+            legacyFloor = root.GetComponent<Renderer>();
+            if (legacyFloor == null) continue;
+            legacyFloorWasEnabled = legacyFloor.enabled;
+            legacyFloor.enabled = false;
+            break;
+        }
+    }
+
+    void OnDestroy()
+    {
+        if (legacyFloor != null) legacyFloor.enabled = legacyFloorWasEnabled;
+        ReleaseGeneratedMeshes();
+        ReleaseObject(lineMaterial);
+        ReleaseObject(xAxisMaterial);
+        ReleaseObject(zAxisMaterial);
+    }
+
+    static void ReleaseObject(Object value)
+    {
+        if (value == null) return;
+        if (Application.isPlaying) Destroy(value);
+        else DestroyImmediate(value);
+    }
+
+    void ReleaseGeneratedMeshes()
+    {
+        foreach (var filter in GetComponentsInChildren<MeshFilter>(true))
+            if (filter.sharedMesh != null && filter.sharedMesh.name == filter.name + "_Mesh")
+                ReleaseObject(filter.sharedMesh);
     }
 
     void BuildGrid()
     {
-        if (builtRevision == BuildRevision && transform.Find(FloorSurfaceName) != null) return;
+        if (builtRevision == BuildRevision && transform.Find("Axis_X") != null && transform.Find(FloorSurfaceName) == null) return;
 
         ClearGeneratedChildren();
         EnsureMaterials();
         float extent = HalfLineCount * GridStep;
-
-        CreateQuad(
-            FloorSurfaceName,
-            new[]
-            {
-                new Vector3(-extent, SurfaceY, -extent),
-                new Vector3(-extent, SurfaceY, extent),
-                new Vector3(extent, SurfaceY, extent),
-                new Vector3(extent, SurfaceY, -extent),
-            },
-            surfaceMaterial);
 
         for (int i = -HalfLineCount; i <= HalfLineCount; i++)
         {
@@ -90,9 +111,13 @@ public class WorkspaceFloorGrid : MonoBehaviour
 
     void ClearGeneratedChildren()
     {
+        ReleaseGeneratedMeshes();
         for (int i = transform.childCount - 1; i >= 0; i--)
         {
             var child = transform.GetChild(i);
+            child.gameObject.SetActive(false);
+            // Destroy is deferred in PlayMode; detach so another Ensure in this frame is idempotent.
+            if (Application.isPlaying) child.SetParent(null, true);
             if (Application.isPlaying)
             {
                 Destroy(child.gameObject);
@@ -106,7 +131,6 @@ public class WorkspaceFloorGrid : MonoBehaviour
 
     void EnsureMaterials()
     {
-        if (surfaceMaterial == null) surfaceMaterial = CreateMaterial("WorkspaceFloor_Surface", SurfaceColor);
         if (lineMaterial == null) lineMaterial = CreateMaterial("WorkspaceFloor_Line", GridLineColor);
         if (xAxisMaterial == null) xAxisMaterial = CreateMaterial("WorkspaceFloor_XAxis", XAxisColor);
         if (zAxisMaterial == null) zAxisMaterial = CreateMaterial("WorkspaceFloor_ZAxis", ZAxisColor);

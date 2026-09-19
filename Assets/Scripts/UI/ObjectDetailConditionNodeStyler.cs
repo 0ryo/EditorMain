@@ -60,8 +60,8 @@ public class ObjectDetailConditionNodeStyler : MonoBehaviour
             var layout = nodeUi.GetComponent<LayoutElement>();
             if (layout == null) layout = nodeUi.gameObject.AddComponent<LayoutElement>();
 
-            if (minNodeHeight > 0f) layout.minHeight = minNodeHeight;
-            if (preferredNodeHeight > 0f) layout.preferredHeight = preferredNodeHeight;
+            if (minNodeHeight > 0f) layout.minHeight = Mathf.Max(layout.minHeight, minNodeHeight);
+            if (preferredNodeHeight > 0f) layout.preferredHeight = Mathf.Max(layout.preferredHeight, preferredNodeHeight);
             layout.flexibleHeight = 0f;
         }
     }

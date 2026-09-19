@@ -17,6 +17,8 @@ public sealed class EditorProjectPanel : MonoBehaviour
     TMP_InputField projectNameInput;
     TMP_Text statusText;
     RectTransform listContent;
+    int libraryMode;
+    readonly Button[] libraryTabs = new Button[3];
     RectTransform confirmation;
     TMP_Text confirmationText;
     Button confirmationCancelButton;
@@ -161,8 +163,14 @@ public sealed class EditorProjectPanel : MonoBehaviour
         statusText = CreateText("Text_Status", dialog, string.Empty, DesignTokens.FontSizeBody, DesignTokens.TextSecondary);
         SetRect(statusText.rectTransform, new Vector2(24f, -228f), new Vector2(672f, 32f));
 
-        var recentTitle = CreateText("Title_Recent", dialog, "保存済みプロジェクト", DesignTokens.FontSizeSubheading, DesignTokens.TextPrimary);
-        SetRect(recentTitle.rectTransform, new Vector2(24f, -268f), new Vector2(300f, 28f));
+        string[] tabNames = { "保存済み", "テンプレート", "削除済み" };
+        for (int i = 0; i < tabNames.Length; i++)
+        {
+            int mode = i;
+            libraryTabs[i] = CreateButton("Button_Library" + i, dialog, tabNames[i], 216f);
+            SetRect(libraryTabs[i].transform as RectTransform, new Vector2(24f + i * 228f, -264f), new Vector2(216f, 36f));
+            libraryTabs[i].onClick.AddListener(() => { libraryMode = mode; HideConfirmation(); RefreshProjectList(); });
+        }
 
         BuildProjectList(dialog);
         BuildConfirmation(dialog);
@@ -259,6 +267,12 @@ public sealed class EditorProjectPanel : MonoBehaviour
     void SaveProject()
     {
         string name = GetProjectName();
+        if (!string.IsNullOrEmpty(projectService.CurrentProjectPath) &&
+            string.Equals(name, projectService.CurrentProjectName, StringComparison.Ordinal))
+        {
+            SaveProjectNow(name);
+            return;
+        }
         string safeName = ExportFileNameUtility.SanitizeProjectName(name, "VRCourseEditor");
         EditorProjectFileInfo existing = null;
         foreach (var info in EditorProjectStore.ListProjects())
@@ -343,7 +357,9 @@ public sealed class EditorProjectPanel : MonoBehaviour
         bool collisionIsCurrentFile = nameCollision != null &&
             !string.IsNullOrWhiteSpace(projectService.CurrentProjectPath) &&
             string.Equals(projectService.CurrentProjectPath, nameCollision.Path, StringComparison.OrdinalIgnoreCase);
-        if (nameCollision != null && !collisionIsCurrentFile)
+        bool savingCurrent = !string.IsNullOrEmpty(projectService.CurrentProjectPath) &&
+            string.Equals(currentName, projectService.CurrentProjectName, StringComparison.Ordinal);
+        if (nameCollision != null && !collisionIsCurrentFile && !savingCurrent)
         {
             statusText.text = $"「{nameCollision.DisplayName}」は既に保存されています。現在の内容を保存する場合は別のプロジェクト名を入力してください。";
             statusText.color = DesignTokens.Warning;
@@ -409,65 +425,83 @@ public sealed class EditorProjectPanel : MonoBehaviour
             Destroy(listContent.GetChild(i).gameObject);
         }
 
-        var projects = EditorProjectStore.ListProjects();
+        for (int i = 0; i < libraryTabs.Length; i++)
+            if (libraryTabs[i] != null) libraryTabs[i].interactable = i != libraryMode;
+        var projects = libraryMode == 1 ? EditorProjectStore.ListTemplates() :
+            libraryMode == 2 ? EditorProjectStore.ListArchived() : EditorProjectStore.ListProjects();
         int rowIndex = 0;
-        if (EditorProjectStore.TryGetRecovery(out var recovery))
+        if (libraryMode == 0 && EditorProjectStore.TryGetRecovery(out var recovery))
         {
             CreateRecoveryRow(recovery, rowIndex++);
         }
 
         if (projects.Count == 0 && rowIndex == 0)
         {
-            var empty = CreateText("Text_Empty", listContent, "保存済みプロジェクトはありません", DesignTokens.FontSizeBody, DesignTokens.TextSecondary);
+            var empty = CreateText("Text_Empty", listContent, "この一覧にはまだ教材がありません", DesignTokens.FontSizeBody, DesignTokens.TextSecondary);
             empty.alignment = TextAlignmentOptions.Center;
             SetListItemRect(empty.rectTransform, 0, 52f);
             SetListContentHeight(68f);
             return;
         }
 
-        for (int index = 0; index < projects.Count; index++)
+        foreach (var info in projects)
         {
-            var info = projects[index];
             var row = CreateRect("Project_" + info.DisplayName, listContent);
-            SetListItemRect(row, rowIndex++, 52f);
-            var rowImage = row.gameObject.AddComponent<Image>();
-            rowImage.color = DesignTokens.Surface;
-
+            SetListItemRect(row, rowIndex++, 92f);
+            row.gameObject.AddComponent<Image>().color = DesignTokens.Surface;
             var label = CreateText("Label", row, info.DisplayName, DesignTokens.FontSizeBody, DesignTokens.TextPrimary);
-            label.rectTransform.anchorMin = new Vector2(0f, 0f);
-            label.rectTransform.anchorMax = new Vector2(1f, 1f);
-            label.rectTransform.offsetMin = new Vector2(12f, 0f);
-            label.rectTransform.offsetMax = new Vector2(-308f, 0f);
-            label.alignment = TextAlignmentOptions.MidlineLeft;
-
-            string savedAt = info.LastWriteTimeUtc.ToLocalTime().ToString("yyyy/MM/dd HH:mm");
-            string dateLabel = info.LastSaveWasAutomatic ? "自動保存：" + savedAt : savedAt;
+            SetRect(label.rectTransform, new Vector2(12f, -6f), new Vector2(390f, 28f));
+            string dateLabel = (info.LastSaveWasAutomatic ? "自動保存 " : "") + info.LastWriteTimeUtc.ToLocalTime().ToString("MM/dd HH:mm");
             var date = CreateText("Date", row, dateLabel, DesignTokens.FontSizeCaption, DesignTokens.TextSecondary);
-            date.rectTransform.anchorMin = new Vector2(1f, 0f);
-            date.rectTransform.anchorMax = new Vector2(1f, 1f);
-            date.rectTransform.pivot = new Vector2(1f, 0.5f);
-            date.rectTransform.anchoredPosition = new Vector2(-96f, 0f);
-            date.rectTransform.sizeDelta = new Vector2(212f, 52f);
+            SetTopRight(date.rectTransform, new Vector2(-12f, -6f), new Vector2(220f, 28f));
             date.alignment = TextAlignmentOptions.MidlineRight;
-
-            var load = CreateButton("Button_Load", row, "読込", 72f);
-            load.transform.SetAsLastSibling();
-            var loadRect = load.transform as RectTransform;
-            loadRect.anchorMin = loadRect.anchorMax = new Vector2(1f, 0.5f);
-            loadRect.pivot = new Vector2(1f, 0.5f);
-            loadRect.anchoredPosition = new Vector2(-8f, 0f);
-            loadRect.sizeDelta = new Vector2(72f, 36f);
-            load.onClick.AddListener(() => RequestLoad(info));
+            if (libraryMode == 2)
+            {
+                AddLibraryAction(row, "復元", 0, () =>
+                {
+                    projectService.RestoreSaved(info.Path, out _);
+                    RefreshProjectList();
+                });
+            }
+            else
+            {
+                if (libraryMode == 0) AddLibraryAction(row, "読込", 0, () => RequestLoad(info));
+                AddLibraryAction(row, libraryMode == 1 ? "教材を作成" : "複製", 1, () => DuplicateSaved(info, false));
+                if (libraryMode == 0) AddLibraryAction(row, "テンプレート化", 2, () => DuplicateSaved(info, true));
+                var delete = AddLibraryAction(row, "削除", 3, () => ShowConfirmation(
+                    $"「{info.DisplayName}」を削除済みへ移します。", () =>
+                    {
+                        projectService.ArchiveSaved(info.Path, out _);
+                        HideConfirmation();
+                        RefreshProjectList();
+                    }));
+                delete.interactable = !string.Equals(info.Path, projectService.CurrentProjectPath, StringComparison.OrdinalIgnoreCase);
+                if (!delete.interactable) SetButtonLabel(delete, "編集中");
+            }
             UiRoundedTheme.ApplyToHierarchy(row, DesignTokens.CornerRadius);
         }
-
-        SetListContentHeight(16f + rowIndex * 52f + Mathf.Max(0, rowIndex - 1) * DesignTokens.SpaceSm);
+        SetListContentHeight(16f + rowIndex * 92f + Mathf.Max(0, rowIndex - 1) * DesignTokens.SpaceSm);
     }
 
+    Button AddLibraryAction(RectTransform row, string label, int index, UnityEngine.Events.UnityAction action)
+    {
+        var button = CreateButton("Button_Action" + index, row, label, 148f);
+        SetRect(button.transform as RectTransform, new Vector2(12f + index * 158f, -42f), new Vector2(148f, 40f));
+        button.onClick.AddListener(action);
+        return button;
+    }
+
+    void DuplicateSaved(EditorProjectFileInfo info, bool asTemplate)
+    {
+        if (!projectService.DuplicateSaved(info.Path, asTemplate, out _)) return;
+        libraryMode = asTemplate ? 1 : 0;
+        HideConfirmation();
+        RefreshProjectList();
+    }
     void CreateRecoveryRow(EditorProjectFileInfo info, int index)
     {
         var row = CreateRect("Project_Recovery", listContent);
-        SetListItemRect(row, index, 52f);
+        SetListItemRect(row, index, 92f);
         var rowImage = row.gameObject.AddComponent<Image>();
         rowImage.color = DesignTokens.BadgeBg(DesignTokens.Warning);
 

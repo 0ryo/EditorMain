@@ -355,6 +355,7 @@ public class PlacedObject : MonoBehaviour
     }
 
     public string description;
+    public string editorGroupId;
     public bool hasDescriptionOverride;
 
     public string GetDescription() =>

@@ -14,6 +14,81 @@ public static class EditorProjectStore
         Path.Combine(Application.persistentDataPath, "Projects");
     public static string RecoveryPath =>
         Path.Combine(ProjectsDirectory, RecoveryDirectoryName, RecoveryFileName);
+    public static string TemplatesDirectory => Path.Combine(ProjectsDirectory, "Templates");
+    static string DeletedProjectsDirectory => Path.Combine(ProjectsDirectory, "Trash", "Projects");
+    static string DeletedTemplatesDirectory => Path.Combine(ProjectsDirectory, "Trash", "Templates");
+
+    public static string Duplicate(string sourcePath, bool asTemplate)
+    {
+        string source = RequireLibraryPath(sourcePath, false);
+        if (!TryLoad(source, out var project, out var error)) throw new InvalidOperationException(error);
+        string name = project.projectName + (asTemplate ? " テンプレート" : " コピー");
+        string directory = asTemplate ? TemplatesDirectory : ProjectsDirectory;
+        Directory.CreateDirectory(directory);
+        string pending = Path.Combine(directory, Guid.NewGuid().ToString("N") + ".pending");
+        try
+        {
+            // Use a temporary file so an interrupted write never appears as a saved lesson.
+            return MoveToAvailableName(pending, directory, name,
+                candidate => WriteProject(project, RemoveSuffix(Path.GetFileName(candidate)), pending, false));
+        }
+        finally
+        {
+            if (File.Exists(pending)) File.Delete(pending);
+            if (File.Exists(pending + ".tmp")) File.Delete(pending + ".tmp");
+            if (File.Exists(pending + ".bak")) File.Delete(pending + ".bak");
+        }
+    }
+
+    public static string Archive(string sourcePath)
+    {
+        string source = RequireLibraryPath(sourcePath, false);
+        bool template = SameDirectory(source, TemplatesDirectory);
+        return MoveToAvailableName(source, template ? DeletedTemplatesDirectory : DeletedProjectsDirectory,
+            RemoveSuffix(Path.GetFileName(source)));
+    }
+
+    public static string RestoreArchived(string sourcePath)
+    {
+        string source = RequireLibraryPath(sourcePath, true);
+        bool template = SameDirectory(source, DeletedTemplatesDirectory);
+        return MoveToAvailableName(source, template ? TemplatesDirectory : ProjectsDirectory,
+            RemoveSuffix(Path.GetFileName(source)));
+    }
+
+    static string RequireLibraryPath(string path, bool deleted)
+    {
+        string full = Path.GetFullPath(path);
+        bool allowed = deleted
+            ? SameDirectory(full, DeletedProjectsDirectory) || SameDirectory(full, DeletedTemplatesDirectory)
+            : SameDirectory(full, ProjectsDirectory) || SameDirectory(full, TemplatesDirectory);
+        if (!allowed || !full.EndsWith(FileSuffix, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("プロジェクト一覧のファイルを指定してください。");
+        if (!File.Exists(full)) throw new FileNotFoundException("プロジェクトファイルが見つかりません。", full);
+        return full;
+    }
+
+    static bool SameDirectory(string path, string directory) => string.Equals(
+        Path.GetDirectoryName(Path.GetFullPath(path)), Path.GetFullPath(directory), StringComparison.OrdinalIgnoreCase);
+
+    static string MoveToAvailableName(string source, string directory, string name, Action<string> prepare = null)
+    {
+        Directory.CreateDirectory(directory);
+        string safeName = ExportFileNameUtility.SanitizeProjectName(name, "VRCourseEditor");
+        for (int number = 1; number < 10000; number++)
+        {
+            string candidate = Path.Combine(directory, safeName + (number == 1 ? "" : " (" + number + ")") + FileSuffix);
+            if (File.Exists(candidate)) continue;
+            try { prepare?.Invoke(candidate); File.Move(source, candidate); return candidate; }
+            catch (IOException) when (File.Exists(candidate)) { }
+        }
+        throw new IOException("同名の教材が多すぎます。別の名前で保存してください。");
+    }
+
+    public static IReadOnlyList<EditorProjectFileInfo> ListTemplates() => ListDirectory(TemplatesDirectory);
+    public static IReadOnlyList<EditorProjectFileInfo> ListArchived() =>
+        ListDirectory(DeletedProjectsDirectory).Concat(ListDirectory(DeletedTemplatesDirectory))
+            .OrderByDescending(info => info.LastWriteTimeUtc).ToList();
 
     public static string Save(EditorProjectFile project, string projectName)
     {
@@ -31,6 +106,11 @@ public static class EditorProjectStore
 
         string path = Path.GetFullPath(existingPath);
         return WriteProject(project, project.projectName, path, true);
+    }
+
+    public static string SaveExisting(EditorProjectFile project, string existingPath)
+    {
+        return WriteProject(project, project.projectName, RequireLibraryPath(existingPath, false), false);
     }
 
     static string WriteProject(EditorProjectFile project, string projectName, string path, bool automatic)
@@ -147,12 +227,15 @@ public static class EditorProjectStore
     }
 
     public static IReadOnlyList<EditorProjectFileInfo> ListProjects()
+        => ListDirectory(ProjectsDirectory);
+
+    static IReadOnlyList<EditorProjectFileInfo> ListDirectory(string directory)
     {
         try
         {
-            if (!Directory.Exists(ProjectsDirectory)) return Array.Empty<EditorProjectFileInfo>();
+            if (!Directory.Exists(directory)) return Array.Empty<EditorProjectFileInfo>();
 
-            return Directory.GetFiles(ProjectsDirectory, "*" + FileSuffix, SearchOption.TopDirectoryOnly)
+            return Directory.GetFiles(directory, "*" + FileSuffix, SearchOption.TopDirectoryOnly)
                 .Select(path => new FileInfo(path))
                 .OrderByDescending(info => info.LastWriteTimeUtc)
                 .Select(CreateProjectFileInfo)

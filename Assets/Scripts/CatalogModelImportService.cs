@@ -86,6 +86,12 @@ public static class EditorModelImportService
             return false;
         }
 
+        if (new FileInfo(absolutePath).Length == 0 || new FileInfo(absolutePath).Length > RuntimeModelLoader.MaximumFileBytes)
+        {
+            errorMessage = "FBXは空でない256 MB以下のファイルを使用してください。";
+            return false;
+        }
+
         if (!TryToAssetPath(absolutePath, out assetPath))
         {
             string targetDirectory = EnsureImportedAssetFolder();

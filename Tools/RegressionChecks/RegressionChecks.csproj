@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+<PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><EnableDefaultCompileItems>true</EnableDefaultCompileItems><NoWarn>0649</NoWarn></PropertyGroup>
+<ItemGroup>
+<Compile Include="../../Assets/Scripts/Services/ModelAssetPath.cs" Link="Production/ModelAssetPath.cs" />
+<Compile Include="../../Assets/Scripts/Services/FbxTextureReferences.cs" Link="Production/FbxTextureReferences.cs" />
+<Compile Include="../../Assets/Scripts/Services/MaterialFileSearch.cs" Link="Production/MaterialFileSearch.cs" />
+<Compile Include="../../Assets/Scripts/Services/ImportedModelStore.cs" Link="Production/ImportedModelStore.cs" />
+<Compile Include="../../Assets/Scripts/Core/CurriculumModel.cs" Link="Production/CurriculumModel.cs" />
+<Compile Include="../../Assets/Scripts/Core/ConditionTypeCatalog.cs" Link="Production/ConditionTypeCatalog.cs" />
+<Compile Include="../../Assets/Scripts/Core/ScenarioExportModel.cs" Link="Production/ScenarioExportModel.cs" />
+<Compile Include="../../Assets/Scripts/Core/EditorProjectModel.cs" Link="Production/EditorProjectModel.cs" />
+<Compile Include="../../Assets/Scripts/Core/ModelPartState.cs" Link="Production/ModelPartState.cs" />
+<Compile Include="../../Assets/Scripts/PlacementExportModel.cs" Link="Production/PlacementExportModel.cs" />
+<Compile Include="../../Assets/Scripts/Services/ScenarioPlaybackSession.cs" Link="Production/ScenarioPlaybackSession.cs" />
+<Compile Include="../../Assets/Scripts/Services/ScenarioFlow.cs" Link="Production/ScenarioFlow.cs" />
+<Compile Include="../../Assets/Scripts/Services/EditorProjectStore.cs" Link="Production/EditorProjectStore.cs" />
+<Compile Include="../../Assets/Scripts/ExportFileWriter.cs" Link="Production/ExportFileWriter.cs" />
+<Compile Include="../../Assets/Scripts/ExportFileNameUtility.cs" Link="Production/ExportFileNameUtility.cs" />
+<Compile Include="../../Assets/Scripts/CommandStack.cs" Link="Production/CommandStack.cs" />
+<Compile Include="../../Assets/Editor/Automation/AuthoringFeatureChecks.cs" Link="AuthoringFeatureChecks.cs" />
+</ItemGroup></Project>

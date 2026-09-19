@@ -52,7 +52,7 @@ public static class EditInput
 #if ENABLE_LEGACY_INPUT_MANAGER
             return Input.mouseScrollDelta.y;
 #elif ENABLE_INPUT_SYSTEM
-            if (Mouse.current != null) return Mouse.current.scroll.ReadValue().y;
+            if (Mouse.current != null) return Mouse.current.scroll.ReadValue().y / 120f;
             return 0f;
 #else
             return 0f;

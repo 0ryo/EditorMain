@@ -1,6 +1,6 @@
 # 視点に追従するビューポート照明の調査と導入設計
 
-調査日：2026-09-10。対象：Unity 6000.2.6f2／URP 17.2.0、EditorMainの編集用3Dビューポート。実装前の設計であり、描画結果と性能は未検証。
+調査日：2026-09-10。対象：Unity 6000.2.6f2／URP 17.2.0、EditorMainの編集用3Dビューポート。初期案のコード実装は`ViewportLightingController`と`ApplyViewportImprovements`に反映済み。描画結果と性能は未検証。
 
 ## 1. Blenderで起きていること
 
@@ -17,6 +17,10 @@ BlenderのSolid表示はWorkbenchによる編集向けの簡略化した描画�
 
 WorkbenchのShadowには独立した方向設定があり、Cavityは稜線と谷を強調する。Studio追従とすべての投影影の追従を同じ仕組みと断定しない。[Blender Options](https://docs.blender.org/manual/en/latest/render/workbench/options.html)。MatCapの概要は[Blender Lighting](https://docs.blender.org/manual/en/3.6/render/workbench/lighting.html)を参照。
 
+## 金属材質の反射環境
+
+拡散環境光（Trilight）だけでは完全な金属の鏡面反射は補えない。skybox/custom reflectionのないSceneには、編集開始時に64pxのHDRスタジオcubemapを生成して設定する。粗さ用mipはGGXで事前filterし、描画中の再撮影は行わない。既存のskybox/custom reflectionは尊重し、編集照明の終了時に元設定へ戻す。BlenderのHDRIそのものではないため同一の映り込みは保証しない。鏡面金属の黒つぶれ改善、粗さによる反射幅、終了時の設定復元はUnity上で確認する。
+
 ## 2. 現行プロジェクトで確認した事実
 
 | 調査先 | 確認内容と意味 |
@@ -27,7 +31,7 @@ WorkbenchのShadowには独立した方向設定があり、Cavityは稜線と�
 | `Assets/EditorMain.unity`、`Assets/Scenes/SampleScene.unity` | CameraのRenderer indexは-1、つまり既定参照。静的設定では編集Cameraも2D Rendererを使用する構成 |
 | `Assets/New Universal Render Pipeline Asset_Renderer.asset` | UniversalRendererDataが別に存在し、Renderer Featuresは空。この存在だけで使用中とは判断できない |
 | `Assets/Settings/UniversalRP.asset` | 主光の影は許可、Soft Shadowsは無効。これはasset側の許可であり、実際に影が描かれることの保証ではない |
-| `WorkspaceFloorGrid.cs` | `Floor_Surface`として色付きQuadを生成。線と軸は別生成。下面の視界問題は照明だけでは解決しない |
+| `WorkspaceFloorGrid.cs` | 色付き面は除去し、線と軸のみ生成。旧SceneのFloor Rendererも実行時に無効化 |
 | `MoveTool`等 | ギズモは専用の非照明材質を使用。照明改善から分離して見た目を維持する必要がある |
 
 「3D物体が平坦に見える原因がライトだけ」という前提では進めない。実行時のCamera Renderer、各materialのshader、法線、ambient、Lightを確認する。特に2D Rendererから3D向けUniversal Rendererへの切替を先に検証する。実行時の上書きと取込素材ごとのshaderは未確認なので、ここでは唯一の原因とは断定しない。
@@ -36,7 +40,7 @@ WorkbenchのShadowには独立した方向設定があり、Cavityは稜線と�
 
 既存URPのUniversal Rendererと、編集Cameraの向きに追従する主Directional Light＋弱い補助光を使う。モデルの色・テクスチャを保持しつつ、斜めからの明暗で面を区別する。真っ正面からの光だけでは正面の面が一様になりやすいので避ける。
 
-提案する責務は `ViewportLightingController`（新設予定）。編集Cameraの解決は既存`EditWorkspace`の入口を利用し、Cameraの回転更新後に追従させる。概念式は `light.rotation = camera.rotation * studioLocalRotation`。Directional Lightのforwardは光線の進行方向なので、実装時に立方体で左右・上下の符号を確認する。カメラ移動と照明更新の実行順を指定し、1フレーム遅れを防ぐ。
+提案する責務は `ViewportLightingController`。編集Cameraの解決は既存`EditWorkspace`の入口を利用し、Cameraの回転更新後に追従させる。概念式は `light.rotation = camera.rotation * studioLocalRotation`。Directional Lightのforwardは光線の進行方向なので、実装時に立方体で左右・上下の符号を確認する。カメラ移動と照明更新の実行順を指定し、1フレーム遅れを防ぐ。
 
 初期試作では主光を視点の斜め上30〜45度程度、補助光を主光の15〜30%程度の強さから調整する。数値は本システム向けの提案でありBlender既定値ではない。補助光の影は無効、主光の影は段階的に有効化する。真下から見ても裏側全体が黒つぶれしないよう、低い環境光も比較する。
 

@@ -42,6 +42,8 @@ public sealed class ScenarioConditionEvaluator
 
     public void Begin(ConditionExport condition, IScenarioObjectStateSource source)
     {
+        heldSeconds = 0;
+        wasGrabbed = Succeeded = false;
         interactionStarted = condition != null &&
             (condition.type == ConditionTypeCatalog.Push || condition.type == ConditionTypeCatalog.Pull || condition.type == ConditionTypeCatalog.Turn) &&
             source is IScenarioInteractionStateSource operations && source.TryGetState(condition.aObjectId, out _) &&

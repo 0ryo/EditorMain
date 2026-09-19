@@ -41,7 +41,7 @@ public class UiPanelDockSync : MonoBehaviour
         if (catalogPanel == null || scenarioPanel == null) return;
         ApplyDefaultLayoutValues();
 
-        float left = catalogPanel.offsetMax.x + gap;
+        float left = catalogPanel.gameObject.activeSelf ? catalogPanel.offsetMax.x + gap : 0f;
         if (!Mathf.Approximately(scenarioPanel.offsetMin.x, left))
         {
             scenarioPanel.offsetMin = new Vector2(left, scenarioPanel.offsetMin.y);

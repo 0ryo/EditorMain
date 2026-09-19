@@ -39,35 +39,47 @@ persistentDataPath/Projects/*.skillsync.json
 - `PlacementController`: registry map、配置モード、配置座標、生成、配置イベントを担当。
 - `PlacedObject`: 配置instanceの識別情報と表示メタデータ。
 - `ImportedModelParts`: 追加モデルの配置時に静的Meshノードとその祖先を既存Transform上の`PlacedObject`として登録する。部品の`modelRoot`は構成上の配置ルート、`partNodePath`は名前検証付きの元ノード位置、条件参照は永続化した個別ID。保存・出力はルートだけを生成対象とし、`parts`にlocal Transform・個別ID・表示/固定・削除状態を保存して子を再利用する。部品の単体複製は`sourceNodePath`で元Prefabの部分木を特定する。モデル構造の変更は署名とノード照合で読込前に拒否する。
-- `SelectionService`: Raycastと一覧での複数選択、整列、削除、複製、Outline同期。`SelectionTransformSession`が集合のTransformを一つのUndoへ記録し、`SelectionHighlightSet`が基準以外の対象を表示する。Colliderがない配置物は配置・復元・読込の生成境界で `PlacedObjectPickability` がBoxColliderを補完し、選択中の全配置走査は行わない。
+- `SelectionService`: Raycast、空白からの矩形選択、Ctrl/Cmd+A、一覧での複数選択、整列、削除、複製、Outline同期。集合更新は`SelectMany`へ集約し、親子の重複選択を除外する。矩形は表示中Rendererの投影boundsが枠と重なる対象を選び、親子が同時に候補となる場合は子を優先する。途中キャンセルでは元の選択を維持する。枠は一時的なuGUI表示で保存しない。`SelectionTransformSession`が集合のTransformを一つのUndoへ記録し、`SelectionHighlightSet`が基準以外の対象を表示する。Colliderがない配置物は配置・復元・読込の生成境界で `PlacedObjectPickability` がBoxColliderを補完し、選択中の全配置走査は行わない。
 - `ViewportOutliner` / `PlacedObjectEditState`: `Panel_Catalog` の `配置` / `一覧` タブを切り替え、配置instanceの検索・選択、Rendererを使った表示切替、Colliderを使った編集固定を管理する。
 - `MoveTool` / `SelectionOutline` / `RotateTool`: Transform/Scaleの入力と視覚的handle。
 - `ObjectTransformPanel` / `TransformToolSettings`: 詳細パネルの数値Transform入力とworld/local座標系、pivot/center基準を共有し、ギズモ操作にも反映する。
-- `EditCameraController`: 中/右ドラッグorbit、Shift+中/右ドラッグpan、wheel zoom、選択focus、定型view、投影切替、resetを担当する。設定button下のcamera iconから開閉する`ViewportCameraToolbar`とshortcutから操作し、入力は`EditInput`経由で読む。`ViewportCameraToolbar`は3D viewport上部buttonの共通hover guideも提供する。
+- `EditCameraController`: 初期・resetは透視投影。透視zoomは距離に比例する指数倍率で、旧serialized感度をAwakeで移行する。wheelは段階的に即時反映し、半段未満の入力は蓄積せず破棄する。中/右ドラッグorbit、Shift+中/右ドラッグpan、wheel zoom、選択focus、定型view、投影切替、resetを担当する。設定button下のcamera iconから開閉する`ViewportCameraToolbar`とshortcutから操作し、入力は`EditInput`経由で読む。`ViewportCameraToolbar`は3D viewport上部buttonの共通hover guideも提供する。
 - `CommandService` / `CommandStack` / command classes: 編集操作のDo/Undo/Redo。
+- `SelectionGroups`はTransform階層を変更しない平坦な選択グループ。`editorGroupId`を配置ルートと部品状態に保存し、複製・貼付けではグループIDも再発行する。Ctrl/Cmd+Gでグループ化、Shift併用で解除する。
+- `SelectionClipboard`はPlay中の配置物コピーをデータのsnapshotとして保持し、隠し配置instanceを作らない。`PasteSelectionCommand`は元Prefabと部品pathを検証して全件を非表示のstaging下で復元し、成功後に公開する。貼り付けごとに新IDを割り当て、Undo/Redoは同じinstanceとIDを保持する。子部品の単体コピーは元モデル内のpathを引き継ぎ、Scenario条件参照は複製しない。
+
+### 編集ビューポートの表示
+
+- `WorkspaceFloorGrid`は線と軸だけを生成し、既存Sceneのルート`Floor`のRendererを表示中だけ無効化する。配置は従来どおり数学的y=0面を使う。
+- `ViewportLightingController`は編集カメラの向きに主光・補助光を追従させ、既存の環境光・Directional Lightを一時的に置き換える。skybox・custom reflectionがないsceneでは`ViewportReflectionEnvironment`の64px HDR cubemap（GGXで事前filterしたmip）を一度生成し、反射光を補う。Trilight ambientだけではMetallic=1を照らせない。無効化時に照明とreflection設定を復元し、材質・教材データは変更しない。
+- `ApplyViewportImprovements`は使用中の各URP assetへ`SkillSyncViewportRenderer`を冪等に追加する。既存Renderer index／既定Rendererは維持し、runtimeは名前で専用Rendererを見つけて編集カメラだけに指定する。新しい品質設定を追加した場合も再適用する。
+- ギズモの描画幅はカメラ深度と画面高さから算出し、選択用の幅は独立して確保する。床・照明・ギズモは保存・出力対象にしない。
 
 ### シナリオ
 
 - `Core/CurriculumModel.cs`: 編集モデル。Start/End/Step/ConditionとStepFlow/ConditionBind、Step詳細、拡張可能なCondition parameterを明示するschema version 5。Condition種別定義と既定parameterは`ConditionTypeCatalog`へ集約する。
 - `CurriculumGraphService`: node/edge操作、接続制約、欠損参照を保持した検証、分岐・合流を含むStep経路の検証と表示順生成、export model変換。UI非依存の中心サービス。
 - `ScenarioGraphUI`: nodeの配置・接続操作、status表示、保存処理を統括する。4種のnode生成と再構築時の破棄は`ScenarioNodeViewFactory`、旧Prefabの不足template補完は`ScenarioNodeTemplateFactory`へ委譲し、位置・展開状態と編集操作のcallbackはUI側で保持する。検証結果を各nodeの文字badgeと枠へ常時反映し、`ScenarioValidationPanel`の前後navigationから問題nodeへfocusする。検証済みgraphは`ScenarioPreviewPanel`で成功を模擬し、接続に沿って進路を選んで確認できる。
+- `ScenarioGraphSelection`はgraph UIの複数選択・集合移動・端揃えを扱い、`CurriculumGraphClipboard`はservice経由で選択ノードと内部接続をsnapshot複製する。Stepの埋込条件も含め、新node IDを発行する。
 - `ScenarioGraphViewport`: GraphContentと操作buttonの補完、minimapの生成・更新を担当する。node参照はUI側の`ScenarioNodeViewBinding`を共有し、nodeの配置位置やUndoは所有しない。マウス入力とpan/zoomの制限は`NodeAreaPanZoomController`が担当する。
 - `StepNodeUI` / `ConditionNodeUI` / `ConditionRowUI` / `TerminalNodeUI`: node単位の表示と編集。Step/Conditionの再同期はgraph/command/placement eventで行い、定期pollingしない。
-- `ObjectDetailPanel`: 選択中 `PlacedObject` の名前/説明と、詳細パネルの開閉を担当する。参照しているCondition nodeの探索、差分判定、互換UI生成、編集後のgraph再同期は`ObjectConditionReferencePresenter`へ委譲する。
+- `ObjectDetailPanel`: 選択中 `PlacedObject` の名前/説明と、詳細パネルの開閉を担当する。参照しているCondition nodeの探索はGraphChangedでdirty化して表示時に再描画する。差分判定、互換UI生成、編集後のgraph再同期は`ObjectConditionReferencePresenter`へ委譲する。
 - `Core/ScenarioExportModel.cs`: JSON出力用のversion 6モデル。編集用graphをそのまま保存せず、Step詳細、Condition parameter、接続先IDを含む `requiredActions` へ変換する。実行順は配列順ではなく接続先IDが正本。配置ルート内の`parts`で部品IDと編集状態を渡す。
 - `Core/EditorProjectModel.cs` / `EditorProjectService`: 配置Transform・表示情報・lock/hidden状態と`Curriculum`を一体で保存する。読込時は配置IDの欠損・重複を一意IDへ修復し、typeId解決を検証してから現在内容を完全置換する。編集eventと選択中objectの差分からdirtyを判定し、保存済みprojectは元fileへ、未保存projectは復旧dataへautosaveする。
 - `EditorProjectStore`: `persistentDataPath/Projects` の `.skillsync.json` をtemp file + backupで保存し、schema migration、保存済み一覧、`Projects/Recovery`の復旧dataを提供する。
+- 教材ライブラリは`Projects/Templates`へ保存済み教材を複製してテンプレート化し、使用時は`Projects`へ別コピーを作る。削除は`Projects/Trash/Projects`または`Trash/Templates`への移動で、復元時は元の分類へ戻す。同名は番号で回避する。現在開いている教材は削除せず、同じ教材名での手動保存はファイル名を再生成せず現在の保存先を使う。教材間の素材ライブラリは共用する。
 
 ### Import / Export
 
-- `RuntimeModelLoader`: glTFastによる `.glb/.gltf` 読込。Windows Playerだけnative file dialogを持つ。
+- `SelectedMaterialDiagnostics`は選択部分木の欠損slot・shader・素材参照をmain threadで採取し、`MaterialFileSearch`が指定フォルダー配下をworkerで検索する。`FbxTextureReferences`はbinary FBXのMaterial/Texture/Video/Connectionsと材質Properties70・既定templateを読み、元画像参照と材質定数を復元する。Blender Creatorの場合だけReflectionFactorをMetallic、sqrt(Shininess)/10をSmoothnessへ変換する。`FbxMaterialRepair`はEditorで画像をAssetsへ複製し、URP材質とModelImporterの外部material remapを保存する。選択部品のmodelRoot全体と同一typeIdの配置済みモデルにも反映する。再import前後はmeshのlocal file IDで参照を再解決し、readableなmeshでColliderを再構築する（編集固定状態は維持）。元の画像参照が無い材質は推測で割り当てない。同名候補が複数なら未復元として報告する。`MaterialSearchPanel`は復元ボタンのみを表示し、毎回フォルダー選択を必須にする。完了・失敗はroot Canvasの`TopCenterNotification`で一時表示する。モデル参照は選択meshのassetを優先し、`ModelAssetPath`で絶対パスをAssets相対・forward slashへ変換してからImporterを取得する。追加モデルの`originalSourcePath`はローカル検索の手がかりとしてlibrary manifestにだけ保存し、教材exportへ含めない。
+- `RuntimeModelLoader`: glTFastによる `.glb/.gltf` 読込。取込は取消tokenと段階表示を持ち、参照素材込み256 MB・JSON 16 MB上限を読込前に検証する。失敗時は途中生成物とglTF資源を解放し、成功時はカタログ原型が資源を所有する。Windows Playerだけnative file dialogを持つ。
 - `CatalogUI` のEditor限定経路: `.fbx` を `Assets/ImportedFbx/` へコピー/Importし、Prefabとして登録。
 - `PlacementExportService`: Scene上の `PlacedObject` を `persistentDataPath/Exports` のplacement JSONへ出力。
 - `ScenarioGraphUI.SaveScenarioExport()`: Graph検証後、`persistentDataPath/Exports` へcurriculum JSONをtemp file + replace/moveで出力。
 
 ### UI生成・適用
 
-- `DesignTokens`: 色、文字、間隔、解像度、Panel制約の実装値。`UiScaleController`が基準解像度へ表示倍率を適用する。
+- `DesignTokens`: 色、文字、間隔、解像度、Panel制約の実装値。`UiScaleController`が基準解像度へ表示倍率を適用し、本文の実効縮小は1倍で下限を設ける。`UiWorkspacePanels`が一覧/詳細/手順の折畳みとF9/F8/F10を提供し、1366px未満では未操作の一覧を畳む。
 - `DesignTokenApplier` / `UiRoundedTheme`: 既存Hierarchyへの見た目補正。
 - `BuildUiPrefabs.Build()`: codeから `UIRoot.prefab` 全体を生成して保存。
 - `ApplyUiPrefab.Apply()`: enabled build scenesと `EditorMain.unity` を開き、UIRoot追加、Catalog参照、Panel端を更新して保存。

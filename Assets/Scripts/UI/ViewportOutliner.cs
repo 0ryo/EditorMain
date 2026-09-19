@@ -26,8 +26,13 @@ public sealed class ViewportOutliner : MonoBehaviour
     PlacementController placementController;
     CommandStack commandStack;
     PlacedObject activeObject;
+    PlacedObject rangeAnchor;
+    readonly System.Collections.Generic.List<PlacedObject> visibleObjects = new();
+    readonly System.Collections.Generic.HashSet<PlacedObject> collapsedGroups = new();
     bool displayNameBound;
     bool showingOutliner;
+    bool alignmentExpanded;
+    Button alignmentToggle;
     int lastObjectSignature;
     float nextSignatureCheck;
 
@@ -304,6 +309,8 @@ public sealed class ViewportOutliner : MonoBehaviour
     void RebuildList()
     {
         if (listRoot == null) return;
+        var listLayout = listRoot.GetComponent<VerticalLayoutGroup>();
+        if (listLayout != null) listLayout.spacing = 0f;
 
         for (int i = listRoot.childCount - 1; i >= 0; i--)
         {
@@ -321,10 +328,16 @@ public sealed class ViewportOutliner : MonoBehaviour
         }
 
         string query = searchInput != null ? searchInput.text?.Trim() : string.Empty;
+        bool searching = !string.IsNullOrWhiteSpace(query);
+        collapsedGroups.RemoveWhere(item => item == null);
         int matchCount = 0;
+        visibleObjects.Clear();
         foreach (var placed in placedObjects)
         {
             if (!ViewportOutlinerData.MatchesSearch(placed, query)) continue;
+            // Searching temporarily reveals matching children without losing the fold state.
+            if (!searching && HasCollapsedAncestor(placed)) continue;
+            visibleObjects.Add(placed);
             CreateObjectRow(placed);
             matchCount++;
         }
@@ -349,15 +362,37 @@ public sealed class ViewportOutliner : MonoBehaviour
         RefreshActionButtons();
     }
 
+    bool HasCollapsedAncestor(PlacedObject placed)
+    {
+        for (var parent = placed.transform.parent; parent != null; parent = parent.parent)
+        {
+            var group = parent.GetComponent<PlacedObject>();
+            if (group != null && collapsedGroups.Contains(group)) return true;
+        }
+        return false;
+    }
+
+    void ToggleGroup(PlacedObject group)
+    {
+        if (group == null) return;
+        if (!collapsedGroups.Add(group)) collapsedGroups.Remove(group);
+        RebuildList();
+    }
+
     void CreateObjectRow(PlacedObject placed)
     {
+        int depth = ImportedModelParts.Depth(placed);
+        int indent = Mathf.Min(depth, 6) * 16;
+        int descendantCount = placed.GetComponentsInChildren<PlacedObject>(false).Length - 1;
+        bool isGroup = descendantCount > 0;
         var row = CreateRect("Row_" + ViewportOutlinerData.SafeName(placed.Id), listRoot);
         var rowImage = row.gameObject.AddComponent<Image>();
         bool selected = selectionService != null && selectionService.Contains(placed);
-        rowImage.color = selected ? DesignTokens.BadgeBg(DesignTokens.Accent) : DesignTokens.Surface;
+        rowImage.color = selected ? DesignTokens.BadgeBg(DesignTokens.Accent) :
+            (visibleObjects.Count % 2 == 0 ? DesignTokens.BgSecondary : DesignTokens.Surface);
 
         var layout = row.gameObject.AddComponent<HorizontalLayoutGroup>();
-        layout.padding = new RectOffset(4, 4, 4, 4);
+        layout.padding = new RectOffset(8 + indent, 8, 0, 0);
         layout.spacing = 4f;
         layout.childAlignment = TextAnchor.MiddleCenter;
         layout.childControlWidth = true;
@@ -366,23 +401,76 @@ public sealed class ViewportOutliner : MonoBehaviour
         layout.childForceExpandHeight = true;
 
         var rowElement = row.gameObject.AddComponent<LayoutElement>();
-        rowElement.minHeight = 44f;
-        rowElement.preferredHeight = 44f;
+        rowElement.minHeight = rowElement.preferredHeight = 28f;
 
         var editState = placed.GetComponent<PlacedObjectEditState>();
         if (editState == null) editState = placed.gameObject.AddComponent<PlacedObjectEditState>();
 
-        string prefix = new string(' ', ImportedModelParts.Depth(placed) * 2) +
-            (placed.modelRoot != null ? "└ " : "") +
-            (editState.Hidden ? "○  " : editState.Locked ? "◆  " : "●  ");
+        string prefix = editState.Hidden ? "非表示 · " : editState.Locked ? "固定 · " : "";
         string displayName = placed.GetDisplayName();
         if (string.IsNullOrWhiteSpace(displayName)) displayName = placed.Id;
         if (string.IsNullOrWhiteSpace(displayName)) displayName = placed.name;
 
+        if (isGroup)
+        {
+            bool searching = searchInput != null && !string.IsNullOrWhiteSpace(searchInput.text);
+            var fold = CreateListButton(row, "Button_ToggleChildren",
+                !searching && collapsedGroups.Contains(placed) ? "▸" : "▾", 24f, false);
+            fold.interactable = !searching;
+            fold.onClick.AddListener(() => ToggleGroup(placed));
+            ConfigureTreeButton(fold, rowImage.color);
+        }
+        else
+        {
+            var spacer = CreateRect("FoldSpacer", row).gameObject.AddComponent<LayoutElement>();
+            spacer.minWidth = spacer.preferredWidth = 24f;
+        }
+        var icon = CreateText("Text_ObjectKind", row, isGroup ? "◇" : "□",
+            DesignTokens.FontSizeCaption, DesignTokens.TextSecondary);
+        icon.alignment = TextAlignmentOptions.Center;
+        var iconLayout = icon.gameObject.AddComponent<LayoutElement>();
+        iconLayout.minWidth = iconLayout.preferredWidth = 16f;
         var selectButton = CreateListButton(row, "Button_Select", prefix + displayName, 0f, true);
+        ConfigureTreeButton(selectButton, rowImage.color);
+        var label = selectButton.GetComponentInChildren<TMP_Text>(true);
+        label.richText = false;
+        label.fontWeight = isGroup ? FontWeight.SemiBold : FontWeight.Regular;
+        label.enableWordWrapping = false;
+        if (depth > 0)
+        {
+            // Fixed-pixel tree rails remain aligned regardless of the font's space width.
+            for (int level = 0; level < Mathf.Min(depth, 6); level++)
+                CreateTreeLine(row, 12f + level * 16f, 0f, 1f, 1f);
+            var branch = CreateRect("TreeBranch", row);
+            branch.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
+            SetRect(branch, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f),
+                new Vector2(indent - 4f, 0f), new Vector2(indent + 4f, 1f));
+            var branchImage = branch.gameObject.AddComponent<Image>();
+            branchImage.color = DesignTokens.Divider;
+            branchImage.raycastTarget = false;
+        }
         selectButton.onClick.AddListener(() => ActivatePlacedObject(placed, editState));
 
-        UiRoundedTheme.ApplyToHierarchy(row, DesignTokens.CornerRadius);
+        // Contiguous tree rows have square corners and no card border.
+    }
+
+    static void ConfigureTreeButton(Button button, Color background)
+    {
+        button.GetComponent<Image>().color = background;
+        var element = button.GetComponent<LayoutElement>();
+        element.minHeight = element.preferredHeight = 28f;
+        var label = button.GetComponentInChildren<TMP_Text>(true);
+        SetRect(label.rectTransform, Vector2.zero, Vector2.one, new Vector2(4f, 0f), new Vector2(-4f, 0f));
+    }
+    static void CreateTreeLine(RectTransform row, float x, float bottom, float top, float width)
+    {
+        var line = CreateRect("TreeRail", row);
+        line.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
+        SetRect(line, new Vector2(0f, bottom), new Vector2(0f, top),
+            new Vector2(x, 0f), new Vector2(x + width, 0f));
+        var image = line.gameObject.AddComponent<Image>();
+        image.color = DesignTokens.Divider;
+        image.raycastTarget = false;
     }
 
     void ActivatePlacedObject(PlacedObject placed, PlacedObjectEditState editState)
@@ -391,7 +479,21 @@ public sealed class ViewportOutliner : MonoBehaviour
 
         if (SelectionService.CanEdit(placed))
         {
-            selectionService?.Select(placed, SelectionService.AdditiveSelection);
+            int anchorIndex = visibleObjects.IndexOf(rangeAnchor);
+            int targetIndex = visibleObjects.IndexOf(placed);
+            if (EditInput.ShiftPressed() && anchorIndex >= 0 && targetIndex >= 0 && selectionService != null)
+            {
+                int first = Mathf.Min(anchorIndex, targetIndex);
+                int count = Mathf.Abs(anchorIndex - targetIndex) + 1;
+                bool additive = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl) ||
+                    Input.GetKey(KeyCode.LeftCommand) || Input.GetKey(KeyCode.RightCommand);
+                selectionService.SelectMany(visibleObjects.GetRange(first, count), additive);
+            }
+            else
+            {
+                selectionService?.Select(placed, SelectionService.AdditiveSelection);
+                rangeAnchor = placed;
+            }
             activeObject = selectionService != null ? selectionService.Current : placed;
         }
         else
@@ -498,10 +600,23 @@ public sealed class ViewportOutliner : MonoBehaviour
 
     public void EnsureSelectionControls()
     {
-        var hint = transform.Find("Text_SelectionHelp")?.GetComponent<TMP_Text>();
-        if (hint == null) hint = CreateText("Text_SelectionHelp", transform,
-            "Shift/Ctrl+クリックで複数選択・解除\n整列は最後の選択の原点が基準", DesignTokens.FontSizeCaption, DesignTokens.TextSecondary);
-        SetRect(hint.rectTransform, new Vector2(0f, 1f), Vector2.one, new Vector2(4f, -182f), new Vector2(-4f, -134f));
+        var hint = transform.Find("Text_SelectionHelp");
+        if (hint != null)
+        {
+            hint.gameObject.SetActive(false);
+            if (Application.isPlaying) Destroy(hint.gameObject);
+            else DestroyImmediate(hint.gameObject);
+        }
+        alignmentToggle = transform.Find("Button_AlignmentToggle")?.GetComponent<Button>();
+        if (alignmentToggle == null)
+            alignmentToggle = CreateButton("Button_AlignmentToggle", transform, "> 整列メニュー", DesignTokens.BgSecondary);
+        SetRect(alignmentToggle.transform as RectTransform, new Vector2(0f, 1f), Vector2.one,
+            new Vector2(0f, -178f), new Vector2(0f, -138f));
+        var toggleLabel = alignmentToggle.GetComponentInChildren<TMP_Text>(true);
+        toggleLabel.alignment = TextAlignmentOptions.MidlineLeft;
+        SetRect(toggleLabel.rectTransform, Vector2.zero, Vector2.one, new Vector2(16f, 4f), new Vector2(-16f, -4f));
+        alignmentToggle.onClick.RemoveListener(ToggleAlignment);
+        alignmentToggle.onClick.AddListener(ToggleAlignment);
         for (int mode = 0; mode < 2; mode++)
         {
             string name = mode == 0 ? "Actions_Align" : "Actions_Distribute";
@@ -514,7 +629,7 @@ public sealed class ViewportOutliner : MonoBehaviour
                 layout.childControlWidth = layout.childControlHeight = true;
                 layout.childForceExpandWidth = layout.childForceExpandHeight = true;
             }
-            SetRect(row, new Vector2(0f, 1f), Vector2.one, new Vector2(0f, -228f - mode * 44f), new Vector2(0f, -188f - mode * 44f));
+            SetRect(row, new Vector2(0f, 1f), Vector2.one, new Vector2(0f, -226f - mode * 48f), new Vector2(0f, -186f - mode * 48f));
             for (int axis = 0; axis < 3; axis++)
             {
                 string buttonName = "Button_" + axis;
@@ -527,8 +642,26 @@ public sealed class ViewportOutliner : MonoBehaviour
                 button.onClick.AddListener(() => selectionService?.Align(selectedAxis, distribute));
             }
         }
+        ApplyAlignmentLayout();
+        UiRoundedTheme.ApplyToHierarchy(alignmentToggle.transform, DesignTokens.CornerRadius);
+    }
+
+    void ToggleAlignment()
+    {
+        alignmentExpanded = !alignmentExpanded;
+        ApplyAlignmentLayout();
+    }
+
+    void ApplyAlignmentLayout()
+    {
+        SetButtonLabel(alignmentToggle, alignmentExpanded ? "v 整列メニュー" : "> 整列メニュー");
+        var align = transform.Find("Actions_Align");
+        var distribute = transform.Find("Actions_Distribute");
+        if (align != null) align.gameObject.SetActive(alignmentExpanded);
+        if (distribute != null) distribute.gameObject.SetActive(alignmentExpanded);
         var scroll = transform.Find("Scroll_Outliner") as RectTransform;
-        if (scroll != null) SetRect(scroll, Vector2.zero, Vector2.one, Vector2.zero, new Vector2(0f, -282f));
+        if (scroll != null) SetRect(scroll, Vector2.zero, Vector2.one, Vector2.zero,
+            new Vector2(0f, alignmentExpanded ? -282f : -186f));
     }
 
     public static void PreparePrefab(Transform uiRoot)
@@ -663,7 +796,7 @@ public sealed class ViewportOutliner : MonoBehaviour
         content.offsetMax = Vector2.zero;
 
         var layout = content.gameObject.AddComponent<VerticalLayoutGroup>();
-        layout.spacing = 4f;
+        layout.spacing = 0f;
         layout.childControlWidth = true;
         layout.childControlHeight = true;
         layout.childForceExpandWidth = true;

@@ -25,6 +25,7 @@ public sealed class EditorProjectObject
     public string typeId;
     public string displayName;
     public string description;
+    public string editorGroupId;
     public bool hasDescriptionOverride;
     public Vector3 position;
     public Quaternion rotation = Quaternion.identity;

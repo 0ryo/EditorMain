@@ -174,6 +174,7 @@ public class ViewportStatusStrip : MonoBehaviour
             {
                 selectedObject = selectionService.Current;
                 selectionService.OnSelectionChanged += OnSelectionChanged;
+                selectionService.OperationMessage += OnOperationMessage;
             }
         }
 
@@ -194,6 +195,8 @@ public class ViewportStatusStrip : MonoBehaviour
         BindPlacement();
         if (selectionService != null) selectionService.OnSelectionChanged -= OnSelectionChanged;
         if (selectionService != null) selectionService.OnSelectionChanged += OnSelectionChanged;
+        if (selectionService != null) selectionService.OperationMessage -= OnOperationMessage;
+        if (selectionService != null) selectionService.OperationMessage += OnOperationMessage;
         if (editModeService != null) editModeService.ModeChanged -= OnModeChanged;
         if (editModeService != null) editModeService.ModeChanged += OnModeChanged;
     }
@@ -226,6 +229,7 @@ public class ViewportStatusStrip : MonoBehaviour
     {
         if (selectionService == null) return;
         selectionService.OnSelectionChanged -= OnSelectionChanged;
+        selectionService.OperationMessage -= OnOperationMessage;
     }
 
     void UnbindEditMode()
@@ -256,6 +260,13 @@ public class ViewportStatusStrip : MonoBehaviour
     {
         selectedObject = placed;
         RefreshStatus();
+    }
+
+    void OnOperationMessage(string message)
+    {
+        toastMessage = message;
+        toastUntil = Time.unscaledTime + ToastDuration;
+        RefreshToast();
     }
 
     void OnModeChanged(EditMode _)

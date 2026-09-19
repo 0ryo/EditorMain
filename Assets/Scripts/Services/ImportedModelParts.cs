@@ -3,23 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 
-[Serializable]
-public sealed class ModelPartState
-{
-    public string nodePath;
-    public string sourceSignature;
-    public string id;
-    public string displayName;
-    public string description;
-    public bool hasDescriptionOverride;
-    public Vector3 localPosition;
-    public Quaternion localRotation = Quaternion.identity;
-    public Vector3 localScale = Vector3.one;
-    public bool active = true;
-    public bool hidden;
-    public bool locked;
-}
-
 // One source model is instantiated per placement. Child records bind existing nodes,
 // never instantiate another copy of the parent Prefab. Paths are checked locators,
 // while the independently persisted object IDs remain the condition references.
@@ -60,15 +43,19 @@ public static class ImportedModelParts
             if (!part.GetComponent<PlacedObjectEditState>()) part.gameObject.AddComponent<PlacedObjectEditState>();
     }
 
-    public static void EnsurePicking(PlacedObject root)
+    public static void EnsurePicking(PlacedObject root, bool refreshMesh = false)
     {
         foreach (var filter in root.GetComponentsInChildren<MeshFilter>(true))
         {
             var owner = filter.GetComponent<PlacedObject>();
             if (!owner || !filter.sharedMesh || !filter.GetComponent<MeshRenderer>()) continue;
-            if (filter.GetComponent<Collider>() == null)
+            var collider = filter.GetComponent<MeshCollider>();
+            if (collider == null && filter.GetComponent<Collider>() == null)
+                collider = filter.gameObject.AddComponent<MeshCollider>();
+            if (collider != null && (refreshMesh || collider.sharedMesh != filter.sharedMesh))
             {
-                var collider = filter.gameObject.AddComponent<MeshCollider>();
+                // Keep enabled/trigger state: locked and hidden parts must remain unpickable.
+                collider.sharedMesh = null;
                 collider.sharedMesh = filter.sharedMesh;
             }
         }
@@ -83,7 +70,7 @@ public static class ImportedModelParts
                 var state = p.GetComponent<PlacedObjectEditState>();
                 return new ModelPartState
                 {
-                    nodePath = p.partNodePath, sourceSignature = p.sourceSignature, id = p.id, displayName = p.displayName,
+                    editorGroupId = p.editorGroupId, nodePath = p.partNodePath, sourceSignature = p.sourceSignature, id = p.id, displayName = p.displayName,
                     description = p.description, hasDescriptionOverride = p.hasDescriptionOverride,
                     localPosition = p.transform.localPosition, localRotation = p.transform.localRotation,
                     localScale = p.transform.localScale, active = p.gameObject.activeSelf,
@@ -114,6 +101,7 @@ public static class ImportedModelParts
             part.sourceSignature = data.sourceSignature;
             part.id = data.id;
             part.typeId = root.typeId;
+            part.editorGroupId = data.editorGroupId;
             part.displayName = data.displayName;
             part.description = data.description;
             part.hasDescriptionOverride = data.hasDescriptionOverride;

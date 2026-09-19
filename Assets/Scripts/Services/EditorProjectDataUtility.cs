@@ -35,6 +35,7 @@ public static class EditorProjectSnapshotBuilder
             var editState = placed.GetComponent<PlacedObjectEditState>();
             project.objects.Add(new EditorProjectObject
             {
+                editorGroupId = placed.editorGroupId,
                 id = placed.id,
                 sourceNodePath = placed.sourceNodePath,
                 sourceSignature = placed.sourceSignature,

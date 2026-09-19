@@ -79,6 +79,7 @@ public class CatalogUI : MonoBehaviour
     public bool IsRestoringModels { get; private set; }
     GameObject pendingImportedPrefab;
     string pendingImportedAssetPath;
+    string pendingOriginalSourcePath;
     EditModeService boundEditModeService;
     PlacementController boundPlacementController;
     EditorCameraController settingsCameraController;
@@ -166,6 +167,7 @@ public class CatalogUI : MonoBehaviour
 
     void OnDestroy()
     {
+        modelImportCancellation?.Cancel();
         UnbindEditModeService();
         UnbindPlacementController();
         NotifyDragState(false);
@@ -274,7 +276,7 @@ public class CatalogUI : MonoBehaviour
             {
                 viewportCamera.transform.position = EditWorkspace.DefaultCameraPosition;
                 viewportCamera.transform.LookAt(Vector3.zero, Vector3.up);
-                viewportCamera.orthographic = true;
+                viewportCamera.orthographic = false;
                 viewportCamera.orthographicSize = 7f;
                 viewportCamera.nearClipPlane = 0.05f;
                 viewportCamera.farClipPlane = 1000f;
@@ -2957,8 +2959,41 @@ public class CatalogUI : MonoBehaviour
         outline.enabled = true;
     }
 
+    System.Threading.CancellationTokenSource modelImportCancellation;
+
+    async System.Threading.Tasks.Task<GameObject> LoadSelectedModel(string path)
+    {
+        var cancellation = new System.Threading.CancellationTokenSource();
+        modelImportCancellation = cancellation;
+        try
+        {
+            var model = await RuntimeModelLoader.LoadModelAsync(path, cancellation.Token,
+                message => { if (this != null) SetStatus(message); });
+            if (this == null || cancellation.IsCancellationRequested)
+            {
+                if (model != null) Destroy(model);
+                return null;
+            }
+            return model;
+        }
+        catch (System.OperationCanceledException) { if (this != null) SetStatus("モデル取込を中止しました。"); }
+        catch (Exception ex) { if (this != null) SetStatus("モデル取込: " + ex.Message); }
+        finally
+        {
+            if (modelImportCancellation == cancellation) modelImportCancellation = null;
+            cancellation.Dispose();
+        }
+        return null;
+    }
+
     async void OnClickAdd()
     {
+        if (modelImportCancellation != null)
+        {
+            modelImportCancellation.Cancel();
+            SetStatus("取込を中止しています…");
+            return;
+        }
 #if UNITY_EDITOR
         EnsureRuntimeBindings();
         EnsureRuntimeCatalogControls();
@@ -2983,19 +3018,19 @@ public class CatalogUI : MonoBehaviour
         var selectedExtension = Path.GetExtension(selectedPath);
         if (string.Equals(selectedExtension, ".fbx", StringComparison.OrdinalIgnoreCase))
         {
-            if (!EditorModelImportService.TryLoadFbxAsset(selectedPath, out prefab, out assetPath, out errorMessage))
+            try
             {
-                SetStatus(errorMessage);
-                return;
+                if (!EditorModelImportService.TryLoadFbxAsset(selectedPath, out prefab, out assetPath, out errorMessage))
+                { SetStatus(errorMessage); return; }
             }
+            catch (Exception ex) { SetStatus("FBX取込: " + ex.Message); return; }
         }
         else if (RuntimeModelLoader.IsSupportedExtension(selectedPath))
         {
             SetStatus("Loading 3D model...");
-            prefab = await RuntimeModelLoader.LoadModelAsync(selectedPath);
+            prefab = await LoadSelectedModel(selectedPath);
             if (prefab == null)
             {
-                SetStatus("Failed to load selected 3D model.");
                 return;
             }
         }
@@ -3005,7 +3040,7 @@ public class CatalogUI : MonoBehaviour
             return;
         }
 
-        OpenNewObjectSettings(prefab, assetPath);
+        OpenNewObjectSettings(prefab, assetPath, selectedPath);
 #else
         OnClickAddRuntimeAsync();
 #endif
@@ -3045,10 +3080,9 @@ public class CatalogUI : MonoBehaviour
         }
 
         SetStatus("Loading 3D model...");
-        var loadedModel = await RuntimeModelLoader.LoadModelAsync(selectedPath);
+        var loadedModel = await LoadSelectedModel(selectedPath);
         if (loadedModel == null)
         {
-            SetStatus("Failed to load 3D model.");
             return;
         }
 
@@ -3056,7 +3090,7 @@ public class CatalogUI : MonoBehaviour
     }
 #endif
 
-    void OpenNewObjectSettings(GameObject prefab, string assetPath)
+    void OpenNewObjectSettings(GameObject prefab, string assetPath, string originalSourcePath = null)
     {
         if (prefab == null || string.IsNullOrWhiteSpace(assetPath))
         {
@@ -3066,6 +3100,7 @@ public class CatalogUI : MonoBehaviour
 
         pendingImportedPrefab = prefab;
         pendingImportedAssetPath = assetPath;
+        pendingOriginalSourcePath = originalSourcePath ?? assetPath;
 
         if (newObjectNameInput != null)
         {
@@ -3128,7 +3163,7 @@ public class CatalogUI : MonoBehaviour
         try
         {
             saved = ImportedModelStore.Save(pendingImportedAssetPath, typeId, displayLabel,
-                newObjectDescriptionInput != null ? (newObjectDescriptionInput.text ?? string.Empty).Trim() : string.Empty);
+                newObjectDescriptionInput != null ? (newObjectDescriptionInput.text ?? string.Empty).Trim() : string.Empty, pendingOriginalSourcePath);
         }
         catch (Exception ex) { SetStatus("モデルを保存できません: " + ex.Message); return; }
         if (!placementController.RegisterRuntimePrefab(typeId, pendingImportedPrefab))
@@ -3163,6 +3198,7 @@ public class CatalogUI : MonoBehaviour
         {
             pendingImportedPrefab = null;
             pendingImportedAssetPath = null;
+            pendingOriginalSourcePath = null;
         }
     }
     void SetStatus(string message)

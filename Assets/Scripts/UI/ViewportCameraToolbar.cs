@@ -302,7 +302,7 @@ public sealed class ViewportCameraToolbar : MonoBehaviour
         toolbar.toolbarRect = rect;
         toolbar.toolbarCanvasGroup = root.GetComponent<CanvasGroup>();
         toolbar.openButton = CreateOpenButton(parent, toolbar);
-        toolbar.focusButton = CreateButton(rect, "Button_FocusSelected", "選択へ  F", 88f, "選択中のオブジェクトを画面中央に表示します（F）", toolbar);
+        toolbar.focusButton = CreateButton(rect, "Button_FocusSelected", "選択へ  F", 88f, "選択中のオブジェクト全体を画面中央に表示します（F）", toolbar);
         toolbar.frontButton = CreateButton(rect, "Button_ViewFront", "Z  前", 64f, "正面ビューへ切り替えます（1）", toolbar);
         toolbar.rightButton = CreateButton(rect, "Button_ViewRight", "X  右", 64f, "右ビューへ切り替えます（3）", toolbar);
         toolbar.topButton = CreateButton(rect, "Button_ViewTop", "Y  上", 64f, "上面ビューへ切り替えます（7）", toolbar);

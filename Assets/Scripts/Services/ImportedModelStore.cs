@@ -12,6 +12,7 @@ public sealed class ImportedModelRecord
     public string displayName;
     public string description;
     public string modelPath;
+    public string originalSourcePath;
     public bool editorAsset;
     public bool hidden;
     [NonSerialized] public string recordPath;
@@ -52,13 +53,42 @@ public static class ImportedModelStore
         return record.editorAsset ? record.modelPath : Within(Path.GetDirectoryName(record.recordPath), record.modelPath);
     }
 
-    public static ImportedModelRecord Save(string sourcePath, string typeId, string name, string description)
+    public static IEnumerable<string> GetImageReferences(string path)
+    {
+        return (ReadDocument(path).images ?? Array.Empty<Resource>()).Where(image => !string.IsNullOrEmpty(image?.uri)).Select(image => image.uri).ToArray();
+    }
+
+    public static void ValidateInput(string path, long maximumBytes)
+    {
+        var file = new FileInfo(path);
+        if (!file.Exists || file.Length == 0 || file.Length > maximumBytes)
+            throw new IOException("モデルは空でない256 MB以下のファイルを使用してください。");
+        var document = ReadDocument(path);
+        long total = file.Length;
+        var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { file.FullName };
+        foreach (var resource in (document.buffers ?? Array.Empty<Resource>()).Concat(document.images ?? Array.Empty<Resource>()))
+        {
+            if (string.IsNullOrEmpty(resource?.uri) || resource.uri.StartsWith("data:", StringComparison.OrdinalIgnoreCase)) continue;
+            string relative = Uri.UnescapeDataString(resource.uri);
+            if (Uri.TryCreate(relative, UriKind.Absolute, out _) || relative.Contains("?") || relative.Contains("#"))
+                throw new IOException("素材はモデル配下のファイルを使用してください。外部URLには対応していません。");
+            string local = Within(file.DirectoryName, relative);
+            if (!visited.Add(local)) continue;
+            var dependency = new FileInfo(local);
+            if (!dependency.Exists) throw new FileNotFoundException("参照素材が見つかりません。", relative);
+            total += dependency.Length;
+            if (total > maximumBytes) throw new IOException("モデルと参照素材の合計を256 MB以下にしてください。");
+        }
+    }
+
+    public static ImportedModelRecord Save(string sourcePath, string typeId, string name, string description, string originalSourcePath = null)
     {
         string directory = Path.Combine(Root, Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(directory);
         var record = new ImportedModelRecord
         {
             typeId = typeId, displayName = name, description = description,
+            originalSourcePath = Path.GetFullPath(originalSourcePath ?? sourcePath),
             recordPath = Path.Combine(directory, "model.json")
         };
         if (string.Equals(Path.GetExtension(sourcePath), ".fbx", StringComparison.OrdinalIgnoreCase))
@@ -104,14 +134,17 @@ public static class ImportedModelStore
     static GltfDocument ReadDocument(string path)
     {
         if (string.Equals(Path.GetExtension(path), ".gltf", StringComparison.OrdinalIgnoreCase))
+        {
+            if (new FileInfo(path).Length > 16L * 1024 * 1024) throw new IOException("glTFのJSONは16 MB以下にしてください。大きなモデルはGLBを使用してください。");
             return JsonUtility.FromJson<GltfDocument>(File.ReadAllText(path)) ?? throw new IOException("glTFを読み取れません。");
+        }
         // GLB can also contain external texture/buffer URIs in its JSON chunk.
         using var stream = File.OpenRead(path);
         using var reader = new BinaryReader(stream);
         if (stream.Length < 20 || reader.ReadUInt32() != 0x46546C67 || reader.ReadUInt32() != 2 || reader.ReadUInt32() != stream.Length)
             throw new IOException("GLBのヘッダーが不正です。");
         uint length = reader.ReadUInt32();
-        if (reader.ReadUInt32() != 0x4E4F534A || length > stream.Length - stream.Position || length > int.MaxValue)
+        if (reader.ReadUInt32() != 0x4E4F534A || length > stream.Length - stream.Position || length > 16 * 1024 * 1024)
             throw new IOException("GLBのJSONが不正です。");
         string json = System.Text.Encoding.UTF8.GetString(reader.ReadBytes((int)length)).TrimEnd('\0', ' ');
         return JsonUtility.FromJson<GltfDocument>(json) ?? throw new IOException("GLBを読み取れません。");

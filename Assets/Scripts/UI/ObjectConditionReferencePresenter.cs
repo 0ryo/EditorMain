@@ -68,7 +68,6 @@ internal static class ObjectConditionReferenceQuery
 
 internal sealed class ObjectConditionReferencePresenter
 {
-    const float RefreshInterval = 0.3f;
     const float UsageNodeBlockMinHeight = 64f;
     const float UsageNodeBlockSpacing = 8f;
     const float UsageConditionFallbackHeight = 180f;
@@ -94,7 +93,7 @@ internal sealed class ObjectConditionReferencePresenter
     ScenarioGraphUI scenarioGraphUI;
     ConditionNodeUI conditionTemplateCache;
     PlacedObject selectedObject;
-    float nextRefreshTime;
+    bool refreshRequested = true;
     string currentSignature = string.Empty;
 
     public ObjectConditionReferencePresenter(
@@ -115,11 +114,24 @@ internal sealed class ObjectConditionReferencePresenter
 
     public void SetServices(CurriculumGraphService graphService, ScenarioGraphUI scenarioGraphUI)
     {
-        this.graphService = graphService;
+        if (this.graphService != graphService)
+        {
+            if (this.graphService != null) this.graphService.GraphChanged -= RequestRefresh;
+            this.graphService = graphService;
+            if (graphService != null) graphService.GraphChanged += RequestRefresh;
+            RequestRefresh();
+        }
         if (this.scenarioGraphUI == scenarioGraphUI) return;
 
         this.scenarioGraphUI = scenarioGraphUI;
         conditionTemplateCache = null;
+    }
+
+    void RequestRefresh() => refreshRequested = true;
+
+    public void Dispose()
+    {
+        if (graphService != null) graphService.GraphChanged -= RequestRefresh;
     }
 
     public void SetStyler(ObjectDetailConditionNodeStyler styler)
@@ -148,7 +160,7 @@ internal sealed class ObjectConditionReferencePresenter
     {
         selectedObject = placedObject;
         currentSignature = string.Empty;
-        nextRefreshTime = 0f;
+        refreshRequested = true;
         Refresh(force: true);
     }
 
@@ -156,15 +168,14 @@ internal sealed class ObjectConditionReferencePresenter
     {
         selectedObject = null;
         currentSignature = string.Empty;
-        nextRefreshTime = 0f;
+        refreshRequested = true;
     }
 
     public void Tick(bool isPanelShown, float unscaledTime)
     {
         if (selectedObject == null || !isPanelShown) return;
-        if (unscaledTime < nextRefreshTime) return;
-
-        nextRefreshTime = unscaledTime + RefreshInterval;
+        if (!refreshRequested) return;
+        refreshRequested = false;
         Refresh(force: false);
     }
 
@@ -442,7 +453,7 @@ internal sealed class ObjectConditionReferencePresenter
         }
 
         currentSignature = string.Empty;
-        nextRefreshTime = 0f;
+        refreshRequested = true;
     }
 
     void DeleteNode(string nodeId)
@@ -461,7 +472,7 @@ internal sealed class ObjectConditionReferencePresenter
         }
 
         currentSignature = string.Empty;
-        nextRefreshTime = 0f;
+        refreshRequested = true;
         Refresh(force: true);
     }
 

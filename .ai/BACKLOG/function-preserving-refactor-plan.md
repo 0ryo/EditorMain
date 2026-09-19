@@ -8,8 +8,8 @@ EditorMainの実装を機能単位で整理し、肥大化したclass、重複�
 
 - 作業branchは `codex/function-preserving-refactor` とする。
 - 1機能または関連する一連の処理をまとめて1commitとする。helperや数個のmethodだけで過度に細分化せず、生成・更新・破棄などを通して確認できる機能単位を基本とする。
-- 各commit後に作業を停止し、変更内容、静的確認結果、Unityでの確認項目を報告する。
-- ユーザーから次へ進む指示を受けるまで次の機能へ着手しない。
+- 関連機能を一回のセッションでまとめ、静的確認を挟んで継続する。各commit／小項目ごとには停止しない。
+- Unity実操作が必要なまとまりや外部仕様の境界で確認事項をまとめる。
 - 退行が確認されたcommitは `git revert` で取り消し、正常状態から再実装する。
 - userの未commit変更と未追跡fileを変更しない。
 - Prefab/Scene YAMLを直接編集しない。UI変更が必要な場合はEditor API経路を使うが、本refactorでは表示値を変えない。

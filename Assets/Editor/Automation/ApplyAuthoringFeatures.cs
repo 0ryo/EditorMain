@@ -22,6 +22,8 @@ public static class ApplyAuthoringFeatures
     public static void Prepare(GameObject root)
     {
         ViewportOutliner.PreparePrefab(root.transform);
+        UiWorkspacePanels.Ensure(root.transform);
+        foreach (var detail in root.GetComponentsInChildren<ObjectDetailPanel>(true)) MaterialSearchPanel.Ensure(detail.transform);
         foreach (var graph in root.GetComponentsInChildren<ScenarioGraphUI>(true)) graph.PrepareAuthoringPrefab();
         foreach (var condition in root.GetComponentsInChildren<ConditionNodeUI>(true)) condition.PrepareTemplateControls();
         foreach (var row in root.GetComponentsInChildren<ConditionRowUI>(true))
