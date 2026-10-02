@@ -25,7 +25,7 @@
 | Rendering | URP `17.2.0`。Quality設定からURP assetを参照 |
 | Input | Input System `1.14.2`、`activeInputHandler: 2`（Both） |
 | 3D model | glTFast `6.16.1`、Editor AssetDatabaseによるFBX取込 |
-| Test package | Unity Test Framework `1.6.0`（プロジェクト固有テストは未確認） |
+| Test package | Unity Test Framework `1.6.0`（専用Unity test assemblyは未確認）。別途 `Tools/RegressionChecks` にmanaged回帰runnerあり |
 
 依存の正本は `Packages/manifest.json` と `Packages/packages-lock.json` です。
 
@@ -47,8 +47,9 @@
 - `Assets/UI/Prefabs/UIRoot.prefab`: Catalog、Scenario Graph、Detail、Settings等を含むUIルート。
 - `Assets/Editor/Automation/`: `UIRoot.prefab` 生成、Scene適用、検証エントリポイント。
 - `Assets/Data/DefaultRegistry.asset`: 既定4種の `typeId` とPrefab参照。
-- `Assets/Exports/`: 現行コードのJSON出力先。
 - `Docs/`: 詳細仕様、デザイン監査、旧作業履歴。
+
+ランタイムの配置・シナリオJSON出力先は、プロジェクト内のAssetsではなく `Application.persistentDataPath/Exports/` です。
 
 ## 用語
 

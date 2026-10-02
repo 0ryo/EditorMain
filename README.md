@@ -1,8 +1,8 @@
 ﻿# EditorMain (SkillSync Editor)
 
 ## 概要
-Unity上で動作する、オブジェクト配置・編集ツールのエディタ拡張プロジェクトです。
-コマンドパターンを採用し、Undo/Redo機能を含む堅牢な編集システムを提供します。
+Unity上で動作する、3Dオブジェクト配置・編集とシナリオ教材作成のアプリです。
+編集UIはSceneを実行して利用し、Prefab生成やScene適用はUnity Editorの自動化ツールで行います。編集操作はコマンドとして記録し、Undo/Redoできます。
 
 ## 機能 (Features)
 
@@ -33,8 +33,8 @@ Unity上で動作する、オブジェクト配置・編集ツールのエディ
   - ノード追加: 上下方向リサイズ
 
 ### 4. シナリオ作成UI（MVP）
-- ノード追加・接続・保存（`curriculum.json`）に対応。
-- 保存先は `Assets/Exports/<ProjectName>-curriculum.json`。
+- ノード追加・接続・検証・プレビュー・保存（`curriculum.json`）に対応。
+- 保存先は `Application.persistentDataPath/Exports/<ProjectName>-curriculum.json`。
 - ノードUIはCanvas上のPrefab参照で構築し、見た目調整はPrefab側で行います。
 
 ## 主要スクリプト (Key Scripts)
@@ -92,9 +92,10 @@ Assets/
 │   └── Automation/           # UI Prefab生成/Scene適用自動化
 ├── Prefabs/                  # 配置用プレハブ
 ├── Data/                     # 設定データ (ScriptableObjects)
-├── Exports/                  # 出力JSON
 └── Scenes/                   # サンプルシーン
 ```
+
+ランタイムが出力する配置JSONとシナリオJSONは、どちらも `Application.persistentDataPath/Exports/` に保存します。
 
 ## UI自動化の実行
 - `BuildUiPrefabs.Build`:

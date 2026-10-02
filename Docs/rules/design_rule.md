@@ -53,13 +53,13 @@ Pure Black / Pure White are prohibited. Use off-tone values throughout for softn
 | `bg-tertiary` | `#E2E2E7` | `(0.886, 0.886, 0.906, 1.0)` | Divider lines / separators |
 | `surface` | `#FFFFFF` | `(1.0, 1.0, 1.0, 1.0)` | Elevated card surface ※ Pure White allowed as exception |
 | `text-primary` | `#1D1D1F` | `(0.114, 0.114, 0.122, 1.0)` | Main text |
-| `text-secondary` | `#6E6E73` | `(0.431, 0.431, 0.451, 1.0)` | Secondary text / labels |
-| `text-tertiary` | `#AEAEB2` | `(0.682, 0.682, 0.698, 1.0)` | Placeholder / disabled text |
+| `text-secondary` | `#5B5B60` | `(0.357, 0.357, 0.376, 1.0)` | Secondary text / labels |
+| `text-tertiary` | `#626267` | `(0.384, 0.384, 0.404, 1.0)` | Placeholder / disabled text |
 | `accent` | `#2563EB` | `(0.145, 0.388, 0.922, 1.0)` | Primary action / links / selected state |
 | `accent-hover` | `#1D4ED8` | `(0.114, 0.306, 0.847, 1.0)` | Hover / press state of `accent` |
-| `success` | `#30D158` | `(0.188, 0.820, 0.345, 1.0)` | Success / save complete |
-| `warning` | `#FF9F0A` | `(1.0, 0.624, 0.039, 1.0)` | Warning / caution |
-| `error` | `#FF453A` | `(1.0, 0.271, 0.227, 1.0)` | Error / deletion |
+| `success` | `#19612F` | `(0.098, 0.380, 0.184, 1.0)` | Success / save complete |
+| `warning` | `#7D4500` | `(0.490, 0.271, 0.0, 1.0)` | Warning / caution |
+| `error` | `#9F1D17` | `(0.624, 0.114, 0.090, 1.0)` | Error / deletion |
 | `divider` | `#D1D1D6` | `(0.820, 0.820, 0.839, 1.0)` | Thin divider lines |
 
 ### 2.2 Color Rules
@@ -184,8 +184,8 @@ Match: 0.5
 | fontSize | 14 | 14 | 14 | 14 |
 | fontWeight | SemiBold | Regular | SemiBold | Regular |
 | Corner radius | `corner-radius` | `corner-radius` | `corner-radius` | 0 |
-| Hover | `accent-hover` | `bg-tertiary` | `#E03E35` | `bg-secondary` |
-| Press | `#1E40AF` | `divider` | `#C43530` | `bg-tertiary` |
+| Hover | `accent-hover` | `bg-tertiary` | `#8F1B14` | `bg-secondary` |
+| Press | `#1E40AF` | `divider` | `#7A1812` | `bg-tertiary` |
 | Disabled | opacity 0.4 | opacity 0.4 | opacity 0.4 | opacity 0.4 |
 
 ### 6.2 Cards
@@ -312,7 +312,7 @@ Currently light mode only. Color mapping reference for future dark mode support:
 | `bg-secondary` #EDEDF0 | `#2C2C2E` |
 | `surface` #FFFFFF | `#3A3A3C` |
 | `text-primary` #1D1D1F | `#F5F5F7` |
-| `text-secondary` #6E6E73 | `#98989D` |
+| `text-secondary` #5B5B60 | `#98989D` |
 
 ---
 

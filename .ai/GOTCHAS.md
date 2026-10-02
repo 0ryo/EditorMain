@@ -3,16 +3,24 @@
 ## 検証環境
 
 - CodexはUnity Editor/CLIを起動しない。compile、PlayMode、build、Prefab/Scene再保存は未検証のまま人間へ渡す。
-- 独自test/asmdef/Lint/CIは未確認。Unity Test Framework packageがあることと、project testがあることは別。
+- `Tools/RegressionChecks` に本番ロジックをリンクする.NET 8回帰runnerがある。Unity数学/JSONはadapterのためPlayMode/Unity serializationの代用にはならない。独自asmdef/Lint/CIは未確認。
 - `Assembly-CSharp.csproj` は調査時点でruntime C# 44本中31本の現行sourceが欠落していた。`dotnet build` の失敗/成功をUnity compileの代用にしない。
 
 ## 文書と実装の既知差異
 
+- 教材切替では旧配置を先にDestroyしない。非表示stagingを準備し、旧instance・active状態・Curriculum参照・選択を保持して切替し、graph/UI復元成功後だけ旧配置とUndoを破棄する。失敗時は元instanceへ戻す必要があり、snapshotからの新規生成だけではUndo内の参照を守れない。commit後の通知例外で新配置を破棄しない。
+- project読込の欠損検査はNormalize前に行う。編集modelのfield initializerだけでは省略と正当な空集合を区別できないため、v5/v6は初期値なしEnvelopeで必須集合を確認する。旧形式の省略補完と未完成graphの参照欠損は保持し、出力検証を読込条件に流用しない。
+- RecoveryのprojectNameは元教材を一意に識別しない。起動時は同名教材へ上書きせず、元JSONを別名の「名前 復旧」へ移して保護する。Serviceの自動更新/後処理は`EditorProjectRecoverySession`経由で、成功した書込みとパス・内容が一致する復旧データだけを所有する。退避不能の他データは上書きせず、削除失敗後も所有権を手放して次教材による消失を防ぐ。Storeの無条件削除はユーザーの明示破棄専用（`QUALITY.md`）。
 - 編集projectは `Application.persistentDataPath/Projects`、配布用Scenario/Placement JSONは `Application.persistentDataPath/Exports` に分離されている。`Docs/rules/scenario_rules.md` の `scenarios` 表記や旧UI仕様の `Assets/Exports` は古い。
 - `Docs/worklog/worklog_UI/全体UI仕様.md` は日付順の追記文書で、古い「カード名のみ」仕様が後の3段カード仕様に置き換わっている。後半の新しい項目と現行codeを優先して突合する。
 - 同UI仕様の一部（2026-03-03付近）と `BuildUiPrefabs.cs` の一部commentには文字化けがある。文字化け箇所だけを根拠に仕様を断定しない。
 
 ## UI / Prefab
+
+- 固定配置の`SkillSyncDesignView`は2560×1440を全体フィットする。`UiScaleController`を倍率の共通窓口とし、旧パネルの`DesignTokenApplier`から1920×1080へ戻さない。Camera rectは入力停止中もLateUpdateで追従する。固定配置ボタンの一括拡大は、隣接する操作領域や条件番号との重なりを起こすため適用しない。
+- 非表示の旧Outlinerもイベント購読は生きる。選択通知から非表示UIを全件再生成しない。固定UIの行は選択状態だけ更新し、同じ原型のサムネイルを配置個数分描画しない。ラベルの投影位置は文字情報の低頻度更新と分け、カメラ更新後のLateUpdateで反映する。
+- 透明Imageに`Outline.useGraphicAlpha=false`を付けると内側までeffectColorで塗られる。キーボードのフォーカス枠には中空の四辺を使い、マウスクリック時は表示しない。
+- モーダル表示中の編集遮断は`EditWorkspace.HasOpenModal`（教材一覧・設定・モデル追加）へ集約する。モーダル自身のEsc処理で`IsTypingIntoInputField`を使うと、自分自身の遮断条件により閉じられない。入力欄の実フォーカスを直接確認する。
 
 - TextureImporterの`textureType = Sprite`だけでは`textureShape`は保証されない。SkillSync画像で`textureShape: 2`（Cubemap）が残り、再import成功後もSpriteが生成されなかった。UI画像はEditor APIで`TextureImporterShape.Texture2D`を明示し、設定済み判定にもshapeを含める。
 - Figma取得済みSVGには幅／高さ0のVECTOR（区切り線）が含まれない場合がある。nodes.jsonのstrokeWeight・色・座標から別途描画する。Sprite対応だけの照合では欠落を検出できない。
@@ -55,6 +63,5 @@
 
 ## TMP
 
-- Windowsで作成したDynamicOSフォントassetはWindowsのフォント絶対pathを保持する。macOSでは`TmpFontInitializer`がローカルのヒラギノから一時fallbackを作り、共有font assetへ保存せず使用する。
-- 日本語fallbackは `TmpFontInitializer` がEditor/runtimeでTMP内部cacheやsubmeshを更新する。reflectionとTMP内部stateに依存するため、font修正はFallback assetだけでなくinitializerとTMP Settingsも確認する。
-- 過去にTMP material cache/submesh更新中の例外が入力系調査を阻害した。現在はwarningへ落として継続する箇所があるため、warningを無関係として一括無視しない。
+- 日本語fallbackはTMP Settingsから同梱のNoto Sans JP FontAssetを選ぶ。`TmpFontInitializer`はprivate-field reflectionやOS system font探索を使わず、公開material/font APIとScene内TMP componentのdirty通知で表示を更新する。旧DynamicOS fallback assetはWindows絶対pathを保持するため新規fallbackとして選ばない。
+- TMP material cache/submesh更新中の例外はwarningへ落として継続する箇所がある。warningを無関係として一括無視しない。

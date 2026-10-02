@@ -39,7 +39,7 @@ persistentDataPath/Projects/*.skillsync.json
 - `PlacementController`: registry map、配置モード、配置座標、生成、配置イベントを担当。
 - `PlacedObject`: 配置instanceの識別情報と表示メタデータ。
 - `ImportedModelParts`: 追加モデルの配置時に静的Meshノードとその祖先を既存Transform上の`PlacedObject`として登録する。部品の`modelRoot`は構成上の配置ルート、`partNodePath`は名前検証付きの元ノード位置、条件参照は永続化した個別ID。保存・出力はルートだけを生成対象とし、`parts`にlocal Transform・個別ID・表示/固定・削除状態を保存して子を再利用する。部品の単体複製は`sourceNodePath`で元Prefabの部分木を特定する。モデル構造の変更は署名とノード照合で読込前に拒否する。
-- `SelectionService`: Raycast、空白からの矩形選択、Ctrl/Cmd+A、一覧での複数選択、整列、削除、複製、Outline同期。集合更新は`SelectMany`へ集約し、親子の重複選択を除外する。矩形は表示中Rendererの投影boundsが枠と重なる対象を選び、親子が同時に候補となる場合は子を優先する。途中キャンセルでは元の選択を維持する。枠は一時的なuGUI表示で保存しない。`SelectionTransformSession`が集合のTransformを一つのUndoへ記録し、`SelectionHighlightSet`が基準以外の対象を表示する。Colliderがない配置物は配置・復元・読込の生成境界で `PlacedObjectPickability` がBoxColliderを補完し、選択中の全配置走査は行わない。
+- `SelectionService`: Raycast、空白からの矩形選択、Ctrl/Cmd+A、一覧での複数選択、整列、削除、複製、Outline同期。集合更新は`SelectMany`へ集約し、親子の重複選択を除外する。矩形は表示中Rendererの投影boundsが枠と重なる対象を選び、親子が同時に候補となる場合は子を優先する。途中キャンセルでは元の選択を維持する。枠は一時的なuGUI表示で保存しない。`SelectionTransformSession`が集合のTransformを一つのUndoへ記録し、`SelectionHighlightSet`が基準以外の対象を表示する。Colliderがない配置物は配置・復元・読込の生成境界で `PlacedObjectPickability` がBoxColliderを補完し、選択中の全配置走査は行わない。カテゴリ表示フィルター中の配置物は描画・Colliderを抑止し、選択候補からも除外する。フィルターはEditorセッション内だけで、教材データへ保存しない。
 - `ViewportOutliner` / `PlacedObjectEditState`: `Panel_Catalog` の `配置` / `一覧` タブを切り替え、配置instanceの検索・選択、Rendererを使った表示切替、Colliderを使った編集固定を管理する。
 - `MoveTool` / `SelectionOutline` / `RotateTool`: Transform/Scaleの入力と視覚的handle。
 - `ObjectTransformPanel` / `TransformToolSettings`: 詳細パネルの数値Transform入力とworld/local座標系、pivot/center基準を共有し、ギズモ操作にも反映する。

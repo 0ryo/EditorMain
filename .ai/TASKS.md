@@ -13,6 +13,7 @@
 
 | 優先度 | テーマ | 次に達成する状態 | 詳細 |
 |---|---|---|---|
+| P0 | 教材復旧の原本保護・主要UIの状況認知 | managed確認済みの復旧保護とUI実装をUnityで直接確認する | [監査](BACKLOG/editor-app-audit.md) `REC-01/UIB-04..06`、[品質確認](../QUALITY.md) |
 | P1 | タイヤ交換の操作表現 | 既存6条件での教材表現を確認する。工具回転・着脱の専用条件は対象外 | [教材計画](BACKLOG/tire-change-authoring-plan.md) |
 | P1 | XR／Web連携・教員評価 | Web側完成と再開依頼を待つ。外部連携の実装はユーザー指定で保留 | [連携・評価](BACKLOG/research-integration-plan.md) |
 | P1 | 操作回帰確認 | 詳細パネル、青い輪郭、X軸ギズモを両Sceneで確認する | [監査](BACKLOG/editor-app-audit.md) `UIB-*` |
