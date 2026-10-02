@@ -1,54 +1,22 @@
-using System.Collections;
 using System.Collections.Generic;
-using System.Reflection;
 using TMPro;
 using UnityEngine;
 #if UNITY_EDITOR
-using System.IO;
 using UnityEditor;
 #endif
 
 /// <summary>
-/// TMP の既定フォントに日本語フォールバックを補完する初期化ユーティリティ。
-/// Editor では永続アセットを作成して TMP Settings に登録し、Play 中はそれを再利用する。
+/// TMP の既定フォントに、同梱した日本語フォールバックを補完する初期化ユーティリティ。
 /// </summary>
 public static class TmpFontInitializer
 {
-    const string FallbackAssetPath = "Assets/TextMesh Pro/Resources/Fonts & Materials/Japanese TMP Fallback.asset";
-    const string FallbackResourcePath = "Fonts & Materials/Japanese TMP Fallback";
-    const string FallbackNameSuffix = "Dynamic TMP Fallback";
+    const string TmpSettingsAssetPath = "Assets/TextMesh Pro/Resources/TMP Settings.asset";
 
     static bool initialized;
     static TMP_FontAsset japaneseFallbackFontAsset;
     static bool warnedTmpCacheClearFailure;
     static bool warnedSubMeshRefreshFailure;
     static bool warnedTextRefreshFailure;
-
-    static readonly string[] JapaneseFontFamilies =
-    {
-#if UNITY_EDITOR_OSX || UNITY_STANDALONE_OSX
-        "Hiragino Sans",
-        "Hiragino Kaku Gothic ProN",
-        "Hiragino Maru Gothic ProN",
-#endif
-        "Yu Gothic UI",
-        "Yu Gothic",
-        "Meiryo UI",
-        "Meiryo",
-        "BIZ UDPGothic",
-        "MS Gothic",
-    };
-
-    static readonly string[] StyleCandidates =
-    {
-        "Regular",
-        "Normal",
-        "Book",
-        "W3",
-        "W4",
-    };
-
-    static readonly char[] ProbeCharacters = { 'あ', 'ア', '漢', '条', '（', '）' };
 
 #if UNITY_EDITOR
     [InitializeOnLoadMethod]
@@ -83,7 +51,7 @@ public static class TmpFontInitializer
         japaneseFallbackFontAsset = LoadPreferredFallbackAsset();
         if (japaneseFallbackFontAsset == null)
         {
-            Debug.LogWarning("[TmpFontInitializer] No compatible Japanese system font found.");
+            Debug.LogWarning("[TmpFontInitializer] Bundled Japanese fallback font is missing or invalid.");
             return;
         }
 
@@ -131,138 +99,34 @@ public static class TmpFontInitializer
 
     static TMP_FontAsset LoadPreferredFallbackAsset()
     {
-#if UNITY_EDITOR_OSX || UNITY_STANDALONE_OSX
-        // Windows-created DynamicOS assets retain a Windows system-font path.
-        // Resolve a local font in memory without rewriting shared font assets.
-        if (japaneseFallbackFontAsset != null) return japaneseFallbackFontAsset;
-        return CreateTransientFallbackAsset();
-#else
-#if UNITY_EDITOR
-        var persistent = LoadOrCreatePersistentFallbackAsset();
-        if (persistent != null) return persistent;
-#endif
+        var configuredFallbacks = TMP_Settings.fallbackFontAssets;
+        if (configuredFallbacks == null) return null;
 
-        var resourceFont = Resources.Load<TMP_FontAsset>(FallbackResourcePath);
-        if (resourceFont != null) return resourceFont;
-
-        return CreateTransientFallbackAsset();
-#endif
-    }
-
-#if UNITY_EDITOR
-    static TMP_FontAsset LoadOrCreatePersistentFallbackAsset()
-    {
-        var existing = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(FallbackAssetPath);
-        if (existing != null)
+        foreach (var fallback in configuredFallbacks)
         {
-            RepairPersistentFontAsset(existing);
-            return existing;
-        }
-
-        var directory = Path.GetDirectoryName(FallbackAssetPath);
-        if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
-        {
-            Directory.CreateDirectory(directory);
-            AssetDatabase.Refresh();
-        }
-
-        var created = CreateTransientFallbackAsset();
-        if (created == null) return null;
-
-        created.name = Path.GetFileNameWithoutExtension(FallbackAssetPath);
-        AssetDatabase.CreateAsset(created, FallbackAssetPath);
-        AddSubAssets(created);
-        AssetDatabase.SaveAssets();
-        AssetDatabase.ImportAsset(FallbackAssetPath, ImportAssetOptions.ForceUpdate);
-
-        var loaded = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(FallbackAssetPath);
-        if (loaded != null)
-        {
-            RepairPersistentFontAsset(loaded);
-            AssetDatabase.SaveAssets();
-        }
-        return loaded;
-    }
-
-    static void RepairPersistentFontAsset(TMP_FontAsset fontAsset)
-    {
-        if (fontAsset == null) return;
-
-        AddSubAssets(fontAsset);
-        EditorUtility.SetDirty(fontAsset);
-    }
-
-    static void AddSubAssets(TMP_FontAsset fontAsset)
-    {
-        if (fontAsset == null) return;
-
-        if (fontAsset.atlasTextures != null)
-        {
-            foreach (var tex in fontAsset.atlasTextures)
-            {
-                if (tex == null) continue;
-                if (AssetDatabase.Contains(tex)) continue;
-                tex.name = fontAsset.name + " Atlas";
-                AssetDatabase.AddObjectToAsset(tex, fontAsset);
-            }
-        }
-
-        var mat = fontAsset.material;
-        if (mat != null && !AssetDatabase.Contains(mat))
-        {
-            mat.name = fontAsset.name + " Material";
-            AssetDatabase.AddObjectToAsset(mat, fontAsset);
-        }
-    }
-
-    static void PersistTmpSettings(TMP_FontAsset defaultFont)
-    {
-        EditorUtility.SetDirty(defaultFont);
-
-        var settingsAsset = AssetDatabase.LoadAssetAtPath<TMP_Settings>("Assets/TextMesh Pro/Resources/TMP Settings.asset");
-        if (settingsAsset != null)
-        {
-            EditorUtility.SetDirty(settingsAsset);
-        }
-
-        AssetDatabase.SaveAssets();
-    }
-#endif
-
-    static TMP_FontAsset CreateTransientFallbackAsset()
-    {
-        foreach (var family in JapaneseFontFamilies)
-        {
-            foreach (var style in StyleCandidates)
-            {
-                TMP_FontAsset tmpFont = null;
-                try
-                {
-                    tmpFont = TMP_FontAsset.CreateFontAsset(family, style, 90);
-                }
-                catch
-                {
-                    tmpFont = null;
-                }
-
-                if (tmpFont == null) continue;
-                if (!ContainsProbeCharacters(tmpFont, true)) continue;
-
-                tmpFont.name = $"{family} {style} ({FallbackNameSuffix})";
-                tmpFont.isMultiAtlasTexturesEnabled = true;
-                return tmpFont;
-            }
+            if (fallback == null || fallback.material == null || fallback.sourceFontFile == null) continue;
+            return fallback;
         }
 
         return null;
     }
+
+#if UNITY_EDITOR
+    static void PersistTmpSettings(TMP_FontAsset defaultFont)
+    {
+        EditorUtility.SetDirty(defaultFont);
+        var settingsAsset = AssetDatabase.LoadAssetAtPath<TMP_Settings>(TmpSettingsAssetPath);
+        if (settingsAsset != null) EditorUtility.SetDirty(settingsAsset);
+        AssetDatabase.SaveAssets();
+    }
+#endif
 
     static bool SanitizeFallbackList(List<TMP_FontAsset> fontAssets)
     {
         if (fontAssets == null) return false;
 
         int before = fontAssets.Count;
-        fontAssets.RemoveAll(IsBrokenOrTransientFallback);
+        fontAssets.RemoveAll(IsBrokenFallback);
         return before != fontAssets.Count;
     }
 
@@ -275,31 +139,12 @@ public static class TmpFontInitializer
         return true;
     }
 
-    static bool IsBrokenOrTransientFallback(TMP_FontAsset fontAsset)
+    static bool IsBrokenFallback(TMP_FontAsset fontAsset)
     {
         if (fontAsset == null) return true;
         if (fontAsset.material == null) return true;
-
-#if UNITY_EDITOR
-        if (fontAsset != japaneseFallbackFontAsset &&
-            fontAsset.name.Contains(FallbackNameSuffix) && !AssetDatabase.Contains(fontAsset))
-            return true;
-#endif
-
-        return false;
-    }
-
-    static bool ContainsProbeCharacters(TMP_FontAsset fontAsset, bool tryAddCharacters)
-    {
-        if (fontAsset == null) return false;
-
-        foreach (var c in ProbeCharacters)
-        {
-            if (!fontAsset.HasCharacter(c, true, tryAddCharacters))
-                return false;
-        }
-
-        return true;
+        return string.Equals(fontAsset.name, "Japanese TMP Fallback", System.StringComparison.Ordinal) &&
+               fontAsset.sourceFontFile == null;
     }
 
     static void ClearTmpMaterialCaches()
@@ -315,36 +160,6 @@ public static class TmpFontInitializer
                 $"[TmpFontInitializer] TMP material cache clear skipped because TextMeshPro is mid-refresh. {ex.GetType().Name}: {ex.Message}");
         }
 
-        var type = typeof(TMP_MaterialManager);
-        ClearPrivateCollection(type, "m_fallbackMaterials");
-        ClearPrivateCollection(type, "m_fallbackMaterialLookup");
-        ClearPrivateCollection(type, "m_fallbackCleanupList");
-    }
-
-    static void ClearPrivateCollection(System.Type type, string fieldName)
-    {
-        try
-        {
-            var field = type.GetField(fieldName, BindingFlags.Static | BindingFlags.NonPublic);
-            if (field == null) return;
-
-            var value = field.GetValue(null);
-            switch (value)
-            {
-                case IDictionary dict:
-                    dict.Clear();
-                    break;
-                case IList list:
-                    list.Clear();
-                    break;
-            }
-        }
-        catch (System.Exception ex)
-        {
-            WarnOnce(
-                ref warnedTmpCacheClearFailure,
-                $"[TmpFontInitializer] TMP private cache clear skipped: {fieldName}. {ex.GetType().Name}: {ex.Message}");
-        }
     }
 
     static void RefreshLoadedTextComponents()
@@ -354,12 +169,9 @@ public static class TmpFontInitializer
 
         RefreshLoadedSubMeshes(defaultFont);
 
-        foreach (var text in Resources.FindObjectsOfTypeAll<TMP_Text>())
+        foreach (var text in UnityEngine.Object.FindObjectsByType<TMP_Text>(FindObjectsInactive.Include, FindObjectsSortMode.None))
         {
             if (text == null) continue;
-#if UNITY_EDITOR
-            if (EditorUtility.IsPersistent(text)) continue;
-#endif
 
             RefreshTextState(text, defaultFont);
         }
@@ -372,15 +184,13 @@ public static class TmpFontInitializer
         try
         {
             var font = text.font;
-            if (font == null || IsBrokenOrTransientFallback(font))
+            if (font == null || IsBrokenFallback(font))
             {
                 text.font = defaultFont;
                 font = defaultFont;
             }
 
             var targetMaterial = ResolveFontMaterial(font, defaultFont.material);
-            ClearTextMaterialState(text);
-
             var sharedMaterial = text.fontSharedMaterial;
             if (sharedMaterial == null || font == null || font.material == null)
             {
@@ -418,21 +228,15 @@ public static class TmpFontInitializer
 
     static void RefreshLoadedSubMeshes(TMP_FontAsset defaultFont)
     {
-        foreach (var subMesh in Resources.FindObjectsOfTypeAll<TMP_SubMeshUI>())
+        foreach (var subMesh in UnityEngine.Object.FindObjectsByType<TMP_SubMeshUI>(FindObjectsInactive.Include, FindObjectsSortMode.None))
         {
             if (subMesh == null) continue;
-#if UNITY_EDITOR
-            if (EditorUtility.IsPersistent(subMesh)) continue;
-#endif
             RefreshSubMeshState(subMesh, defaultFont);
         }
 
-        foreach (var subMesh in Resources.FindObjectsOfTypeAll<TMP_SubMesh>())
+        foreach (var subMesh in UnityEngine.Object.FindObjectsByType<TMP_SubMesh>(FindObjectsInactive.Include, FindObjectsSortMode.None))
         {
             if (subMesh == null) continue;
-#if UNITY_EDITOR
-            if (EditorUtility.IsPersistent(subMesh)) continue;
-#endif
             RefreshSubMeshState(subMesh, defaultFont);
         }
     }
@@ -442,7 +246,7 @@ public static class TmpFontInitializer
         try
         {
             var font = subMesh.fontAsset;
-            if (font == null || IsBrokenOrTransientFallback(font))
+            if (font == null || IsBrokenFallback(font))
             {
                 subMesh.fontAsset = defaultFont;
                 font = defaultFont;
@@ -467,7 +271,7 @@ public static class TmpFontInitializer
         try
         {
             var font = subMesh.fontAsset;
-            if (font == null || IsBrokenOrTransientFallback(font))
+            if (font == null || IsBrokenFallback(font))
             {
                 subMesh.fontAsset = defaultFont;
                 font = defaultFont;
@@ -488,31 +292,6 @@ public static class TmpFontInitializer
     static Material ResolveFontMaterial(TMP_FontAsset font, Material defaultMaterial)
     {
         return font != null && font.material != null ? font.material : defaultMaterial;
-    }
-
-    static void ClearTextMaterialState(TMP_Text text)
-    {
-        ClearPrivateInstanceField(text, "m_fontMaterial");
-        ClearPrivateInstanceField(text, "m_fontMaterials");
-        ClearPrivateInstanceField(text, "m_fontSharedMaterials");
-        ClearPrivateInstanceField(text, "m_currentMaterial");
-    }
-
-    static void ClearPrivateInstanceField(object target, string fieldName)
-    {
-        try
-        {
-            var field = typeof(TMP_Text).GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
-            if (field == null) return;
-
-            field.SetValue(target, null);
-        }
-        catch (System.Exception ex)
-        {
-            WarnOnce(
-                ref warnedTextRefreshFailure,
-                $"[TmpFontInitializer] TMP text material field clear skipped: {fieldName}. {ex.GetType().Name}: {ex.Message}");
-        }
     }
 
     static void WarnOnce(ref bool warned, string message)
