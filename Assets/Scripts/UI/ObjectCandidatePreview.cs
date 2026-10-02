@@ -124,7 +124,7 @@ public sealed class ObjectCandidatePreview : MonoBehaviour
         label.fontSize = 18;
         label.richText = false;
         label.color = Color.white;
-        label.enableWordWrapping = true;
+        label.textWrappingMode = TMPro.TextWrappingModes.Normal;
         label.raycastTarget = false;
         label.rectTransform.anchorMin = Vector2.zero;
         label.rectTransform.anchorMax = Vector2.one;

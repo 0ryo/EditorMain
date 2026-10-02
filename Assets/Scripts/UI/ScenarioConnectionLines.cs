@@ -4,7 +4,10 @@ using UnityEngine;
 
 internal sealed class ScenarioConnectionLines
 {
-    static readonly Color ConnectionLineColor = DesignTokens.Accent;
+    const float IdleLineThickness = 2.5f;
+    const float HoverLineThickness = 4f;
+
+    static Color ConnectionLineColor => ScenarioGraphVisualStyle.IdleConnectionColor;
     static readonly Color DragPreviewLineColor = new Color(DesignTokens.Accent.r, DesignTokens.Accent.g, DesignTokens.Accent.b, 0.9f);
 
     readonly List<ConnectionLineGraphic> lines = new List<ConnectionLineGraphic>();
@@ -39,7 +42,8 @@ internal sealed class ScenarioConnectionLines
         line.edgeType = edge.edgeType;
         line.raycastBlockers = raycastBlockers;
         line.onClickLine = onClickLine;
-        ConfigureLineGraphic(line, lineLayer, ConnectionLineColor, 8f, raycastTarget: true);
+        ConfigureLineGraphic(line, lineLayer, ConnectionLineColor, IdleLineThickness, raycastTarget: true);
+        line.SetHoverStyle(ConnectionLineColor, IdleLineThickness, DesignTokens.Accent, HoverLineThickness);
         lines.Add(line);
     }
 
@@ -69,7 +73,7 @@ internal sealed class ScenarioConnectionLines
             dragPreviewLine = UnityEngine.Object.Instantiate(lineTemplate, lineLayer);
             dragPreviewLine.gameObject.name = "DragPreviewLine";
             dragPreviewLine.gameObject.SetActive(true);
-            ConfigureLineGraphic(dragPreviewLine, lineLayer, DragPreviewLineColor, 8f, raycastTarget: false);
+            ConfigureLineGraphic(dragPreviewLine, lineLayer, DragPreviewLineColor, HoverLineThickness, raycastTarget: false);
         }
 
         dragPreviewLine.from = fromConnector;
@@ -120,5 +124,60 @@ internal sealed class ScenarioConnectionLines
         line.thickness = thickness;
         line.raycastTarget = raycastTarget;
         line.SetAllDirty();
+    }
+}
+
+public static class ScenarioGraphVisualStyle
+{
+    const float NodeHeaderHeight = 40f;
+
+    public static Color IdleConnectorColor => DesignTokens.Divider;
+    public static Color IdleConnectionColor => DesignTokens.Divider;
+
+    public static void ApplyConnector(UnityEngine.UI.Button button)
+    {
+        if (button == null) return;
+
+        var graphic = button.targetGraphic != null ? button.targetGraphic : button.GetComponent<UnityEngine.UI.Graphic>();
+        if (graphic != null)
+        {
+            button.targetGraphic = graphic;
+            graphic.color = IdleConnectorColor;
+        }
+
+        var colors = button.colors;
+        colors.normalColor = IdleConnectorColor;
+        colors.highlightedColor = DesignTokens.Accent;
+        colors.pressedColor = DesignTokens.AccentPress;
+        colors.selectedColor = DesignTokens.AccentHover;
+        colors.disabledColor = IdleConnectorColor;
+        colors.colorMultiplier = 1f;
+        button.colors = colors;
+        button.transition = UnityEngine.UI.Selectable.Transition.ColorTint;
+    }
+
+    public static void EnsureNodeHeader(Transform nodeRoot)
+    {
+        if (!(nodeRoot is RectTransform root)) return;
+
+        var header = root.Find("NodeHeaderSurface") as RectTransform;
+        if (header == null)
+        {
+            var headerObject = new GameObject("NodeHeaderSurface", typeof(RectTransform), typeof(UnityEngine.UI.Image));
+            header = headerObject.GetComponent<RectTransform>();
+            header.SetParent(root, false);
+        }
+
+        header.anchorMin = new Vector2(0f, 1f);
+        header.anchorMax = new Vector2(1f, 1f);
+        header.pivot = new Vector2(0.5f, 1f);
+        header.offsetMin = new Vector2(1f, -NodeHeaderHeight);
+        header.offsetMax = new Vector2(-1f, -1f);
+
+        var image = header.GetComponent<UnityEngine.UI.Image>();
+        if (image == null) image = header.gameObject.AddComponent<UnityEngine.UI.Image>();
+        image.color = DesignTokens.BgSecondary;
+        image.raycastTarget = false;
+        header.SetAsFirstSibling();
     }
 }

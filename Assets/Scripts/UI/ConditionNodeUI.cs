@@ -67,11 +67,13 @@ public class ConditionNodeUI : MonoBehaviour
             return;
         }
 
+        ScenarioGraphVisualStyle.EnsureNodeHeader(transform);
+
         if (conditionNode.condition == null)
         {
-            conditionNode.condition = new ConditionNodeData();
+            Debug.LogError("[ConditionNodeUI] Condition data is missing after graph initialization.");
+            return;
         }
-        conditionNode.condition.title = NormalizeConditionTitle(conditionNode.condition.title);
 
         EnsureTitleInputReference();
         ConfigureTitleInput();
@@ -357,6 +359,7 @@ public class ConditionNodeUI : MonoBehaviour
 
     void ConfigureConnectorDragHandlers()
     {
+        ScenarioGraphVisualStyle.ApplyConnector(outputConnector);
         if (outputConnector == null || conditionNode == null) return;
 
         var outputDrag = outputConnector.GetComponent<ConnectorDragHandler>();
@@ -449,6 +452,7 @@ public class ConditionNodeUI : MonoBehaviour
             deleteRt.sizeDelta = new Vector2(22f, 22f);
             deleteRt.anchoredPosition = new Vector2(-12f, -19f);
         }
+        UiAccessibilityMetrics.EnsureButtonTarget(deleteButton);
     }
 
     static void EnsureThinOutline(Transform target)
@@ -802,15 +806,7 @@ public class ConditionNodeUI : MonoBehaviour
     {
         if (graphService == null || conditionNode == null || mutation == null) return false;
 
-        string nodeId = conditionNode.nodeId;
-        return graphService.ExecuteCommand(label, () =>
-        {
-            var target = graphService.FindNode(nodeId);
-            if (target == null || target.nodeType != ScenarioNodeType.Condition) return false;
-            if (target.condition == null) target.condition = new ConditionNodeData();
-            mutation(target.condition);
-            return true;
-        });
+        return graphService.UpdateConditionData(conditionNode.nodeId, label, mutation);
     }
 
     static string NormalizeConditionTitle(string value)

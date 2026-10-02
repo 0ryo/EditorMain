@@ -8,8 +8,6 @@ using UnityEngine.UI;
 /// </summary>
 public static class DesignTokenApplier
 {
-    // Canvas 基準解像度は design_rule.md と実装方針に合わせて 1920x1080 に統一する。
-    static readonly Vector2 ReferenceResolution = DesignTokens.ReferenceResolution;
     /// <summary>
     /// カタログパネル配下の全要素に DesignTokens カラーを適用する。
     /// </summary>
@@ -74,6 +72,8 @@ public static class DesignTokenApplier
 
         // 検索窓アウトライン
         ApplySearchInputOutline(panelRoot);
+
+        UiAccessibilityMetrics.EnsureButtonTargets(panelRoot);
     }
 
     /// <summary>
@@ -113,6 +113,7 @@ public static class DesignTokenApplier
 
         // 全テキスト
         ApplyTextColors(panelRoot);
+        UiAccessibilityMetrics.EnsureButtonTargets(panelRoot);
     }
 
     /// <summary>
@@ -151,6 +152,9 @@ public static class DesignTokenApplier
     static void ApplySingleNodeColors(Transform nodeRoot)
     {
         if (nodeRoot == null) return;
+
+        foreach (var text in nodeRoot.GetComponentsInChildren<TMP_Text>(true))
+            ApplyCaptionFontSize(text);
 
         // ノード本体背景
         SetImageColor(nodeRoot, DesignTokens.Surface);
@@ -330,6 +334,7 @@ public static class DesignTokenApplier
         foreach (var text in root.GetComponentsInChildren<TMP_Text>(true))
         {
             if (text == null) continue;
+            ApplyCaptionFontSize(text);
             // 特殊テキストは除外（ステータス、警告、削除ヒント等は個別設定済み）
             if (text.name == "Text_Status" || text.name == "Warning" ||
                 text.name == "Text_DeleteHint") continue;
@@ -343,6 +348,18 @@ public static class DesignTokenApplier
                 text.color = DesignTokens.TextPrimary;
             }
         }
+    }
+
+    static void ApplyCaptionFontSize(TMP_Text text)
+    {
+        if (text == null || !Mathf.Approximately(text.fontSize, 12f)) return;
+        if (text.name.IndexOf("Badge", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+            text.name.IndexOf("Counter", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+            text.name.IndexOf("Count", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+            text.name.IndexOf("Micro", System.StringComparison.OrdinalIgnoreCase) >= 0)
+            return;
+
+        text.fontSize = DesignTokens.FontSizeCaption;
     }
 
     // ── 円形要素 ──
@@ -380,12 +397,8 @@ public static class DesignTokenApplier
         var scaler = canvas.GetComponent<CanvasScaler>();
         if (scaler == null) return;
 
-        scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-        var scaleController = canvas.GetComponent<UiScaleController>();
-        float uiScale = scaleController != null ? Mathf.Clamp(scaleController.Scale, 0.8f, 1.4f) : 1f;
-        scaler.referenceResolution = ReferenceResolution / uiScale;
-        scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
-        scaler.matchWidthOrHeight = 0.5f;
+        var scaleController = UiScaleController.Ensure(canvas.transform);
+        scaleController.Apply(scaleController.Scale);
         canvas.pixelPerfect = true;
     }
 
@@ -695,6 +708,8 @@ public static class DesignTokenApplier
                 if (sectionText != null) sectionText.color = DesignTokens.TextPrimary;
             }
         }
+
+        UiAccessibilityMetrics.EnsureButtonTargets(panelRoot);
     }
 
     // ── ヘルパー ──

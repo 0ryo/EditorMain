@@ -71,6 +71,8 @@ public class StepNodeUI : MonoBehaviour
         stepNode = targetStep;
         if (stepNode == null) return;
 
+        ScenarioGraphVisualStyle.EnsureNodeHeader(transform);
+
         int displayIndex = stepDisplayIndex <= 0 ? 1 : stepDisplayIndex;
         string stepName = $"\u624B\u9806 {displayIndex}";
 
@@ -151,10 +153,11 @@ public class StepNodeUI : MonoBehaviour
         }
 
         SetTopRightRect(detailsButton.transform as RectTransform, -98f, -42f, -30f, -8f);
+        UiAccessibilityMetrics.EnsureButtonTarget(detailsButton);
         detailsButton.onClick.RemoveAllListeners();
         detailsButton.onClick.AddListener(() => SetDetailsExpanded(!detailsExpanded));
 
-        bodyInput = EnsureDetailInput(bodyInput, "Input_Body", "本文", -72f, -8f, multiline: true);
+        bodyInput = EnsureDetailInput(bodyInput, "Input_Body", "この手順で行うことを入力してください", -72f, -8f, multiline: true);
         supplementInput = EnsureDetailInput(supplementInput, "Input_Supplement", "補足", -114f, -78f);
         cautionInput = EnsureDetailInput(cautionInput, "Input_Caution", "注意事項", -156f, -120f);
         durationInput = EnsureDetailInput(durationInput, "Input_DurationMinutes", "所要時間（分）", -198f, -162f);
@@ -266,15 +269,7 @@ public class StepNodeUI : MonoBehaviour
     {
         if (graphService == null || stepNode == null || mutation == null) return false;
 
-        string nodeId = stepNode.nodeId;
-        return graphService.ExecuteCommand(label, () =>
-        {
-            var target = graphService.FindNode(nodeId);
-            if (target == null || target.nodeType != ScenarioNodeType.Step) return false;
-            target.step ??= new StepNodeData();
-            mutation(target.step);
-            return true;
-        });
+        return graphService.UpdateStepData(stepNode.nodeId, label, mutation);
     }
 
     void SetDetailsExpanded(bool expanded, bool notify = true)
@@ -555,6 +550,9 @@ public class StepNodeUI : MonoBehaviour
 
     void ConfigureConnectorDragHandlers()
     {
+        ScenarioGraphVisualStyle.ApplyConnector(inputConnector);
+        ScenarioGraphVisualStyle.ApplyConnector(outputConnector);
+
         if (inputConnector != null)
         {
             var inputDrag = inputConnector.GetComponent<ConnectorDragHandler>();
@@ -658,6 +656,7 @@ public class StepNodeUI : MonoBehaviour
             deleteRt.sizeDelta = new Vector2(22f, 22f);
             deleteRt.anchoredPosition = new Vector2(-12f, -19f);
         }
+        UiAccessibilityMetrics.EnsureButtonTarget(deleteButton);
     }
 
     void ApplyTask1VisualLayout()

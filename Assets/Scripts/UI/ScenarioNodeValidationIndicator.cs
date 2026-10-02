@@ -93,7 +93,7 @@ public sealed class ScenarioNodeValidationIndicator : MonoBehaviour
             badgeText = textObject.GetComponent<TMP_Text>();
             badgeText.fontSize = DesignTokens.FontSizeCaption;
             badgeText.alignment = TextAlignmentOptions.Center;
-            badgeText.enableWordWrapping = false;
+            badgeText.textWrappingMode = TMPro.TextWrappingModes.NoWrap;
             badgeText.raycastTarget = false;
         }
     }

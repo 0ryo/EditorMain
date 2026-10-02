@@ -103,7 +103,7 @@ internal sealed class ScenarioGraphViewport
         tools.anchorMax = Vector2.one;
         tools.pivot = Vector2.one;
         tools.anchoredPosition = new Vector2(-12f, -12f);
-        tools.sizeDelta = new Vector2(216f, 34f);
+        tools.sizeDelta = new Vector2(216f, DesignTokens.MinTouchTarget);
         var layout = tools.GetComponent<HorizontalLayoutGroup>();
         if (layout == null) layout = tools.gameObject.AddComponent<HorizontalLayoutGroup>();
         layout.spacing = 6f;
@@ -187,7 +187,7 @@ internal sealed class ScenarioGraphViewport
         var element = button.GetComponent<LayoutElement>();
         if (element == null) element = button.gameObject.AddComponent<LayoutElement>();
         element.preferredWidth = 68f;
-        element.minHeight = 34f;
+        element.minHeight = DesignTokens.MinTouchTarget;
 
         var label = button.GetComponentInChildren<TMP_Text>(true);
         if (label == null)
@@ -202,6 +202,7 @@ internal sealed class ScenarioGraphViewport
         label.color = DesignTokens.TextPrimary;
         label.alignment = TextAlignmentOptions.Center;
         label.raycastTarget = false;
+        UiAccessibilityMetrics.EnsureButtonTarget(button);
         return button;
     }
 

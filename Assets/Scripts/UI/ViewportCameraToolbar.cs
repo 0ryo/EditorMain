@@ -28,6 +28,7 @@ public sealed class ViewportCameraToolbar : MonoBehaviour
     bool expanded;
     RectTransform activeHintTarget;
     readonly Vector3[] worldCorners = new Vector3[4];
+    float nextReferenceResolveTime;
 
     public static ViewportCameraToolbar Ensure(Transform parent)
     {
@@ -64,8 +65,12 @@ public sealed class ViewportCameraToolbar : MonoBehaviour
 
     void ResolveReferences()
     {
-        if (cameraController == null) cameraController = FindFirstObjectByType<EditorCameraController>();
-        if (selectionService == null) selectionService = FindFirstObjectByType<SelectionService>();
+        if (Time.unscaledTime >= nextReferenceResolveTime)
+        {
+            nextReferenceResolveTime = Time.unscaledTime + 0.5f;
+            if (cameraController == null) cameraController = FindFirstObjectByType<EditorCameraController>();
+            if (selectionService == null) selectionService = FindFirstObjectByType<SelectionService>();
+        }
 
         var parent = transform.parent;
         if (openButton == null && parent != null)
@@ -353,6 +358,7 @@ public sealed class ViewportCameraToolbar : MonoBehaviour
         var hintTrigger = go.AddComponent<ViewportToolbarHintTrigger>();
         hintTrigger.Owner = toolbar;
         hintTrigger.Message = "カメラ操作を開閉します";
+        UiAccessibilityMetrics.EnsureButtonTarget(button);
         return button;
     }
 
@@ -414,7 +420,7 @@ public sealed class ViewportCameraToolbar : MonoBehaviour
         var layout = go.GetComponent<LayoutElement>();
         layout.minWidth = width;
         layout.preferredWidth = width;
-        layout.minHeight = 36f;
+        layout.minHeight = DesignTokens.MinTouchTarget;
 
         var image = go.GetComponent<Image>();
         image.color = DesignTokens.BgSecondary;
@@ -440,6 +446,7 @@ public sealed class ViewportCameraToolbar : MonoBehaviour
         var hintTrigger = go.AddComponent<ViewportToolbarHintTrigger>();
         hintTrigger.Owner = toolbar;
         hintTrigger.Message = hint;
+        UiAccessibilityMetrics.EnsureButtonTarget(button);
         return button;
     }
 }

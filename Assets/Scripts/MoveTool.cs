@@ -47,6 +47,7 @@ public class MoveTool : MonoBehaviour
     LineRenderer centerRing;
     readonly LineRenderer[] arcHandles = new LineRenderer[3];
     bool gizmoInitialized;
+    float nextSelectionLookupTime;
     PlacedObject gizmoVisualTarget;
     Vector3 gizmoVisualPosition;
     Quaternion gizmoVisualRotation;
@@ -88,6 +89,11 @@ public class MoveTool : MonoBehaviour
     void Update()
     {
         if (ObjectScreenPicker.Capturing) { CancelRuntimeDragStates(); SetGizmoVisible(false); return; }
+        if (!Application.isFocused)
+        {
+            CancelRuntimeDragStates();
+            return;
+        }
         EnsureCamera();
         EnsureSelection();
 
@@ -109,6 +115,13 @@ public class MoveTool : MonoBehaviour
 
         if (activeGizmoDragMode != GizmoDragMode.None)
         {
+            if (EditWorkspace.IsTypingIntoInputField() ||
+                PlacementController.IsScreenPositionOverBlockingUi(EditInput.MousePosition))
+            {
+                CancelRuntimeDragStates();
+                return;
+            }
+
             if (EditInput.LeftReleasedThisFrame())
             {
                 CommitGizmoDragIfNeeded();
@@ -136,6 +149,13 @@ public class MoveTool : MonoBehaviour
         }
 
         HandleKeyboardNudgeMove();
+    }
+
+    void OnApplicationFocus(bool hasFocus)
+    {
+        if (hasFocus) return;
+        CancelRuntimeDragStates();
+        SetGizmoVisible(false);
     }
 
     void OnDestroy()
@@ -312,6 +332,13 @@ public class MoveTool : MonoBehaviour
         {
             CancelRuntimeDragStates();
             return;
+        }
+
+        if (activeGizmoDragMode == GizmoDragMode.Move && EditSnapSettings.ShouldSnap && sel.Current != null && sel.Selected.Count == 1 &&
+            PlacementObjectSnapper.TrySnap(sel.Current, Mathf.Max(gridSize, 0.1f), gizmoDragAxisWorldDir, out var snappedPosition))
+        {
+            sel.Current.transform.position = snappedPosition;
+            selectionGesture?.Apply();
         }
 
         selectionGesture?.Commit("Transform selection");
@@ -779,6 +806,8 @@ public class MoveTool : MonoBehaviour
     void EnsureSelection()
     {
         if (sel != null) return;
+        if (Time.unscaledTime < nextSelectionLookupTime) return;
+        nextSelectionLookupTime = Time.unscaledTime + 0.5f;
         sel = FindFirstObjectByType<SelectionService>();
     }
 

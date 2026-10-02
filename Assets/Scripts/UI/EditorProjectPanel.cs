@@ -1,12 +1,34 @@
 using System;
+using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
+using Unity.Profiling;
 using UnityEngine.UI;
 
 public sealed class EditorProjectPanel : MonoBehaviour
 {
     const string ControllerName = "EditorProjectPanelController";
     const string ModalName = "Panel_ProjectFiles";
+    static readonly ProfilerMarker RefreshProjectListMarker = new("EditorProjectPanel.RefreshProjectList");
+    static readonly HashSet<EditorProjectPanel> Panels = new();
+
+    public static bool HasOpenModal
+    {
+        get
+        {
+            return GetOpenModalRoot() != null;
+        }
+    }
+
+    public static Transform GetOpenModalRoot(Transform within = null)
+    {
+        foreach (var panel in Panels)
+        {
+            if (panel == null || panel.modal == null || !panel.modal.gameObject.activeInHierarchy) continue;
+            if (within == null || panel.modal == within || panel.modal.IsChildOf(within)) return panel.modal;
+        }
+        return null;
+    }
 
     Transform uiRoot;
     EditorProjectService projectService;
@@ -48,11 +70,13 @@ public sealed class EditorProjectPanel : MonoBehaviour
 
     void Awake()
     {
+        Panels.Add(this);
         if (uiRoot == null) uiRoot = transform.parent;
     }
 
     void OnDestroy()
     {
+        Panels.Remove(this);
         if (projectService != null)
         {
             projectService.StatusChanged -= OnServiceStatusChanged;
@@ -62,6 +86,19 @@ public sealed class EditorProjectPanel : MonoBehaviour
 #if !UNITY_EDITOR
         Application.wantsToQuit -= HandleWantsToQuit;
 #endif
+    }
+
+    void Update()
+    {
+        if (modal == null || !modal.gameObject.activeInHierarchy ||
+            !Application.isFocused || !EditInput.CancelPressedThisFrame()) return;
+
+        var selected = UnityEngine.EventSystems.EventSystem.current?.currentSelectedGameObject;
+        var input = selected != null ? selected.GetComponent<TMP_InputField>() : null;
+        if (input != null && input.isFocused) return;
+
+        if (confirmation != null && confirmation.gameObject.activeInHierarchy) HideConfirmation();
+        else Close();
     }
 
     void Build()
@@ -77,6 +114,7 @@ public sealed class EditorProjectPanel : MonoBehaviour
 
         BuildOpenButton();
         BuildModal();
+        UiAccessibilityMetrics.EnsureButtonTargets(uiRoot);
 #if !UNITY_EDITOR
         Application.wantsToQuit -= HandleWantsToQuit;
         Application.wantsToQuit += HandleWantsToQuit;
@@ -114,11 +152,14 @@ public sealed class EditorProjectPanel : MonoBehaviour
         {
             modal = CreateRect(ModalName, uiRoot);
             Stretch(modal);
-            var dimmer = modal.gameObject.AddComponent<Image>();
-            dimmer.color = new Color(0f, 0f, 0f, 0.35f);
-            dimmer.raycastTarget = true;
-            modal.gameObject.AddComponent<EditorUiInputBlocker>();
         }
+
+        var dimmer = modal.GetComponent<Image>();
+        if (dimmer == null) dimmer = modal.gameObject.AddComponent<Image>();
+        dimmer.raycastTarget = true;
+        if (modal.GetComponent<EditorUiInputBlocker>() == null)
+            modal.gameObject.AddComponent<EditorUiInputBlocker>();
+        if (existing == null) dimmer.color = new Color(0f, 0f, 0f, 0.35f);
 
         var dialog = CreateRect("Dialog", modal);
         dialog.anchorMin = dialog.anchorMax = new Vector2(0.5f, 0.5f);
@@ -175,6 +216,7 @@ public sealed class EditorProjectPanel : MonoBehaviour
         BuildProjectList(dialog);
         BuildConfirmation(dialog);
         UiRoundedTheme.ApplyToHierarchy(dialog, DesignTokens.CornerRadius);
+        UiAccessibilityMetrics.EnsureButtonTargets(dialog);
         RefreshDirtyVisual();
         modal.gameObject.SetActive(false);
     }
@@ -262,6 +304,7 @@ public sealed class EditorProjectPanel : MonoBehaviour
     {
         gameObject.SetActive(true);
         if (projectService == null) Build();
+        libraryMode = 0; // Always begin with saved lessons, not a previous Trash/Templates tab.
         Open();
     }
 
@@ -427,6 +470,14 @@ public sealed class EditorProjectPanel : MonoBehaviour
     void RefreshProjectList()
     {
         if (listContent == null) return;
+        using (RefreshProjectListMarker.Auto())
+        {
+            RefreshProjectListContents();
+        }
+    }
+
+    void RefreshProjectListContents()
+    {
         for (int i = listContent.childCount - 1; i >= 0; i--)
         {
             Destroy(listContent.GetChild(i).gameObject);
@@ -486,6 +537,7 @@ public sealed class EditorProjectPanel : MonoBehaviour
                 if (!delete.interactable) SetButtonLabel(delete, "編集中");
             }
             UiRoundedTheme.ApplyToHierarchy(row, DesignTokens.CornerRadius);
+            UiAccessibilityMetrics.EnsureButtonTargets(row);
         }
         SetListContentHeight(16f + rowIndex * 92f + Mathf.Max(0, rowIndex - 1) * DesignTokens.SpaceSm);
     }
@@ -542,6 +594,8 @@ public sealed class EditorProjectPanel : MonoBehaviour
         restoreRect.anchoredPosition = new Vector2(-8f, 0f);
         restoreRect.sizeDelta = new Vector2(72f, 36f);
         restore.onClick.AddListener(() => RequestRecoveryLoad(info));
+        UiAccessibilityMetrics.EnsureButtonTarget(discard);
+        UiAccessibilityMetrics.EnsureButtonTarget(restore);
         UiRoundedTheme.ApplyToHierarchy(row, DesignTokens.CornerRadius);
     }
 
@@ -716,7 +770,7 @@ public sealed class EditorProjectPanel : MonoBehaviour
         text.color = color;
         text.alignment = TextAlignmentOptions.MidlineLeft;
         text.raycastTarget = false;
-        text.enableWordWrapping = false;
+        text.textWrappingMode = TMPro.TextWrappingModes.NoWrap;
         text.overflowMode = TextOverflowModes.Ellipsis;
         return text;
     }

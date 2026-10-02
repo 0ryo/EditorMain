@@ -63,13 +63,14 @@ public sealed class MaterialSearchPanel : MonoBehaviour
         var go = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Button), typeof(LayoutElement));
         go.transform.SetParent(parent, false);
         go.GetComponent<Image>().color = DesignTokens.BgSecondary;
-        go.GetComponent<LayoutElement>().minHeight = go.GetComponent<LayoutElement>().preferredHeight = 44;
+        go.GetComponent<LayoutElement>().minHeight = go.GetComponent<LayoutElement>().preferredHeight = DesignTokens.MinTouchTarget;
         var label = new GameObject("Label", typeof(RectTransform), typeof(TextMeshProUGUI)).GetComponent<TMP_Text>();
         label.transform.SetParent(go.transform, false);
         label.rectTransform.anchorMin = Vector2.zero; label.rectTransform.anchorMax = Vector2.one;
         label.rectTransform.offsetMin = new Vector2(8,4); label.rectTransform.offsetMax = new Vector2(-8,-4);
         label.fontSize = 14; label.color = DesignTokens.TextPrimary; label.alignment = TextAlignmentOptions.Center;
         label.text = caption; label.raycastTarget = false;
+        UiAccessibilityMetrics.EnsureButtonTarget(go.GetComponent<Button>());
         return go.GetComponent<Button>();
     }
 
@@ -81,7 +82,11 @@ public sealed class MaterialSearchPanel : MonoBehaviour
         if (searchButton != null) searchButton.interactable = selected != null && cancellation == null;
     }
 
+#if UNITY_EDITOR
     async void Search()
+#else
+    void Search()
+#endif
     {
         if (cancellation != null || selected == null) return;
         int request = revision;

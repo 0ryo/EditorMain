@@ -20,6 +20,7 @@ public class ViewportStatusStrip : MonoBehaviour
     [SerializeField] TMP_Text targetText;
     [SerializeField] TMP_Text toastText;
     [SerializeField] TMP_Text debugText;
+    [SerializeField] UnityEngine.UI.Button cancelPlacementButton;
 
     PlacementController placementController;
     SelectionService selectionService;
@@ -30,6 +31,7 @@ public class ViewportStatusStrip : MonoBehaviour
     string toastMessage;
     float toastUntil;
     readonly Vector3[] worldCorners = new Vector3[4];
+    float nextServiceResolveTime;
 
     void Awake()
     {
@@ -100,6 +102,7 @@ public class ViewportStatusStrip : MonoBehaviour
         targetText = FindOrCreateText("Text_Target", "\u9078\u629E\u306A\u3057", DesignTokens.TextPrimary, 300f, TextAlignmentOptions.MidlineLeft);
         toastText = FindOrCreateText("Text_Toast", "", DesignTokens.TextSecondary, 240f, TextAlignmentOptions.MidlineLeft);
         debugText = FindOrCreateText("Text_Debug", "", DesignTokens.TextSecondary, 360f, TextAlignmentOptions.MidlineLeft);
+        EnsureCancelPlacementButton();
         ViewportOutliner.Ensure(transform);
         ObjectTransformPanel.Ensure(transform);
         ViewportCameraToolbar.Ensure(transform);
@@ -123,6 +126,8 @@ public class ViewportStatusStrip : MonoBehaviour
         text.color = color;
         text.alignment = alignment;
         text.raycastTarget = false;
+        text.textWrappingMode = TMPro.TextWrappingModes.NoWrap;
+        text.overflowMode = TextOverflowModes.Ellipsis;
 
         var layout = text.GetComponent<LayoutElement>();
         if (layout == null) layout = text.gameObject.AddComponent<LayoutElement>();
@@ -130,6 +135,83 @@ public class ViewportStatusStrip : MonoBehaviour
         layout.preferredWidth = preferredWidth;
         layout.flexibleWidth = objectName == "Text_Target" ? 1f : 0f;
         return text;
+    }
+
+    void EnsureCancelPlacementButton()
+    {
+        if (cancelPlacementButton == null)
+        {
+            var existing = stripRoot.Find("Button_CancelPlacement");
+            if (existing != null) cancelPlacementButton = existing.GetComponent<UnityEngine.UI.Button>();
+        }
+
+        if (cancelPlacementButton == null)
+        {
+            var go = new GameObject(
+                "Button_CancelPlacement",
+                typeof(RectTransform),
+                typeof(Image),
+                typeof(UnityEngine.UI.Button),
+                typeof(LayoutElement));
+            go.transform.SetParent(stripRoot, false);
+            cancelPlacementButton = go.GetComponent<UnityEngine.UI.Button>();
+
+            var labelGo = new GameObject("Label", typeof(RectTransform), typeof(TextMeshProUGUI));
+            var labelRt = labelGo.GetComponent<RectTransform>();
+            labelRt.SetParent(go.transform, false);
+            labelRt.anchorMin = Vector2.zero;
+            labelRt.anchorMax = Vector2.one;
+            labelRt.offsetMin = new Vector2(4f, 0f);
+            labelRt.offsetMax = new Vector2(-4f, 0f);
+
+            var label = labelGo.GetComponent<TextMeshProUGUI>();
+            label.text = "取消";
+            label.fontSize = DesignTokens.FontSizeCaption;
+            label.color = DesignTokens.TextPrimary;
+            label.alignment = TextAlignmentOptions.Center;
+            label.raycastTarget = false;
+        }
+
+        var image = cancelPlacementButton.GetComponent<Image>();
+        if (image != null)
+        {
+            image.color = DesignTokens.BgSecondary;
+            image.raycastTarget = true;
+            cancelPlacementButton.targetGraphic = image;
+            EnsureThinOutline(cancelPlacementButton.transform);
+        }
+
+        var colors = cancelPlacementButton.colors;
+        colors.normalColor = DesignTokens.BgSecondary;
+        colors.highlightedColor = DesignTokens.BgTertiary;
+        colors.pressedColor = DesignTokens.Divider;
+        colors.disabledColor = DesignTokens.BgSecondary;
+        cancelPlacementButton.colors = colors;
+        cancelPlacementButton.transition = UnityEngine.UI.Selectable.Transition.ColorTint;
+        if (cancelPlacementButton.GetComponent<EditorUiInputBlocker>() == null)
+            cancelPlacementButton.gameObject.AddComponent<EditorUiInputBlocker>();
+        cancelPlacementButton.onClick.RemoveAllListeners();
+        cancelPlacementButton.onClick.AddListener(CancelPlacementFromStrip);
+
+        var layout = cancelPlacementButton.GetComponent<LayoutElement>();
+        if (layout == null) layout = cancelPlacementButton.gameObject.AddComponent<LayoutElement>();
+        layout.minWidth = 64f;
+        layout.preferredWidth = 72f;
+        layout.minHeight = DesignTokens.MinTouchTarget;
+        layout.preferredHeight = DesignTokens.MinTouchTarget;
+        UiAccessibilityMetrics.EnsureButtonTarget(cancelPlacementButton);
+        cancelPlacementButton.gameObject.SetActive(false);
+    }
+
+    void CancelPlacementFromStrip()
+    {
+        ResolveReferences();
+        if (placementController == null || string.IsNullOrWhiteSpace(placementController.CurrentTypeId)) return;
+
+        placementController.CancelPlacement();
+        if (editModeService != null && editModeService.Mode == EditMode.Place)
+            editModeService.SetMode(EditMode.Browse);
+        RefreshStatus();
     }
 
     void ResolveReferences()
@@ -156,9 +238,12 @@ public class ViewportStatusStrip : MonoBehaviour
             hintButtonPanel = transform.Find("Button_Hints") as RectTransform;
         }
 
-        if (catalogUI == null) catalogUI = FindFirstObjectByType<CatalogUI>();
+        bool retryMissingServices = Time.unscaledTime >= nextServiceResolveTime;
+        if (retryMissingServices) nextServiceResolveTime = Time.unscaledTime + 0.5f;
+        if (catalogUI == null && retryMissingServices) catalogUI = FindFirstObjectByType<CatalogUI>();
 
-        var placement = FindFirstObjectByType<PlacementController>();
+        var placement = placementController != null ? placementController :
+            retryMissingServices ? FindFirstObjectByType<PlacementController>() : null;
         if (placement != placementController)
         {
             UnbindPlacement();
@@ -166,7 +251,8 @@ public class ViewportStatusStrip : MonoBehaviour
             BindPlacement();
         }
 
-        var selection = FindFirstObjectByType<SelectionService>();
+        var selection = selectionService != null ? selectionService :
+            retryMissingServices ? FindFirstObjectByType<SelectionService>() : null;
         if (selection != selectionService)
         {
             UnbindSelection();
@@ -179,7 +265,9 @@ public class ViewportStatusStrip : MonoBehaviour
             }
         }
 
-        var editMode = EditModeService.I != null ? EditModeService.I : FindFirstObjectByType<EditModeService>();
+        var editMode = editModeService != null ? editModeService :
+            EditModeService.I != null ? EditModeService.I :
+            retryMissingServices ? FindFirstObjectByType<EditModeService>() : null;
         if (editMode != editModeService)
         {
             UnbindEditMode();
@@ -242,6 +330,11 @@ public class ViewportStatusStrip : MonoBehaviour
     void OnPlacementTypeChanged(string typeId)
     {
         lastPlacementTypeId = typeId;
+        if (!string.IsNullOrWhiteSpace(typeId))
+        {
+            toastMessage = string.Empty;
+            toastUntil = 0f;
+        }
         RefreshStatus();
     }
 
@@ -249,9 +342,17 @@ public class ViewportStatusStrip : MonoBehaviour
     {
         selectedObject = placed;
         string objectId = placed != null ? placed.Id : string.Empty;
-        toastMessage = string.IsNullOrWhiteSpace(objectId)
-            ? "\u914D\u7F6E\u3057\u307E\u3057\u305F"
-            : $"\u914D\u7F6E\u3057\u307E\u3057\u305F: {objectId}";
+        if (PlacementOverlapDetector.TryFindOverlap(placed, out var overlapping))
+        {
+            string name = overlapping != null ? overlapping.GetDisplayName() : "別の配置物";
+            toastMessage = $"重なりの可能性があります: {name}";
+        }
+        else
+        {
+            toastMessage = string.IsNullOrWhiteSpace(objectId)
+                ? "\u914D\u7F6E\u3057\u307E\u3057\u305F"
+                : $"\u914D\u7F6E\u3057\u307E\u3057\u305F: {objectId}";
+        }
         toastUntil = Time.unscaledTime + ToastDuration;
         RefreshStatus();
         RefreshToast();
@@ -284,20 +385,28 @@ public class ViewportStatusStrip : MonoBehaviour
             selectedObject = selectionService.Current;
         }
 
-        if (!string.IsNullOrWhiteSpace(lastPlacementTypeId))
+        bool isPlacementPending = !string.IsNullOrWhiteSpace(lastPlacementTypeId);
+        if (cancelPlacementButton != null)
+            cancelPlacementButton.gameObject.SetActive(isPlacementPending);
+        if (toastText != null) toastText.gameObject.SetActive(!isPlacementPending);
+        if (debugText != null) debugText.gameObject.SetActive(!isPlacementPending);
+
+        if (isPlacementPending)
         {
-            modeText.text = "\u914D\u7F6E\u4E2D";
-            targetText.text = "\u914D\u7F6E: " + BuildTypeLabel(lastPlacementTypeId);
+            modeText.text = "+ 配置中";
+            targetText.text = $"配置対象: {BuildTypeLabel(lastPlacementTypeId)} / 3D空間をクリック";
             return;
         }
 
+        var mode = editModeService != null ? editModeService.Mode : EditMode.Browse;
+        if (mode == EditMode.Place) mode = EditMode.Browse;
+
         if (selectionService != null && selectionService.Selected.Count > 1)
         {
-            modeText.text = BuildModeLabel(editModeService != null ? editModeService.Mode : EditMode.Browse);
+            modeText.text = BuildModeLabel(mode);
             targetText.text = $"{selectionService.Selected.Count}個を選択 / 基準: {selectedObject?.Id}";
             return;
         }
-        var mode = editModeService != null ? editModeService.Mode : EditMode.Browse;
         modeText.text = BuildModeLabel(mode);
         targetText.text = selectedObject != null
             ? $"\u9078\u629E\u4E2D: {selectedObject.Id}"
@@ -368,10 +477,10 @@ public class ViewportStatusStrip : MonoBehaviour
     {
         return mode switch
         {
-            EditMode.Place => "\u914D\u7F6E\u4E2D",
-            EditMode.Transform => "\u79FB\u52D5\u4E2D",
-            EditMode.Scale => "\u30B9\u30B1\u30FC\u30EB\u8ABF\u6574",
-            _ => "\u95B2\u89A7\u4E2D",
+            EditMode.Place => "+ 配置中",
+            EditMode.Transform => "↔ 移動中",
+            EditMode.Scale => "↕ スケール",
+            _ => "○ 閲覧中",
         };
     }
 

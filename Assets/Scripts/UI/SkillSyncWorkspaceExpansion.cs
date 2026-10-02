@@ -14,9 +14,17 @@ public sealed class SkillSyncWorkspaceExpansion : MonoBehaviour
     public RectTransform objectsContent;
     public float Amount { get; private set; }
     float target;
+    bool applied;
+    int lastState = -1;
+    SkillSyncVerticalSplit split;
+    SkillSyncDesignView view;
     public void SetExpanded(bool expanded) { target=expanded?1:0; }
     public void Tick(float deltaTime)
     {
+        if (view == null) view = GetComponent<SkillSyncDesignView>();
+        int state = view != null ? view.State : 0;
+        if (applied && Amount == target && lastState == state) return;
+        applied = true; lastState = state;
         Amount=Mathf.MoveTowards(Amount,target,deltaTime/.24f);
         float width=Mathf.SmoothStep(0,1,Amount)*440;
         foreach(var item in items) {
@@ -31,11 +39,8 @@ public sealed class SkillSyncWorkspaceExpansion : MonoBehaviour
         inspector.alpha=1-Mathf.SmoothStep(0,1,Amount);
         inspector.interactable=inspector.blocksRaycasts=target==0;
         ((RectTransform)inspector.transform).anchoredPosition=Vector2.right*width;
-        foreach(RectTransform row in objectsContent) {
-            if(row.GetComponent<SkillSyncDesignRow>()==null) continue;
-            row.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal,objectsContent.rect.width);
-        }
-        var split=transform.Find("WorkspaceSplit")?.GetComponent<SkillSyncVerticalSplit>();
+        // VerticalLayoutGroup owns row widths, including newly added rows.
+        if (split == null) split=transform.Find("WorkspaceSplit")?.GetComponent<SkillSyncVerticalSplit>();
         if(split!=null)split.Apply();
     }
 }

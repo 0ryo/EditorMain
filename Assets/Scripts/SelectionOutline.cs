@@ -35,7 +35,7 @@ public class SelectionOutline : MonoBehaviour
 
     void Update()
     {
-        if (ObjectScreenPicker.Capturing) { EnsureLines(0); ResetScaleState(); SetScaleCursor(false); outlineDirty = true; return; }
+        if (ObjectScreenPicker.Capturing) { EnsureLines(0); CancelScaleDrag(); SetScaleCursor(false); outlineDirty = true; return; }
         if (target == null)
         {
             EnsureLines(0);
@@ -49,6 +49,13 @@ public class SelectionOutline : MonoBehaviour
         HandleScaleDrag();
         UpdateOutline();
         UpdateScaleCursor();
+    }
+
+    void OnApplicationFocus(bool hasFocus)
+    {
+        if (hasFocus) return;
+        CancelScaleDrag();
+        SetScaleCursor(false);
     }
 
     public void ShowFor(GameObject t)
@@ -83,8 +90,26 @@ public class SelectionOutline : MonoBehaviour
                distance <= handlePickRadiusPixels;
     }
 
+    public void ApplyAccessibilityTheme()
+    {
+        var color = DesignTokens.Accent;
+        foreach (var line in lines)
+        {
+            if (line == null) continue;
+            line.startColor = color;
+            line.endColor = color;
+        }
+    }
+
     void HandleScaleDrag()
     {
+        if (!Application.isFocused || EditWorkspace.IsTypingIntoInputField() ||
+            PlacementController.IsScreenPositionOverBlockingUi(EditInput.MousePosition))
+        {
+            if (isScaling) CancelScaleDrag();
+            return;
+        }
+
         if (!IsScaleMode())
         {
             if (isScaling)
@@ -111,10 +136,32 @@ public class SelectionOutline : MonoBehaviour
         ApplyScaleFromPointer(EditInput.MousePosition);
     }
 
+    void CancelScaleDrag()
+    {
+        if (selectionGesture != null)
+        {
+            selectionGesture.Cancel();
+        }
+        else if (isScaling && target != null)
+        {
+            target.transform.localScale = dragStartScale;
+            target.transform.position = dragStartPosition;
+        }
+        selectionGesture = null;
+        isScaling = false;
+        dragStartScale = Vector3.one;
+        dragStartPosition = Vector3.zero;
+        dragStartCenterWorld = Vector3.zero;
+        dragStartScreenDistance = 0f;
+        localBoundsDirty = true;
+        outlineDirty = true;
+        transformSnapshotValid = false;
+    }
+
     void UpdateScaleCursor()
     {
         bool shouldShow = isScaling;
-        if (!shouldShow && IsScaleMode() &&
+        if (!shouldShow && Application.isFocused && !EditWorkspace.IsTypingIntoInputField() && IsScaleMode() &&
             !PlacementController.IsScreenPositionOverBlockingUi(EditInput.MousePosition))
         {
             var cam = ResolveCamera();

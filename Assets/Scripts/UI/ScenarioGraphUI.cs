@@ -145,6 +145,7 @@ public partial class ScenarioGraphUI : MonoBehaviour
 
     void Start()
     {
+        EditWorkspace.EnsureInputBlockers(transform.root);
         cornerRadius = DesignTokens.CornerRadius;
         graph.EnsureGraphInitialized();
 
@@ -192,7 +193,7 @@ public partial class ScenarioGraphUI : MonoBehaviour
     {
         if (graph != null) return;
 
-        graph = FindObjectOfType<CurriculumGraphService>();
+        graph = FindFirstObjectByType<CurriculumGraphService>();
         if (graph != null) return;
 
         var go = new GameObject("CurriculumGraphService");
@@ -271,11 +272,7 @@ public partial class ScenarioGraphUI : MonoBehaviour
             string projectName = string.IsNullOrWhiteSpace(projectNameInput.text)
                 ? "VRCourseEditor"
                 : projectNameInput.text.Trim();
-            graph.ExecuteCommand("Rename project", () =>
-            {
-                graph.curriculum.projectName = projectName;
-                return true;
-            });
+            graph.RenameProject(projectName);
         });
     }
 
@@ -294,15 +291,7 @@ public partial class ScenarioGraphUI : MonoBehaviour
     {
         if (graph == null) return;
 
-        ScenarioNode addedNode = null;
-        string commandLabel = nodeType == ScenarioNodeType.Condition ? "Add condition" : "Add step";
-        bool added = graph.ExecuteCommand(commandLabel, () =>
-        {
-            addedNode = nodeType == ScenarioNodeType.Condition
-                ? graph.AddCondition()
-                : graph.AddStep();
-            return addedNode != null;
-        });
+        bool added = graph.TryAddNode(nodeType, out var addedNode);
 
         if (!added || addedNode == null || string.IsNullOrWhiteSpace(addedNode.nodeId)) return;
         nodePositions[addedNode.nodeId] = GetViewportCenterContentPosition();
@@ -397,6 +386,7 @@ public partial class ScenarioGraphUI : MonoBehaviour
         cloned.transform.SetSiblingIndex(addStepButton.transform.GetSiblingIndex() + 1);
 
         SetButtonLabel(cloned, AddConditionLabel);
+        UiAccessibilityMetrics.EnsureButtonTarget(cloned);
 
         return cloned;
     }
@@ -409,6 +399,7 @@ public partial class ScenarioGraphUI : MonoBehaviour
         cloned.gameObject.name = "Button_Preview_Runtime";
         cloned.transform.SetSiblingIndex(saveButton.transform.GetSiblingIndex());
         SetButtonLabel(cloned, PreviewLabel);
+        UiAccessibilityMetrics.EnsureButtonTarget(cloned);
         return cloned;
     }
 
@@ -661,6 +652,7 @@ public partial class ScenarioGraphUI : MonoBehaviour
                 nodePositions[nodeId] = root.anchoredPosition;
                 RefreshMinimapNodes();
             };
+            drag.onCancelDrag = CancelSelectionDrag;
             drag.onEndDrag = () =>
             {
                 Vector2 dragEnd = root.anchoredPosition;
@@ -712,9 +704,7 @@ public partial class ScenarioGraphUI : MonoBehaviour
         var stepNodeId = FindNearestStepNodeForCondition(conditionUi.root);
         if (string.IsNullOrWhiteSpace(stepNodeId)) return;
 
-        string reason = null;
-        bool bound = graph.ExecuteCommand("Bind condition", () =>
-            graph.TryBindConditionToStep(conditionNodeId, stepNodeId, out reason));
+        bool bound = graph.TryBindConditionToStepCommand(conditionNodeId, stepNodeId, out var reason);
         if (!bound)
         {
             if (statusText != null)
@@ -875,12 +865,7 @@ public partial class ScenarioGraphUI : MonoBehaviour
             ClearConnectionCandidates();
         }
 
-        graph.ExecuteCommand("Delete scenario node", () =>
-        {
-            if (graph.FindNode(nodeId) == null) return false;
-            graph.RemoveNode(nodeId);
-            return graph.FindNode(nodeId) == null;
-        });
+        graph.TryRemoveNode(nodeId);
         statusText.text = string.Empty;
     }
 
@@ -888,8 +873,7 @@ public partial class ScenarioGraphUI : MonoBehaviour
     {
         if (string.IsNullOrWhiteSpace(nodeId)) return;
 
-        bool extracted = graph.ExecuteCommand("Unbind condition", () =>
-            graph.TryUnbindConditionFromStep(nodeId));
+        bool extracted = graph.TryUnbindConditionFromStepCommand(nodeId);
         if (!extracted) return;
 
         var defaults = BuildDefaultNodePositions();
@@ -906,17 +890,7 @@ public partial class ScenarioGraphUI : MonoBehaviour
         if (line == null) return;
         if (string.IsNullOrWhiteSpace(line.fromNodeId) || string.IsNullOrWhiteSpace(line.toNodeId)) return;
 
-        graph.ExecuteCommand("Delete scenario connection", () =>
-        {
-            bool exists = graph.curriculum.edges.Any(edge =>
-                edge.fromNodeId == line.fromNodeId &&
-                edge.toNodeId == line.toNodeId &&
-                edge.edgeType == line.edgeType);
-            if (!exists) return false;
-
-            graph.RemoveEdge(line.fromNodeId, line.toNodeId, line.edgeType);
-            return true;
-        });
+        graph.TryRemoveEdgeCommand(line.fromNodeId, line.toNodeId, line.edgeType);
         statusText.text = string.Empty;
     }
 
@@ -933,8 +907,7 @@ public partial class ScenarioGraphUI : MonoBehaviour
             return false;
         }
 
-        bool connected = graph.ExecuteCommand("Connect scenario nodes", () =>
-            graph.TryAddEdge(fromNodeId, toNodeId, out reason));
+        bool connected = graph.TryConnectNodesCommand(fromNodeId, toNodeId, out reason);
         if (!connected)
         {
             string friendly = ConnectReasonMessages.TryGetValue(reason, out var msg) ? msg : reason;
@@ -1128,11 +1101,7 @@ public partial class ScenarioGraphUI : MonoBehaviour
             : projectNameInput.text.Trim();
         if (!string.Equals(graph.curriculum.projectName, projectName, System.StringComparison.Ordinal))
         {
-            graph.ExecuteCommand("Rename project", () =>
-            {
-                graph.curriculum.projectName = projectName;
-                return true;
-            });
+            graph.RenameProject(projectName);
         }
 
         var validation = graph.ValidateGraph();
@@ -1178,7 +1147,6 @@ public partial class ScenarioGraphUI : MonoBehaviour
             : $"JSON出力しました: Exports/{fileName}";
         if (export.models.Any(model => model.requiresPreinstalledPrefab && model.typeId.StartsWith("Imported/")))
             statusText.text += " / FBX等のモデルはVR側で事前登録が必要です。モデル同梱にはGLB/glTFを使用してください。";
-        Debug.Log("[ScenarioGraph] " + statusText.text);
         validationPanel?.Hide();
         saveButton.interactable = true;
     }

@@ -100,12 +100,25 @@ public partial class ScenarioGraphUI
 
     bool FinishSelectionDrag(string id)
     {
-        if (selectionDragStart.Count < 2) return false;
+        if (selectionDragStart.Count < 2) { selectionDragStart.Clear(); return false; }
         var commands = selectionDragStart.Where(p => nodeUIs.ContainsKey(p.Key))
             .Select(p => (IEditorCommand)new NodePositionCommand(this, p.Key, p.Value, nodeUIs[p.Key].root.anchoredPosition)).ToList();
         CommandService.I?.Stack?.RecordApplied(new CompositeEditorCommand("Move scenario selection", commands));
         selectionDragStart.Clear();
         return true;
+    }
+
+    void CancelSelectionDrag()
+    {
+        foreach (var pair in selectionDragStart)
+        {
+            if (!nodeUIs.TryGetValue(pair.Key, out var view) || view.root == null) continue;
+            view.root.anchoredPosition = pair.Value;
+            nodePositions[pair.Key] = pair.Value;
+        }
+        selectionDragStart.Clear();
+        RefreshLines();
+        RefreshMinimapNodes();
     }
 
     void AlignSelectedNodes(int axis)

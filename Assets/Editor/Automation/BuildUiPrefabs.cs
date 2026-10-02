@@ -33,6 +33,8 @@ public static class BuildUiPrefabs
         BuildDockSync(root, catalogPanel, scenarioPanel, editModeRow, settingsButton, hintButton);
 
         ApplyAuthoringFeatures.Prepare(root);
+        EditWorkspace.EnsureInputBlockers(root.transform);
+        UiAccessibilityMetrics.EnsureButtonTargets(root.transform);
         PrefabUtility.SaveAsPrefabAsset(root, UiRootPrefabPath);
         Object.DestroyImmediate(root);
         AssetDatabase.SaveAssets();
@@ -106,7 +108,7 @@ public static class BuildUiPrefabs
         SetRect(searchInput.GetComponent<RectTransform>(), Vector2.zero, Vector2.one, new Vector2(8f, 4f), new Vector2(-8f, -4f));
 
         var statusText = CreateText("Text_Status", panel, "");
-        statusText.fontSize = 12;
+        statusText.fontSize = DesignTokens.FontSizeBody;
         statusText.color = DesignTokens.TextSecondary;
         SetRect(statusText.rectTransform, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(14f, -66f), new Vector2(-14f, -46f));
 
@@ -683,6 +685,7 @@ public static class BuildUiPrefabs
         var root = CreateUiRect("StepNodeTemplate", parent);
         root.sizeDelta = new Vector2(390f, 180f);
         root.gameObject.AddComponent<Image>().color = DesignTokens.Surface;
+        ScenarioGraphVisualStyle.EnsureNodeHeader(root);
         EnsureThinOutline(root.gameObject, DesignTokens.Divider);
         var stepNode = root.gameObject.AddComponent<StepNodeUI>();
 
@@ -691,7 +694,7 @@ public static class BuildUiPrefabs
         SetRect(stepId.rectTransform, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(12f, -28f), new Vector2(-44f, -8f));
 
         var conditionSummary = CreateText("Text_ConditionSummary", root, "\u6761\u4EF6: 0");
-        conditionSummary.fontSize = 12;
+        conditionSummary.fontSize = DesignTokens.FontSizeCaption;
         conditionSummary.alignment = TextAlignmentOptions.MidlineLeft;
         conditionSummary.color = DesignTokens.TextSecondary;
         SetRect(conditionSummary.rectTransform, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(12f, -92f), new Vector2(-44f, -72f));
@@ -725,11 +728,11 @@ public static class BuildUiPrefabs
 
         var inputConnector = CreateButton("InputConnector", root, "");
         SetRect(inputConnector.GetComponent<RectTransform>(), new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(-14f, -12f), new Vector2(10f, 12f));
-        inputConnector.GetComponent<Image>().color = DesignTokens.Accent;
+        ScenarioGraphVisualStyle.ApplyConnector(inputConnector);
 
         var outputConnector = CreateButton("OutputConnector", root, "");
         SetRect(outputConnector.GetComponent<RectTransform>(), new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(-10f, -12f), new Vector2(14f, 12f));
-        outputConnector.GetComponent<Image>().color = DesignTokens.Accent;
+        ScenarioGraphVisualStyle.ApplyConnector(outputConnector);
 
         var conditionList = CreateUiRect("ConditionList", root);
         SetRect(conditionList, new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(16f, 30f), new Vector2(-16f, 106f));
@@ -933,17 +936,17 @@ public static class BuildUiPrefabs
         title.alignment = TextAlignmentOptions.MidlineLeft;
         SetRect(title.rectTransform, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(16f, -44f), new Vector2(-16f, -16f));
         pathText = CreateText("Text_FilePath", window, "");
-        pathText.fontSize = 12;
+        pathText.fontSize = DesignTokens.FontSizeCaption;
         pathText.color = DesignTokens.TextSecondary;
         pathText.alignment = TextAlignmentOptions.TopLeft;
         SetRect(pathText.rectTransform, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(16f, -84f), new Vector2(-16f, -52f));
         var nameLabel = CreateText("Text_NameLabel", window, "\u30AA\u30D6\u30B8\u30A7\u30AF\u30C8\u540D");
-        nameLabel.fontSize = 13;
+        nameLabel.fontSize = DesignTokens.FontSizeBody;
         SetRect(nameLabel.rectTransform, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(16f, -116f), new Vector2(-16f, -92f));
         nameInput = CreateInputField("Input_NewObjectName", window, "New Object");
         SetRect(nameInput.GetComponent<RectTransform>(), new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(16f, -160f), new Vector2(-16f, -120f));
         var descriptionLabel = CreateText("Text_DescriptionLabel", window, "\u8AAC\u660E");
-        descriptionLabel.fontSize = 13;
+        descriptionLabel.fontSize = DesignTokens.FontSizeBody;
         SetRect(descriptionLabel.rectTransform, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(16f, -196f), new Vector2(-16f, -172f));
         descriptionInput = CreateInputField("Input_NewObjectDescription", window, "\u8AAC\u660E\u3092\u5165\u529B...");
         descriptionInput.lineType = TMP_InputField.LineType.MultiLineNewline;
@@ -971,15 +974,15 @@ public static class BuildUiPrefabs
         rowLayout.childForceExpandWidth = true;
         applyButton = CreateButton("Button_Apply", buttonsRow, "\u8FFD\u52A0");
         var applyLayout = applyButton.gameObject.AddComponent<LayoutElement>();
-        applyLayout.minHeight = 40f;
-        applyLayout.preferredHeight = 40f;
+        applyLayout.minHeight = DesignTokens.MinTouchTarget;
+        applyLayout.preferredHeight = DesignTokens.MinTouchTarget;
         applyButton.GetComponent<Image>().color = DesignTokens.Accent;
         var applyLabel = applyButton.GetComponentInChildren<TMP_Text>(true);
         if (applyLabel != null) applyLabel.color = DesignTokens.Surface;
         cancelButton = CreateButton("Button_Cancel", buttonsRow, "\u30AD\u30E3\u30F3\u30BB\u30EB");
         var cancelLayout = cancelButton.gameObject.AddComponent<LayoutElement>();
-        cancelLayout.minHeight = 40f;
-        cancelLayout.preferredHeight = 40f;
+        cancelLayout.minHeight = DesignTokens.MinTouchTarget;
+        cancelLayout.preferredHeight = DesignTokens.MinTouchTarget;
         cancelButton.GetComponent<Image>().color = DesignTokens.BgSecondary;
         overlay.gameObject.SetActive(false);
         return overlay;
@@ -1030,18 +1033,18 @@ public static class BuildUiPrefabs
 
         tabGeneralButton = CreateButton("Tab_General", tabs, "\u4e00\u822c");
         var tabGeneralLayout = tabGeneralButton.gameObject.AddComponent<LayoutElement>();
-        tabGeneralLayout.minHeight = 40f;
-        tabGeneralLayout.preferredHeight = 40f;
+        tabGeneralLayout.minHeight = DesignTokens.MinTouchTarget;
+        tabGeneralLayout.preferredHeight = DesignTokens.MinTouchTarget;
 
         tabIntegrationButton = CreateButton("Tab_Integration", tabs, "\u9023\u643a");
         var tabIntegrationLayout = tabIntegrationButton.gameObject.AddComponent<LayoutElement>();
-        tabIntegrationLayout.minHeight = 40f;
-        tabIntegrationLayout.preferredHeight = 40f;
+        tabIntegrationLayout.minHeight = DesignTokens.MinTouchTarget;
+        tabIntegrationLayout.preferredHeight = DesignTokens.MinTouchTarget;
 
         tabAccountButton = CreateButton("Tab_Account", tabs, "\u30a2\u30ab\u30a6\u30f3\u30c8");
         var tabAccountLayout = tabAccountButton.gameObject.AddComponent<LayoutElement>();
-        tabAccountLayout.minHeight = 40f;
-        tabAccountLayout.preferredHeight = 40f;
+        tabAccountLayout.minHeight = DesignTokens.MinTouchTarget;
+        tabAccountLayout.preferredHeight = DesignTokens.MinTouchTarget;
 
         var content = CreateUiRect("Content", window);
         SetRect(content, Vector2.zero, Vector2.one, new Vector2(188f, 16f), new Vector2(-16f, -16f));

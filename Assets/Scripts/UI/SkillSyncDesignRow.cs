@@ -12,8 +12,13 @@ public sealed class SkillSyncDesignRow : MonoBehaviour
     public bool pdfLayout;
     public TMP_Text status;
     public TMP_FontAsset regularFont,boldFont;
+    string headingValue, detailValue, indexValue;
+    bool hasValue, selectedValue, completeValue;
+    public void SetSelected(bool selected) => Set(headingValue, detailValue, indexValue, selected, completeValue);
     public void Set(string heading, string detail, string index, bool selected, bool complete = false)
     {
+        if (hasValue && headingValue == heading && detailValue == detail && indexValue == index && selectedValue == selected && completeValue == complete) return;
+        hasValue = true; headingValue = heading; detailValue = detail; indexValue = index; selectedValue = selected; completeValue = complete;
         title.text = heading ?? ""; description.text = detail ?? "";
         number.text = complete ? "✓" : index;
         var background = GetComponent<SkillSyncRoundedGraphic>();

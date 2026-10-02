@@ -9,6 +9,28 @@ using UnityEngine.UI;
 
 public class CatalogUI : MonoBehaviour
 {
+    static CatalogUI activeCatalog;
+
+    public static Transform GetOpenModalRoot()
+    {
+        if (activeCatalog == null) return null;
+        var imported = activeCatalog.newObjectSettingsPanel;
+        if (imported != null && imported.gameObject.activeInHierarchy) return imported;
+        var settings = activeCatalog.settingsPanel;
+        return settings != null && settings.gameObject.activeInHierarchy ? settings : null;
+    }
+
+    void Update()
+    {
+        if (!Application.isFocused || GetOpenModalRoot() == null || !EditInput.CancelPressedThisFrame()) return;
+        var selected = EventSystem.current != null ? EventSystem.current.currentSelectedGameObject : null;
+        var input = selected != null ? selected.GetComponent<TMP_InputField>() : null;
+        if (input != null && input.isFocused) return;
+        if (newObjectSettingsPanel != null && newObjectSettingsPanel.gameObject.activeInHierarchy)
+            OnClickCancelNewObjectSettings();
+        else CloseSettingsPanelFromOverlayClick();
+    }
+
     [SerializeField] PrefabRegistry registry;
     [SerializeField] PlacementController placementController;
     [SerializeField] RectTransform content;
@@ -43,6 +65,8 @@ public class CatalogUI : MonoBehaviour
     [SerializeField] Button settingsIntegrationLinkButton;
     [SerializeField] Button settingsRevertButton;
     [SerializeField] Button settingsApplyButton;
+    [SerializeField] Button settingsHighContrastButton;
+    [SerializeField] Button settingsDiagnosticsButton;
     [SerializeField] TMP_Text settingsAccountUserNameText;
     [SerializeField] TMP_Text settingsAccountEmailText;
     [SerializeField] bool integrationSettingsAvailable;
@@ -64,7 +88,6 @@ public class CatalogUI : MonoBehaviour
     public class StringEvent : UnityEvent<string> { }
 
     [SerializeField] StringEvent onSelectType;
-    bool runtimeListenerBound;
     Coroutine clearStatusCoroutine;
     readonly CatalogCardCollection cards = new();
     const string CardRemoveButtonName = "Button_RemoveCard";
@@ -115,8 +138,12 @@ public class CatalogUI : MonoBehaviour
 
     async void Start()
     {
+        activeCatalog = this;
+        EditWorkspace.EnsureInputBlockers(transform.root);
         cornerRadius = DesignTokens.CornerRadius;
         EnsureSingleEventSystem();
+        KeyboardAccessibilityController.Ensure(transform);
+        HighContrastTheme.Ensure(transform);
         EnsureRuntimeBindings();
         EnsureViewportReady(true);
         if (transform.root.GetComponentInChildren<SkillSyncEditorController>(true) != null)
@@ -175,6 +202,7 @@ public class CatalogUI : MonoBehaviour
 
     void OnDestroy()
     {
+        if (activeCatalog == this) activeCatalog = null;
         modelImportCancellation?.Cancel();
         UnbindEditModeService();
         UnbindPlacementController();
@@ -192,6 +220,7 @@ public class CatalogUI : MonoBehaviour
         EnsureRuntimeSettingsDialog(transform as RectTransform);
         if (settingsPanel == null) return;
         ApplySettingsPanelDesign(settingsPanel);
+        WireUiEvents();
         RefreshSettingsTabs();
         settingsPanel.gameObject.SetActive(true);
         settingsPanel.SetAsLastSibling();
@@ -268,7 +297,6 @@ public class CatalogUI : MonoBehaviour
         {
             onSelectType.RemoveListener(placementController.EnterPlacement);
             onSelectType.AddListener(placementController.EnterPlacement);
-            runtimeListenerBound = true;
         }
     }
 
@@ -345,7 +373,13 @@ public class CatalogUI : MonoBehaviour
         var all = FindObjectsByType<EventSystem>(FindObjectsInactive.Include, FindObjectsSortMode.None);
         if (all == null || all.Length == 0)
         {
-            var eventGo = new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
+            var eventGo = new GameObject("EventSystem", typeof(EventSystem));
+#if ENABLE_INPUT_SYSTEM
+            var inputModule = eventGo.AddComponent<UnityEngine.InputSystem.UI.InputSystemUIInputModule>();
+            inputModule.AssignDefaultActions();
+#else
+            eventGo.AddComponent<StandaloneInputModule>();
+#endif
             Debug.Log("[CatalogUI] Created EventSystem at runtime.");
             all = new[] { eventGo.GetComponent<EventSystem>() };
         }
@@ -463,6 +497,18 @@ public class CatalogUI : MonoBehaviour
         {
             settingsApplyButton.onClick.RemoveListener(OnClickSettingsApply);
             settingsApplyButton.onClick.AddListener(OnClickSettingsApply);
+        }
+
+        if (settingsHighContrastButton != null)
+        {
+            settingsHighContrastButton.onClick.RemoveListener(OnClickSettingsHighContrast);
+            settingsHighContrastButton.onClick.AddListener(OnClickSettingsHighContrast);
+        }
+
+        if (settingsDiagnosticsButton != null)
+        {
+            settingsDiagnosticsButton.onClick.RemoveListener(OnClickExportDiagnostics);
+            settingsDiagnosticsButton.onClick.AddListener(OnClickExportDiagnostics);
         }
 
         if (addButton != null)
@@ -719,8 +765,8 @@ public class CatalogUI : MonoBehaviour
         buttonRt.SetParent(row, false);
 
         var layout = buttonGo.GetComponent<LayoutElement>();
-        layout.minHeight = 40f;
-        layout.preferredHeight = 40f;
+        layout.minHeight = DesignTokens.MinTouchTarget;
+        layout.preferredHeight = DesignTokens.MinTouchTarget;
         layout.minWidth = 70f;
         layout.preferredWidth = 70f;
         layout.flexibleWidth = 1f;
@@ -750,7 +796,7 @@ public class CatalogUI : MonoBehaviour
             label = labelGo.GetComponent<TMP_Text>();
         }
 
-        label.fontSize = 12;
+        label.fontSize = DesignTokens.FontSizeBody;
         label.alignment = TextAlignmentOptions.Center;
         label.text = labelText;
         label.color = DesignTokens.TextPrimary;
@@ -1003,6 +1049,10 @@ public class CatalogUI : MonoBehaviour
         settingsTabGeneralButton = EnsureSettingsTabButton(tabsRt, settingsTabGeneralButton, "Tab_General", "一般");
         settingsTabIntegrationButton = EnsureSettingsTabButton(tabsRt, settingsTabIntegrationButton, "Tab_Integration", "連携");
         settingsTabAccountButton = EnsureSettingsTabButton(tabsRt, settingsTabAccountButton, "Tab_Account", "アカウント");
+        settingsHighContrastButton = EnsureSettingsTabButton(
+            tabsRt, settingsHighContrastButton, "Button_HighContrast", GetHighContrastButtonLabel());
+        settingsDiagnosticsButton = EnsureSettingsTabButton(
+            tabsRt, settingsDiagnosticsButton, "Button_ExportDiagnostics", "診断ログを保存");
 
         var contentRt = FindOrCreateSettingsRect(windowRt, "Content");
         contentRt.anchorMin = new Vector2(0f, 0f);
@@ -1847,7 +1897,7 @@ public class CatalogUI : MonoBehaviour
         pathTextRt.SetParent(windowRt, false);
         var pathText = pathTextObj.GetComponent<TMP_Text>();
         pathText.color = DesignTokens.TextSecondary;
-        pathText.fontSize = 12;
+        pathText.fontSize = DesignTokens.FontSizeCaption;
         pathText.alignment = TextAlignmentOptions.TopLeft;
         pathText.text = string.Empty;
 
@@ -2039,7 +2089,7 @@ public class CatalogUI : MonoBehaviour
 
         if (newObjectPathText != null)
         {
-            newObjectPathText.fontSize = 12;
+            newObjectPathText.fontSize = DesignTokens.FontSizeCaption;
             newObjectPathText.color = DesignTokens.TextSecondary;
             newObjectPathText.alignment = TextAlignmentOptions.TopLeft;
             var rt = newObjectPathText.rectTransform;
@@ -2442,6 +2492,7 @@ public class CatalogUI : MonoBehaviour
     {
         EnsureEditModeServiceBinding();
         if (boundEditModeService == null) return;
+        CancelPendingPlacement();
         boundEditModeService.SetMode(EditMode.Browse);
         RefreshModeButtons();
     }
@@ -2450,6 +2501,7 @@ public class CatalogUI : MonoBehaviour
     {
         EnsureEditModeServiceBinding();
         if (boundEditModeService == null) return;
+        CancelPendingPlacement();
         boundEditModeService.SetMode(EditMode.Transform);
         RefreshModeButtons();
     }
@@ -2458,8 +2510,16 @@ public class CatalogUI : MonoBehaviour
     {
         EnsureEditModeServiceBinding();
         if (boundEditModeService == null) return;
+        CancelPendingPlacement();
         boundEditModeService.SetMode(EditMode.Scale);
         RefreshModeButtons();
+    }
+
+    void CancelPendingPlacement()
+    {
+        var controller = placementController != null ? placementController : boundPlacementController;
+        if (controller != null && !string.IsNullOrWhiteSpace(controller.CurrentTypeId))
+            controller.CancelPlacement();
     }
 
     void OnClickSettings()
@@ -2842,6 +2902,27 @@ public class CatalogUI : MonoBehaviour
         CloseSettingsPanel();
     }
 
+    string GetHighContrastButtonLabel() => HighContrastTheme.Enabled
+        ? "高コントラスト: 有効"
+        : "高コントラスト: 無効";
+
+    void OnClickSettingsHighContrast()
+    {
+        HighContrastTheme.SetEnabled(!HighContrastTheme.Enabled, transform);
+        var label = settingsHighContrastButton != null
+            ? settingsHighContrastButton.GetComponentInChildren<TMP_Text>(true)
+            : null;
+        if (label != null) label.text = GetHighContrastButtonLabel();
+    }
+
+    void OnClickExportDiagnostics()
+    {
+        if (EditorDiagnosticLog.TryExportLatest(out var path, out var error))
+            SetStatus("診断ログを保存しました: " + path);
+        else
+            SetStatus("診断ログを保存できません: " + error);
+    }
+
     void OnClickSettingsRevert()
     {
         DiscardPendingSettingsChanges();
@@ -3015,7 +3096,11 @@ public class CatalogUI : MonoBehaviour
         return null;
     }
 
+#if UNITY_EDITOR
     async void OnClickAdd()
+#else
+    void OnClickAdd()
+#endif
     {
         if (modelImportCancellation != null)
         {
@@ -3420,9 +3505,14 @@ public class CatalogCardDragHandler : MonoBehaviour, IBeginDragHandler, IDragHan
         // No ghost preview in this phase.
     }
 
+    void Update()
+    {
+        if (isDragging && EditWorkspace.IsTypingIntoInputField()) CancelDrag();
+    }
+
     public void OnEndDrag(PointerEventData eventData)
     {
-        if (owner == null) return;
+        if (owner == null) { CancelDrag(); return; }
 
         bool droppedOverUi = PlacementController.IsScreenPositionOverBlockingUi(eventData.position);
         if (isDragging && !droppedOverUi)
@@ -3430,7 +3520,20 @@ public class CatalogCardDragHandler : MonoBehaviour, IBeginDragHandler, IDragHan
             owner.HandleCardDrop(typeId, eventData.position);
         }
 
-        owner.NotifyDragState(false);
+        CancelDrag();
+    }
+
+    void OnApplicationFocus(bool hasFocus)
+    {
+        if (!hasFocus) CancelDrag();
+    }
+
+    void OnDisable() => CancelDrag();
+
+    void CancelDrag()
+    {
+        if (!isDragging) return;
         isDragging = false;
+        if (owner != null) owner.NotifyDragState(false);
     }
 }

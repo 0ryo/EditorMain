@@ -122,7 +122,7 @@ public class ScenarioValidationPanel : MonoBehaviour
         templateLayout.preferredHeight = 52f;
         var templateLabel = template.GetComponentInChildren<TMP_Text>(true);
         templateLabel.alignment = TextAlignmentOptions.MidlineLeft;
-        templateLabel.enableWordWrapping = true;
+        templateLabel.textWrappingMode = TMPro.TextWrappingModes.Normal;
         templateLabel.margin = new Vector4(12f, 4f, 12f, 4f);
         template.gameObject.SetActive(false);
 
@@ -587,6 +587,7 @@ public class ScenarioValidationPanel : MonoBehaviour
         var label = CreateText("Label", rect, labelValue, DesignTokens.FontSizeBody, DesignTokens.TextPrimary);
         SetRect(label.rectTransform, Vector2.zero, Vector2.one, new Vector2(12f, 0f), new Vector2(-12f, 0f));
         label.alignment = TextAlignmentOptions.Center;
+        UiAccessibilityMetrics.EnsureButtonTarget(button);
         return button;
     }
 

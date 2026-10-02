@@ -17,6 +17,7 @@ public sealed class ObjectTransformPanel : MonoBehaviour
     SelectionService selectionService;
     PlacedObject currentObject;
     float nextRefreshTime;
+    float nextServiceResolveTime;
 
     public static ObjectTransformPanel Ensure(Transform uiRoot)
     {
@@ -63,6 +64,9 @@ public sealed class ObjectTransformPanel : MonoBehaviour
 
     void ResolveSelectionService()
     {
+        if (selectionService != null) return;
+        if (Time.unscaledTime < nextServiceResolveTime) return;
+        nextServiceResolveTime = Time.unscaledTime + 0.5f;
         var next = FindFirstObjectByType<SelectionService>();
         if (next == selectionService) return;
 
@@ -490,6 +494,7 @@ public sealed class ObjectTransformPanel : MonoBehaviour
         var label = CreateText("Label", rect, labelValue, DesignTokens.FontSizeCaption, DesignTokens.TextPrimary);
         label.alignment = TextAlignmentOptions.Center;
         SetRect(label.rectTransform, Vector2.zero, Vector2.one, new Vector2(6f, 0f), new Vector2(-6f, 0f));
+        UiAccessibilityMetrics.EnsureButtonTarget(button);
         return button;
     }
 

@@ -6,6 +6,9 @@ public sealed class PlacedObjectEditState : MonoBehaviour
 {
     public static event Action<PlacedObjectEditState> StateChanged;
 
+    static readonly HashSet<string> HiddenCategories = new(StringComparer.Ordinal);
+    static readonly HashSet<PlacedObjectEditState> ActiveStates = new();
+
     [SerializeField] bool locked;
     [SerializeField] bool hidden;
     [SerializeField] List<ColliderState> colliderStates = new();
@@ -33,6 +36,7 @@ public sealed class PlacedObjectEditState : MonoBehaviour
 
     void OnEnable()
     {
+        ActiveStates.Add(this);
         if (IsEffectivelyBlocked())
         {
             if (colliderStates.Count > 0)
@@ -68,8 +72,47 @@ public sealed class PlacedObjectEditState : MonoBehaviour
 
     void OnDestroy()
     {
+        ActiveStates.Remove(this);
         RestoreColliders();
         RestoreRenderers();
+    }
+
+    void OnDisable()
+    {
+        ActiveStates.Remove(this);
+        RestoreColliders();
+        RestoreRenderers();
+    }
+
+    public static bool IsCategoryVisible(string category) => !HiddenCategories.Contains(category ?? string.Empty);
+
+    public static void SetCategoryVisible(string category, bool visible)
+    {
+        if (string.IsNullOrWhiteSpace(category)) return;
+        bool changed = visible ? HiddenCategories.Remove(category) : HiddenCategories.Add(category);
+        if (!changed) return;
+
+        foreach (var state in ActiveStates)
+        {
+            if (state == null || !state.HasCategoryInHierarchy(category)) continue;
+            state.RefreshSubtree();
+        }
+    }
+
+    public static bool IsVisibleByCategory(PlacedObject placed)
+    {
+        return placed == null || IsCategoryVisible(PlacementCategoryUtility.ForTypeId(placed.TypeId));
+    }
+
+    bool HasCategoryInHierarchy(string category)
+    {
+        for (var node = transform; node != null; node = node.parent)
+        {
+            var placed = node.GetComponent<PlacedObject>();
+            if (placed != null && string.Equals(PlacementCategoryUtility.ForTypeId(placed.TypeId), category, StringComparison.Ordinal))
+                return true;
+        }
+        return false;
     }
 
     public void SetLocked(bool value)
@@ -101,6 +144,8 @@ public sealed class PlacedObjectEditState : MonoBehaviour
         {
             var state = node.GetComponent<PlacedObjectEditState>();
             if (state != null && state.hidden) return true;
+            var placed = node.GetComponent<PlacedObject>();
+            if (placed != null && !IsVisibleByCategory(placed)) return true;
         }
         return false;
     }
@@ -111,6 +156,8 @@ public sealed class PlacedObjectEditState : MonoBehaviour
         {
             var state = node.GetComponent<PlacedObjectEditState>();
             if (state != null && (state.hidden || state.locked)) return true;
+            var placed = node.GetComponent<PlacedObject>();
+            if (placed != null && !IsVisibleByCategory(placed)) return true;
         }
         return false;
     }

@@ -2,23 +2,6 @@ using UnityEngine;
 
 public class EditorCameraController : MonoBehaviour
 {
-    static readonly string[] BlockingUiRectNames =
-    {
-        "Panel_Catalog",
-        "Panel_Settings",
-        "Panel_NewObjectSettings",
-        "Panel_Hints",
-        "Panel_Detail",
-        "Panel_SaveValidation",
-        "Panel_ScenarioGraph",
-        "NodeArea",
-        "EditModeRow",
-        "EditModeRow_Runtime",
-        "Button_Settings",
-        "Button_Settings_Runtime",
-        "Button_Hints"
-    };
-
     [Header("Sensitivity")]
     public float orbitSpeed = 12f;
     public float panSpeed = 0.01f;
@@ -90,7 +73,7 @@ public class EditorCameraController : MonoBehaviour
         bool middlePressed = EditInput.MiddlePressed();
         bool rightPressed = EditInput.RightPressed();
         bool shiftPressed = EditInput.ShiftPressed();
-        bool overBlockingUi = EditWorkspace.TryGetBlockingUiName(mousePosition, BlockingUiRectNames, out _);
+        bool overBlockingUi = EditWorkspace.TryGetBlockingUiName(mousePosition, out _);
 
         if (typingBlocked)
         {

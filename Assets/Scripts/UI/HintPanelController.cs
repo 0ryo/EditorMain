@@ -65,6 +65,14 @@ public class HintPanelController : MonoBehaviour
 
     void EnsureOpenButton(Transform parent)
     {
+        // SkillSync has its own Help entry. Do not recreate the legacy overlay.
+        if (parent != null && parent.GetComponentInChildren<SkillSyncDesignView>(true) != null)
+        {
+            var legacy = parent.Find(ButtonName);
+            if (legacy != null) legacy.gameObject.SetActive(false);
+            if (openButton != null) openButton.gameObject.SetActive(false);
+            return;
+        }
         if (openButton == null)
         {
             openButton = parent?.Find(ButtonName)?.GetComponent<Button>();
@@ -128,7 +136,7 @@ public class HintPanelController : MonoBehaviour
         body.fontSize = DesignTokens.FontSizeBody;
         body.color = DesignTokens.TextSecondary;
         body.alignment = TextAlignmentOptions.TopLeft;
-        body.enableWordWrapping = true;
+        body.textWrappingMode = TMPro.TextWrappingModes.Normal;
     }
 
     void PositionInViewport()
@@ -211,7 +219,7 @@ public class HintPanelController : MonoBehaviour
 
         var body = CreateText("Text_Body", root, HintBody, DesignTokens.FontSizeBody, DesignTokens.TextSecondary);
         body.alignment = TextAlignmentOptions.TopLeft;
-        body.enableWordWrapping = true;
+        body.textWrappingMode = TMPro.TextWrappingModes.Normal;
         SetRect(body.rectTransform, Vector2.zero, Vector2.one, new Vector2(24f, 80f), new Vector2(-24f, -88f));
 
         var close = CreateButton("Button_Close", root, "\u9589\u3058\u308B");
@@ -253,6 +261,7 @@ public class HintPanelController : MonoBehaviour
         var label = CreateText("Label", rect, labelValue, DesignTokens.FontSizeBody, DesignTokens.TextPrimary);
         SetRect(label.rectTransform, Vector2.zero, Vector2.one, new Vector2(12f, 0f), new Vector2(-12f, 0f));
         label.alignment = TextAlignmentOptions.Center;
+        UiAccessibilityMetrics.EnsureButtonTarget(button);
         return button;
     }
 

@@ -8,6 +8,7 @@ public sealed class SelectionTransformSession
     readonly List<TransformObjectCommand.State> before = new();
     readonly List<Vector3> positions = new();
     readonly List<Quaternion> rotations = new();
+    readonly SelectionService selectionService;
     readonly PlacedObject primary;
     readonly Vector3 origin;
     readonly Quaternion orientation;
@@ -15,6 +16,7 @@ public sealed class SelectionTransformSession
 
     public SelectionTransformSession(SelectionService selection)
     {
+        selectionService = selection;
         primary = selection.Current;
         origin = primary.transform.position;
         orientation = primary.transform.rotation;
@@ -61,6 +63,12 @@ public sealed class SelectionTransformSession
         }
         if (commands.Count > 0 && CommandService.I != null)
             CommandService.I.Stack.RecordApplied(new CompositeEditorCommand(label, commands));
+
+        if (commands.Count > 0 && PlacementOverlapDetector.TryFindOverlap(objects, out _, out var overlapping))
+        {
+            string name = overlapping != null ? overlapping.GetDisplayName() : "別の配置物";
+            selectionService?.ReportOperationMessage($"重なりの可能性があります: {name}");
+        }
     }
 
     public void Cancel()

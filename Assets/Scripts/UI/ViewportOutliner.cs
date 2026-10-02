@@ -1,4 +1,5 @@
 using TMPro;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -6,6 +7,7 @@ public sealed class ViewportOutliner : MonoBehaviour
 {
     const string PanelName = "Panel_Outliner";
     const string TabsName = "Tabs_CatalogMode";
+    const string CategoryControlsName = "Panel_CategoryVisibility";
 
     [SerializeField] RectTransform catalogPanel;
     [SerializeField] RectTransform tabsRoot;
@@ -19,7 +21,11 @@ public sealed class ViewportOutliner : MonoBehaviour
     [SerializeField] Button duplicateButton;
     [SerializeField] Button deleteButton;
 
+    static readonly string[] CategoryLabels = PlacementCategoryUtility.Labels;
     readonly Button[] selectionActionButtons = new Button[6];
+    readonly System.Collections.Generic.List<Button> categoryButtons = new();
+    Button categoryMenuButton;
+    RectTransform categoryMenuRoot;
     RectTransform panelRect;
     CanvasGroup panelCanvasGroup;
     SelectionService selectionService;
@@ -32,9 +38,11 @@ public sealed class ViewportOutliner : MonoBehaviour
     bool displayNameBound;
     bool showingOutliner;
     bool alignmentExpanded;
+    bool categoryMenuOpen;
     Button alignmentToggle;
     int lastObjectSignature;
     float nextSignatureCheck;
+    float nextServiceResolveTime;
 
     public static ViewportOutliner Ensure(Transform uiRoot)
     {
@@ -49,6 +57,7 @@ public sealed class ViewportOutliner : MonoBehaviour
 
         outliner.catalogPanel = catalog;
         outliner.ResolveReferences();
+        outliner.EnsureCategoryControls();
         outliner.EnsureSelectionControls();
         outliner.WireUi();
         outliner.ApplyCatalogLayout();
@@ -63,6 +72,7 @@ public sealed class ViewportOutliner : MonoBehaviour
         panelCanvasGroup = GetComponent<CanvasGroup>();
         if (catalogPanel == null) catalogPanel = transform.parent as RectTransform;
         ResolveReferences();
+        EnsureCategoryControls();
         EnsureSelectionControls();
         WireUi();
     }
@@ -118,7 +128,11 @@ public sealed class ViewportOutliner : MonoBehaviour
             outlinerTabButton = tabsRoot.Find("Tab_Outliner")?.GetComponent<Button>();
         }
 
-        var nextSelection = FindFirstObjectByType<SelectionService>();
+        bool retryMissingServices = Time.unscaledTime >= nextServiceResolveTime;
+        if (retryMissingServices) nextServiceResolveTime = Time.unscaledTime + 0.5f;
+
+        var nextSelection = selectionService != null ? selectionService :
+            retryMissingServices ? FindFirstObjectByType<SelectionService>() : null;
         if (nextSelection != selectionService)
         {
             UnbindSelection();
@@ -126,7 +140,8 @@ public sealed class ViewportOutliner : MonoBehaviour
             if (selectionService != null) selectionService.OnSelectionChanged += HandleSelectionChanged;
         }
 
-        var nextPlacement = FindFirstObjectByType<PlacementController>();
+        var nextPlacement = placementController != null ? placementController :
+            retryMissingServices ? FindFirstObjectByType<PlacementController>() : null;
         if (nextPlacement != placementController)
         {
             UnbindPlacement();
@@ -308,7 +323,8 @@ public sealed class ViewportOutliner : MonoBehaviour
 
     void RebuildList()
     {
-        if (listRoot == null) return;
+        // Hidden legacy outliner is rebuilt when its tab is opened.
+        if (listRoot == null || !showingOutliner || !gameObject.activeInHierarchy) return;
         var listLayout = listRoot.GetComponent<VerticalLayoutGroup>();
         if (listLayout != null) listLayout.spacing = 0f;
 
@@ -320,6 +336,11 @@ public sealed class ViewportOutliner : MonoBehaviour
         }
 
         var placedObjects = ViewportOutlinerData.CollectSorted(out int sourceObjectCount);
+        foreach (var placed in placedObjects)
+        {
+            if (placed != null && placed.GetComponent<PlacedObjectEditState>() == null)
+                placed.gameObject.AddComponent<PlacedObjectEditState>();
+        }
 
         if (activeObject != null && !placedObjects.Contains(activeObject)) activeObject = null;
         if (activeObject == null && selectionService != null && placedObjects.Contains(selectionService.Current))
@@ -435,7 +456,7 @@ public sealed class ViewportOutliner : MonoBehaviour
         var label = selectButton.GetComponentInChildren<TMP_Text>(true);
         label.richText = false;
         label.fontWeight = isGroup ? FontWeight.SemiBold : FontWeight.Regular;
-        label.enableWordWrapping = false;
+        label.textWrappingMode = TMPro.TextWrappingModes.NoWrap;
         if (depth > 0)
         {
             // Fixed-pixel tree rails remain aligned regardless of the font's space width.
@@ -646,6 +667,108 @@ public sealed class ViewportOutliner : MonoBehaviour
         UiRoundedTheme.ApplyToHierarchy(alignmentToggle.transform, DesignTokens.CornerRadius);
     }
 
+    void EnsureCategoryControls()
+    {
+        categoryMenuButton = transform.Find("Button_CategoryMenu")?.GetComponent<Button>();
+        if (categoryMenuButton == null)
+            categoryMenuButton = CreateButton("Button_CategoryMenu", transform, "分類", DesignTokens.BgSecondary);
+        SetRect(categoryMenuButton.transform as RectTransform, new Vector2(1f, 1f), Vector2.one,
+            new Vector2(-112f, -50f), new Vector2(-8f, -6f));
+        var triggerElement = categoryMenuButton.GetComponent<LayoutElement>();
+        if (triggerElement == null) triggerElement = categoryMenuButton.gameObject.AddComponent<LayoutElement>();
+        triggerElement.minWidth = triggerElement.preferredWidth = 104f;
+        triggerElement.minHeight = triggerElement.preferredHeight = 44f;
+        var triggerLabel = categoryMenuButton.GetComponentInChildren<TMP_Text>(true);
+        if (triggerLabel != null) triggerLabel.fontSize = DesignTokens.FontSizeBody;
+        categoryMenuButton.onClick.RemoveListener(ToggleCategoryMenu);
+        categoryMenuButton.onClick.AddListener(ToggleCategoryMenu);
+
+        categoryMenuRoot = transform.Find(CategoryControlsName) as RectTransform;
+        if (categoryMenuRoot == null)
+        {
+            categoryMenuRoot = CreateRect(CategoryControlsName, transform);
+            var background = categoryMenuRoot.gameObject.AddComponent<Image>();
+            background.color = DesignTokens.BgPrimary;
+            background.raycastTarget = true;
+            var layout = categoryMenuRoot.gameObject.AddComponent<VerticalLayoutGroup>();
+            layout.spacing = 2f;
+            layout.padding = new RectOffset(4, 4, 4, 4);
+            layout.childControlWidth = true;
+            layout.childControlHeight = true;
+            layout.childForceExpandWidth = true;
+            layout.childForceExpandHeight = false;
+        }
+
+        SetRect(categoryMenuRoot, Vector2.one, Vector2.one, new Vector2(-168f, -326f), new Vector2(-8f, -88f));
+        categoryMenuRoot.gameObject.SetActive(categoryMenuOpen);
+        categoryButtons.Clear();
+        for (int i = 0; i < CategoryLabels.Length; i++)
+        {
+            string category = CategoryLabels[i];
+            var button = categoryMenuRoot.Find("Button_Category_" + i)?.GetComponent<Button>();
+            if (button == null) button = CreateButton("Button_Category_" + i, categoryMenuRoot, category, DesignTokens.BgSecondary);
+            var element = button.GetComponent<LayoutElement>();
+            if (element == null) element = button.gameObject.AddComponent<LayoutElement>();
+            element.minWidth = 136f;
+            element.minHeight = element.preferredHeight = 44f;
+            element.flexibleWidth = 1f;
+            button.onClick.RemoveAllListeners();
+            button.onClick.AddListener(() => ToggleCategory(category));
+            var label = button.GetComponentInChildren<TMP_Text>(true);
+            if (label != null)
+            {
+                label.fontSize = DesignTokens.FontSizeBody;
+                label.alignment = TextAlignmentOptions.MidlineLeft;
+            }
+            categoryButtons.Add(button);
+        }
+
+        if (countText != null)
+            SetRect(countText.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(8f, -34f), new Vector2(108f, -6f));
+        UiRoundedTheme.ApplyToHierarchy(categoryMenuRoot, DesignTokens.CornerRadius);
+        RefreshCategoryButtons();
+    }
+
+    void ToggleCategoryMenu()
+    {
+        categoryMenuOpen = !categoryMenuOpen;
+        if (categoryMenuRoot != null)
+        {
+            categoryMenuRoot.gameObject.SetActive(categoryMenuOpen);
+            if (categoryMenuOpen) categoryMenuRoot.SetAsLastSibling();
+        }
+        SetButtonLabel(categoryMenuButton, categoryMenuOpen ? "分類を閉じる" : "分類");
+    }
+
+    void ToggleCategory(string category)
+    {
+        bool makeVisible = !PlacedObjectEditState.IsCategoryVisible(category);
+        PlacedObjectEditState.SetCategoryVisible(category, makeVisible);
+
+        if (!makeVisible && selectionService != null && selectionService.Selected.Any(item =>
+                item != null && string.Equals(PlacementCategoryUtility.ForTypeId(item.TypeId), category, System.StringComparison.Ordinal)))
+        {
+            selectionService.SelectMany(selectionService.Selected.Where(item =>
+                item != null && !string.Equals(PlacementCategoryUtility.ForTypeId(item.TypeId), category, System.StringComparison.Ordinal)));
+        }
+
+        RefreshCategoryButtons();
+        RebuildList();
+    }
+
+    void RefreshCategoryButtons()
+    {
+        for (int i = 0; i < categoryButtons.Count; i++)
+        {
+            var button = categoryButtons[i];
+            if (button == null || i >= CategoryLabels.Length) continue;
+            bool visible = PlacedObjectEditState.IsCategoryVisible(CategoryLabels[i]);
+            var image = button.GetComponent<Image>();
+            if (image != null) image.color = visible ? DesignTokens.BadgeBg(DesignTokens.Accent) : DesignTokens.BgSecondary;
+            SetButtonLabel(button, (visible ? "✓ " : "— ") + CategoryLabels[i]);
+        }
+    }
+
     void ToggleAlignment()
     {
         alignmentExpanded = !alignmentExpanded;
@@ -671,6 +794,7 @@ public sealed class ViewportOutliner : MonoBehaviour
         var panel = catalog.Find(PanelName)?.GetComponent<ViewportOutliner>();
         if (panel == null) panel = Build(catalog);
         panel.EnsureSelectionControls();
+        panel.EnsureCategoryControls();
     }
 
     static ViewportOutliner Build(RectTransform catalog)
@@ -817,7 +941,7 @@ public sealed class ViewportOutliner : MonoBehaviour
     {
         var button = CreateButton(objectName, parent, labelValue, DesignTokens.BgSecondary);
         var element = button.gameObject.AddComponent<LayoutElement>();
-        element.minHeight = 36f;
+        element.minHeight = DesignTokens.MinTouchTarget;
         if (flexible)
         {
             element.minWidth = 72f;
@@ -835,6 +959,7 @@ public sealed class ViewportOutliner : MonoBehaviour
             label.alignment = TextAlignmentOptions.MidlineLeft;
             label.overflowMode = TextOverflowModes.Ellipsis;
         }
+        UiAccessibilityMetrics.EnsureButtonTarget(button);
         return button;
     }
 
@@ -844,7 +969,8 @@ public sealed class ViewportOutliner : MonoBehaviour
         var element = button.gameObject.AddComponent<LayoutElement>();
         element.minWidth = 40f;
         element.flexibleWidth = 1f;
-        element.minHeight = 36f;
+        element.minHeight = DesignTokens.MinTouchTarget;
+        UiAccessibilityMetrics.EnsureButtonTarget(button);
         return button;
     }
 
@@ -879,6 +1005,7 @@ public sealed class ViewportOutliner : MonoBehaviour
         var label = CreateText("Label", rect, labelValue, DesignTokens.FontSizeCaption, DesignTokens.TextPrimary);
         label.alignment = TextAlignmentOptions.Center;
         SetRect(label.rectTransform, Vector2.zero, Vector2.one, new Vector2(6f, 0f), new Vector2(-6f, 0f));
+        UiAccessibilityMetrics.EnsureButtonTarget(button);
         return button;
     }
 

@@ -16,6 +16,7 @@ public class SelectionService : MonoBehaviour
     readonly SelectionClipboard clipboard = new();
     public IReadOnlyList<PlacedObject> Selected => selected;
     public bool Contains(PlacedObject item) => selected.Contains(item);
+    public void ReportOperationMessage(string message) => OperationMessage?.Invoke(message);
     public static bool AdditiveSelection => Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift) ||
         Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl) ||
         Input.GetKey(KeyCode.LeftCommand) || Input.GetKey(KeyCode.RightCommand);
@@ -24,6 +25,8 @@ public class SelectionService : MonoBehaviour
         if (item == null || !item.gameObject.activeInHierarchy) return false;
         for (var node = item.transform; node != null; node = node.parent)
         {
+            var placed = node.GetComponent<PlacedObject>();
+            if (placed != null && !PlacedObjectEditState.IsVisibleByCategory(placed)) return false;
             var state = node.GetComponent<PlacedObjectEditState>();
             if (state != null && (state.Hidden || state.Locked)) return false;
         }
@@ -38,6 +41,7 @@ public class SelectionService : MonoBehaviour
 
     bool warnedCameraMissing;
     bool warnedPickMaskExclusion;
+    float nextDependencyResolveTime;
     bool regionPending;
     bool regionDragging;
     bool regionAdditive;
@@ -61,19 +65,24 @@ public class SelectionService : MonoBehaviour
     void OnDisable() { CancelRegion(); highlights.Clear(); }
     void OnDestroy() { regionOverlay?.Dispose(); highlights.Clear(); }
 
+    void OnApplicationFocus(bool hasFocus)
+    {
+        if (!hasFocus) CancelRegion();
+    }
+
     void Update()
     {
         if (ObjectScreenPicker.Capturing) { CancelRegion(); return; }
         EnsureOutline();
 
-        if (placementController == null)
+        if (Time.unscaledTime >= nextDependencyResolveTime)
         {
-            placementController = FindFirstObjectByType<PlacementController>();
-        }
+            nextDependencyResolveTime = Time.unscaledTime + 0.5f;
+            if (placementController == null)
+                placementController = FindFirstObjectByType<PlacementController>();
 
-        if (moveTool == null)
-        {
-            moveTool = FindFirstObjectByType<MoveTool>();
+            if (moveTool == null)
+                moveTool = FindFirstObjectByType<MoveTool>();
         }
 
         if (cam == null)

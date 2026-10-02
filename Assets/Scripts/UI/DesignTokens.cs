@@ -8,44 +8,92 @@ public static class DesignTokens
 {
     // ── 2. カラーシステム ──────────────────────────────
 
+    enum PaletteColor
+    {
+        BgPrimary, BgSecondary, BgTertiary, Surface,
+        TextPrimary, TextSecondary, TextTertiary,
+        Accent, AccentHover, Success, Warning, Error, Divider,
+        ButtonTextLight, DangerHover, DangerPress, AccentPress
+    }
+
+    static readonly Color[] StandardPalette =
+    {
+        new Color(0.969f, 0.969f, 0.973f, 1f), new Color(0.929f, 0.929f, 0.941f, 1f), new Color(0.886f, 0.886f, 0.906f, 1f), Color.white,
+        new Color(0.114f, 0.114f, 0.122f, 1f), new Color(0.357f, 0.357f, 0.376f, 1f), new Color(0.384f, 0.384f, 0.404f, 1f),
+        new Color(0.145f, 0.388f, 0.922f, 1f), new Color(0.114f, 0.306f, 0.847f, 1f), new Color(0.098f, 0.380f, 0.184f, 1f),
+        new Color(0.490f, 0.271f, 0f, 1f), new Color(0.624f, 0.114f, 0.090f, 1f), new Color(0.820f, 0.820f, 0.839f, 1f),
+        Color.white, new Color(0.561f, 0.106f, 0.078f, 1f), new Color(0.478f, 0.094f, 0.071f, 1f), new Color(0.118f, 0.251f, 0.686f, 1f)
+    };
+
+    static readonly Color[] HighContrastPalette =
+    {
+        new Color(0.98f, 0.98f, 0.98f, 1f), new Color(0.90f, 0.90f, 0.90f, 1f), new Color(0.78f, 0.78f, 0.78f, 1f), Color.white,
+        Color.black, new Color(0.06f, 0.06f, 0.06f, 1f), new Color(0.12f, 0.12f, 0.12f, 1f),
+        new Color(0f, 0f, 0.45f, 1f), new Color(0f, 0f, 0.30f, 1f), new Color(0f, 0.30f, 0.05f, 1f),
+        new Color(0.36f, 0.16f, 0f, 1f), new Color(0.55f, 0f, 0f, 1f), new Color(0.15f, 0.15f, 0.15f, 1f),
+        Color.white, new Color(0.38f, 0f, 0f, 1f), new Color(0.25f, 0f, 0f, 1f), new Color(0f, 0f, 0.20f, 1f)
+    };
+
+    public static bool HighContrastEnabled { get; private set; }
+    public static void SetHighContrastEnabled(bool enabled) => HighContrastEnabled = enabled;
+
+    static Color Get(PaletteColor color) => (HighContrastEnabled ? HighContrastPalette : StandardPalette)[(int)color];
+
+    public static Color MapPaletteColor(Color color, bool toHighContrast)
+    {
+        var source = toHighContrast ? StandardPalette : HighContrastPalette;
+        var target = toHighContrast ? HighContrastPalette : StandardPalette;
+        for (int i = 0; i < source.Length; i++)
+        {
+            var candidate = source[i];
+            if (Mathf.Abs(color.r - candidate.r) > 0.003f ||
+                Mathf.Abs(color.g - candidate.g) > 0.003f ||
+                Mathf.Abs(color.b - candidate.b) > 0.003f) continue;
+            var mapped = target[i];
+            mapped.a = color.a;
+            return mapped;
+        }
+        return color;
+    }
+
     // 背景
-    public static readonly Color BgPrimary       = new Color(0.969f, 0.969f, 0.973f, 1f); // #F7F7F8
-    public static readonly Color BgSecondary     = new Color(0.929f, 0.929f, 0.941f, 1f); // #EDEDF0
-    public static readonly Color BgTertiary      = new Color(0.886f, 0.886f, 0.906f, 1f); // #E2E2E7
+    public static Color BgPrimary       => Get(PaletteColor.BgPrimary); // #F7F7F8
+    public static Color BgSecondary     => Get(PaletteColor.BgSecondary); // #EDEDF0
+    public static Color BgTertiary      => Get(PaletteColor.BgTertiary); // #E2E2E7
 
     // サーフェス
-    public static readonly Color Surface         = new Color(1f, 1f, 1f, 1f);             // #FFFFFF (例外的にPure White可)
+    public static Color Surface         => Get(PaletteColor.Surface);             // #FFFFFF (例外的にPure White可)
 
     // テキスト
-    public static readonly Color TextPrimary     = new Color(0.114f, 0.114f, 0.122f, 1f); // #1D1D1F
-    public static readonly Color TextSecondary   = new Color(0.431f, 0.431f, 0.451f, 1f); // #6E6E73
-    public static readonly Color TextTertiary    = new Color(0.682f, 0.682f, 0.698f, 1f); // #AEAEB2
+    public static Color TextPrimary     => Get(PaletteColor.TextPrimary); // #1D1D1F
+    public static Color TextSecondary   => Get(PaletteColor.TextSecondary); // #5B5B60 — AA on light UI surfaces
+    public static Color TextTertiary    => Get(PaletteColor.TextTertiary); // #626267 — AA on light UI surfaces
 
     // アクセント
-    public static readonly Color Accent          = new Color(0.145f, 0.388f, 0.922f, 1f); // #2563EB
-    public static readonly Color AccentHover     = new Color(0.114f, 0.306f, 0.847f, 1f); // #1D4ED8
+    public static Color Accent          => Get(PaletteColor.Accent); // #2563EB
+    public static Color AccentHover     => Get(PaletteColor.AccentHover); // #1D4ED8
 
     // セマンティック
-    public static readonly Color Success         = new Color(0.188f, 0.820f, 0.345f, 1f); // #30D158
-    public static readonly Color Warning         = new Color(1f, 0.624f, 0.039f, 1f);     // #FF9F0A
-    public static readonly Color Error           = new Color(1f, 0.271f, 0.227f, 1f);     // #FF453A
+    public static Color Success         => Get(PaletteColor.Success); // #19612F — AA on light UI surfaces and badge tints
+    public static Color Warning         => Get(PaletteColor.Warning); // #7D4500 — AA on light UI surfaces and badge tints
+    public static Color Error           => Get(PaletteColor.Error); // #9F1D17 — AA on light UI surfaces and badge tints
 
     // 区切り線
-    public static readonly Color Divider         = new Color(0.820f, 0.820f, 0.839f, 1f); // #D1D1D6
+    public static Color Divider         => Get(PaletteColor.Divider); // #D1D1D6
 
     // ターミナルノード
     public static readonly Color NodeStart       = Surface;
     public static readonly Color NodeEnd         = Surface;
 
     // ボタン テキスト (Primary / Danger 用)
-    public static readonly Color ButtonTextLight = new Color(1f, 1f, 1f, 1f);             // White on accent
+    public static Color ButtonTextLight => Get(PaletteColor.ButtonTextLight);             // White on accent
 
     // Danger ボタン hover / press
-    public static readonly Color DangerHover     = new Color(0.878f, 0.243f, 0.208f, 1f); // #E03E35
-    public static readonly Color DangerPress     = new Color(0.769f, 0.208f, 0.188f, 1f); // #C43530
+    public static Color DangerHover     => Get(PaletteColor.DangerHover); // #8F1B14
+    public static Color DangerPress     => Get(PaletteColor.DangerPress); // #7A1812
 
     // Accent press
-    public static readonly Color AccentPress     = new Color(0.118f, 0.251f, 0.686f, 1f); // #1E40AF
+    public static Color AccentPress     => Get(PaletteColor.AccentPress); // #1E40AF
 
     // ── 4. スペーシングシステム ────────────────────────
 
@@ -63,7 +111,7 @@ public static class DesignTokens
     public const int FontSizeHeading    = 20;
     public const int FontSizeSubheading = 16;
     public const int FontSizeBody       = 14;
-    public const int FontSizeCaption    = 12;
+    public const int FontSizeCaption    = 14;
     public const int FontSizeMicro      = 10;
 
     // ── 7. 共通値 ─────────────────────────────────────

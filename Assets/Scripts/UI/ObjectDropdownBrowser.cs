@@ -93,7 +93,7 @@ public sealed class ObjectDropdownBrowser : MonoBehaviour, IPointerEnterHandler,
                 text.richText = false;
                 text.rectTransform.anchorMin = Vector2.zero;
                 text.rectTransform.anchorMax = Vector2.one;
-                text.enableWordWrapping = true;
+                text.textWrappingMode = TMPro.TextWrappingModes.Normal;
                 text.overflowMode = TextOverflowModes.Overflow;
                 text.rectTransform.offsetMin = new Vector2(12, 4);
                 text.rectTransform.offsetMax = new Vector2(-28, -4);
@@ -244,7 +244,7 @@ public sealed class ObjectDropdownBrowser : MonoBehaviour, IPointerEnterHandler,
         var buttonObject = new GameObject("ScreenPick", typeof(RectTransform), typeof(Image), typeof(Button));
         buttonObject.transform.SetParent(template, false);
         buttonObject.GetComponent<Image>().color = DesignTokens.Surface;
-        ((RectTransform)buttonObject.transform).sizeDelta = new Vector2(260, 36);
+        ((RectTransform)buttonObject.transform).sizeDelta = new Vector2(260, DesignTokens.MinTouchTarget);
         MakeText("Label", buttonObject.transform, font, "画面上から選択");
         StylePickButton(buttonObject.GetComponent<Button>());
         var empty = MakeText("NoMatches", template, font, "一致するオブジェクトがありません");
@@ -281,13 +281,14 @@ public sealed class ObjectDropdownBrowser : MonoBehaviour, IPointerEnterHandler,
         colors.selectedColor = colors.normalColor;
         colors.pressedColor = new Color(0.7f, 0.8f, 1f);
         button.colors = colors;
+        UiAccessibilityMetrics.EnsureButtonTarget(button);
         var text = button.GetComponentInChildren<TMP_Text>(true);
         if (text)
         {
             text.text = "画面上から選択";
             text.alignment = TextAlignmentOptions.Center;
             text.color = DesignTokens.ButtonTextLight;
-            text.enableWordWrapping = false;
+            text.textWrappingMode = TMPro.TextWrappingModes.NoWrap;
             text.enableAutoSizing = true;
             text.fontSizeMin = DesignTokens.FontSizeCaption;
             text.fontSizeMax = 18;

@@ -252,7 +252,7 @@ public class ObjectDetailPanel : MonoBehaviour
     {
         if (currentPo == null) return;
 
-        currentPo.SetDisplayName(value);
+        PlacedObjectMetadataService.SetDisplayName(currentPo, value);
         if (inputObjectName != null)
         {
             inputObjectName.SetTextWithoutNotify(currentPo.GetDisplayName());
@@ -388,7 +388,7 @@ public class ObjectDetailPanel : MonoBehaviour
     {
         if (currentPo == null) return;
 
-        currentPo.SetDescription(value);
+        PlacedObjectMetadataService.SetDescription(currentPo, value);
         if (inputDescription != null)
         {
             inputDescription.SetTextWithoutNotify(currentPo.GetDescription());

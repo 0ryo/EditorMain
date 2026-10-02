@@ -34,14 +34,20 @@ public sealed class SkillSyncEditorController : MonoBehaviour
     readonly SkillSyncModelThumbnails thumbnails = new();
     readonly List<SkillSyncDesignRow> libraryRows = new(), stepRows = new(), objectRows = new();
     readonly Dictionary<Behaviour,bool> pausedTools = new();
+    readonly Dictionary<PlacedObject, SkillSyncDesignRow> placedRows = new();
+    readonly Dictionary<SkillSyncDesignRow, string> libraryTypes = new();
+    readonly Dictionary<string, GameObject> thumbnailSources = new();
+    readonly List<Renderer> labelRenderers = new();
+    SkillSyncDesignRow ghostRow;
+    Transform labelTargetA, labelTargetB;
     readonly Vector3[] corners = new Vector3[4];
     GraphValidationResult validation;
     ScenarioNode Step => graph != null ? graph.FindNode(stepId) : null;
     ScenarioNode Condition => graph != null ? graph.FindNode(conditionId) : null;
     PlacedObject[] Placed => FindObjectsByType<PlacedObject>(FindObjectsSortMode.None);
     bool Modal => view != null && view.State == 5;
-    public bool BlocksEditingShortcuts => Modal || trial != null || ghost != null || pickTarget != null;
-    public bool CapturesTextSensitiveInput => Modal || ghost != null || pickTarget != null;
+    public bool BlocksEditingShortcuts => !Application.isFocused || EditWorkspace.HasOpenModal || Modal || trial != null || ghost != null || pickTarget != null;
+    public bool CapturesTextSensitiveInput => !Application.isFocused || EditWorkspace.HasOpenModal || Modal || ghost != null || pickTarget != null;
     bool TextInputFocused => UnityEngine.EventSystems.EventSystem.current != null &&
         UnityEngine.EventSystems.EventSystem.current.currentSelectedGameObject != null &&
         UnityEngine.EventSystems.EventSystem.current.currentSelectedGameObject.GetComponent<TMP_InputField>() is TMP_InputField input && input.isFocused;
@@ -55,6 +61,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
     IEnumerator Start()
     {
         view = GetComponent<SkillSyncDesignView>();
+        UiScaleController.Ensure(GetComponentInParent<Canvas>().rootCanvas.transform)?.Apply(1f);
         yield return null; // CatalogUI completes its existing service bootstrap first.
         Active = this;
         catalog = transform.root.GetComponentInChildren<CatalogUI>(true);
@@ -64,6 +71,9 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         graph = FindFirstObjectByType<CurriculumGraphService>();
         if (graph == null) graph = placement.gameObject.AddComponent<CurriculumGraphService>();
         project = EditorProjectService.Ensure(placement.transform);
+        view.EnsureProjectLoadControl();
+        view.EnsureConditionControls();
+        view.EnsureViewportLabels();
         cameraView = EditWorkspace.ResolveCamera();
         if(view.orientation!=null) view.orientation.sourceCamera=cameraView;
         cameraController = FindFirstObjectByType<EditorCameraController>();
@@ -99,8 +109,14 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         if(Active==this) Active=null;
         thumbnails.Dispose();
     }
+    void OnApplicationFocus(bool hasFocus)
+    {
+        if (hasFocus) return;
+        draggingTrial=false;trialDragged=null;
+    }
     public bool BlocksWorkspace(Vector2 point)
     {
+        if (!Application.isFocused || EditWorkspace.HasOpenModal) return true;
         if(!initialized) return false;
         if(GetComponent<SkillSyncObjectPicker>()?.BlocksPointer(point)==true) return true;
         if(Modal || pickTarget!=null || ghost!=null || trial!=null) return true;
@@ -109,12 +125,16 @@ public sealed class SkillSyncEditorController : MonoBehaviour
     void Update()
     {
         if(!initialized) return;
+        if(!Application.isFocused || EditWorkspace.HasOpenModal)
+        {
+            draggingTrial=false;trialDragged=null;
+            return;
+        }
         var expansion=GetComponent<SkillSyncWorkspaceExpansion>();
         if(expansion!=null) {
             expansion.SetExpanded(mode==0 && !Modal && trial==null && ghost==null && selection.Selected.Count!=1);
             expansion.Tick(Time.unscaledDeltaTime);
         }
-        FitCamera();
         if(!BlocksEditingShortcuts && !TextInputFocused)
         {
             if(EditInput.ProjectShortcutPressedThisFrame(true)) project.Save(project.CurrentProjectName,out status);
@@ -165,21 +185,19 @@ public sealed class SkillSyncEditorController : MonoBehaviour
             if(signature!=librarySignature) RebuildLibrary();
         }
     }
-    void FitCamera()
+    void LateUpdate()
     {
-        // Uniformly fit the 2560x1440 layout at other display sizes.
-        var canvas=GetComponentInParent<Canvas>();
-        if(canvas!=null)
-        {
-            var scaler=canvas.GetComponent<UnityEngine.UI.CanvasScaler>();
-            if(scaler!=null) {scaler.uiScaleMode=UnityEngine.UI.CanvasScaler.ScaleMode.ConstantPixelSize;scaler.scaleFactor=Mathf.Min(Screen.width/SkillSyncDesignLayout.Width,Screen.height/SkillSyncDesignLayout.Height);}
-        }
+        // Presentation must still follow CanvasScaler while input is blocked or
+        // the Editor is unfocused. LateUpdate observes the current canvas size.
+        if(!initialized) return;
         if(cameraView==null) return;
         view.viewport.GetWorldCorners(corners);
         var min=RectTransformUtility.WorldToScreenPoint(null,corners[0]);
         var max=RectTransformUtility.WorldToScreenPoint(null,corners[2]);
         cameraView.rect=new Rect(min.x/Screen.width,min.y/Screen.height,(max.x-min.x)/Screen.width,(max.y-min.y)/Screen.height);
         cameraView.backgroundColor=EditWorkspace.BackgroundColor;
+        MoveLabel(view.partALabel, labelTargetA);
+        MoveLabel(view.partBLabel, labelTargetB);
     }
     void Act(string action)
     {
@@ -214,13 +232,15 @@ public sealed class SkillSyncEditorController : MonoBehaviour
             case "PickA": OpenObjectPicker("A");return;
             case "PickB": OpenObjectPicker("B");return;
             case "Snap": EditSnapSettings.Configure(.1f,15,!EditSnapSettings.Enabled);break;
-            case "NextCondition":
-                var conditions=graph.GetConditionNodesForStep(stepId);
-                if(conditions.Count>0) conditionId=conditions[(conditions.FindIndex(c=>c.nodeId==conditionId)+1)%conditions.Count].nodeId;
-                break;
+            case "PreviousCondition": MoveCondition(-1);break;
+            case "NextCondition": MoveCondition(1);break;
+            case "DeleteCondition": DeleteCondition();break;
             case "詳細設定": catalog?.ShowDesignSettings();return;
             case "ヘルプ": case "Guide": HintPanelController.Ensure(transform.root)?.Show();return;
             case "Save": project.Save(project.CurrentProjectName,out status);break;
+            case "教材を読み込む":
+                if (!BlocksEditingShortcuts) EditorProjectPanel.Ensure(transform.root)?.OpenForDesignUi();
+                return;
             case "↑ 教材を書き出す": Export();return;
             case "編集を続ける": mode=1;view.Show(1);break;
             case "該当箇所を修正": FocusIssue();return;
@@ -244,8 +264,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
             if(ghost!=null) ghost.DisplayName=value;
             else if(selection.Current!=null)
             {
-                var target=selection.Current;string old=target.GetDisplayName();
-                CommandService.I?.Stack.Execute(new RenameCommand(target,old,value));
+                PlacedObjectMetadataService.SetDisplayName(selection.Current, value);
             }
         }
         else if(role=="height" || role=="angle")
@@ -266,7 +285,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         }
         else if(role=="stepTitle" || role=="body")
         {
-            if(Step!=null) graph.ExecuteCommand("Edit step",()=>{if(role=="stepTitle") Step.step.title=value;else Step.step.body=value;return true;});
+            if(Step!=null) graph.UpdateStepData(Step.nodeId,"Edit step",data=>{if(role=="stepTitle") data.title=value;else data.body=value;});
         }
         else if(role=="distance" || role=="hold")
         {
@@ -276,7 +295,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
                 string key=role=="distance"?ConditionTypeCatalog.DistanceKey:ConditionTypeCatalog.HoldSecondsKey;
                 var definition=ConditionTypeCatalog.Find(Condition.condition.type)?.parameters.FirstOrDefault(p=>p.key==key);
                 if(definition==null || v<definition.minValue || v>definition.maxValue) status="条件の許容範囲内の数値を入力してください";
-                else graph.ExecuteCommand("Edit condition",()=>{ConditionTypeCatalog.SetNumber(Condition.condition,key,v);return true;});
+                else graph.UpdateConditionData(Condition.nodeId,"Edit condition",data=>ConditionTypeCatalog.SetNumber(data,key,v));
             }
             else status="数値を入力してください";
         }
@@ -291,15 +310,12 @@ public sealed class SkillSyncEditorController : MonoBehaviour
     }
     void AddStep()
     {
-        if(!TryLinear(out var steps)) return;
-        graph.ExecuteCommand("Add step",()=>
+        if(!graph.TryAddStepAtEnd(out var step, out var reason))
         {
-            var previous=steps.Count>0?steps[steps.Count-1]:graph.GetStartNode();
-            graph.RemoveEdge(previous.nodeId,graph.GetEndNode().nodeId,ScenarioEdgeType.StepFlow);
-            var step=graph.AddStep();stepId=step.nodeId;
-            graph.AddEdge(previous.nodeId,step.nodeId);graph.AddEdge(step.nodeId,graph.GetEndNode().nodeId);
-            return true;
-        });
+            if(!string.IsNullOrWhiteSpace(reason)) status="手順を追加できません: "+reason;
+            return;
+        }
+        stepId=step.nodeId;
         AddCondition();
     }
     bool TryLinear(out List<ScenarioNode> steps)
@@ -314,25 +330,42 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         if(!TryLinear(out var steps)) return;
         int i=steps.FindIndex(s=>s.nodeId==stepId),j=i+offset;
         if(i<0 || j<0 || j>=steps.Count) return;
-        graph.ExecuteCommand("Reorder steps",()=>
-        {
-            (steps[i],steps[j])=(steps[j],steps[i]);
-            graph.curriculum.edges.RemoveAll(e=>e.edgeType==ScenarioEdgeType.StepFlow);
-            var previous=graph.GetStartNode();
-            foreach(var s in steps) {graph.AddEdge(previous.nodeId,s.nodeId);previous=s;}
-            graph.AddEdge(previous.nodeId,graph.GetEndNode().nodeId);return true;
-        });
+        (steps[i],steps[j])=(steps[j],steps[i]);
+        graph.ReorderLinearSteps(steps.Select(s=>s.nodeId).ToList());
     }
     void AddCondition()
     {
         if(Step==null) {status="先に手順を追加してください";return;}
         if(graph.GetConditionCountForStep(stepId)>=graph.GetMaxConditionsPerStep()) {status="条件数の上限です";return;}
-        graph.ExecuteCommand("Add condition",()=>
+        if(!graph.TryAddConditionToStep(stepId, out var condition, out var reason))
         {
-            var c=graph.AddCondition();ConditionTypeCatalog.Normalize(c.condition,graph.curriculum.rules);
-            if(!graph.TryBindConditionToStep(c.nodeId,stepId,out var reason)) {status=reason;return false;}
-            conditionId=c.nodeId;return true;
-        });
+            if(!string.IsNullOrWhiteSpace(reason)) status=reason;
+            return;
+        }
+        conditionId=condition.nodeId;
+    }
+    void MoveCondition(int offset)
+    {
+        var conditions=Step!=null?graph.GetConditionNodesForStep(stepId):new List<ScenarioNode>();
+        if(conditions.Count<=1) return;
+        int index=conditions.FindIndex(c=>c.nodeId==conditionId);
+        int next=index+offset;
+        if(index<0 || next<0 || next>=conditions.Count) return;
+        conditionId=conditions[next].nodeId;
+    }
+    void DeleteCondition()
+    {
+        var conditions=Step!=null?graph.GetConditionNodesForStep(stepId):new List<ScenarioNode>();
+        int index=conditions.FindIndex(c=>c.nodeId==conditionId);
+        if(index<0) return;
+        string deletingId=conditionId;
+        var remaining=conditions.Where(c=>c.nodeId!=deletingId).ToList();
+        string nextId=remaining.Count==0?null:remaining[Mathf.Clamp(index-1,0,remaining.Count-1)].nodeId;
+        bool removed=graph.TryRemoveNode(deletingId);
+        if(!removed) return;
+        conditionId=nextId;
+        status="完了条件を削除しました";
+        GraphChanged();
     }
     void OpenObjectPicker(string which)
     {
@@ -348,10 +381,9 @@ public sealed class SkillSyncEditorController : MonoBehaviour
     {
         if(Condition==null) {pickTarget=null;status="先に完了条件を追加してください";Refresh();return;}
         string which=pickTarget;
-        graph.ExecuteCommand("Choose condition object",()=>
+        graph.UpdateConditionData(Condition.nodeId,"Choose condition object",data=>
         {
-            if(which=="A") Condition.condition.objectAId=id;else Condition.condition.objectBId=id;
-            return true;
+            if(which=="A") data.objectAId=id;else data.objectBId=id;
         });
         pickTarget=null;status="対象を設定しました";Refresh();
     }
@@ -369,7 +401,12 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         if(!conditions.Any(c=>c.nodeId==conditionId)) conditionId=conditions.FirstOrDefault()?.nodeId;
         RebuildSteps();Refresh();
     }
-    void SelectionChanged(PlacedObject _) {RebuildLibrary();RebuildObjects();RefreshValues();}
+    void SelectionChanged(PlacedObject _) {RefreshLibrarySelection();RebuildObjects();RefreshValues();}
+    void RefreshLibrarySelection()
+    {
+        string type = ghost != null ? ghost.TypeId : selection.Current != null ? selection.Current.TypeId : null;
+        foreach (var pair in libraryTypes) pair.Key.SetSelected(pair.Value == type);
+    }
     void ObjectPlaced(PlacedObject _,string __) {RebuildObjects();RefreshValues();}
     void HistoryChanged() {RebuildObjects();RefreshValues();}
     void ProjectStatus(string message,bool success) {status=message;RefreshValues();}
@@ -381,10 +418,11 @@ public sealed class SkillSyncEditorController : MonoBehaviour
     void RebuildLibrary()
     {
         if(view==null) return;
-        Clear(libraryRows);var entries=Entries();librarySignature=string.Join("|",entries.Select(e=>e.typeId));
+        Clear(libraryRows);libraryTypes.Clear();thumbnailSources.Clear();var entries=Entries();librarySignature=string.Join("|",entries.Select(e=>e.typeId));
         foreach(var entry in entries)
         {
             if(entry.prefab==null) continue;
+            thumbnailSources[entry.typeId] = entry.prefab;
             string title=entry.prefab.name,detail=entry.typeId;
             if(catalog!=null) catalog.TryGetTypeInfo(entry.typeId,out title,out detail);
             if(!string.IsNullOrEmpty(search) && (title+" "+entry.typeId).IndexOf(search,StringComparison.OrdinalIgnoreCase)<0) continue;
@@ -392,6 +430,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
             if(category=="環境" && !env || category=="部品" && env) continue;
             var row=Row(view.libraryTemplate,view.libraryContent,libraryRows);row.Set(title,detail,"",ghost!=null?ghost.TypeId==entry.typeId:selection.Current!=null && selection.Current.TypeId==entry.typeId);
             if(row.thumbnail!=null) row.thumbnail.texture=thumbnails.Get(entry.prefab);
+            libraryTypes[row]=entry.typeId;
             var chosen=entry;row.button.onClick.AddListener(()=>BeginGhost(chosen));
             var remove=row.GetComponent<SkillSyncLibraryRemove>();
             if(remove!=null) remove.remove.onClick.AddListener(()=>{
@@ -413,19 +452,36 @@ public sealed class SkillSyncEditorController : MonoBehaviour
     }
     void RebuildObjects()
     {
-        if(view==null) return;Clear(objectRows);
+        if(view==null) return;
+        // Selection changes update the existing rows. Only additions/removals
+        // instantiate or destroy UI and render a new thumbnail.
+        foreach (var removed in placedRows.Keys.Where(p => p == null || !p.gameObject.activeInHierarchy).ToArray())
+        {
+            var row = placedRows[removed];
+            objectRows.Remove(row); row.gameObject.SetActive(false); Destroy(row.gameObject);
+            placedRows.Remove(removed);
+        }
+        if (ghost == null && ghostRow != null)
+        {
+            objectRows.Remove(ghostRow); ghostRow.gameObject.SetActive(false); Destroy(ghostRow.gameObject); ghostRow = null;
+        }
         if(ghost!=null)
         {
-            var row=Row(view.objectTemplate,view.objectsContent,objectRows);row.Set(ghost.DisplayName+"（仮配置）","未確定","",true);
-            row.status.text="未確定";
-            row.thumbnail.texture=thumbnails.Get(ghost.Transform.gameObject);
+            if (ghostRow == null) ghostRow=Row(view.objectTemplate,view.objectsContent,objectRows);
+            ghostRow.transform.SetAsFirstSibling();
+            ghostRow.Set(ghost.DisplayName+"（仮配置）","未確定","",true);
+            ghostRow.status.text="未確定";
+            ghostRow.thumbnail.texture=thumbnails.Get(ghost.Transform.gameObject);
         }
         foreach(var p in Placed)
         {
-            var row=Row(view.objectTemplate,view.objectsContent,objectRows);
+            if (!placedRows.TryGetValue(p, out var row))
+            {
+                row=Row(view.objectTemplate,view.objectsContent,objectRows); placedRows.Add(p,row);
+                if(row.thumbnail!=null) row.thumbnail.texture=ObjectThumbnail(p);
+                row.button.onClick.AddListener(()=>{if(pickTarget!=null) Pick(p.Id);else selection.Select(p);});
+            }
             row.Set(p.GetDisplayName(),p.GetDescription(),"",selection.Contains(p));
-            if(row.thumbnail!=null) row.thumbnail.texture=thumbnails.Get(p.gameObject);
-            row.button.onClick.AddListener(()=>{if(pickTarget!=null) Pick(p.Id);else selection.Select(p);});
         }
     }
     void Refresh()
@@ -460,11 +516,11 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         view.Value("distance",Condition!=null?(DistanceLimit()*100).ToString("0.##"):"");
         view.Value("hold",Condition!=null?HoldLimit().ToString("0.##"):"");
         var a=FindPlaced(Condition?.condition.objectAId);var b=FindPlaced(Condition?.condition.objectBId);
-        PositionLabel(view.partALabel,trial!=null?trial.Find(Condition?.condition.objectAId):ghost!=null?ghost.Transform:a!=null?a.transform:target,
+        PositionLabel(view.partALabel,labelTargetA=trial!=null?trial.Find(Condition?.condition.objectAId):ghost!=null?ghost.Transform:a!=null?a.transform:target,
             trial!=null&&a!=null?a.GetDisplayName():ghost!=null?ghost.DisplayName:a!=null?a.GetDisplayName():current!=null?current.GetDisplayName():"");
-        PositionLabel(view.partBLabel,b!=null?b.transform:null,b!=null?b.GetDisplayName():"");
-        if(view.objectAThumbnail!=null) {view.objectAThumbnail.texture=a!=null?thumbnails.Get(a.gameObject):null;view.objectAThumbnail.enabled=a!=null;}
-        if(view.objectBThumbnail!=null) {view.objectBThumbnail.texture=b!=null?thumbnails.Get(b.gameObject):null;view.objectBThumbnail.enabled=b!=null;}
+        PositionLabel(view.partBLabel,labelTargetB=b!=null?b.transform:null,b!=null?b.GetDisplayName():"");
+        if(view.objectAThumbnail!=null) {view.objectAThumbnail.texture=ObjectThumbnail(a);view.objectAThumbnail.enabled=a!=null;}
+        if(view.objectBThumbnail!=null) {view.objectBThumbnail.texture=ObjectThumbnail(b);view.objectBThumbnail.enabled=b!=null;}
         if(view.conditionOverlay!=null) view.conditionOverlay.Configure(cameraView,
             trial!=null?trial.Find(Condition?.condition.objectAId):mode==1 && a!=null?a.transform:null,
             trial!=null?trial.Find(Condition?.condition.objectBId):mode==1 && b!=null?b.transform:null,DistanceLimit(),trial!=null && trial.InRange);
@@ -472,11 +528,20 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         view.Text("objectB",b!=null?b.GetDisplayName():"対象を選択してください");
         bool valid=a!=null && b!=null && a!=b && Condition!=null;
         var conditions=Step!=null?graph.GetConditionNodesForStep(stepId):new List<ScenarioNode>();
-        view.Text("conditionHeading",conditions.Count<=1?"完了する条件":$"完了する条件 {conditions.FindIndex(c=>c.nodeId==conditionId)+1}/{conditions.Count} ›");
-        view.Text("conditionSummary",valid?$"{DistanceLimit()*100:0.##} cm以内で{HoldLimit():0.##}秒間保つと完了":"未設定の対象があります");
+        int conditionIndex=conditions.FindIndex(c=>c.nodeId==conditionId);
+        view.Text("conditionHeading","完了する条件");
+        view.Text("conditionCounter",conditions.Count==0?"0件":conditionIndex>=0?$"{conditionIndex+1}/{conditions.Count}":"");
+        view.SetVisible("PreviousCondition",conditions.Count>1);
+        view.SetVisible("NextCondition",conditions.Count>1);
+        view.SetVisible("DeleteCondition",conditionIndex>=0);
+        view.Enable("PreviousCondition",conditionIndex>0);
+        view.Enable("NextCondition",conditionIndex>=0 && conditionIndex<conditions.Count-1);
+        view.Enable("DeleteCondition",conditionIndex>=0);
+        view.Text("conditionSummary",Step==null?"先に手順を追加してください":Condition==null?"完了条件がありません。下の＋で追加してください":valid?$"{DistanceLimit()*100:0.##} cm以内で{HoldLimit():0.##}秒間保つと完了":"未設定の対象があります");
         view.Enable("▶ この条件を試す",valid);
         view.Enable("↶ 元に戻す",trial==null);view.Enable("↷",trial==null);
         view.Enable("↑ 教材を書き出す",trial==null && ghost==null);
+        view.Enable("教材を読み込む",!BlocksEditingShortcuts);
         view.Text("workspaceHint",trial!=null?"学習者の操作と完了条件を確認":mode==1?$"手順{index}で使う部品を表示":"部品を選んで、作業面に配置します");
         view.Text("status",pickTarget!=null?status:ghost!=null?"＋ 仮配置中：クリックで確定 / Escで中止":trial!=null?trial.Complete?"✓ 条件が成立しました":"▶ 試行中：部品を動かして条件を確かめます":current!=null?"● 選択中："+current.GetDisplayName()+" | Escで選択解除":"部品を選択してください");
         if(trial==null) view.viewportDistance.text=valid?$"現在の距離 {Vector3.Distance(SkillSyncTrialSession.Center(a.transform),SkillSyncTrialSession.Center(b.transform))*100:0} cm":"対象を選択してください";
@@ -499,6 +564,15 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         }
     }
     PlacedObject FindPlaced(string id) => string.IsNullOrEmpty(id)?null:Placed.FirstOrDefault(p=>p.Id==id);
+    RenderTexture ObjectThumbnail(PlacedObject placed)
+    {
+        if (placed == null) return null;
+        // A root's library thumbnail is shared by its instances. Parts retain
+        // their own geometry preview instead of showing the entire model.
+        var source = placed.gameObject;
+        if (placed.modelRoot == null && thumbnailSources.TryGetValue(placed.TypeId, out var prefab) && prefab != null) source = prefab;
+        return thumbnails.Get(source);
+    }
     void PositionLabel(TMP_Text label,Transform target,string caption)
     {
         if(label==null) return;
@@ -510,10 +584,24 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         host.sizeDelta=new Vector2(width,34);
         label.rectTransform.sizeDelta=new Vector2(width-28,22);
         label.overflowMode=TextOverflowModes.Ellipsis;
+    }
+    void MoveLabel(TMP_Text label, Transform target)
+    {
+        if (label == null) return;
+        var host = (RectTransform)label.transform.parent;
+        if (target == null || cameraView == null || Modal) {host.gameObject.SetActive(false);return;}
         var position=target.position;
-        if(PlacedObjectGrounding.TryGetRendererBounds(target,out var bounds)) position=new Vector3(bounds.center.x,bounds.max.y,bounds.center.z);
+        target.GetComponentsInChildren<Renderer>(true, labelRenderers);
+        bool found = false; Bounds bounds = default;
+        foreach (var renderer in labelRenderers)
+        {
+            if (renderer == null) continue;
+            if (!found) { bounds=renderer.bounds; found=true; } else bounds.Encapsulate(renderer.bounds);
+        }
+        if (found) position=new Vector3(bounds.center.x,bounds.max.y,bounds.center.z);
         var point=cameraView.WorldToScreenPoint(position);
         if(point.z<=0) {host.gameObject.SetActive(false);return;}
+        host.gameObject.SetActive(true);
         var root=(RectTransform)transform;
         RectTransformUtility.ScreenPointToLocalPointInRectangle(root,point,null,out var local);
         host.anchoredPosition=new Vector2(Mathf.Clamp(local.x-root.rect.xMin-host.rect.width/2,288,288+view.viewport.rect.width-host.rect.width),Mathf.Clamp(local.y-root.rect.yMax+50,-670,view.viewport.anchoredPosition.y));
@@ -598,16 +686,16 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         catch(Exception e) {status="仮配置を開始できません: "+e.Message;Debug.LogException(e);Refresh();return;}
         mode=0;
         ghost.Follow(cameraView,new Vector2(cameraView.pixelRect.center.x,cameraView.pixelRect.center.y));
-        RebuildLibrary();Refresh();
+        RefreshLibrarySelection();Refresh();
     }
-    void CancelGhost() {ghost?.Dispose();ghost=null;}
+    void CancelGhost() {ghost?.Dispose();ghost=null;if(selection!=null) RefreshLibrarySelection();}
     void ConfirmGhost()
     {
         if(ghost==null) return;
         var pose=ghost.Transform;var position=pose.position;var rotation=pose.rotation;var scale=pose.localScale;string label=ghost.DisplayName;
         if(placement.PlaceForDesignUi(ghost.TypeId,position,rotation,scale,label))
         {
-            CancelGhost();RebuildLibrary();Refresh();
+            CancelGhost();Refresh();
         }
     }
     void Export()
@@ -648,13 +736,5 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         if(Condition!=null) {pickTarget=string.IsNullOrEmpty(Condition.condition.objectAId)?"A":"B";status="対象を3D空間または配置一覧から選んでください";}
         else {status=issue!=null?ScenarioValidationText.GetFriendlyMessage(issue):"手順を確認してください";view.Focus("stepTitle");}
         RefreshValues();
-    }
-    sealed class RenameCommand : IEditorCommand
-    {
-        readonly PlacedObject target;readonly string before,after;
-        public RenameCommand(PlacedObject target,string before,string after) {this.target=target;this.before=before;this.after=after;}
-        public string Label=>"Rename object";
-        public bool Do() {if(target==null) return false;target.SetDisplayName(after);return true;}
-        public bool Undo() {if(target==null) return false;target.SetDisplayName(before);return true;}
     }
 }

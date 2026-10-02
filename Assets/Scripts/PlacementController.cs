@@ -3,22 +3,6 @@ using UnityEngine;
 
 public class PlacementController : MonoBehaviour
 {
-    static readonly string[] BlockingUiRectNames =
-    {
-        "Panel_Catalog",
-        "Panel_Settings",
-        "Panel_NewObjectSettings",
-        "Panel_Hints",
-        "Panel_Detail",
-        "Panel_SaveValidation",
-        "NodeArea",
-        "EditModeRow",
-        "EditModeRow_Runtime",
-        "Button_Settings",
-        "Button_Settings_Runtime",
-        "Button_Hints"
-    };
-
     public PrefabRegistry registry;
     public Camera cam;
     public float gridSize = 0.1f;
@@ -169,18 +153,27 @@ public class PlacementController : MonoBehaviour
             return false;
         }
 
-        if (!TryGetPlacementPoint(screenPosition, out var placementPoint, out var resolveReason))
+        float? supportingSurfaceY = null;
+        Vector3 placementPoint;
+        string resolveReason;
+        if (EditSnapSettings.ShouldSnap && EditWorkspace.TryScreenToPlacedSurface(cam, screenPosition, out placementPoint))
+        {
+            supportingSurfaceY = placementPoint.y;
+            resolveReason = "placed object surface";
+        }
+        else if (!TryGetPlacementPoint(screenPosition, out placementPoint, out resolveReason))
         {
             LogWarning($"PlaceOnceAtScreenPoint failed. Could not resolve placement point. screen={screenPosition}");
             return false;
         }
 
         LogDebug($"Placement point resolved by {resolveReason}: {placementPoint}");
-        return PlaceType(typeId, placementPoint);
+        return PlaceType(typeId, placementPoint, supportingSurfaceY: supportingSurfaceY);
     }
 
     void Update()
     {
+        if (!Application.isFocused) return;
         if (ObjectScreenPicker.Capturing) return;
         bool leftPressedThisFrame = EditInput.LeftPressedThisFrame();
         if (string.IsNullOrEmpty(currentTypeId))
@@ -194,10 +187,17 @@ public class PlacementController : MonoBehaviour
             return;
         }
 
+        if (EditWorkspace.IsTypingIntoInputField()) return;
+        if (EditModeService.I != null && EditModeService.I.Mode != EditMode.Place)
+        {
+            CancelPlacement();
+            return;
+        }
+
         if (!leftPressedThisFrame) return;
 
         var mousePosition = EditInput.MousePosition;
-        if (EditWorkspace.TryGetBlockingUiName(mousePosition, BlockingUiRectNames, out var blockingUiName))
+        if (EditWorkspace.TryGetBlockingUiName(mousePosition, out var blockingUiName))
         {
             LogDebug($"Placement click blocked by UI: {blockingUiName}, screen={mousePosition}");
             return;
@@ -213,7 +213,7 @@ public class PlacementController : MonoBehaviour
 
     public static bool IsScreenPositionOverBlockingUi(Vector2 screenPosition)
     {
-        return EditWorkspace.TryGetBlockingUiName(screenPosition, BlockingUiRectNames, out _);
+        return EditWorkspace.TryGetBlockingUiName(screenPosition, out _);
     }
 
     bool TryGetPlacementPoint(Vector2 screenPosition, out Vector3 point, out string resolveReason)
@@ -222,7 +222,7 @@ public class PlacementController : MonoBehaviour
         return EditWorkspace.TryScreenToGround(cam, screenPosition, out point, out resolveReason);
     }
 
-    bool PlaceType(string typeId, Vector3 floorPoint, Quaternion? rotation = null, Vector3? scale = null, string displayName = null, bool groundToPlane = true)
+    bool PlaceType(string typeId, Vector3 floorPoint, Quaternion? rotation = null, Vector3? scale = null, string displayName = null, bool groundToPlane = true, float? supportingSurfaceY = null)
     {
         if (!TryGetPrefab(typeId, out _))
         {
@@ -242,7 +242,7 @@ public class PlacementController : MonoBehaviour
             return createdObject;
         };
 
-        var cmd = new PlaceObjectCommand(typeId, placedPosition, rotation ?? Quaternion.identity, factory, groundToPlane);
+        var cmd = new PlaceObjectCommand(typeId, placedPosition, rotation ?? Quaternion.identity, factory, groundToPlane, supportingSurfaceY);
         bool succeeded;
         if (CommandService.I != null && CommandService.I.Stack != null)
         {
@@ -311,7 +311,7 @@ public class PlacementController : MonoBehaviour
 
         var mousePosition = EditInput.MousePosition;
         string blockingName = null;
-        bool blocked = EditWorkspace.TryGetBlockingUiName(mousePosition, BlockingUiRectNames, out blockingName);
+        bool blocked = EditWorkspace.TryGetBlockingUiName(mousePosition, out blockingName);
         string cameraName = cam != null ? cam.name : "(null)";
         int typeCount = prefabCatalog != null ? prefabCatalog.Count : -1;
         string mode = EditModeService.I != null ? EditModeService.I.Mode.ToString() : "(no EditModeService)";

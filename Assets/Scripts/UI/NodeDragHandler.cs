@@ -10,18 +10,37 @@ public class NodeDragHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, I
     public System.Action onBeginDrag;
     public System.Action onDrag;
     public System.Action onEndDrag;
+    public System.Action onCancelDrag;
 
     RectTransform dragSurface;
+    Vector2 dragStartPosition;
     bool draggingActive;
+
+    void Update()
+    {
+        if (draggingActive && IsDragInputBlocked()) CancelActiveDrag();
+    }
+
+    void OnApplicationFocus(bool hasFocus)
+    {
+        if (!hasFocus) CancelActiveDrag();
+    }
+
+    void OnDisable()
+    {
+        CancelActiveDrag();
+    }
 
     public void OnBeginDrag(PointerEventData eventData)
     {
         draggingActive = false;
         if (target == null) return;
+        if (IsDragInputBlocked()) return;
         if (blockWhenPointerStartsOnSelectable && PointerStartsOnSelectable(eventData)) return;
 
         dragSurface = target.parent as RectTransform;
         if (dragSurface == null) return;
+        dragStartPosition = target.anchoredPosition;
         draggingActive = true;
         onBeginDrag?.Invoke();
     }
@@ -29,6 +48,7 @@ public class NodeDragHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, I
     public void OnDrag(PointerEventData eventData)
     {
         if (!draggingActive || target == null || dragSurface == null) return;
+        if (IsDragInputBlocked()) { CancelActiveDrag(); return; }
 
         var eventCamera = eventData.pressEventCamera != null ? eventData.pressEventCamera : eventData.enterEventCamera;
         if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(
@@ -53,9 +73,22 @@ public class NodeDragHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, I
     public void OnEndDrag(PointerEventData eventData)
     {
         if (!draggingActive) return;
+        if (IsDragInputBlocked()) { CancelActiveDrag(); return; }
         draggingActive = false;
+        dragSurface = null;
         onEndDrag?.Invoke();
     }
+
+    void CancelActiveDrag()
+    {
+        if (!draggingActive) return;
+        draggingActive = false;
+        dragSurface = null;
+        if (target != null) target.anchoredPosition = dragStartPosition;
+        onCancelDrag?.Invoke();
+    }
+
+    static bool IsDragInputBlocked() => EditWorkspace.IsTypingIntoInputField();
 
     static bool PointerStartsOnSelectable(PointerEventData eventData)
     {

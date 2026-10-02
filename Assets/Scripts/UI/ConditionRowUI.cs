@@ -13,8 +13,8 @@ public class ConditionRowUI : MonoBehaviour
     public TMP_Text textAfterA;
     public TMP_Text textAfterB;
 
-    static readonly Color DropdownBackground = DesignTokens.Surface;
-    static readonly Color DropdownTemplateBackground = DesignTokens.Surface;
+    static Color DropdownBackground => DesignTokens.Surface;
+    static Color DropdownTemplateBackground => DesignTokens.Surface;
 
     const string LabelUnset = "\u672A\u8A2D\u5B9A";
     const string LabelMissingPrefix = "参照切れ: ";
@@ -182,7 +182,7 @@ public class ConditionRowUI : MonoBehaviour
         {
             EnsureTextReadable(dropdown.captionText);
             dropdown.captionText.color = DesignTokens.TextPrimary;
-            dropdown.captionText.enableWordWrapping = false;
+            dropdown.captionText.textWrappingMode = TMPro.TextWrappingModes.NoWrap;
             dropdown.captionText.overflowMode = TextOverflowModes.Ellipsis;
         }
 
@@ -249,7 +249,7 @@ public class ConditionRowUI : MonoBehaviour
                         txtRt.offsetMin = new Vector2(8f, 0f);
                         txtRt.offsetMax = new Vector2(-8f, 0f);
                         txt.alignment = TextAlignmentOptions.MidlineLeft;
-                        txt.enableWordWrapping = false;
+                        txt.textWrappingMode = TMPro.TextWrappingModes.NoWrap;
                         txt.overflowMode = TextOverflowModes.Ellipsis;
                         EnsureTextReadable(txt);
                         txt.color = DesignTokens.TextPrimary;
@@ -332,7 +332,7 @@ public class ConditionRowUI : MonoBehaviour
             EnsureTextReadable(dropdown.itemText);
             dropdown.itemText.color = DesignTokens.TextPrimary;
             dropdown.itemText.alignment = TextAlignmentOptions.MidlineLeft;
-            dropdown.itemText.enableWordWrapping = false;
+            dropdown.itemText.textWrappingMode = TMPro.TextWrappingModes.NoWrap;
             dropdown.itemText.overflowMode = TextOverflowModes.Ellipsis;
             var rt = dropdown.itemText.rectTransform;
             rt.anchorMin = Vector2.zero;
@@ -568,7 +568,7 @@ public class DropdownOpenFixer : MonoBehaviour, IPointerClickHandler
             label.rectTransform.anchorMax = Vector2.one;
             label.rectTransform.offsetMin = new Vector2(12f, 0f);
             label.rectTransform.offsetMax = new Vector2(-12f, 0f);
-            label.enableWordWrapping = false;
+            label.textWrappingMode = TMPro.TextWrappingModes.NoWrap;
             label.overflowMode = TextOverflowModes.Ellipsis;
         }
     }

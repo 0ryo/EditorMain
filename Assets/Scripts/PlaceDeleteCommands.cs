@@ -6,12 +6,14 @@ public class PlaceObjectCommand : IEditorCommand, IDiscardableEditorCommand {
     Vector3 resolvedPosition;
     bool hasResolvedPosition;
     readonly bool groundToPlane;
+    readonly float? supportingSurfaceY;
     System.Func<string, GameObject> factory; // typeId→Instantiateする関数
     public string Label => "Place " + typeId;
 
-    public PlaceObjectCommand(string typeId, Vector3 pos, Quaternion rot, System.Func<string,GameObject> factory, bool groundToPlane = true){
+    public PlaceObjectCommand(string typeId, Vector3 pos, Quaternion rot, System.Func<string,GameObject> factory, bool groundToPlane = true, float? supportingSurfaceY = null){
         this.typeId=typeId; this.pos=pos; this.rot=rot; this.factory=factory;
         this.groundToPlane=groundToPlane;
+        this.supportingSurfaceY=supportingSurfaceY;
     }
     public bool Do()  {
         if (instance == null)
@@ -35,7 +37,7 @@ public class PlaceObjectCommand : IEditorCommand, IDiscardableEditorCommand {
             else
             {
                 instance.transform.SetPositionAndRotation(pos, rot);
-                if (groundToPlane) PlacedObjectGrounding.AlignRendererBoundsToGround(instance, EditWorkspace.GroundY, out resolvedPosition);
+                if (groundToPlane) PlacedObjectGrounding.AlignRendererBoundsToGround(instance, supportingSurfaceY ?? EditWorkspace.GroundY, out resolvedPosition);
                 else resolvedPosition = pos;
                 hasResolvedPosition = true;
             }

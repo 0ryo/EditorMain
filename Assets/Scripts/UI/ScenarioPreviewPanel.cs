@@ -259,7 +259,10 @@ public sealed class ScenarioPreviewPanel : MonoBehaviour
             string label = target.nodeType == ScenarioNodeType.End ? "終了" : target.step.title;
             if (string.IsNullOrWhiteSpace(label)) label = target.nodeId;
             var button = CreateButton("Branch_" + id, branchRoot, "進む: " + label, DesignTokens.BgSecondary, DesignTokens.TextPrimary);
-            button.gameObject.AddComponent<LayoutElement>().preferredHeight = 40f;
+            var buttonLayout = button.gameObject.AddComponent<LayoutElement>();
+            buttonLayout.minHeight = DesignTokens.MinTouchTarget;
+            buttonLayout.preferredHeight = DesignTokens.MinTouchTarget;
+            UiAccessibilityMetrics.EnsureButtonTarget(button);
             button.interactable = simulatedSuccess;
             button.onClick.AddListener(() => AdvanceTo(id));
         }
@@ -352,7 +355,7 @@ public sealed class ScenarioPreviewPanel : MonoBehaviour
     {
         var text = CreateText(name, parent, string.Empty, fontSize, color);
         text.alignment = TextAlignmentOptions.TopLeft;
-        text.enableWordWrapping = true;
+        text.textWrappingMode = TMPro.TextWrappingModes.Normal;
         text.richText = true;
         var layout = text.gameObject.AddComponent<LayoutElement>();
         layout.minHeight = height;
@@ -386,6 +389,7 @@ public sealed class ScenarioPreviewPanel : MonoBehaviour
         var text = CreateText("Label", rt, label, DesignTokens.FontSizeBody, foreground);
         text.alignment = TextAlignmentOptions.Center;
         SetRect(text.rectTransform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+        UiAccessibilityMetrics.EnsureButtonTarget(go.GetComponent<Button>());
         return go.GetComponent<Button>();
     }
 

@@ -11,7 +11,7 @@ public class PlacementExportService : MonoBehaviour
     /// </summary>
     public void PrintPlacedObjects()
     {
-        var all = FindObjectsOfType<PlacedObject>();
+        var all = FindObjectsByType<PlacedObject>(FindObjectsSortMode.InstanceID);
         var sb = new StringBuilder();
         sb.AppendLine($"[Export] PlacedObject count = {all.Length}");
 
@@ -49,7 +49,7 @@ public class PlacementExportService : MonoBehaviour
             projectName = projectName
         };
 
-        var all = FindObjectsOfType<PlacedObject>();
+        var all = FindObjectsByType<PlacedObject>(FindObjectsSortMode.InstanceID);
         for (int i = 0; i < all.Length; i++)
         {
             var po = all[i];

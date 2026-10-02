@@ -35,6 +35,8 @@ public class TerminalNodeUI : MonoBehaviour
             return;
         }
 
+        ScenarioGraphVisualStyle.EnsureNodeHeader(transform);
+
         if (labelText != null)
         {
             labelText.text = displayLabel;
@@ -48,6 +50,7 @@ public class TerminalNodeUI : MonoBehaviour
 
     void ConfigureInputConnector(bool allowInput)
     {
+        ScenarioGraphVisualStyle.ApplyConnector(inputConnector);
         if (inputConnector == null) return;
 
         inputConnector.gameObject.SetActive(allowInput);
@@ -63,6 +66,7 @@ public class TerminalNodeUI : MonoBehaviour
 
     void ConfigureOutputConnector(bool allowOutput)
     {
+        ScenarioGraphVisualStyle.ApplyConnector(outputConnector);
         if (outputConnector == null) return;
 
         outputConnector.gameObject.SetActive(allowOutput);

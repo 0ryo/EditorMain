@@ -12,12 +12,65 @@ public static class EditWorkspace
 
     static readonly Plane GroundPlane = new Plane(Vector3.up, new Vector3(0f, GroundY, 0f));
     static readonly List<RaycastResult> UiRaycastResults = new List<RaycastResult>();
+    static Camera cachedResolvedCamera;
+    public static bool HasOpenModal => GetOpenModalRoot() != null;
+
+    public static Transform GetOpenModalRoot(Transform within = null)
+    {
+        var modal = EditorProjectPanel.GetOpenModalRoot(within);
+        if (modal != null) return modal;
+        modal = CatalogUI.GetOpenModalRoot();
+        return modal != null && (within == null || modal == within || modal.IsChildOf(within)) ? modal : null;
+    }
+    public static void EnsureInputBlockers(Transform uiRoot)
+    {
+        if (uiRoot == null) return;
+
+        // Raycastable uGUI graphics already define the interactive screen boundary.
+        // Marking those objects avoids using hierarchy names as an input API.
+        foreach (var graphic in uiRoot.GetComponentsInChildren<Graphic>(true))
+        {
+            if (graphic == null || !graphic.raycastTarget) continue;
+            var blockerRoot = graphic.transform;
+            for (var current = graphic.transform.parent; current != null; current = current.parent)
+            {
+                var ancestorGraphic = current.GetComponent<Graphic>();
+                if (ancestorGraphic != null && ancestorGraphic.raycastTarget) blockerRoot = current;
+                if (current == uiRoot) break;
+            }
+            EnsureInputBlocker(blockerRoot);
+        }
+
+        foreach (var selectable in uiRoot.GetComponentsInChildren<Selectable>(true))
+        {
+            if (selectable == null) continue;
+            if (selectable is Button button) UiAccessibilityMetrics.EnsureButtonTarget(button);
+            else EnsureInputBlockerForControl(selectable.transform);
+        }
+    }
+
+    public static void EnsureInputBlockerForControl(Transform target)
+    {
+        if (target == null || target.GetComponentInParent<EditorUiInputBlocker>() != null) return;
+        EnsureInputBlocker(target);
+    }
+
+    public static void EnsureInputBlocker(Transform target)
+    {
+        if (target != null && target.GetComponent<EditorUiInputBlocker>() == null)
+            target.gameObject.AddComponent<EditorUiInputBlocker>();
+    }
 
     public static Camera ResolveCamera(Camera preferred = null)
     {
         if (preferred != null) return preferred;
-        if (Camera.main != null) return Camera.main;
-        return Object.FindFirstObjectByType<Camera>();
+        if (cachedResolvedCamera != null && cachedResolvedCamera.isActiveAndEnabled && cachedResolvedCamera.gameObject.activeInHierarchy)
+            return cachedResolvedCamera;
+
+        cachedResolvedCamera = Camera.main;
+        if (cachedResolvedCamera == null)
+            cachedResolvedCamera = Object.FindFirstObjectByType<Camera>();
+        return cachedResolvedCamera;
     }
 
     public static void EnsureWorkspaceVisuals()
@@ -58,6 +111,28 @@ public static class EditWorkspace
         return true;
     }
 
+    public static bool TryScreenToPlacedSurface(Camera camera, Vector2 screenPosition, out Vector3 point)
+    {
+        point = default;
+        camera = ResolveCamera(camera);
+        if (camera == null) return false;
+
+        var hits = Physics.RaycastAll(camera.ScreenPointToRay(screenPosition), 1000f, ~0, QueryTriggerInteraction.Ignore);
+        if (hits == null || hits.Length == 0) return false;
+        System.Array.Sort(hits, (left, right) => left.distance.CompareTo(right.distance));
+
+        foreach (var hit in hits)
+        {
+            if (hit.collider == null || hit.normal.y < 0.5f) continue;
+            var placed = hit.collider.GetComponentInParent<PlacedObject>();
+            if (placed == null || !SelectionService.CanEdit(placed)) continue;
+            point = hit.point;
+            return true;
+        }
+
+        return false;
+    }
+
     public static Vector3 SnapPlacementPoint(Vector3 groundPoint, float gridSize, float yOffset)
     {
         _ = yOffset; // 旧Prefabとのserialized互換用。Y位置は配置後にrenderer boundsから決定する。
@@ -73,16 +148,21 @@ public static class EditWorkspace
             Mathf.Round(groundPoint.z / snap) * snap);
     }
 
-    public static bool TryGetBlockingUiName(Vector2 screenPosition, string[] blockingNames, out string blockingUiName)
+    public static bool TryGetBlockingUiName(Vector2 screenPosition, out string blockingUiName)
     {
         blockingUiName = null;
+        if (HasOpenModal)
+        {
+            blockingUiName = "Editor modal";
+            return true;
+        }
         if (SkillSyncEditorController.Active != null && SkillSyncEditorController.Active.BlocksWorkspace(screenPosition))
         {
             blockingUiName = "SkillSyncDesign";
             return true;
         }
         var eventSystem = EventSystem.current;
-        if (eventSystem == null || blockingNames == null || blockingNames.Length == 0) return false;
+        if (eventSystem == null) return false;
 
         UiRaycastResults.Clear();
         eventSystem.RaycastAll(new PointerEventData(eventSystem) { position = screenPosition }, UiRaycastResults);
@@ -95,16 +175,11 @@ public static class EditWorkspace
             {
                 if (current.GetComponent<EditorUiInputBlocker>() != null)
                 {
-                    blockingUiName = current.name;
+                    blockingUiName = "Editor UI";
                     UiRaycastResults.Clear();
                     return true;
                 }
 
-                if (!IsNamedBlockingUiRect(current.name, blockingNames)) continue;
-
-                blockingUiName = current.name;
-                UiRaycastResults.Clear();
-                return true;
             }
         }
 
@@ -114,6 +189,8 @@ public static class EditWorkspace
 
     public static bool IsTypingIntoInputField()
     {
+        // A visible project modal captures editing shortcuts even when its input field is unfocused.
+        if (!Application.isFocused || HasOpenModal) return true;
         if (SkillSyncEditorController.Active != null && SkillSyncEditorController.Active.CapturesTextSensitiveInput) return true;
         if (ObjectScreenPicker.Capturing) return true;
         if (EventSystem.current == null) return false;
@@ -128,15 +205,4 @@ public static class EditWorkspace
         return tmpInput != null && tmpInput.isFocused;
     }
 
-    static bool IsNamedBlockingUiRect(string objectName, string[] blockingNames)
-    {
-        if (string.IsNullOrWhiteSpace(objectName)) return false;
-
-        foreach (var blockingName in blockingNames)
-        {
-            if (string.Equals(objectName, blockingName, System.StringComparison.Ordinal)) return true;
-        }
-
-        return false;
-    }
 }

@@ -25,6 +25,188 @@ public partial class CurriculumGraphService : MonoBehaviour
         return CurriculumGraphCommandProcessor.Execute(this, label, mutation);
     }
 
+    public bool RenameProject(string projectName)
+    {
+        string normalized = string.IsNullOrWhiteSpace(projectName) ? "VRCourseEditor" : projectName.Trim();
+        if (curriculum != null && string.Equals(curriculum.projectName, normalized, StringComparison.Ordinal)) return false;
+        return ExecuteCommand("Rename project", () =>
+        {
+            curriculum.projectName = normalized;
+            return true;
+        });
+    }
+
+    public bool UpdateStepData(string nodeId, string label, Action<StepNodeData> mutation)
+    {
+        if (string.IsNullOrWhiteSpace(nodeId) || mutation == null) return false;
+        return ExecuteCommand(label, () =>
+        {
+            var node = FindNode(nodeId);
+            if (node == null || node.nodeType != ScenarioNodeType.Step || node.step == null) return false;
+            mutation(node.step);
+            return true;
+        });
+    }
+
+    public bool UpdateConditionData(string nodeId, string label, Action<ConditionNodeData> mutation)
+    {
+        if (string.IsNullOrWhiteSpace(nodeId) || mutation == null) return false;
+        return ExecuteCommand(label, () =>
+        {
+            var node = FindNode(nodeId);
+            if (node == null || node.nodeType != ScenarioNodeType.Condition) return false;
+            if (node.condition == null) node.condition = new ConditionNodeData();
+            mutation(node.condition);
+            return true;
+        });
+    }
+
+    public bool ReorderLinearSteps(IReadOnlyList<string> orderedStepIds)
+    {
+        if (orderedStepIds == null || orderedStepIds.Count == 0) return false;
+        var orderedNodes = orderedStepIds.Select(FindNode).ToList();
+        if (orderedNodes.Any(node => node == null || node.nodeType != ScenarioNodeType.Step) ||
+            orderedNodes.Select(node => node.nodeId).Distinct(StringComparer.Ordinal).Count() != orderedNodes.Count)
+            return false;
+        var existingStepIds = new HashSet<string>(GetNodes(ScenarioNodeType.Step).Select(node => node.nodeId), StringComparer.Ordinal);
+        if (orderedNodes.Count != existingStepIds.Count || orderedNodes.Any(node => !existingStepIds.Contains(node.nodeId)))
+            return false;
+
+        return ExecuteCommand("Reorder steps", () =>
+        {
+            curriculum.edges.RemoveAll(edge => edge != null && edge.edgeType == ScenarioEdgeType.StepFlow);
+            string previous = GetStartNode().nodeId;
+            foreach (var node in orderedNodes)
+            {
+                curriculum.edges.Add(new ScenarioEdge
+                {
+                    fromNodeId = previous,
+                    toNodeId = node.nodeId,
+                    edgeType = ScenarioEdgeType.StepFlow
+                });
+                previous = node.nodeId;
+            }
+            curriculum.edges.Add(new ScenarioEdge
+            {
+                fromNodeId = previous,
+                toNodeId = GetEndNode().nodeId,
+                edgeType = ScenarioEdgeType.StepFlow
+            });
+            return true;
+        });
+    }
+
+    public bool TryAddNode(ScenarioNodeType nodeType, out ScenarioNode addedNode)
+    {
+        ScenarioNode candidate = null;
+        string label = nodeType == ScenarioNodeType.Condition ? "Add condition" : "Add step";
+        bool added = ExecuteCommand(label, () =>
+        {
+            if (nodeType != ScenarioNodeType.Step && nodeType != ScenarioNodeType.Condition) return false;
+            candidate = nodeType == ScenarioNodeType.Condition ? AddCondition() : AddStep();
+            return candidate != null;
+        });
+
+        addedNode = added ? candidate : null;
+        return added;
+    }
+
+    public bool TryRemoveNode(string nodeId)
+    {
+        return ExecuteCommand("Delete scenario node", () =>
+        {
+            if (FindNode(nodeId) == null) return false;
+            RemoveNode(nodeId);
+            return FindNode(nodeId) == null;
+        });
+    }
+
+    public bool TryBindConditionToStepCommand(string conditionNodeId, string stepNodeId, out string reason)
+    {
+        string failureReason = null;
+        bool bound = ExecuteCommand("Bind condition", () => TryBindConditionToStep(conditionNodeId, stepNodeId, out failureReason));
+        reason = failureReason;
+        return bound;
+    }
+
+    public bool TryUnbindConditionFromStepCommand(string conditionNodeId)
+    {
+        return ExecuteCommand("Unbind condition", () => TryUnbindConditionFromStep(conditionNodeId));
+    }
+
+    public bool TryRemoveEdgeCommand(string fromNodeId, string toNodeId, ScenarioEdgeType edgeType)
+    {
+        return ExecuteCommand("Delete scenario connection", () =>
+        {
+            bool exists = curriculum.edges.Any(edge =>
+                edge != null && edge.fromNodeId == fromNodeId &&
+                edge.toNodeId == toNodeId && edge.edgeType == edgeType);
+            if (!exists) return false;
+
+            RemoveEdge(fromNodeId, toNodeId, edgeType);
+            return true;
+        });
+    }
+
+    public bool TryConnectNodesCommand(string fromNodeId, string toNodeId, out string reason)
+    {
+        string failureReason = null;
+        bool connected = ExecuteCommand("Connect scenario nodes", () => TryAddEdge(fromNodeId, toNodeId, out failureReason));
+        reason = failureReason;
+        return connected;
+    }
+
+    public bool TryAddStepAtEnd(out ScenarioNode addedStep, out string reason)
+    {
+        ScenarioNode candidate = null;
+        string failureReason = null;
+        bool added = ExecuteCommand("Add step", () =>
+        {
+            List<ScenarioNode> steps;
+            if (GetNodes(ScenarioNodeType.Step).Count == 0)
+            {
+                steps = new List<ScenarioNode>();
+            }
+            else if (!TryBuildLinearStepSequence(out steps, out failureReason))
+            {
+                return false;
+            }
+
+            var previous = steps.Count > 0 ? steps[steps.Count - 1] : GetStartNode();
+            var end = GetEndNode();
+            if (previous == null || end == null) return false;
+
+            RemoveEdge(previous.nodeId, end.nodeId, ScenarioEdgeType.StepFlow);
+            candidate = AddStep();
+            return TryAddEdge(previous.nodeId, candidate.nodeId, out failureReason) &&
+                   TryAddEdge(candidate.nodeId, end.nodeId, out failureReason);
+        });
+
+        addedStep = added ? candidate : null;
+        reason = failureReason;
+        return added;
+    }
+
+    public bool TryAddConditionToStep(string stepNodeId, out ScenarioNode addedCondition, out string reason)
+    {
+        ScenarioNode candidate = null;
+        string failureReason = null;
+        bool added = ExecuteCommand("Add condition", () =>
+        {
+            if (FindNode(stepNodeId)?.nodeType != ScenarioNodeType.Step ||
+                GetConditionCountForStep(stepNodeId) >= GetMaxConditionsPerStep())
+                return false;
+
+            candidate = AddCondition();
+            ConditionTypeCatalog.Normalize(candidate.condition, curriculum.rules);
+            return TryBindConditionToStep(candidate.nodeId, stepNodeId, out failureReason);
+        });
+
+        addedCondition = added ? candidate : null;
+        reason = failureReason;
+        return added;
+    }
+
     internal string CaptureCommandSnapshot()
     {
         EnsureGraphInitialized();

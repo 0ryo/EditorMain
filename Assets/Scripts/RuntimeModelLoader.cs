@@ -35,18 +35,19 @@ public static class RuntimeModelLoader
         if (file.Length == 0 || file.Length > MaximumFileBytes)
             throw new IOException("モデルは空でない256 MB以下のファイルを使用してください。");
         progress?.Invoke("ファイルと参照素材を検証中…");
-        ImportedModelStore.ValidateInput(file.FullName, MaximumFileBytes);
+        long inputBytes = ImportedModelStore.ValidateInput(file.FullName, MaximumFileBytes);
         cancellationToken.ThrowIfCancellationRequested();
         var gltf = new GltfImport();
         GameObject go = null;
         bool retained = false;
         try
         {
-            progress?.Invoke("モデルを読み込み中…（追加ボタンで中止）");
+            progress?.Invoke($"モデルを読み込み中… 入力素材 {ToMiB(inputBytes)} MB（追加ボタンで中止）");
             if (!await gltf.Load(new Uri(file.FullName), cancellationToken: cancellationToken))
                 throw new IOException("モデルを読み込めません。形式、外部素材、破損の有無を確認してください。");
             cancellationToken.ThrowIfCancellationRequested();
-            progress?.Invoke("形状・材質を構築中…（追加ボタンで中止）");
+            long loadedResourceBytes = EstimateLoadedResourceBytes(gltf);
+            progress?.Invoke($"形状・材質を構築中… 読込資産のメモリ目安 {ToMiB(loadedResourceBytes)} MB（mesh・texture、追加ボタンで中止）");
             go = new GameObject(Path.GetFileNameWithoutExtension(absolutePath));
             var resources = go.AddComponent<RuntimeModelResources>();
             go.SetActive(false);
@@ -68,6 +69,32 @@ public static class RuntimeModelLoader
             }
         }
     }
+
+    static long EstimateLoadedResourceBytes(GltfImport gltf)
+    {
+        long bytes = 0;
+        var meshes = new System.Collections.Generic.HashSet<Mesh>();
+        if (gltf.Meshes != null)
+        {
+            foreach (var mesh in gltf.Meshes)
+            {
+                if (mesh == null || !meshes.Add(mesh)) continue;
+                bytes += UnityEngine.Profiling.Profiler.GetRuntimeMemorySizeLong(mesh);
+            }
+        }
+
+        var textures = new System.Collections.Generic.HashSet<Texture>();
+        for (int i = 0; i < gltf.TextureCount; i++)
+        {
+            var texture = gltf.GetTexture(i);
+            if (texture == null || !textures.Add(texture)) continue;
+            bytes += UnityEngine.Profiling.Profiler.GetRuntimeMemorySizeLong(texture);
+        }
+
+        return bytes;
+    }
+
+    static string ToMiB(long bytes) => (bytes / (1024f * 1024f)).ToString("0.#");
 
     static void ValidateRuntimeModel(GameObject model)
     {

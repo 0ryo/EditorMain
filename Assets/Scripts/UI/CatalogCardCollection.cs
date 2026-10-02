@@ -116,13 +116,7 @@ public static class CatalogCardText
 
     public static string BuildCategoryLabel(string typeId)
     {
-        if (string.IsNullOrWhiteSpace(typeId)) return "\u305D\u306E\u4ED6";
-        if (typeId.Contains("Vehicle", StringComparison.OrdinalIgnoreCase)) return "\u8ECA\u4E21";
-        if (typeId.Contains("Tire", StringComparison.OrdinalIgnoreCase)) return "\u8ECA\u4E21";
-        if (typeId.Contains("Tool", StringComparison.OrdinalIgnoreCase)) return "\u5DE5\u5177";
-        if (typeId.Contains("Env", StringComparison.OrdinalIgnoreCase)) return "\u74B0\u5883";
-        if (typeId.Contains("Imported", StringComparison.OrdinalIgnoreCase)) return "\u8FFD\u52A0";
-        return "\u305D\u306E\u4ED6";
+        return PlacementCategoryUtility.ForTypeId(typeId);
     }
 
     public static string BuildCategoryVisualLabel(string typeId)

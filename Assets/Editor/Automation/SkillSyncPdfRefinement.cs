@@ -50,7 +50,7 @@ public static class SkillSyncPdfRefinement
                     labelRect.anchorMin=Vector2.zero;labelRect.anchorMax=Vector2.one;labelRect.pivot=new Vector2(.5f,.5f);
                     labelRect.offsetMin=labelRect.offsetMax=Vector2.zero;
                     v.label.alignment=TextAlignmentOptions.Midline;v.label.margin=Vector4.zero;
-                    if(b.action=="配置を編集" || b.action=="手順を編集" || b.action=="動作を確認") v.label.fontSize=12;
+                    if(b.action=="配置を編集" || b.action=="手順を編集" || b.action=="動作を確認") v.label.fontSize=DesignTokens.FontSizeBody;
                     if(b.action=="↶ 元に戻す" || b.action=="↷") {
                         v.label.text="";
                         foreach(RectTransform glyph in labelRect) {glyph.anchorMin=glyph.anchorMax=glyph.pivot=new Vector2(.5f,.5f);glyph.anchoredPosition=Vector2.zero;}

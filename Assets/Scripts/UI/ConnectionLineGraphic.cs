@@ -25,6 +25,11 @@ public class ConnectionLineGraphic : MaskableGraphic, IPointerEnterHandler, IPoi
     bool hasEndpointSnapshot;
     Vector2 lastFromPoint;
     Vector2 lastToPoint;
+    Color idleColor = Color.white;
+    Color hoverColor = Color.white;
+    float idleThickness = 3f;
+    float hoverThickness = 4f;
+    bool hasHoverStyle;
 
     const float AaEdgeWidth = 2.5f; // アンチエイリアス用の端のぼかし幅
 
@@ -123,8 +128,20 @@ public class ConnectionLineGraphic : MaskableGraphic, IPointerEnterHandler, IPoi
     protected override void OnEnable()
     {
         base.OnEnable();
+        isPointerOver = false;
         hasEndpointSnapshot = false;
+        ApplyHoverStyle();
         SetVerticesDirty();
+    }
+
+    public void SetHoverStyle(Color normalColor, float normalThickness, Color emphasizedColor, float emphasizedThickness)
+    {
+        idleColor = normalColor;
+        idleThickness = Mathf.Max(0.5f, normalThickness);
+        hoverColor = emphasizedColor;
+        hoverThickness = Mathf.Max(idleThickness, emphasizedThickness);
+        hasHoverStyle = true;
+        ApplyHoverStyle();
     }
 
     void LateUpdate()
@@ -137,6 +154,7 @@ public class ConnectionLineGraphic : MaskableGraphic, IPointerEnterHandler, IPoi
     {
         base.OnDisable();
         isPointerOver = false;
+        ApplyHoverStyle();
         hasEndpointSnapshot = false;
         if (hoverDeleteLabel != null)
         {
@@ -174,6 +192,7 @@ public class ConnectionLineGraphic : MaskableGraphic, IPointerEnterHandler, IPoi
         if (!raycastTarget) return;
 
         isPointerOver = true;
+        ApplyHoverStyle();
         EnsureHoverDeleteLabel();
         if (hoverDeleteLabel != null)
         {
@@ -186,10 +205,19 @@ public class ConnectionLineGraphic : MaskableGraphic, IPointerEnterHandler, IPoi
     public void OnPointerExit(PointerEventData eventData)
     {
         isPointerOver = false;
+        ApplyHoverStyle();
         if (hoverDeleteLabel != null)
         {
             hoverDeleteLabel.gameObject.SetActive(false);
         }
+    }
+
+    void ApplyHoverStyle()
+    {
+        if (!hasHoverStyle) return;
+        color = isPointerOver ? hoverColor : idleColor;
+        thickness = isPointerOver ? hoverThickness : idleThickness;
+        SetVerticesDirty();
     }
 
     public void OnPointerClick(PointerEventData eventData)
@@ -216,7 +244,7 @@ public class ConnectionLineGraphic : MaskableGraphic, IPointerEnterHandler, IPoi
 
         hoverDeleteLabel = labelGo.GetComponent<TextMeshProUGUI>();
         hoverDeleteLabel.text = "\u7DDA\u3092\u30AF\u30EA\u30C3\u30AF\u3067\u524A\u9664";
-        hoverDeleteLabel.fontSize = 12;
+        hoverDeleteLabel.fontSize = DesignTokens.FontSizeCaption;
         hoverDeleteLabel.alignment = TextAlignmentOptions.Center;
         hoverDeleteLabel.color = DesignTokens.Error;
         hoverDeleteLabel.raycastTarget = false;

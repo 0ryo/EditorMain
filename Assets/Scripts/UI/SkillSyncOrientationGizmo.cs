@@ -6,7 +6,7 @@ public sealed class SkillSyncOrientationGizmo : UnityEngine.UI.MaskableGraphic
     public Camera sourceCamera;
     Quaternion lastRotation;
     readonly Vector3[] axes={Vector3.right,Vector3.up,Vector3.forward,-Vector3.right,-Vector3.up,-Vector3.forward};
-    readonly Color32[] colors={new Color32(226,86,76,255),new Color32(64,170,112,255),new Color32(65,135,235,255)};
+    readonly Color32[] colors={new Color32(159,29,23,255),new Color32(25,97,47,255),new Color32(29,78,216,255)};
     readonly int[] order={0,1,2,3,4,5};
     void LateUpdate() {
         if(sourceCamera!=null && lastRotation!=sourceCamera.transform.rotation) {lastRotation=sourceCamera.transform.rotation;SetVerticesDirty();}
@@ -19,10 +19,11 @@ public sealed class SkillSyncOrientationGizmo : UnityEngine.UI.MaskableGraphic
         var center=rectTransform.rect.center;
         foreach(int index in order) {
             var direction=rotation*axes[index];var tip=center+(Vector2)direction*26;
-            Color tint=colors[index%3];if(index>=3) tint=Color.Lerp(tint,new Color(.6f,.64f,.7f),.7f);
-            Segment(vh,center,tip,tint,index<3?3:2);Circle(vh,tip,index<3?5:3,tint);
+            Color tint=colors[index%3];if(index>=3) tint=Color.Lerp(tint,new Color(.6f,.64f,.7f),.45f);
+            float width=index<3?3:2;float radius=index<3?5:3;
+            Segment(vh,center,tip,tint,width);Circle(vh,tip,radius,tint);
         }
-        Circle(vh,center,4,new Color32(220,227,238,255));
+        Circle(vh,center,2.5f,DesignTokens.TextPrimary);
     }
     static void Circle(UnityEngine.UI.VertexHelper vh,Vector2 center,float radius,Color color) {
         int start=vh.currentVertCount;vh.AddVert(center,color,Vector2.zero);

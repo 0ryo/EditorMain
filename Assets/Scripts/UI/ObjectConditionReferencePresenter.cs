@@ -460,12 +460,7 @@ internal sealed class ObjectConditionReferencePresenter
     {
         if (string.IsNullOrWhiteSpace(nodeId) || graphService == null) return;
 
-        graphService.ExecuteCommand("Delete condition", () =>
-        {
-            if (graphService.FindNode(nodeId) == null) return false;
-            graphService.RemoveNode(nodeId);
-            return graphService.FindNode(nodeId) == null;
-        });
+        graphService.TryRemoveNode(nodeId);
         if (scenarioGraphUI != null)
         {
             scenarioGraphUI.RebuildFromExternalChange();
