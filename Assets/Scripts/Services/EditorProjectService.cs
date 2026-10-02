@@ -2,9 +2,14 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using Unity.Profiling;
 
 public sealed class EditorProjectService : MonoBehaviour
 {
+    static readonly ProfilerMarker BuildCurrentFingerprintMarker = new("EditorProjectService.BuildCurrentFingerprint");
+    static readonly ProfilerMarker SaveRecoveryIfChangedMarker = new("EditorProjectService.SaveRecoveryIfChanged");
+    static readonly ProfilerMarker SaveRecoveryNowMarker = new("EditorProjectService.SaveRecoveryNow");
+
     const float SelectedObjectPollInterval = 0.2f;
     const string AutoSaveIntervalPlayerPrefsKey = "SkillSync.Editor.AutoSaveIntervalSeconds";
 
@@ -37,6 +42,7 @@ public sealed class EditorProjectService : MonoBehaviour
     float nextAutoSaveAt;
     bool trackingInitialized;
     bool suppressTracking;
+    readonly EditorProjectRecoverySession recoverySession = new EditorProjectRecoverySession();
 
     public static EditorProjectService Ensure(Transform host)
     {
@@ -53,9 +59,9 @@ public sealed class EditorProjectService : MonoBehaviour
         autoSaveInterval = NormalizeAutoSaveInterval(PlayerPrefs.GetFloat(
             AutoSaveIntervalPlayerPrefsKey,
             DefaultAutoSaveIntervalSeconds));
-        if (!EditorProjectStore.TryPromoteRecoveryForExistingProject(out _, out var recoveryMigrationError))
+        if (!EditorProjectStore.TryPreserveRecoveryAtStartup(out _, out var recoveryMigrationError))
         {
-            Debug.LogWarning("[EditorProject] 旧形式の自動保存を移行できません: " + recoveryMigrationError);
+            Debug.LogWarning("[EditorProject] 自動保存を別の教材として保護できません: " + recoveryMigrationError);
         }
         ResolveReferences();
         PlacedObject.OnDisplayNameChanged += OnPlacedObjectMetadataChanged;
@@ -127,11 +133,10 @@ public sealed class EditorProjectService : MonoBehaviour
             {
                 graph.RestoreCommandSnapshot(JsonUtility.ToJson(project.curriculum));
             }
-            EditorProjectStore.DeleteRecovery(out _);
+            recoverySession.DeleteOwned(out _);
             EstablishCleanBaseline();
             message = $"保存しました: {CurrentProjectName}";
-            StatusChanged?.Invoke(message, true);
-            Debug.Log($"[EditorProject] {message} ({CurrentProjectPath})");
+            NotifyStatus(message, true);
             return true;
         }
         catch (Exception ex)
@@ -156,7 +161,7 @@ public sealed class EditorProjectService : MonoBehaviour
         {
             string created = EditorProjectStore.Duplicate(path, asTemplate);
             message = (asTemplate ? "保存済み内容をテンプレート化しました: " : "保存済み内容を複製しました: ") + System.IO.Path.GetFileName(created);
-            StatusChanged?.Invoke(message, true);
+            NotifyStatus(message, true);
             return true;
         }
         catch (Exception ex) { return Fail("複製できません: " + ex.Message, out message); }
@@ -171,7 +176,7 @@ public sealed class EditorProjectService : MonoBehaviour
                 return Fail("編集中の教材は削除できません。別の教材を開いてから削除してください。", out message);
             EditorProjectStore.Archive(path);
             message = "削除済みへ移しました。削除済み一覧から復元できます。";
-            StatusChanged?.Invoke(message, true);
+            NotifyStatus(message, true);
             return true;
         }
         catch (Exception ex) { return Fail("削除できません: " + ex.Message, out message); }
@@ -183,7 +188,7 @@ public sealed class EditorProjectService : MonoBehaviour
         {
             EditorProjectStore.RestoreArchived(path);
             message = "復元しました。同名の教材がある場合は番号付きで復元します。";
-            StatusChanged?.Invoke(message, true);
+            NotifyStatus(message, true);
             return true;
         }
         catch (Exception ex) { return Fail("復元できません: " + ex.Message, out message); }
@@ -226,15 +231,20 @@ public sealed class EditorProjectService : MonoBehaviour
         }
 
         var staged = new List<PlacedObject>();
+        GameObject stagingRoot = null;
+        bool committed = false;
         try
         {
             suppressTracking = true;
+            stagingRoot = new GameObject("ProjectLoadStaging");
+            stagingRoot.SetActive(false);
             foreach (var item in project.objects)
             {
-                staged.Add(CreateStagedObject(item));
+                staged.Add(CreateStagedObject(item, stagingRoot.transform));
             }
 
             ReplaceCurrentProject(project, staged);
+            committed = true;
             CurrentProjectPath = isRecovery ? null : System.IO.Path.GetFullPath(path);
             CurrentProjectName = project.projectName;
             if (isRecovery)
@@ -244,22 +254,22 @@ public sealed class EditorProjectService : MonoBehaviour
             }
             else
             {
-                EditorProjectStore.DeleteRecovery(out _);
+                recoverySession.DeleteOwned(out _);
                 EstablishCleanBaseline();
                 message = $"読み込みました: {CurrentProjectName}";
             }
-            StatusChanged?.Invoke(message, true);
-            Debug.Log($"[EditorProject] {message} ({path})");
+            NotifyStatus(message, true);
             return true;
         }
         catch (Exception ex)
         {
-            DestroyStaged(staged);
+            if (!committed) DestroyStaged(staged);
             Debug.LogException(ex);
             return Fail("読み込めません: " + ex.Message, out message);
         }
         finally
         {
+            if (stagingRoot != null) Destroy(stagingRoot);
             suppressTracking = false;
         }
     }
@@ -286,11 +296,10 @@ public sealed class EditorProjectService : MonoBehaviour
             ReplaceCurrentProject(project, new List<PlacedObject>());
             CurrentProjectPath = null;
             CurrentProjectName = name;
-            EditorProjectStore.DeleteRecovery(out _);
+            recoverySession.DeleteOwned(out _);
             EstablishDirtyBaseline(false);
             message = $"新規プロジェクトを作成しました: {name}";
-            StatusChanged?.Invoke(message, true);
-            Debug.Log("[EditorProject] " + message);
+            NotifyStatus(message, true);
             return true;
         }
         catch (Exception ex)
@@ -304,7 +313,7 @@ public sealed class EditorProjectService : MonoBehaviour
         }
     }
 
-    PlacedObject CreateStagedObject(EditorProjectObject item)
+    PlacedObject CreateStagedObject(EditorProjectObject item, Transform stagingRoot)
     {
         if (!placementController.TryGetPrefab(item.typeId, out var prefab) || prefab == null)
         {
@@ -312,47 +321,47 @@ public sealed class EditorProjectService : MonoBehaviour
         }
 
         var source = ImportedModelParts.Resolve(prefab.transform, item.sourceNodePath);
-        var instance = Instantiate(source.gameObject);
-        instance.SetActive(false);
-        instance.transform.SetPositionAndRotation(item.position, item.rotation);
-        instance.transform.localScale = item.scale;
+        var instance = Instantiate(source.gameObject, stagingRoot, false);
+        try
+        {
+            instance.SetActive(false);
+            instance.transform.SetPositionAndRotation(item.position, item.rotation);
+            instance.transform.localScale = item.scale;
 
-        var placed = instance.GetComponent<PlacedObject>();
-        if (placed == null) placed = instance.AddComponent<PlacedObject>();
-        placed.id = item.id;
-        placed.typeId = item.typeId;
-        placed.editorGroupId = item.editorGroupId;
-        placed.displayName = item.displayName ?? string.Empty;
-        placed.description = item.description ?? string.Empty;
-        placed.hasDescriptionOverride = item.hasDescriptionOverride;
-        placed.modelRoot = null;
-        placed.sourceNodePath = item.sourceNodePath;
-        placed.sourceSignature = item.sourceSignature;
-        try { ImportedModelParts.Restore(placed, item.parts); }
-        catch { Destroy(instance); throw; }
-        return placed;
+            var placed = instance.GetComponent<PlacedObject>();
+            if (placed == null) placed = instance.AddComponent<PlacedObject>();
+            placed.id = item.id;
+            placed.typeId = item.typeId;
+            placed.editorGroupId = item.editorGroupId;
+            placed.displayName = item.displayName ?? string.Empty;
+            placed.description = item.description ?? string.Empty;
+            placed.hasDescriptionOverride = item.hasDescriptionOverride;
+            placed.modelRoot = null;
+            placed.sourceNodePath = item.sourceNodePath;
+            placed.sourceSignature = item.sourceSignature;
+            ImportedModelParts.Restore(placed, item.parts);
+            return placed;
+        }
+        catch { instance.SetActive(false); Destroy(instance); throw; }
     }
 
     void ReplaceCurrentProject(EditorProjectFile project, List<PlacedObject> staged)
     {
-        selectionService?.Select(null);
-
         var stagedSet = new HashSet<PlacedObject>(staged);
-        var current = FindObjectsByType<PlacedObject>(FindObjectsInactive.Include, FindObjectsSortMode.None);
-        foreach (var placed in current)
-        {
-            if (placed == null || placed.modelRoot != null || stagedSet.Contains(placed)) continue;
-            placed.gameObject.SetActive(false);
-            Destroy(placed.gameObject);
-        }
-
+        var current = FindObjectsByType<PlacedObject>(FindObjectsInactive.Include, FindObjectsSortMode.None)
+            .Where(placed => placed != null && placed.modelRoot == null && !stagedSet.Contains(placed)).ToArray();
+        var activeStates = current.Select(placed => placed.gameObject.activeSelf).ToArray();
+        var previousSelection = selectionService != null ? selectionService.Selected.ToArray() : Array.Empty<PlacedObject>();
+        var previousCurriculum = graph.curriculum;
+        var graphUi = FindFirstObjectByType<ScenarioGraphUI>();
+        string nextGraph = JsonUtility.ToJson(project.curriculum);
         var objectDataById = project.objects
             .Where(item => item != null)
             .ToDictionary(item => item.id, StringComparer.Ordinal);
+        // Prepare all fallible object state before hiding the current lesson.
         foreach (var placed in staged)
         {
             var item = objectDataById[placed.id];
-            placed.gameObject.SetActive(true);
             PlacedObjectPickability.EnsurePickable(placed, true);
             var state = placed.GetComponent<PlacedObjectEditState>();
             if (state == null) state = placed.gameObject.AddComponent<PlacedObjectEditState>();
@@ -363,13 +372,32 @@ public sealed class EditorProjectService : MonoBehaviour
                 PlacedObject.ReserveExistingId(part.id);
         }
 
-        if (!graph.RestoreCommandSnapshot(JsonUtility.ToJson(project.curriculum)))
-        {
-            throw new InvalidOperationException("シナリオデータを復元できませんでした。");
-        }
-
-        FindFirstObjectByType<ScenarioGraphUI>()?.RebuildFromExternalChange();
-        CommandService.I?.Stack?.Clear();
+        EditorProjectReplacement.Run(
+            () =>
+            {
+                selectionService?.Select(null);
+                foreach (var placed in current) placed.gameObject.SetActive(false);
+                foreach (var placed in staged)
+                {
+                    placed.transform.SetParent(null, true);
+                    placed.gameObject.SetActive(true);
+                }
+                if (!graph.RestoreCommandSnapshot(nextGraph))
+                    throw new InvalidOperationException("シナリオデータを復元できませんでした。");
+                graphUi?.RebuildFromExternalChange();
+            },
+            () =>
+            {
+                // The new lesson is now accepted. Cleanup/listener errors cannot
+                // roll back already disposed objects or discard the new lesson.
+                Notify(() => CommandService.I?.Stack?.Clear());
+                foreach (var placed in current) if (placed != null) Notify(() => Destroy(placed.gameObject));
+            },
+            () => { foreach (var placed in staged) if (placed != null) placed.gameObject.SetActive(false); },
+            () => { for (int i = 0; i < current.Length; i++) if (current[i] != null) current[i].gameObject.SetActive(activeStates[i]); },
+            () => { graph.curriculum = previousCurriculum; graph.EnsureGraphInitialized(); graph.NotifyGraphChanged(); },
+            () => selectionService?.SelectMany(previousSelection),
+            () => graphUi?.RebuildFromExternalChange());
     }
 
     public bool HasEditableContent()
@@ -494,7 +522,7 @@ public sealed class EditorProjectService : MonoBehaviour
         SetDirty(trackingInitialized);
         ResetSelectedObjectMonitor();
         nextAutoSaveAt = Time.unscaledTime + autoSaveInterval;
-        RecoveryChanged?.Invoke();
+        Notify(() => RecoveryChanged?.Invoke());
     }
 
     void ResetSelectedObjectMonitor()
@@ -514,15 +542,18 @@ public sealed class EditorProjectService : MonoBehaviour
 
     string BuildCurrentFingerprint()
     {
-        if (graph == null) return null;
-        try
+        using (BuildCurrentFingerprintMarker.Auto())
         {
-            return JsonUtility.ToJson(EditorProjectSnapshotBuilder.Capture(graph, graph.curriculum.projectName));
-        }
-        catch (Exception ex)
-        {
-            Debug.LogWarning("[EditorProject] 編集状態を確認できません: " + ex.Message);
-            return null;
+            if (graph == null) return null;
+            try
+            {
+                return JsonUtility.ToJson(EditorProjectSnapshotBuilder.Capture(graph, graph.curriculum.projectName));
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning("[EditorProject] 編集状態を確認できません: " + ex.Message);
+                return null;
+            }
         }
     }
 
@@ -530,11 +561,19 @@ public sealed class EditorProjectService : MonoBehaviour
     {
         if (IsDirty == value) return;
         IsDirty = value;
-        DirtyChanged?.Invoke(IsDirty);
+        Notify(() => DirtyChanged?.Invoke(IsDirty));
         if (IsDirty) nextAutoSaveAt = Time.unscaledTime + autoSaveInterval;
     }
 
     void SaveRecoveryIfChanged()
+    {
+        using (SaveRecoveryIfChangedMarker.Auto())
+        {
+            SaveRecoveryIfChangedCore();
+        }
+    }
+
+    void SaveRecoveryIfChangedCore()
     {
         string fingerprint = BuildCurrentFingerprint();
         if (string.IsNullOrEmpty(fingerprint) ||
@@ -547,6 +586,14 @@ public sealed class EditorProjectService : MonoBehaviour
     }
 
     public bool SaveRecoveryNow(out string message)
+    {
+        using (SaveRecoveryNowMarker.Auto())
+        {
+            return SaveRecoveryNowCore(out message);
+        }
+    }
+
+    bool SaveRecoveryNowCore(out string message)
     {
         message = null;
         if (!trackingInitialized || !IsDirty || graph == null)
@@ -563,24 +610,25 @@ public sealed class EditorProjectService : MonoBehaviour
                 CurrentProjectPath = EditorProjectStore.SaveAutomatic(
                     EditorProjectSnapshotBuilder.Capture(graph, CurrentProjectName),
                     CurrentProjectPath);
-                EditorProjectStore.DeleteRecovery(out _);
+                recoverySession.DeleteOwned(out _);
                 EstablishCleanBaseline();
                 message = "自動保存しました。";
-                RecoveryChanged?.Invoke();
+                Notify(() => RecoveryChanged?.Invoke());
                 Debug.Log("[EditorProject] " + message);
                 return true;
             }
 
-            EditorProjectStore.SaveRecovery(EditorProjectSnapshotBuilder.Capture(graph, graph.curriculum.projectName));
+            recoverySession.Save(EditorProjectSnapshotBuilder.Capture(graph, graph.curriculum.projectName));
             lastRecoveryFingerprint = fingerprint;
             message = "復旧用の自動保存を更新しました。";
-            RecoveryChanged?.Invoke();
+            Notify(() => RecoveryChanged?.Invoke());
             Debug.Log("[EditorProject] " + message);
             return true;
         }
         catch (Exception ex)
         {
             message = "自動保存できません: " + ex.Message;
+            NotifyStatus(message, false);
             Debug.LogWarning("[EditorProject] " + message);
             return false;
         }
@@ -595,15 +643,24 @@ public sealed class EditorProjectService : MonoBehaviour
 
         lastRecoveryFingerprint = null;
         message = "自動保存データを破棄しました。";
-        RecoveryChanged?.Invoke();
-        StatusChanged?.Invoke(message, true);
+        Notify(() => RecoveryChanged?.Invoke());
+        NotifyStatus(message, true);
         return true;
+    }
+
+    void NotifyStatus(string message, bool succeeded) => Notify(() => StatusChanged?.Invoke(message, succeeded));
+
+    static void Notify(Action notification)
+    {
+        // UI listener failures must not turn a committed load/save into a failure.
+        try { notification(); }
+        catch (Exception ex) { Debug.LogException(ex); }
     }
 
     bool Fail(string error, out string message)
     {
         message = string.IsNullOrWhiteSpace(error) ? "操作に失敗しました。" : error;
-        StatusChanged?.Invoke(message, false);
+        NotifyStatus(message, false);
         Debug.LogWarning("[EditorProject] " + message);
         return false;
     }
@@ -612,7 +669,7 @@ public sealed class EditorProjectService : MonoBehaviour
     {
         foreach (var placed in staged)
         {
-            if (placed != null) Destroy(placed.gameObject);
+            if (placed != null) { placed.gameObject.SetActive(false); Destroy(placed.gameObject); }
         }
     }
 }

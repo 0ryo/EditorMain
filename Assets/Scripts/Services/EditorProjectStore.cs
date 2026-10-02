@@ -3,9 +3,16 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using UnityEngine;
+using Unity.Profiling;
 
 public static class EditorProjectStore
 {
+    static readonly ProfilerMarker SerializeProjectMarker = new("EditorProjectStore.SerializeProject");
+    static readonly ProfilerMarker WriteProjectFileMarker = new("EditorProjectStore.WriteProjectFile");
+    static readonly ProfilerMarker TryLoadReadFileMarker = new("EditorProjectStore.TryLoad.ReadFile");
+    static readonly ProfilerMarker TryLoadParseMarker = new("EditorProjectStore.TryLoad.ParseAndMigrate");
+    static readonly ProfilerMarker ListDirectoryMarker = new("EditorProjectStore.ListDirectory");
+
     public const string FileSuffix = ".skillsync.json";
     const string RecoveryDirectoryName = "Recovery";
     const string RecoveryFileName = "autosave" + FileSuffix;
@@ -130,7 +137,9 @@ public static class EditorProjectStore
         project.lastSaveWasAutomatic = automatic;
         EditorProjectMigration.Normalize(project);
 
-        ExportFileWriter.WriteAllTextWithBackup(path, JsonUtility.ToJson(project, true));
+        string serialized;
+        using (SerializeProjectMarker.Auto()) serialized = JsonUtility.ToJson(project, true);
+        using (WriteProjectFileMarker.Auto()) ExportFileWriter.WriteAllTextWithBackup(path, serialized);
         return path;
     }
 
@@ -148,7 +157,12 @@ public static class EditorProjectStore
                 return false;
             }
 
-            return EditorProjectMigration.TryRead(File.ReadAllText(resolvedPath), out project, out error);
+            string contents;
+            using (TryLoadReadFileMarker.Auto()) contents = File.ReadAllText(resolvedPath);
+            using (TryLoadParseMarker.Auto())
+            {
+                return EditorProjectMigration.TryRead(contents, out project, out error);
+            }
         }
         catch (Exception ex)
         {
@@ -207,23 +221,21 @@ public static class EditorProjectStore
         }
     }
 
-    public static bool TryPromoteRecoveryForExistingProject(out bool promoted, out string error)
+    public static bool TryPreserveRecoveryAtStartup(out bool preserved, out string error)
     {
-        promoted = false;
+        preserved = false;
         error = null;
-
-        if (!TryGetRecovery(out _)) return true;
-        if (!TryLoad(RecoveryPath, out var recovery, out error)) return false;
-
-        string safeName = ExportFileNameUtility.SanitizeProjectName(recovery.projectName, "VRCourseEditor");
-        string projectPath = Path.Combine(ProjectsDirectory, safeName + FileSuffix);
-        if (!File.Exists(projectPath)) return true;
 
         try
         {
-            SaveAutomatic(recovery, projectPath);
-            if (!DeleteRecovery(out error)) return false;
-            promoted = true;
+            if (!File.Exists(RecoveryPath)) return true;
+            if (!TryLoad(RecoveryPath, out var recovery, out error)) return false;
+
+            // A name (or timestamp) cannot identify the original project. Preserve
+            // the exact recovery bytes as a separate lesson before any new session
+            // can replace/delete the shared recovery slot. Move never overwrites.
+            MoveToAvailableName(RecoveryPath, ProjectsDirectory, recovery.projectName + " 復旧");
+            preserved = true;
             return true;
         }
         catch (Exception ex)
@@ -238,20 +250,23 @@ public static class EditorProjectStore
 
     static IReadOnlyList<EditorProjectFileInfo> ListDirectory(string directory)
     {
-        try
+        using (ListDirectoryMarker.Auto())
         {
-            if (!Directory.Exists(directory)) return Array.Empty<EditorProjectFileInfo>();
+            try
+            {
+                if (!Directory.Exists(directory)) return Array.Empty<EditorProjectFileInfo>();
 
-            return Directory.GetFiles(directory, "*" + FileSuffix, SearchOption.TopDirectoryOnly)
-                .Select(path => new FileInfo(path))
-                .OrderByDescending(info => info.LastWriteTimeUtc)
-                .Select(CreateProjectFileInfo)
-                .ToList();
-        }
-        catch (Exception ex)
-        {
-            Debug.LogWarning("[EditorProjectStore] 一覧を取得できません: " + ex.Message);
-            return Array.Empty<EditorProjectFileInfo>();
+                return Directory.GetFiles(directory, "*" + FileSuffix, SearchOption.TopDirectoryOnly)
+                    .Select(path => new FileInfo(path))
+                    .OrderByDescending(info => info.LastWriteTimeUtc)
+                    .Select(CreateProjectFileInfo)
+                    .ToList();
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning("[EditorProjectStore] 一覧を取得できません: " + ex.Message);
+                return Array.Empty<EditorProjectFileInfo>();
+            }
         }
     }
 
@@ -276,6 +291,58 @@ public static class EditorProjectStore
             ? fileName.Substring(0, fileName.Length - FileSuffix.Length)
             : Path.GetFileNameWithoutExtension(fileName);
     }
+}
+
+public sealed class EditorProjectRecoverySession
+{
+    string ownedPath;
+    string ownedContents;
+
+    public void Save(EditorProjectFile project)
+    {
+        if (project == null) throw new ArgumentNullException(nameof(project));
+        string path = EditorProjectStore.RecoveryPath;
+        if (File.Exists(path) && !Owns(path))
+        {
+            if (!EditorProjectStore.TryPreserveRecoveryAtStartup(out _, out var error))
+                throw new IOException("以前の復旧データを保護できないため、自動保存を中止しました。プロジェクトを通常保存してください。 " + error);
+        }
+
+        EditorProjectStore.SaveRecovery(project);
+        // Ownership is granted only after the write succeeds. Compare contents as
+        // well as path so a replaced recovery is never silently deleted later.
+        ownedContents = File.ReadAllText(path);
+        ownedPath = path;
+    }
+
+    public bool DeleteOwned(out string error)
+    {
+        error = null;
+        try
+        {
+            string path = EditorProjectStore.RecoveryPath;
+            if (File.Exists(path) && Owns(path)) File.Delete(path);
+            // Backups may belong to an earlier session; only explicit discard
+            // may remove them. Unowned recovery also remains available in the UI.
+            return true;
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            return false;
+        }
+        finally
+        {
+            // Cleanup ends this editing context even if the file was locked.
+            // A later project's autosave must preserve that remaining file first.
+            ownedPath = null;
+            ownedContents = null;
+        }
+    }
+
+    bool Owns(string path) => ownedContents != null &&
+        string.Equals(ownedPath, path, StringComparison.Ordinal) &&
+        string.Equals(ownedContents, File.ReadAllText(path), StringComparison.Ordinal);
 }
 
 public sealed class EditorProjectFileInfo

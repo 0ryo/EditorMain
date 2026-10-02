@@ -58,7 +58,7 @@ public static class ImportedModelStore
         return (ReadDocument(path).images ?? Array.Empty<Resource>()).Where(image => !string.IsNullOrEmpty(image?.uri)).Select(image => image.uri).ToArray();
     }
 
-    public static void ValidateInput(string path, long maximumBytes)
+    public static long ValidateInput(string path, long maximumBytes)
     {
         var file = new FileInfo(path);
         if (!file.Exists || file.Length == 0 || file.Length > maximumBytes)
@@ -79,6 +79,7 @@ public static class ImportedModelStore
             total += dependency.Length;
             if (total > maximumBytes) throw new IOException("モデルと参照素材の合計を256 MB以下にしてください。");
         }
+        return total;
     }
 
     public static ImportedModelRecord Save(string sourcePath, string typeId, string name, string description, string originalSourcePath = null)

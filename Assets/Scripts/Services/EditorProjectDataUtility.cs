@@ -3,10 +3,24 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using UnityEngine;
+using Unity.Profiling;
 
 public static class EditorProjectSnapshotBuilder
 {
+    static readonly ProfilerMarker CaptureMarker = new("EditorProjectSnapshotBuilder.Capture");
+    static readonly ProfilerMarker CaptureCurriculumMarker = new("EditorProjectSnapshotBuilder.CaptureCurriculum");
+    static readonly ProfilerMarker FindPlacedObjectsMarker = new("EditorProjectSnapshotBuilder.FindPlacedObjects");
+    static readonly ProfilerMarker CapturePlacedObjectsMarker = new("EditorProjectSnapshotBuilder.CapturePlacedObjects");
+
     public static EditorProjectFile Capture(CurriculumGraphService graph, string requestedName)
+    {
+        using (CaptureMarker.Auto())
+        {
+            return CaptureCore(graph, requestedName);
+        }
+    }
+
+    static EditorProjectFile CaptureCore(CurriculumGraphService graph, string requestedName)
     {
         if (graph == null) throw new ArgumentNullException(nameof(graph));
 
@@ -16,40 +30,54 @@ public static class EditorProjectSnapshotBuilder
             : requestedName.Trim();
         if (string.IsNullOrWhiteSpace(name)) name = "VRCourseEditor";
 
+        Curriculum curriculum;
+        using (CaptureCurriculumMarker.Auto())
+        {
+            curriculum = JsonUtility.FromJson<Curriculum>(JsonUtility.ToJson(graph.curriculum));
+        }
+
         var project = new EditorProjectFile
         {
             projectName = name,
-            curriculum = JsonUtility.FromJson<Curriculum>(JsonUtility.ToJson(graph.curriculum)),
+            curriculum = curriculum,
             objects = new List<EditorProjectObject>()
         };
         project.curriculum.projectName = name;
 
-        var placedObjects = UnityEngine.Object
-            .FindObjectsByType<PlacedObject>(FindObjectsInactive.Exclude, FindObjectsSortMode.None)
-            .Where(item => item != null && item.modelRoot == null)
-            .OrderBy(item => item.id)
-            .ToList();
-        foreach (var placed in placedObjects)
+        List<PlacedObject> placedObjects;
+        using (FindPlacedObjectsMarker.Auto())
         {
-            placed.EnsureHasId();
-            var editState = placed.GetComponent<PlacedObjectEditState>();
-            project.objects.Add(new EditorProjectObject
+            placedObjects = UnityEngine.Object
+                .FindObjectsByType<PlacedObject>(FindObjectsInactive.Exclude, FindObjectsSortMode.None)
+                .Where(item => item != null && item.modelRoot == null)
+                .OrderBy(item => item.id)
+                .ToList();
+        }
+
+        using (CapturePlacedObjectsMarker.Auto())
+        {
+            foreach (var placed in placedObjects)
             {
-                editorGroupId = placed.editorGroupId,
-                id = placed.id,
-                sourceNodePath = placed.sourceNodePath,
-                sourceSignature = placed.sourceSignature,
-                parts = ImportedModelParts.Capture(placed),
-                typeId = placed.typeId,
-                displayName = placed.displayName,
-                description = placed.description,
-                hasDescriptionOverride = placed.hasDescriptionOverride,
-                position = placed.transform.position,
-                rotation = placed.transform.rotation,
-                scale = placed.transform.localScale,
-                hidden = editState != null && editState.Hidden,
-                locked = editState != null && editState.Locked
-            });
+                placed.EnsureHasId();
+                var editState = placed.GetComponent<PlacedObjectEditState>();
+                project.objects.Add(new EditorProjectObject
+                {
+                    editorGroupId = placed.editorGroupId,
+                    id = placed.id,
+                    sourceNodePath = placed.sourceNodePath,
+                    sourceSignature = placed.sourceSignature,
+                    parts = ImportedModelParts.Capture(placed),
+                    typeId = placed.typeId,
+                    displayName = placed.displayName,
+                    description = placed.description,
+                    hasDescriptionOverride = placed.hasDescriptionOverride,
+                    position = placed.transform.position,
+                    rotation = placed.transform.rotation,
+                    scale = placed.transform.localScale,
+                    hidden = editState != null && editState.Hidden,
+                    locked = editState != null && editState.Locked
+                });
+            }
         }
 
         return project;
