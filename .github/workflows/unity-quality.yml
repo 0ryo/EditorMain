@@ -1,0 +1,53 @@
+name: Unity quality gate
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  unity-quality:
+    name: Unity 6000.2.6f2 validation
+    runs-on: [self-hosted, Windows, X64, unity-6000.2.6f2]
+    timeout-minutes: 90
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+
+      - name: Run managed regression checks
+        shell: pwsh
+        run: dotnet run --project Tools/RegressionChecks/RegressionChecks.csproj --configuration Release
+
+      - name: Run Unity PlayMode tests
+        shell: pwsh
+        run: |
+          $unityEditor = $env:UNITY_EDITOR_EXE
+          if ([string]::IsNullOrWhiteSpace($unityEditor) -or -not (Test-Path -LiteralPath $unityEditor)) {
+            throw 'Set UNITY_EDITOR_EXE on the self-hosted runner to the licensed Unity 6000.2.6f2 Editor executable.'
+          }
+
+          $results = Join-Path $env:RUNNER_TEMP 'EditorMain-PlayMode-results.xml'
+          $log = Join-Path $env:RUNNER_TEMP 'EditorMain-PlayMode.log'
+          $process = Start-Process -FilePath $unityEditor -ArgumentList @('-batchmode', '-projectPath', ('"{0}"' -f $env:GITHUB_WORKSPACE), '-runTests', '-testPlatform', 'PlayMode', '-testResults', ('"{0}"' -f $results), '-logFile', ('"{0}"' -f $log)) -WindowStyle Hidden -Wait -PassThru
+          $unityExitCode = $process.ExitCode
+          if (Test-Path -LiteralPath $log) { Get-Content -LiteralPath $log -Tail 100 }
+          if ($unityExitCode -ne 0) { throw "Unity PlayMode tests failed with exit code $unityExitCode." }
+          if (-not (Test-Path -LiteralPath $results)) { throw 'Unity did not write the PlayMode test results file.' }
+          [xml]$report = Get-Content -LiteralPath $results -Raw
+          if ($report.'test-run'.result -ne 'Passed' -or [int]$report.'test-run'.total -eq 0) { throw 'Unity PlayMode results did not report a passing, non-empty test run.' }
+
+      - name: Validate Scene and Prefab references
+        shell: pwsh
+        run: |
+          $unityEditor = $env:UNITY_EDITOR_EXE
+          if ([string]::IsNullOrWhiteSpace($unityEditor) -or -not (Test-Path -LiteralPath $unityEditor)) {
+            throw 'Set UNITY_EDITOR_EXE on the self-hosted runner to the licensed Unity 6000.2.6f2 Editor executable.'
+          }
+
+          $log = Join-Path $env:RUNNER_TEMP 'EditorMain-asset-validation.log'
+          $process = Start-Process -FilePath $unityEditor -ArgumentList @('-batchmode', '-quit', '-projectPath', ('"{0}"' -f $env:GITHUB_WORKSPACE), '-executeMethod', 'ProjectAssetValidator.ValidateSceneAndPrefabAssets', '-logFile', ('"{0}"' -f $log)) -WindowStyle Hidden -Wait -PassThru
+          $unityExitCode = $process.ExitCode
+          if (Test-Path -LiteralPath $log) { Get-Content -LiteralPath $log -Tail 100 }
+          if ($unityExitCode -ne 0) { throw "Unity Scene/Prefab validation failed with exit code $unityExitCode." }
