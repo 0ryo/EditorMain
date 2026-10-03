@@ -20,14 +20,20 @@ static class Program
             Console.WriteLine($"FBX: {refs.Count} bindings; {existing} original files exist");
             return;
         }
-        FbxReferenceChecks.Run();
+        if (Array.Exists(args, arg => arg == "--condition-editor"))
+        {
+            ConditionEditorChecks.Run();
+            return;
+        }
+        if (!Array.Exists(args, arg => arg == "--skip-fbx")) FbxReferenceChecks.Run();
         AuthoringFeatureChecks.Run();
+        ConditionEditorChecks.Run();
         var root = Path.Combine(Path.GetTempPath(), "SkillSyncChecks-" + Guid.NewGuid().ToString("N"));
         Application.persistentDataPath = root;
         Directory.CreateDirectory(root);
         try
         {
-            MaterialExportChecks.Run(root);
+            if (!Array.Exists(args, arg => arg == "--skip-material-export")) MaterialExportChecks.Run(root);
             CheckRecoveryOwnership();
             CheckProjectReadValidation();
             CheckReplacementRollback();
