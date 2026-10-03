@@ -177,7 +177,7 @@ public static class ApplySkillSyncDesign
     {
         if (EditorApplication.isPlayingOrWillChangePlaymode) throw new InvalidOperationException("Exit Play Mode before applying the prefab.");
         var document = JsonUtility.FromJson<Document>(File.ReadAllText(AssetsPath + "/handoff.json"));
-        if (document?.visuals == null) throw new InvalidDataException("Run Tools/DesignImport/prepare_handoff.py first.");
+        if (document?.visuals == null) throw new InvalidDataException("SkillSync handoff data is missing or invalid: Assets/UI/SkillSyncDesign/handoff.json");
         PrepareSprites();
         ValidateSprites(document.visuals);
         PrepareFonts(document);
