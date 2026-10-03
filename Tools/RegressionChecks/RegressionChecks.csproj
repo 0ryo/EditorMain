@@ -7,6 +7,7 @@
 <Compile Include="../../Assets/Scripts/Services/ImportedModelStore.cs" Link="Production/ImportedModelStore.cs" />
 <Compile Include="../../Assets/Scripts/Services/ScenarioModelBundle.cs" Link="Production/ScenarioModelBundle.cs" />
 <Compile Include="../../Assets/Scripts/Services/TeachingMaterialArchive.cs" Link="Production/TeachingMaterialArchive.cs" />
+<Compile Include="../../Assets/Scripts/Services/TeachingMaterialExportWorkflow.cs" Link="Production/TeachingMaterialExportWorkflow.cs" />
 <Compile Include="../../Assets/Scripts/RuntimeExportPathUtility.cs" Link="Production/RuntimeExportPathUtility.cs" />
 <Compile Include="../../Assets/Scripts/Core/CurriculumModel.cs" Link="Production/CurriculumModel.cs" />
 <Compile Include="../../Assets/Scripts/Core/ConditionTypeCatalog.cs" Link="Production/ConditionTypeCatalog.cs" />
