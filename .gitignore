@@ -8,6 +8,7 @@
 /[Mm]emoryCaptures/
 
 # Local runtime/export artifacts
+/Exports/
 /Assets/Exports/*-curriculum.json
 /Assets/Exports/*-curriculum.json.meta
 

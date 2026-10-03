@@ -27,6 +27,7 @@ static class Program
         Directory.CreateDirectory(root);
         try
         {
+            MaterialExportChecks.Run(root);
             CheckRecoveryOwnership();
             CheckProjectReadValidation();
             CheckReplacementRollback();

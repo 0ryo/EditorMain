@@ -14,6 +14,9 @@ public class ScenarioExport
     public List<RequiredActionExport> requiredActions = new List<RequiredActionExport>();
     public List<PlacementExportObject> objects = new List<PlacementExportObject>();
     public List<ScenarioModelExport> models = new List<ScenarioModelExport>();
+    // Editor export: import this package into the XR Unity project before building it.
+    // Relative to the curriculum JSON; absent in Player exports.
+    public string prefabPackage;
 }
 
 [Serializable]
@@ -22,6 +25,8 @@ public class ScenarioModelExport
     public string typeId;
     // Relative to the curriculum JSON. Null means the consuming app must supply this prefab.
     public string uri;
+    // Asset path after importing prefabPackage. Register this prefab under typeId on XR.
+    public string prefabAssetPath;
     public bool requiresPreinstalledPrefab;
 }
 

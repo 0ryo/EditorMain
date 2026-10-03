@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 
@@ -10,7 +12,7 @@ public static class ScenarioModelBundle
         var records = ImportedModelStore.ReadAll(message => UnityEngine.Debug.LogWarning("[Model bundle] " + message))
             .GroupBy(record => record.typeId).ToDictionary(group => group.Key, group => group.First());
         string outputDirectory = Path.GetDirectoryName(Path.GetFullPath(jsonPath));
-        string bundleName = Path.GetFileNameWithoutExtension(jsonPath) + "_assets_" + Guid.NewGuid().ToString("N");
+        string bundleName = UniqueDirectoryName(outputDirectory, Path.GetFileNameWithoutExtension(jsonPath) + "_assets");
         export.models.Clear();
         foreach (string typeId in export.objects.Select(item => item.typeId).Distinct())
         {
@@ -20,7 +22,8 @@ public static class ScenarioModelBundle
                 string sourceModel = ImportedModelStore.ResolveModelPath(record);
                 if (!File.Exists(sourceModel)) throw new IOException("保存済みモデルがありません: " + record.displayName);
                 string sourceDirectory = Path.Combine(Path.GetDirectoryName(record.recordPath), "payload");
-                string modelFolder = Guid.NewGuid().ToString("N");
+                string displayName = ExportFileNameUtility.SanitizeProjectName(record.displayName, Path.GetFileNameWithoutExtension(sourceModel));
+                string modelFolder = UniqueDirectoryName(Path.Combine(outputDirectory, bundleName), displayName);
                 string targetDirectory = Path.Combine(outputDirectory, bundleName, modelFolder);
                 foreach (string source in Directory.GetFiles(sourceDirectory, "*", SearchOption.AllDirectories))
                 {
@@ -34,5 +37,16 @@ public static class ScenarioModelBundle
             }
             export.models.Add(model);
         }
+    }
+
+    static string UniqueDirectoryName(string parentDirectory, string name)
+    {
+        var existing = new HashSet<string>(Directory.Exists(parentDirectory)
+            ? Directory.EnumerateFileSystemEntries(parentDirectory).Select(path => Path.GetFileName(path))
+            : Enumerable.Empty<string>(), StringComparer.OrdinalIgnoreCase);
+        string candidate = name;
+        for (int index = 2; existing.Contains(candidate); index++)
+            candidate = name + "-" + index.ToString(CultureInfo.InvariantCulture);
+        return candidate;
     }
 }

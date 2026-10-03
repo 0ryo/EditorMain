@@ -20,25 +20,23 @@ public static class ExportFileWriter
 
         Directory.CreateDirectory(directory);
         string tempPath = resolvedPath + ".tmp";
-        string backupPath = resolvedPath + ".bak";
-
         try
         {
             File.WriteAllText(tempPath, contents ?? string.Empty, new UTF8Encoding(false));
-            if (File.Exists(resolvedPath))
-            {
-                File.Replace(tempPath, resolvedPath, backupPath);
-            }
-            else
-            {
-                File.Move(tempPath, resolvedPath);
-            }
+            PublishTempFileWithBackup(tempPath, resolvedPath);
         }
         catch
         {
             TryDeleteTempFile(tempPath);
             throw;
         }
+    }
+
+    // The caller creates and closes the temporary file in the destination directory.
+    public static void PublishTempFileWithBackup(string tempPath, string finalPath)
+    {
+        if (File.Exists(finalPath)) File.Replace(tempPath, finalPath, finalPath + ".bak");
+        else File.Move(tempPath, finalPath);
     }
 
     static void TryDeleteTempFile(string tempPath)
