@@ -183,6 +183,15 @@ public class EditorCameraController : MonoBehaviour
 
     public bool FocusSelected()
     {
+        var moveTool = FindFirstObjectByType<MoveTool>();
+        var preview = moveTool != null ? moveTool.PreviewTarget : null;
+        if (preview != null)
+        {
+            if (PlacedObjectGrounding.TryGetRendererBounds(preview, out var previewBounds))
+                FocusBounds(previewBounds.center, Mathf.Max(0.5f, previewBounds.extents.magnitude));
+            else FocusBounds(preview.position, 0.5f);
+            return true;
+        }
         var selection = FindFirstObjectByType<SelectionService>();
         if (selection == null) return false;
         Bounds bounds = default;

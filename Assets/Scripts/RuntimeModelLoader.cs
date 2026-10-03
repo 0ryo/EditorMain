@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using System.Threading;
 using UnityEngine;
 using GLTFast;
+using GLTFast.Logging;
 
 public static class RuntimeModelLoader
 {
@@ -24,6 +25,7 @@ public static class RuntimeModelLoader
 
     // The limit is for the input file; textures and decompressed geometry may use more memory.
     public const long MaximumFileBytes = 256L * 1024 * 1024;
+    const long TextureMemoryWarningBytes = 256L * 1024 * 1024;
 
     public static async Task<GameObject> LoadModelAsync(string absolutePath,
         CancellationToken cancellationToken = default, Action<string> progress = null)
@@ -37,14 +39,15 @@ public static class RuntimeModelLoader
         progress?.Invoke("ファイルと参照素材を検証中…");
         long inputBytes = ImportedModelStore.ValidateInput(file.FullName, MaximumFileBytes);
         cancellationToken.ThrowIfCancellationRequested();
-        var gltf = new GltfImport();
+        var logger = new CollectingLogger();
+        var gltf = new GltfImport(logger: logger);
         GameObject go = null;
         bool retained = false;
         try
         {
             progress?.Invoke($"モデルを読み込み中… 入力素材 {ToMiB(inputBytes)} MB（追加ボタンで中止）");
             if (!await gltf.Load(new Uri(file.FullName), cancellationToken: cancellationToken))
-                throw new IOException("モデルを読み込めません。形式、外部素材、破損の有無を確認してください。");
+                throw ImportFailure("モデルを読み込めません。", logger);
             cancellationToken.ThrowIfCancellationRequested();
             long loadedResourceBytes = EstimateLoadedResourceBytes(gltf);
             progress?.Invoke($"形状・材質を構築中… 読込資産のメモリ目安 {ToMiB(loadedResourceBytes)} MB（mesh・texture、追加ボタンで中止）");
@@ -52,7 +55,7 @@ public static class RuntimeModelLoader
             var resources = go.AddComponent<RuntimeModelResources>();
             go.SetActive(false);
             if (!await gltf.InstantiateMainSceneAsync(go.transform, cancellationToken))
-                throw new IOException("モデルのシーンを構築できません。");
+                throw ImportFailure("モデルのシーンを構築できません。", logger);
             cancellationToken.ThrowIfCancellationRequested();
             ValidateRuntimeModel(go);
             // The catalog prototype owns glTF assets for the lifetime of its placed copies.
@@ -64,10 +67,19 @@ public static class RuntimeModelLoader
         {
             if (!retained)
             {
+                logger.LogAll();
                 if (go != null) UnityEngine.Object.Destroy(go);
                 gltf.Dispose();
             }
         }
+    }
+
+    static IOException ImportFailure(string message, CollectingLogger logger)
+    {
+        if (logger.Items != null)
+            foreach (var item in logger.Items)
+                if (item.Type == LogType.Error) return new IOException(message + " " + item);
+        return new IOException(message + "形式、外部素材、破損の有無を確認してください。");
     }
 
     static long EstimateLoadedResourceBytes(GltfImport gltf)
@@ -123,7 +135,11 @@ public static class RuntimeModelLoader
             if (texture.width > 8192 || texture.height > 8192) throw new IOException("テクスチャの縦横を8192px以下に減らしてください。");
             textureBytes += UnityEngine.Profiling.Profiler.GetRuntimeMemorySizeLong(texture);
         }
-        if (textureBytes > MaximumFileBytes) throw new IOException("展開後のテクスチャ容量を合計256 MB以下に減らしてください。");
+        // Decoded textures can exceed the input size many times over. They are
+        // already allocated here, so this is a diagnostic rather than an input limit.
+        if (textureBytes > TextureMemoryWarningBytes)
+            Debug.LogWarning($"[Model import] {model.name}: 展開後のテクスチャメモリ目安 {ToMiB(textureBytes)} MB。" +
+                "読み込みを継続します。動作が重い場合はテクスチャの解像度を下げてください。");
     }
 
 #if UNITY_STANDALONE_WIN

@@ -40,6 +40,7 @@ public static class ApplySkillSyncDesign
             if(view==null) throw new InvalidOperationException("Apply SkillSync Figma Design first.");
             SkillSyncDesignLayout.Apply(view);SkillSyncPdfRefinement.Apply(view);SkillSyncWorkspaceRefinement.Apply(view);
             view.EnsureProjectLoadControl();view.EnsureConditionControls();view.EnsureViewportLabels();
+            TopCenterNotification.Ensure(view.transform, view.inspectorTitle);
             var legacyHints = root.transform.Find("Button_Hints");
             if (legacyHints != null) legacyHints.gameObject.SetActive(false);
             view.Show(0);
@@ -336,6 +337,7 @@ public static class ApplySkillSyncDesign
             SkillSyncPdfRefinement.Apply(view);
             SkillSyncWorkspaceRefinement.Apply(view);
             view.EnsureProjectLoadControl();view.EnsureConditionControls();view.EnsureViewportLabels();
+            TopCenterNotification.Ensure(view.transform, view.inspectorTitle);
             view.modalBlocker.transform.SetAsLastSibling();modal.SetAsLastSibling();
             view.Show(0);
             PrefabUtility.SaveAsPrefabAsset(root,PrefabPath,out bool saved);

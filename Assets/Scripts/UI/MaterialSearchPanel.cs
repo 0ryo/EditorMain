@@ -139,7 +139,7 @@ public sealed class MaterialSearchPanel : MonoBehaviour
             tokenSource?.Dispose();
         }
     }
-    void Notify(string message, bool error) => TopCenterNotification.Ensure(transform, searchButton.GetComponentInChildren<TMP_Text>())?.Show(message, error);
+    void Notify(string message, bool error) => TopCenterNotification.Ensure(transform, searchButton.GetComponentInChildren<TMP_Text>())?.Show(message, error, error ? 8f : 6f);
     void OnDisable() { revision++; cancellation?.Cancel(); }
     void OnDestroy() { revision++; cancellation?.Cancel(); }
 }

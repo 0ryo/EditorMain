@@ -191,7 +191,11 @@ public class CatalogUI : MonoBehaviour
                     record.prefab = prefab;
                     importedModels.Add(record);
                 }
-                catch (Exception ex) { warnings.Add(record.displayName + ": " + ex.Message); }
+                catch (Exception ex)
+                {
+                    Debug.LogWarning("[Model restore] " + record.modelPath + "\n" + ex);
+                    warnings.Add(record.displayName + ": " + ex.Message);
+                }
             }
             RebuildCards();
             if (warnings.Count > 0) SetStatus("モデル復元: " + string.Join(" / ", warnings));
@@ -3070,6 +3074,8 @@ public class CatalogUI : MonoBehaviour
     }
 
     System.Threading.CancellationTokenSource modelImportCancellation;
+    public string StatusMessage { get; private set; } = string.Empty;
+    public event Action<string> StatusChanged;
 
     async System.Threading.Tasks.Task<GameObject> LoadSelectedModel(string path)
     {
@@ -3087,7 +3093,11 @@ public class CatalogUI : MonoBehaviour
             return model;
         }
         catch (System.OperationCanceledException) { if (this != null) SetStatus("モデル取込を中止しました。"); }
-        catch (Exception ex) { if (this != null) SetStatus("モデル取込: " + ex.Message); }
+        catch (Exception ex)
+        {
+            Debug.LogError("[Model import] " + path + "\n" + ex);
+            if (this != null) SetImportResult("オブジェクトの読み込みに失敗しました: " + ex.Message, true);
+        }
         finally
         {
             if (modelImportCancellation == cancellation) modelImportCancellation = null;
@@ -3115,7 +3125,7 @@ public class CatalogUI : MonoBehaviour
 
         if (placementController == null)
         {
-            SetStatus("PlacementController is not found.");
+            SetImportResult("オブジェクトを読み込めません: 配置サービスが見つかりません。", true);
             return;
         }
 
@@ -3135,9 +3145,9 @@ public class CatalogUI : MonoBehaviour
             try
             {
                 if (!EditorModelImportService.TryLoadFbxAsset(selectedPath, out prefab, out assetPath, out errorMessage))
-                { SetStatus(errorMessage); return; }
+                { SetImportResult("オブジェクトの読み込みに失敗しました: " + errorMessage, true); return; }
             }
-            catch (Exception ex) { SetStatus("FBX取込: " + ex.Message); return; }
+            catch (Exception ex) { SetImportResult("オブジェクトの読み込みに失敗しました: " + ex.Message, true); return; }
         }
         else if (RuntimeModelLoader.IsSupportedExtension(selectedPath))
         {
@@ -3150,7 +3160,7 @@ public class CatalogUI : MonoBehaviour
         }
         else
         {
-            SetStatus($"Please select {EditorSupportedModelExtensionsLabel}.");
+            SetImportResult($"オブジェクトを読み込めません: {EditorSupportedModelExtensionsLabel} を選択してください。", true);
             return;
         }
 
@@ -3169,7 +3179,7 @@ public class CatalogUI : MonoBehaviour
 
         if (placementController == null)
         {
-            SetStatus("PlacementController is not found.");
+            SetImportResult("オブジェクトを読み込めません: 配置サービスが見つかりません。", true);
             return;
         }
 
@@ -3177,7 +3187,7 @@ public class CatalogUI : MonoBehaviour
 #if UNITY_STANDALONE_WIN
         selectedPath = RuntimeModelLoader.OpenFileDialog("Select 3D Model", "");
 #else
-        SetStatus("File dialog is not supported on this platform.");
+        SetImportResult("オブジェクトを読み込めません: この環境ではファイル選択に対応していません。", true);
         return;
 #endif
 
@@ -3189,7 +3199,7 @@ public class CatalogUI : MonoBehaviour
 
         if (!RuntimeModelLoader.IsSupportedExtension(selectedPath))
         {
-            SetStatus("Please select a .glb or .gltf file.");
+            SetImportResult("オブジェクトを読み込めません: .glb または .gltf ファイルを選択してください。", true);
             return;
         }
 
@@ -3208,7 +3218,7 @@ public class CatalogUI : MonoBehaviour
     {
         if (prefab == null || string.IsNullOrWhiteSpace(assetPath))
         {
-            SetStatus("Failed to prepare new object settings.");
+            SetImportResult("オブジェクトの読み込みに失敗しました: オブジェクト設定を準備できません。", true);
             return;
         }
 
@@ -3244,21 +3254,21 @@ public class CatalogUI : MonoBehaviour
             newObjectSettingsPanel.SetAsLastSibling(); // Canvas 内の最前面へ
         }
 
-        SetStatus("Open object settings.");
+        SetImportResult("オブジェクトの読み込みに成功しました", false);
     }
 
     void OnClickApplyNewObjectSettings()
     {
         if (pendingImportedPrefab == null || string.IsNullOrWhiteSpace(pendingImportedAssetPath))
         {
-            SetStatus("No imported object is pending.");
+            SetImportResult("オブジェクトを追加できません: 読み込み済みのオブジェクトがありません。", true);
             CloseNewObjectSettings(clearPending: true);
             return;
         }
 
         if (placementController == null)
         {
-            SetStatus("PlacementController is not found.");
+            SetImportResult("オブジェクトを追加できません: 配置サービスが見つかりません。", true);
             return;
         }
 
@@ -3279,10 +3289,10 @@ public class CatalogUI : MonoBehaviour
             saved = ImportedModelStore.Save(pendingImportedAssetPath, typeId, displayLabel,
                 newObjectDescriptionInput != null ? (newObjectDescriptionInput.text ?? string.Empty).Trim() : string.Empty, pendingOriginalSourcePath);
         }
-        catch (Exception ex) { SetStatus("モデルを保存できません: " + ex.Message); return; }
+        catch (Exception ex) { SetImportResult("オブジェクトを保存できません: " + ex.Message, true); return; }
         if (!placementController.RegisterRuntimePrefab(typeId, pendingImportedPrefab))
         {
-            SetStatus("Failed to register imported object.");
+            SetImportResult("オブジェクトを追加できません: 読み込んだオブジェクトを登録できません。", true);
             return;
         }
 
@@ -3315,8 +3325,16 @@ public class CatalogUI : MonoBehaviour
             pendingOriginalSourcePath = null;
         }
     }
+    void SetImportResult(string message, bool error)
+    {
+        SetStatus(message);
+        TopCenterNotification.Ensure(transform, statusText)?.Show(message, error);
+    }
+
     void SetStatus(string message)
     {
+        StatusMessage = message;
+        StatusChanged?.Invoke(message);
         if (statusText == null)
         {
             Debug.LogWarning("[CatalogUI] " + message);
@@ -3341,11 +3359,15 @@ public class CatalogUI : MonoBehaviour
     {
         yield return new WaitForSeconds(delay);
         clearStatusCoroutine = null;
+        StatusMessage = string.Empty;
+        StatusChanged?.Invoke(string.Empty);
         if (statusText != null) statusText.text = string.Empty;
     }
 
     void ClearStatus()
     {
+        StatusMessage = string.Empty;
+        StatusChanged?.Invoke(string.Empty);
         if (statusText != null) statusText.text = string.Empty;
         if (clearStatusCoroutine != null)
         {

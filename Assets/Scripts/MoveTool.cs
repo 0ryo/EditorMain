@@ -48,7 +48,7 @@ public class MoveTool : MonoBehaviour
     readonly LineRenderer[] arcHandles = new LineRenderer[3];
     bool gizmoInitialized;
     float nextSelectionLookupTime;
-    PlacedObject gizmoVisualTarget;
+    Transform gizmoVisualTarget;
     Vector3 gizmoVisualPosition;
     Quaternion gizmoVisualRotation;
     Vector3 gizmoVisualScale;
@@ -72,13 +72,45 @@ public class MoveTool : MonoBehaviour
     Vector3 gizmoDragAxisWorldDir;
     Plane gizmoRotationPlane;
     Vector3 gizmoRotationStartVector;
+    bool previewMode;
+    bool previewInteractionEnabled;
+    Transform previewTarget;
+    Transform previewDragTarget;
+    TransformObjectCommand.State previewDragBefore;
+
+    Transform ActiveTarget => previewMode ? previewTarget :
+        (sel != null && sel.Current != null ? sel.Current.transform : null);
+    public Transform PreviewTarget => previewMode ? previewTarget : null;
+
+    // Rendering-only trial copies use the same handles without editor selection or undo.
+    public void SetPreviewTarget(Transform target, bool canInteract)
+    {
+        // Pausing/completing a trial freezes the current pose, including a held drag.
+        if (previewMode && previewTarget == target && !canInteract)
+            previewDragTarget = null;
+        if (!previewMode || previewTarget != target || previewInteractionEnabled != canInteract)
+            CancelRuntimeDragStates();
+        previewMode = true;
+        previewTarget = target;
+        previewInteractionEnabled = canInteract;
+        if (target == null || !canInteract) SetGizmoVisible(false);
+    }
+
+    public void EndPreview()
+    {
+        if (!previewMode) return;
+        CancelRuntimeDragStates();
+        previewMode = false;
+        previewTarget = null;
+        SetGizmoVisible(false);
+    }
 
     public bool ShouldConsumeSelectionClick()
     {
         EnsureCamera();
 
         if (!IsTransformMode()) return false;
-        if (sel == null || sel.Current == null) return false;
+        if (ActiveTarget == null || (previewMode && !previewInteractionEnabled)) return false;
         if (activeGizmoDragMode != GizmoDragMode.None) return true;
         if (!EditInput.LeftPressedThisFrame()) return false;
         if (PlacementController.IsScreenPositionOverBlockingUi(EditInput.MousePosition)) return false;
@@ -104,7 +136,7 @@ public class MoveTool : MonoBehaviour
             return;
         }
 
-        if (sel == null || sel.Current == null)
+        if (ActiveTarget == null || (previewMode && !previewInteractionEnabled))
         {
             CancelRuntimeDragStates();
             SetGizmoVisible(false);
@@ -148,7 +180,13 @@ public class MoveTool : MonoBehaviour
             return;
         }
 
-        HandleKeyboardNudgeMove();
+        if (!previewMode) HandleKeyboardNudgeMove();
+    }
+
+    void OnDisable()
+    {
+        CancelRuntimeDragStates();
+        SetGizmoVisible(false);
     }
 
     void OnApplicationFocus(bool hasFocus)
@@ -231,11 +269,16 @@ public class MoveTool : MonoBehaviour
         if (!TryGetSelectionCenterAndAxisLength(out var center, out var axisLength)) return false;
         if (!TryWorldToScreen(center, out var centerScreen)) return false;
 
-        selectionGesture = new SelectionTransformSession(sel);
+        if (previewMode)
+        {
+            previewDragTarget = ActiveTarget;
+            previewDragBefore = TransformObjectCommand.State.Capture(previewDragTarget);
+        }
+        else selectionGesture = new SelectionTransformSession(sel);
         activeGizmoDragMode = dragMode;
         activeGizmoAxis = axis;
-        gizmoDragStartPosition = sel.Current.transform.position;
-        gizmoDragStartRotation = sel.Current.transform.rotation;
+        gizmoDragStartPosition = ActiveTarget.position;
+        gizmoDragStartRotation = ActiveTarget.rotation;
         gizmoDragStartCenter = center;
         gizmoDragStartCenterScreen = centerScreen;
 
@@ -286,7 +329,7 @@ public class MoveTool : MonoBehaviour
 
     void UpdateGizmoDrag()
     {
-        if (sel == null || sel.Current == null)
+        if (ActiveTarget == null)
         {
             CancelRuntimeDragStates();
             return;
@@ -302,7 +345,7 @@ public class MoveTool : MonoBehaviour
                 deltaWorld = Mathf.Round(deltaWorld / gridSize) * gridSize;
             }
 
-            sel.Current.transform.position = gizmoDragStartPosition + gizmoDragAxisWorldDir * deltaWorld;
+            ActiveTarget.position = gizmoDragStartPosition + gizmoDragAxisWorldDir * deltaWorld;
             selectionGesture?.Apply();
             return;
         }
@@ -321,20 +364,20 @@ public class MoveTool : MonoBehaviour
                 angleDelta = Mathf.Round(angleDelta / rotateSnapDegrees) * rotateSnapDegrees;
             }
 
-            sel.Current.transform.rotation = Quaternion.AngleAxis(angleDelta, axisDir) * gizmoDragStartRotation;
+            ActiveTarget.rotation = Quaternion.AngleAxis(angleDelta, axisDir) * gizmoDragStartRotation;
             selectionGesture?.Apply();
         }
     }
 
     void CommitGizmoDragIfNeeded()
     {
-        if (sel == null || sel.Current == null)
+        if (ActiveTarget == null)
         {
             CancelRuntimeDragStates();
             return;
         }
 
-        if (activeGizmoDragMode == GizmoDragMode.Move && EditSnapSettings.ShouldSnap && sel.Current != null && sel.Selected.Count == 1 &&
+        if (!previewMode && activeGizmoDragMode == GizmoDragMode.Move && EditSnapSettings.ShouldSnap && sel.Current != null && sel.Selected.Count == 1 &&
             PlacementObjectSnapper.TrySnap(sel.Current, Mathf.Max(gridSize, 0.1f), gizmoDragAxisWorldDir, out var snappedPosition))
         {
             sel.Current.transform.position = snappedPosition;
@@ -343,6 +386,7 @@ public class MoveTool : MonoBehaviour
 
         selectionGesture?.Commit("Transform selection");
         selectionGesture = null;
+        previewDragTarget = null;
 
         CancelRuntimeDragStates();
     }
@@ -353,7 +397,7 @@ public class MoveTool : MonoBehaviour
         axis = GizmoAxis.None;
 
         if (cam == null) return false;
-        if (sel == null || sel.Current == null) return false;
+        if (ActiveTarget == null) return false;
         if (!TryGetSelectionCenterAndAxisLength(out var center, out var axisLength)) return false;
         if (!TryWorldToScreen(center, out var centerScreen)) return false;
 
@@ -366,7 +410,7 @@ public class MoveTool : MonoBehaviour
         float bestMoveDistance = float.MaxValue;
         for (int i = 0; i < GizmoAxes.Length; i++)
         {
-            Vector3 axisDir = TransformGizmoUtility.AxisDirection((GizmoAxis)i, sel.Current.transform.rotation);
+            Vector3 axisDir = TransformGizmoUtility.AxisDirection((GizmoAxis)i, ActiveTarget.rotation);
             if (!TryWorldToScreen(center + axisDir * axisLength, out var tipScreen)) continue;
 
             float distance = TransformGizmoUtility.DistanceToSegment(pointer, centerScreen, tipScreen, out float t);
@@ -426,13 +470,12 @@ public class MoveTool : MonoBehaviour
             return;
         }
 
-        var current = sel != null ? sel.Current : null;
-        var currentTransform = current != null ? current.transform : null;
+        var currentTransform = ActiveTarget;
         bool transformChanged = currentTransform != null &&
                                 (currentTransform.position != gizmoVisualPosition ||
                                  currentTransform.rotation != gizmoVisualRotation ||
                                  currentTransform.lossyScale != gizmoVisualScale);
-        bool stateChanged = current != gizmoVisualTarget ||
+        bool stateChanged = currentTransform != gizmoVisualTarget ||
                             activeGizmoDragMode != gizmoVisualDragMode ||
                             activeGizmoAxis != gizmoVisualAxis ||
                             gizmoVisualSettingsRevision != TransformToolSettings.Revision;
@@ -457,7 +500,7 @@ public class MoveTool : MonoBehaviour
         float arcColliderThickness = pixel * Mathf.Max(14f, moveHandlePickRadiusPixels * 2f);
         float headLength = Mathf.Min(axisLength * 0.2f, pixel * 13f);
         float headWidth = headLength * 0.3f;
-        Quaternion objectRotation = sel.Current.transform.rotation;
+        Quaternion objectRotation = currentTransform.rotation;
 
         for (int i = 0; i < GizmoAxes.Length; i++)
         {
@@ -499,7 +542,7 @@ public class MoveTool : MonoBehaviour
         }
 
         TransformGizmoUtility.SetScreenCircle(centerRing, cam, center, 4f);
-        gizmoVisualTarget = current;
+        gizmoVisualTarget = currentTransform;
         gizmoVisualPosition = currentTransform.position;
         gizmoVisualRotation = currentTransform.rotation;
         gizmoVisualScale = currentTransform.lossyScale;
@@ -644,6 +687,13 @@ public class MoveTool : MonoBehaviour
 
     void CancelRuntimeDragStates()
     {
+        if (previewDragTarget != null)
+        {
+            previewDragTarget.localPosition = previewDragBefore.localPosition;
+            previewDragTarget.localRotation = previewDragBefore.localRotation;
+            previewDragTarget.localScale = previewDragBefore.localScale;
+        }
+        previewDragTarget = null;
         selectionGesture?.Cancel();
         selectionGesture = null;
         activeGizmoDragMode = GizmoDragMode.None;
@@ -665,9 +715,7 @@ public class MoveTool : MonoBehaviour
         center = Vector3.zero;
         axisLength = gizmoMinAxisLength;
 
-        if (sel == null || sel.Current == null) return false;
-
-        var target = sel.Current.gameObject;
+        var target = ActiveTarget != null ? ActiveTarget.gameObject : null;
         if (target == null) return false;
 
         var renderers = target.GetComponentsInChildren<Renderer>();
@@ -794,7 +842,7 @@ public class MoveTool : MonoBehaviour
 
     bool IsTransformMode()
     {
-        return EditModeService.I != null && EditModeService.I.Mode == EditMode.Transform;
+        return previewMode || (EditModeService.I != null && EditModeService.I.Mode == EditMode.Transform);
     }
 
     void EnsureCamera()

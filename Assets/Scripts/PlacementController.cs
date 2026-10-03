@@ -265,6 +265,8 @@ public class PlacementController : MonoBehaviour
             return false;
         }
 
+        CancelPlacement();
+        EditModeService.I?.SetMode(EditMode.Transform);
         if (selection != null)
         {
             selection.Select(createdPlacedObject);

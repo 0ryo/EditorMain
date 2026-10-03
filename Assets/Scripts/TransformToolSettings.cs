@@ -12,7 +12,8 @@ public enum TransformPivotMode
 
 public static class TransformToolSettings
 {
-    static TransformCoordinateSpace coordinateSpace = TransformCoordinateSpace.World;
+    // Align manipulation axes with the selected object's orientation by default.
+    static TransformCoordinateSpace coordinateSpace = TransformCoordinateSpace.Local;
     static TransformPivotMode pivotMode = TransformPivotMode.Center;
     static int revision;
 

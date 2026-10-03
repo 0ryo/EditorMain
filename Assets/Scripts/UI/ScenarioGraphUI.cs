@@ -1108,6 +1108,7 @@ public partial class ScenarioGraphUI : MonoBehaviour
         if (!validation.CanExport)
         {
             statusText.text = ScenarioValidationText.BuildExportBlockedMessage(validation);
+            TopCenterNotification.Ensure(transform, statusText)?.Show("教材を書き出せません: " + ScenarioValidationText.GetFriendlyMessage(validation.errors[0]), true);
             ShowValidationPanel(validation);
             Debug.LogWarning("[ScenarioGraph] Export blocked: validation errors.");
             return;
@@ -1123,32 +1124,33 @@ public partial class ScenarioGraphUI : MonoBehaviour
         catch (System.Exception ex)
         {
             statusText.text = $"JSON出力失敗: {ex.Message}";
+            TopCenterNotification.Ensure(transform, statusText)?.Show("教材の書き出しに失敗しました: " + ex.Message, true);
             Debug.LogException(ex);
             return;
         }
 
-        string safeProjectName = ExportFileNameUtility.SanitizeProjectName(export.projectName, "VRCourseEditor");
-        string fileName = $"{safeProjectName}-curriculum.json";
-        string finalPath = RuntimeExportPathUtility.BuildPath(fileName);
+        string finalPath;
         try
         {
-            ScenarioModelBundle.Prepare(export, finalPath);
-            ExportFileWriter.WriteAllTextWithBackup(finalPath, JsonUtility.ToJson(export, true));
+            finalPath = TeachingMaterialExportService.Export(export, FindFirstObjectByType<PlacementController>());
         }
         catch (System.Exception ex)
         {
             statusText.text = $"JSON出力失敗: {ex.Message}";
+            TopCenterNotification.Ensure(transform, statusText)?.Show("教材の書き出しに失敗しました: " + ex.Message, true);
             Debug.LogException(ex);
             return;
         }
 
         statusText.text = validation.warnings.Count > 0
-            ? $"JSON出力しました（警告 {validation.warnings.Count} 件）: Exports/{fileName}"
-            : $"JSON出力しました: Exports/{fileName}";
+            ? $"教材を出力しました（警告 {validation.warnings.Count} 件）: {finalPath}"
+            : $"教材を出力しました: {finalPath}";
+        statusText.text += " / XR配布用: " + TeachingMaterialArchive.GetPath(finalPath);
         if (export.models.Any(model => model.requiresPreinstalledPrefab && model.typeId.StartsWith("Imported/")))
-            statusText.text += " / FBX等のモデルはVR側で事前登録が必要です。モデル同梱にはGLB/glTFを使用してください。";
+            statusText.text += " / XR側でパッケージを取り込み、typeIdとPrefabを登録してください。";
         validationPanel?.Hide();
         saveButton.interactable = true;
+        TopCenterNotification.Ensure(transform, statusText)?.Show("教材を出力しました: " + System.IO.Path.GetDirectoryName(finalPath), false);
     }
 
     void RefreshValidationStatus()

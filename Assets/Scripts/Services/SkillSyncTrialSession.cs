@@ -10,7 +10,7 @@ public sealed class SkillSyncTrialSession : IDisposable, IScenarioObjectStateSou
     readonly Dictionary<Renderer, bool> rendering = new();
     readonly List<Mesh> bakedMeshes = new();
     readonly Dictionary<string, Transform> objects = new();
-    readonly Dictionary<Transform, Vector3> initial = new();
+    readonly Dictionary<Transform, TransformObjectCommand.State> initial = new();
     readonly Dictionary<string, ScenarioConditionEvaluator> evaluators = new();
     readonly Dictionary<string, ConditionExport> conditionsById = new();
     public float HeldSeconds { get; private set; }
@@ -49,7 +49,7 @@ public sealed class SkillSyncTrialSession : IDisposable, IScenarioObjectStateSou
         copy.localPosition = world ? original.position : original.localPosition;
         copy.localRotation = world ? original.rotation : original.localRotation;
         copy.localScale = world ? original.lossyScale : original.localScale;
-        copies[original] = copy; initial[copy] = copy.localPosition;
+        copies[original] = copy; initial[copy] = TransformObjectCommand.State.Capture(copy);
         var renderer = original.GetComponent<Renderer>();
         var filter = original.GetComponent<MeshFilter>();
         Mesh mesh = filter != null ? filter.sharedMesh : null;
@@ -109,7 +109,12 @@ public sealed class SkillSyncTrialSession : IDisposable, IScenarioObjectStateSou
     }
     public void Reset(bool restorePositions = true)
     {
-        if (restorePositions) foreach (var p in initial) if (p.Key != null) p.Key.localPosition = p.Value;
+        if (restorePositions) foreach (var p in initial) if (p.Key != null)
+        {
+            p.Key.localPosition = p.Value.localPosition;
+            p.Key.localRotation = p.Value.localRotation;
+            p.Key.localScale = p.Value.localScale;
+        }
         HeldSeconds = 0; Complete = false; InRange = false; Paused = false;
         evaluators.Clear();conditionsById.Clear();
     }

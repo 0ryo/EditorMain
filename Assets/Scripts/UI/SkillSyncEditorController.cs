@@ -22,12 +22,12 @@ public sealed class SkillSyncEditorController : MonoBehaviour
     Rect previousCameraRect;
     Color previousCameraColor;
     string stepId, conditionId, search = "", category = "すべて", pickTarget;
-    string status = "", librarySignature = "";
+    string status = "", catalogStatus = "", librarySignature = "";
     int mode;
     float nextRefresh, trialTime;
-    bool initialized, draggingTrial;
-    Vector3 dragOffset;
-    Transform trialDragged;
+    bool initialized;
+    Transform trialSelected;
+    MoveTool trialMoveTool;
     SkillSyncTrialSession trial;
     SkillSyncPlacementGhost ghost;
     readonly List<string> logs = new();
@@ -65,6 +65,11 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         yield return null; // CatalogUI completes its existing service bootstrap first.
         Active = this;
         catalog = transform.root.GetComponentInChildren<CatalogUI>(true);
+        if (catalog != null)
+        {
+            catalogStatus = catalog.StatusMessage;
+            catalog.StatusChanged += CatalogStatus;
+        }
         placement = FindFirstObjectByType<PlacementController>();
         if (placement == null) placement = RuntimeEditComposition.ResolvePlacementController(null, PrefabRegistry.LoadDefault());
         selection = FindFirstObjectByType<SelectionService>();
@@ -74,6 +79,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         view.EnsureProjectLoadControl();
         view.EnsureConditionControls();
         view.EnsureViewportLabels();
+        TopCenterNotification.Ensure(transform, view.inspectorTitle);
         cameraView = EditWorkspace.ResolveCamera();
         if(view.orientation!=null) view.orientation.sourceCamera=cameraView;
         cameraController = FindFirstObjectByType<EditorCameraController>();
@@ -104,22 +110,18 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         if(selection!=null) selection.OnSelectionChanged-=SelectionChanged;
         if(placement!=null) placement.ObjectPlaced-=ObjectPlaced;
         if(project!=null) project.StatusChanged-=ProjectStatus;
+        if(catalog!=null) catalog.StatusChanged-=CatalogStatus;
         if(CommandService.I!=null) CommandService.I.Stack.HistoryChanged-=HistoryChanged;
         if(cameraView!=null) {cameraView.rect=previousCameraRect;cameraView.backgroundColor=previousCameraColor;}
         if(Active==this) Active=null;
         thumbnails.Dispose();
-    }
-    void OnApplicationFocus(bool hasFocus)
-    {
-        if (hasFocus) return;
-        draggingTrial=false;trialDragged=null;
     }
     public bool BlocksWorkspace(Vector2 point)
     {
         if (!Application.isFocused || EditWorkspace.HasOpenModal) return true;
         if(!initialized) return false;
         if(GetComponent<SkillSyncObjectPicker>()?.BlocksPointer(point)==true) return true;
-        if(Modal || pickTarget!=null || ghost!=null || trial!=null) return true;
+        if(Modal || pickTarget!=null || ghost!=null) return true;
         return !RectTransformUtility.RectangleContainsScreenPoint(view.viewport,point);
     }
     void Update()
@@ -127,7 +129,6 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         if(!initialized) return;
         if(!Application.isFocused || EditWorkspace.HasOpenModal)
         {
-            draggingTrial=false;trialDragged=null;
             return;
         }
         var expansion=GetComponent<SkillSyncWorkspaceExpansion>();
@@ -166,13 +167,14 @@ public sealed class SkillSyncEditorController : MonoBehaviour
                     if(p!=null) Pick(p.Id);
                 }
             }
-            else if(trial!=null) DragTrial();
+            else if(trial!=null) SelectTrialObject();
         }
         if(trial!=null && Condition!=null)
         {
             bool before=trial.InRange, completed=trial.Complete;
             if(!trial.Paused) trialTime+=Time.unscaledDeltaTime;
             trial.Tick(graph.GetConditionNodesForStep(stepId),conditionId,Time.unscaledDeltaTime);
+            UpdateTrialGizmo();
             if(before!=trial.InRange) Log(trial.InRange?"距離の条件が成立":"範囲外：保持時間をリセット");
             if(!completed && trial.Complete) Log("条件が成立しました");
             RefreshTrial();
@@ -245,8 +247,8 @@ public sealed class SkillSyncEditorController : MonoBehaviour
             case "編集を続ける": mode=1;view.Show(1);break;
             case "該当箇所を修正": FocusIssue();return;
             case "編集に戻る": EndTrial();mode=1;break;
-            case "Ⅱ 一時停止": if(trial!=null) {trial.Paused=!trial.Paused;status=trial.Paused?"一時停止中":"試行を再開しました";}break;
-            case "初期配置に戻す": case "もう一度試す": trial?.Reset();logs.Clear();trialTime=0;break;
+            case "Ⅱ 一時停止": if(trial!=null) {trial.Paused=!trial.Paused;UpdateTrialGizmo();status=trial.Paused?"一時停止中":"試行を再開しました";}break;
+            case "初期配置に戻す": case "もう一度試す": ResetTrial();logs.Clear();trialTime=0;break;
             case "最初から試す":
                 EndTrial();stepId=graph.GetDisplayOrderedSteps().FirstOrDefault()?.nodeId;conditionId=null;GraphChanged();BeginTrial();return;
             case "次の手順を確認": EndTrial();NextStep();mode=1;break;
@@ -410,6 +412,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
     void ObjectPlaced(PlacedObject _,string __) {RebuildObjects();RefreshValues();}
     void HistoryChanged() {RebuildObjects();RefreshValues();}
     void ProjectStatus(string message,bool success) {status=message;RefreshValues();}
+    void CatalogStatus(string message) {catalogStatus=message;RefreshValues();}
     List<PrefabEntry> Entries() => catalog!=null?catalog.GetDesignLibraryEntries():placement.registry?.entries??new List<PrefabEntry>();
     static void Clear(List<SkillSyncDesignRow> rows)
     {foreach(var row in rows) if(row!=null) {row.gameObject.SetActive(false);Destroy(row.gameObject);} rows.Clear();}
@@ -500,7 +503,8 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         }
         view.Value("project",project.CurrentProjectName);
         view.Text("saved",project.IsDirty?"未保存の変更":"✓ 保存済み");
-        view.Text("footer",trial!=null?"試行中の操作は教材の初期配置に保存されません":string.IsNullOrEmpty(status)?project.IsDirty?"未保存の変更があります":"✓ すべての変更を保存しました":status);
+        string footerStatus = string.IsNullOrEmpty(catalogStatus) ? status : catalogStatus;
+        view.Text("footer",trial!=null?"試行中の操作は教材の初期配置に保存されません":string.IsNullOrEmpty(footerStatus)?project.IsDirty?"未保存の変更があります":"✓ すべての変更を保存しました":footerStatus);
         view.Text("objectCount",Placed.Length+"件"+(ghost!=null?" ＋ 仮配置1件":""));
         view.Text("stepCount",graph.GetDisplayOrderedSteps().Count+"つの手順");
         var current=selection.Current;
@@ -542,8 +546,8 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         view.Enable("↶ 元に戻す",trial==null);view.Enable("↷",trial==null);
         view.Enable("↑ 教材を書き出す",trial==null && ghost==null);
         view.Enable("教材を読み込む",!BlocksEditingShortcuts);
-        view.Text("workspaceHint",trial!=null?"学習者の操作と完了条件を確認":mode==1?$"手順{index}で使う部品を表示":"部品を選んで、作業面に配置します");
-        view.Text("status",pickTarget!=null?status:ghost!=null?"＋ 仮配置中：クリックで確定 / Escで中止":trial!=null?trial.Complete?"✓ 条件が成立しました":"▶ 試行中：部品を動かして条件を確かめます":current!=null?"● 選択中："+current.GetDisplayName()+" | Escで選択解除":"部品を選択してください");
+        view.Text("workspaceHint",trial!=null?"部品を選び、ギズモで操作 / 中・右ドラッグで視点移動":mode==1?$"手順{index}で使う部品を表示":"部品を選んで、作業面に配置します");
+        view.Text("status",pickTarget!=null?status:ghost!=null?"＋ 仮配置中：クリックで確定 / Escで中止":trial!=null?trial.Complete?"✓ 条件が成立しました":"▶ 試行中：ギズモで部品を動かして条件を確かめます":current!=null?"● 選択中："+current.GetDisplayName()+" | Escで選択解除":"部品を選択してください");
         if(trial==null) view.viewportDistance.text=valid?$"現在の距離 {Vector3.Distance(SkillSyncTrialSession.Center(a.transform),SkillSyncTrialSession.Center(b.transform))*100:0} cm":"対象を選択してください";
         view.viewportGrid.text=$"グリッド {EditSnapSettings.GridSize*100:0.##} cm";
         view.viewportGrid.color=new Color32(88,103,124,255);
@@ -620,39 +624,54 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         if(conditions.Any(c=>FindPlaced(c.condition.objectAId)==null || FindPlaced(c.condition.objectBId)==null || c.condition.objectAId==c.condition.objectBId))
         {status="手順内のすべての条件に対象を設定してください";Refresh();return;}
         EndTrial();pickTarget=null;
+        trialMoveTool = FindFirstObjectByType<MoveTool>();
+        PauseTool(trialMoveTool);
         try {trial=new SkillSyncTrialSession(Placed);}
-        catch(Exception e) {status="試行を開始できません: "+e.Message;Debug.LogException(e);Refresh();return;}
+        catch(Exception e) {EndTrial();status="試行を開始できません: "+e.Message;Debug.LogException(e);Refresh();return;}
         logs.Clear();trialTime=0;
-        PauseTool(selection);PauseTool(placement);PauseTool(FindFirstObjectByType<MoveTool>());PauseTool(FindFirstObjectByType<RotateTool>());PauseTool(CommandService.I);
+        PauseTool(selection);PauseTool(placement);PauseTool(FindFirstObjectByType<RotateTool>());PauseTool(CommandService.I);
         PauseTool(FindFirstObjectByType<SelectionOutline>());
+        var first = FindPlaced(Condition.condition.objectAId);
+        trialSelected = SelectionService.CanEdit(first) ? trial.Find(first.Id) : null;
+        UpdateTrialGizmo();
+        if (trialMoveTool != null) trialMoveTool.enabled = true;
         Log("条件の試行を開始");Refresh();
     }
     void PauseTool(Behaviour tool) {if(tool!=null) {pausedTools[tool]=tool.enabled;tool.enabled=false;}}
     void EndTrial()
     {
-        trial?.Dispose();trial=null;draggingTrial=false;
+        if (trialMoveTool != null) trialMoveTool.EndPreview();
+        trialMoveTool=null;trialSelected=null;
+        trial?.Dispose();trial=null;
         foreach(var p in pausedTools) if(p.Key!=null) p.Key.enabled=p.Value;
         pausedTools.Clear();
     }
-    void DragTrial()
+    void UpdateTrialGizmo()
     {
-        if(trial.Paused || trial.Complete) return;
+        if (trialMoveTool != null && trial != null)
+            trialMoveTool.SetPreviewTarget(trialSelected, !trial.Paused && !trial.Complete);
+    }
+    void ResetTrial()
+    {
+        if (trial == null) return;
+        if (trialMoveTool != null) trialMoveTool.SetPreviewTarget(null, false);
+        trial.Reset();
+        UpdateTrialGizmo();
+    }
+    void SelectTrialObject()
+    {
+        if(trial.Paused || trial.Complete || !EditInput.LeftPressedThisFrame()) return;
+        if(trialMoveTool != null && trialMoveTool.ShouldConsumeSelectionClick()) return;
         var ray=cameraView.ScreenPointToRay(EditInput.MousePosition);
-        if(EditInput.LeftPressedThisFrame())
+        trialSelected=null;float nearest=float.PositiveInfinity;
+        foreach(var p in Placed)
         {
-            trialDragged=null;float nearest=float.PositiveInfinity;
-            foreach(var p in Placed)
-            {
-                if(!SelectionService.CanEdit(p)) continue;
-                var candidate=trial.Find(p.Id);
-                if(candidate!=null && PlacedObjectGrounding.TryGetRendererBounds(candidate,out var bounds) && bounds.IntersectRay(ray,out float distance) && distance<nearest)
-                {nearest=distance;trialDragged=candidate;}
-            }
-            if(trialDragged!=null && EditWorkspace.TryScreenToGround(cameraView,EditInput.MousePosition,out var point,out _))
-            {dragOffset=trialDragged.position-point;draggingTrial=true;}
+            if(!SelectionService.CanEdit(p)) continue;
+            var candidate=trial.Find(p.Id);
+            if(candidate!=null && PlacedObjectGrounding.TryGetRendererBounds(candidate,out var bounds) && bounds.IntersectRay(ray,out float distance) && distance<nearest)
+            {nearest=distance;trialSelected=candidate;}
         }
-        if(!EditInput.LeftPressed()) draggingTrial=false;
-        if(draggingTrial && trialDragged!=null && EditWorkspace.TryScreenToGround(cameraView,EditInput.MousePosition,out var target,out _)) trialDragged.position=target+dragOffset;
+        UpdateTrialGizmo();
     }
     void Log(string message) {logs.Add(TimeSpan.FromSeconds(trialTime).ToString(@"mm\:ss")+" "+message);if(logs.Count>2) logs.RemoveAt(0);}
     void RefreshTrial()
@@ -705,6 +724,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         validation=graph.ValidateGraph();
         if(!validation.CanExport)
         {
+            TopCenterNotification.Ensure(transform, view.inspectorTitle)?.Show("教材を書き出せません: " + ScenarioValidationText.GetFriendlyMessage(validation.errors[0]), true);
             view.Show(5);RefreshValues();
             var issue=validation.errors[0];
             view.Text("errorCount","要修正 "+validation.errors.Count+"件");
@@ -719,12 +739,17 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         try
         {
             var export=graph.BuildScenarioExport();
-            string file=ExportFileNameUtility.SanitizeProjectName(export.projectName,"VRCourseEditor")+"-curriculum.json";
-            string path=RuntimeExportPathUtility.BuildPath(file);
-            ScenarioModelBundle.Prepare(export,path);ExportFileWriter.WriteAllTextWithBackup(path,JsonUtility.ToJson(export,true));
-            status="JSON出力しました: Exports/"+file;
+            string path=TeachingMaterialExportService.Export(export,placement);
+            catalogStatus=null;
+            status="教材を出力しました: "+path;
+            status+=" / XR配布用: "+TeachingMaterialArchive.GetPath(path);
+            TopCenterNotification.Ensure(transform, view.inspectorTitle)?.Show("教材を出力しました: "+System.IO.Path.GetDirectoryName(path), false);
         }
-        catch(Exception e) {status="書き出しに失敗しました: "+e.Message;Debug.LogException(e);}
+        catch(Exception e) {
+            status="書き出しに失敗しました: "+e.Message;
+            TopCenterNotification.Ensure(transform, view.inspectorTitle)?.Show(status, true);
+            Debug.LogException(e);
+        }
         RefreshValues();
     }
     void FocusIssue()

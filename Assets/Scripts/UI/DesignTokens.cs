@@ -77,6 +77,8 @@ public static class DesignTokens
     public static Color Success         => Get(PaletteColor.Success); // #19612F — AA on light UI surfaces and badge tints
     public static Color Warning         => Get(PaletteColor.Warning); // #7D4500 — AA on light UI surfaces and badge tints
     public static Color Error           => Get(PaletteColor.Error); // #9F1D17 — AA on light UI surfaces and badge tints
+    public static Color NotificationSuccessBackground => new Color32(226, 242, 196, 255); // #E2F2C4
+    public static Color NotificationErrorBackground   => new Color32(253, 232, 228, 255); // #FDE8E4
 
     // 区切り線
     public static Color Divider         => Get(PaletteColor.Divider); // #D1D1D6
