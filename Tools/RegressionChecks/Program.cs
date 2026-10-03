@@ -20,14 +20,18 @@ static class Program
             Console.WriteLine($"FBX: {refs.Count} bindings; {existing} original files exist");
             return;
         }
-        FbxReferenceChecks.Run();
+        StepDeletionChecks.Run();
+        if (args.Length == 1 && args[0] == "--step-deletion") return;
+        if (Array.IndexOf(args, "--skip-fbx") < 0) FbxReferenceChecks.Run();
+        else Console.WriteLine("[Regression] FBX checks explicitly skipped (Windows path fixtures).");
         AuthoringFeatureChecks.Run();
         var root = Path.Combine(Path.GetTempPath(), "SkillSyncChecks-" + Guid.NewGuid().ToString("N"));
         Application.persistentDataPath = root;
         Directory.CreateDirectory(root);
         try
         {
-            MaterialExportChecks.Run(root);
+            if (Array.IndexOf(args, "--skip-material-export") < 0) MaterialExportChecks.Run(root);
+            else Console.WriteLine("[Regression] Material export checks explicitly skipped.");
             CheckRecoveryOwnership();
             CheckProjectReadValidation();
             CheckReplacementRollback();

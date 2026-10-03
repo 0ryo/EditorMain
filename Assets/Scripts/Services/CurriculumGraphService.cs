@@ -20,9 +20,9 @@ public partial class CurriculumGraphService : MonoBehaviour
         EnsureGraphInitialized();
     }
 
-    public bool ExecuteCommand(string label, Func<bool> mutation)
+    public bool ExecuteCommand(string label, Func<bool> mutation, Action<bool> appliedStateChanged = null)
     {
-        return CurriculumGraphCommandProcessor.Execute(this, label, mutation);
+        return CurriculumGraphCommandProcessor.Execute(this, label, mutation, appliedStateChanged);
     }
 
     public bool RenameProject(string projectName)
@@ -213,7 +213,7 @@ public partial class CurriculumGraphService : MonoBehaviour
         return JsonUtility.ToJson(curriculum);
     }
 
-    internal bool RestoreCommandSnapshot(string snapshot)
+    internal bool RestoreCommandSnapshot(string snapshot, Action beforeNotify = null)
     {
         if (string.IsNullOrWhiteSpace(snapshot)) return false;
 
@@ -222,6 +222,7 @@ public partial class CurriculumGraphService : MonoBehaviour
 
         curriculum = restored;
         EnsureGraphInitialized();
+        beforeNotify?.Invoke();
         NotifyGraphChanged();
         return true;
     }

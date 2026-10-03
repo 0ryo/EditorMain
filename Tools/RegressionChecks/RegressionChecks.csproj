@@ -20,5 +20,12 @@
 <Compile Include="../../Assets/Scripts/ExportFileWriter.cs" Link="Production/ExportFileWriter.cs" />
 <Compile Include="../../Assets/Scripts/ExportFileNameUtility.cs" Link="Production/ExportFileNameUtility.cs" />
 <Compile Include="../../Assets/Scripts/CommandStack.cs" Link="Production/CommandStack.cs" />
+<Compile Include="../../Assets/Scripts/Services/CurriculumGraphService.cs" Link="Production/CurriculumGraphService.cs" />
+<Compile Include="../../Assets/Scripts/Services/CurriculumGraphCommands.cs" Link="Production/CurriculumGraphCommands.cs" />
+<Compile Include="../../Assets/Scripts/Services/CurriculumGraphStepDeletion.cs" Link="Production/CurriculumGraphStepDeletion.cs" />
+<Compile Include="../../Assets/Scripts/Services/CurriculumGraphTraversal.cs" Link="Production/CurriculumGraphTraversal.cs" />
+<Compile Include="../../Assets/Scripts/Services/CurriculumGraphConnectionRules.cs" Link="Production/CurriculumGraphConnectionRules.cs" />
+<Compile Include="../../Assets/Scripts/Services/CurriculumGraphValidation.cs" Link="Production/CurriculumGraphValidation.cs" />
+<Compile Include="../../Assets/Scripts/Services/ScenarioExportBuilder.cs" Link="Production/ScenarioExportBuilder.cs" />
 <Compile Include="../../Assets/Editor/Automation/AuthoringFeatureChecks.cs" Link="AuthoringFeatureChecks.cs" />
 </ItemGroup></Project>

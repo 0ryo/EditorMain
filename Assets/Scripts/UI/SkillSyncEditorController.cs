@@ -78,6 +78,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         project = EditorProjectService.Ensure(placement.transform);
         view.EnsureProjectLoadControl();
         view.EnsureConditionControls();
+        view.EnsureStepControls();
         view.EnsureViewportLabels();
         TopCenterNotification.Ensure(transform, view.inspectorTitle);
         cameraView = EditWorkspace.ResolveCamera();
@@ -230,6 +231,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
             case "＋ 手順を追加": AddStep();break;
             case "↑ 上へ": Reorder(-1);break;
             case "↓ 下へ": Reorder(1);break;
+            case "DeleteStep": DeleteStep();break;
             case "＋ 完了条件を追加": AddCondition();break;
             case "PickA": OpenObjectPicker("A");return;
             case "PickB": OpenObjectPicker("B");return;
@@ -345,6 +347,26 @@ public sealed class SkillSyncEditorController : MonoBehaviour
             return;
         }
         conditionId=condition.nodeId;
+    }
+    void DeleteStep()
+    {
+        if(trial!=null || ghost!=null || Step==null) return;
+        var steps=graph.GetDisplayOrderedSteps();
+        int index=steps.FindIndex(step=>step.nodeId==stepId);
+        if(index<0) return;
+        string originalStepId=stepId, originalConditionId=conditionId;
+        string nextStepId=index+1<steps.Count?steps[index+1].nodeId:index>0?steps[index-1].nodeId:null;
+        string nextConditionId=nextStepId!=null?graph.GetConditionNodesForStep(nextStepId).FirstOrDefault()?.nodeId:null;
+        bool removed=graph.TryRemoveLinearStep(stepId,out var reason,applied=>
+        {
+            if(this==null) return;
+            EndTrial();CancelGhost();mode=1;
+            GetComponent<SkillSyncObjectPicker>()?.Close();
+            pickTarget=null;
+            stepId=applied?nextStepId:originalStepId;
+            conditionId=applied?nextConditionId:originalConditionId;
+        });
+        status=removed?"手順と所属する完了条件を削除しました":"手順を削除できません: "+reason;
     }
     void MoveCondition(int offset)
     {
@@ -541,6 +563,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         view.Enable("PreviousCondition",conditionIndex>0);
         view.Enable("NextCondition",conditionIndex>=0 && conditionIndex<conditions.Count-1);
         view.Enable("DeleteCondition",conditionIndex>=0);
+        view.Enable("DeleteStep",Step!=null && trial==null && ghost==null);
         view.Text("conditionSummary",Step==null?"先に手順を追加してください":Condition==null?"完了条件がありません。下の＋で追加してください":valid?$"{DistanceLimit()*100:0.##} cm以内で{HoldLimit():0.##}秒間保つと完了":"未設定の対象があります");
         view.Enable("▶ この条件を試す",valid);
         view.Enable("↶ 元に戻す",trial==null);view.Enable("↷",trial==null);

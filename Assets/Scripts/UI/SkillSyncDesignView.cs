@@ -164,8 +164,22 @@ public sealed class SkillSyncDesignView : MonoBehaviour
         EnsureConditionButton("DeleteCondition", "この条件を削除", 1452, 124, new Color32(168, 44, 38, 255), new Color32(168, 44, 38, 255), Color.white, 12, parent, heading, mask, X);
     }
 
+    // Used both by Editor prefab generation and the compatibility path before listeners are wired.
+    public void EnsureStepControls()
+    {
+        if (visuals == null || controls == null) return;
+        var heading = visuals.FirstOrDefault(visual => visual.role == "conditionHeading" && visual.label != null);
+        if (heading == null || heading.target == null) return;
+        // The title occupies x=1184..1384. Keep its deletion action at the right
+        // of that row, above the description, inside the existing inspector.
+        EnsureConditionButton("DeleteStep", "この手順を削除", 1452, 124,
+            Color.white, new Color32(168, 44, 38, 255), new Color32(168, 44, 38, 255), 12,
+            heading.target.transform.parent, heading, 1 << 1,
+            x => wideLayout ? SkillSyncDesignLayout.MapX(x) : x, 146);
+    }
+
     void EnsureConditionButton(string action, string caption, float sourceX, float width, Color surfaceColor, Color borderColor, Color textColor, float fontSize,
-        Transform parent, Visual heading, int mask, Func<float, float> mapX)
+        Transform parent, Visual heading, int mask, Func<float, float> mapX, float sourceY = 337)
     {
         var control = controls.FirstOrDefault(c => c.action == action);
         UnityEngine.UI.Button button = control?.button;
@@ -183,7 +197,7 @@ public sealed class SkillSyncDesignView : MonoBehaviour
         control.mask = mask;
         var buttonRect = (RectTransform)button.transform;
         buttonRect.anchorMin = buttonRect.anchorMax = buttonRect.pivot = new Vector2(0, 1);
-        buttonRect.anchoredPosition = new Vector2(mapX(sourceX), -337);
+        buttonRect.anchoredPosition = new Vector2(mapX(sourceX), -sourceY);
         buttonRect.sizeDelta = new Vector2(Mathf.Max(width, DesignTokens.MinTouchTarget), DesignTokens.MinTouchTarget);
         var hitArea = button.GetComponent<UnityEngine.UI.Image>();
         if (hitArea == null) hitArea = button.gameObject.AddComponent<UnityEngine.UI.Image>();
@@ -222,7 +236,7 @@ public sealed class SkillSyncDesignView : MonoBehaviour
         label.fontSharedMaterial = heading.label.fontSharedMaterial;
         label.text = caption;
         label.fontSize = fontSize;
-        label.fontWeight = action == "DeleteCondition" ? FontWeight.Medium : FontWeight.Bold;
+        label.fontWeight = action == "DeleteCondition" || action == "DeleteStep" ? FontWeight.Medium : FontWeight.Bold;
         label.color = textColor;
         label.alignment = TextAlignmentOptions.Midline;
         label.richText = false;
