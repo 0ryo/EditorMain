@@ -25,15 +25,25 @@ static class Program
             RunExportWorkflowChecks();
             return;
         }
-        bool keepGoing = args.Length == 1 && args[0] == "--keep-going";
-        bool groupsPassed = RunGroup("FBX", FbxReferenceChecks.Run, keepGoing);
+        if (args.Length == 1 && args[0] == "--step-deletion")
+        {
+            StepDeletionChecks.Run();
+            return;
+        }
+        bool keepGoing = Array.IndexOf(args, "--keep-going") >= 0;
+        bool groupsPassed = RunGroup("Step deletion", StepDeletionChecks.Run, keepGoing);
+        if (Array.IndexOf(args, "--skip-fbx") < 0)
+            groupsPassed &= RunGroup("FBX", FbxReferenceChecks.Run, keepGoing);
+        else Console.WriteLine("[Regression] FBX checks explicitly skipped (Windows path fixtures).");
         groupsPassed &= RunGroup("Authoring", AuthoringFeatureChecks.Run, keepGoing);
         var root = Path.Combine(Path.GetTempPath(), "SkillSyncChecks-" + Guid.NewGuid().ToString("N"));
         Application.persistentDataPath = root;
         Directory.CreateDirectory(root);
         try
         {
-            groupsPassed &= RunGroup("Material export", () => MaterialExportChecks.Run(root), keepGoing);
+            if (Array.IndexOf(args, "--skip-material-export") < 0)
+                groupsPassed &= RunGroup("Material export", () => MaterialExportChecks.Run(root), keepGoing);
+            else Console.WriteLine("[Regression] Material export checks explicitly skipped.");
             groupsPassed &= RunGroup("Export workflow", () => ExportWorkflowChecks.Run(root), keepGoing);
             CheckRecoveryOwnership();
             CheckProjectReadValidation();

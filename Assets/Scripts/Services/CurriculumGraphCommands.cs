@@ -3,7 +3,7 @@ using UnityEngine;
 
 internal static class CurriculumGraphCommandProcessor
 {
-    public static bool Execute(CurriculumGraphService graph, string label, Func<bool> mutation)
+    public static bool Execute(CurriculumGraphService graph, string label, Func<bool> mutation, Action<bool> appliedStateChanged = null)
     {
         if (mutation == null) return false;
 
@@ -29,8 +29,9 @@ internal static class CurriculumGraphCommandProcessor
 
         if (string.Equals(before, after, StringComparison.Ordinal)) return false;
 
+        NotifyAppliedState(appliedStateChanged, true);
         graph.NotifyGraphChanged();
-        var command = new CurriculumGraphSnapshotCommand(graph, label, before, after);
+        var command = new CurriculumGraphSnapshotCommand(graph, label, before, after, appliedStateChanged);
         if (CommandService.I != null && CommandService.I.Stack != null)
         {
             return CommandService.I.Stack.RecordApplied(command);
@@ -38,6 +39,13 @@ internal static class CurriculumGraphCommandProcessor
 
         Debug.LogWarning("[CurriculumGraphService] Graph edit applied without undo because CommandService is missing.");
         return true;
+    }
+
+    // Presentation callbacks must not prevent recording or restoring the graph edit.
+    internal static void NotifyAppliedState(Action<bool> callback, bool applied)
+    {
+        try { callback?.Invoke(applied); }
+        catch (Exception ex) { Debug.LogException(ex); }
     }
 
     static void RestoreAfterFailedMutation(
@@ -57,6 +65,7 @@ internal sealed class CurriculumGraphSnapshotCommand : IEditorCommand
     readonly string before;
     readonly string after;
     readonly string label;
+    readonly Action<bool> appliedStateChanged;
 
     public string Label => label;
 
@@ -64,21 +73,25 @@ internal sealed class CurriculumGraphSnapshotCommand : IEditorCommand
         CurriculumGraphService graph,
         string label,
         string before,
-        string after)
+        string after,
+        Action<bool> appliedStateChanged = null)
     {
         this.graph = graph;
         this.label = string.IsNullOrWhiteSpace(label) ? "Edit scenario" : label;
         this.before = before;
         this.after = after;
+        this.appliedStateChanged = appliedStateChanged;
     }
 
     public bool Do()
     {
-        return graph != null && graph.RestoreCommandSnapshot(after);
+        return graph != null && graph.RestoreCommandSnapshot(after,
+            () => CurriculumGraphCommandProcessor.NotifyAppliedState(appliedStateChanged, true));
     }
 
     public bool Undo()
     {
-        return graph != null && graph.RestoreCommandSnapshot(before);
+        return graph != null && graph.RestoreCommandSnapshot(before,
+            () => CurriculumGraphCommandProcessor.NotifyAppliedState(appliedStateChanged, false));
     }
 }

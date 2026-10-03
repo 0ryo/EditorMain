@@ -39,7 +39,7 @@ public static class ApplySkillSyncDesign
             var view=root.GetComponentInChildren<SkillSyncDesignView>(true);
             if(view==null) throw new InvalidOperationException("Apply SkillSync Figma Design first.");
             SkillSyncDesignLayout.Apply(view);SkillSyncPdfRefinement.Apply(view);SkillSyncWorkspaceRefinement.Apply(view);
-            view.EnsureProjectLoadControl();view.EnsureConditionControls();view.EnsureViewportLabels();
+            view.EnsureProjectLoadControl();view.EnsureConditionControls();view.EnsureStepControls();view.EnsureViewportLabels();
             TopCenterNotification.Ensure(view.transform, view.inspectorTitle);
             var legacyHints = root.transform.Find("Button_Hints");
             if (legacyHints != null) legacyHints.gameObject.SetActive(false);
@@ -336,7 +336,7 @@ public static class ApplySkillSyncDesign
             SkillSyncDesignLayout.Apply(view);
             SkillSyncPdfRefinement.Apply(view);
             SkillSyncWorkspaceRefinement.Apply(view);
-            view.EnsureProjectLoadControl();view.EnsureConditionControls();view.EnsureViewportLabels();
+            view.EnsureProjectLoadControl();view.EnsureConditionControls();view.EnsureStepControls();view.EnsureViewportLabels();
             TopCenterNotification.Ensure(view.transform, view.inspectorTitle);
             view.modalBlocker.transform.SetAsLastSibling();modal.SetAsLastSibling();
             view.Show(0);
