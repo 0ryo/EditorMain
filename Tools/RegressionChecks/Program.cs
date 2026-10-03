@@ -31,8 +31,9 @@ static class Program
             return;
         }
         bool keepGoing = Array.IndexOf(args, "--keep-going") >= 0;
+        bool persistenceOnly = Array.IndexOf(args, "--persistence") >= 0;
         bool groupsPassed = RunGroup("Step deletion", StepDeletionChecks.Run, keepGoing);
-        if (Array.IndexOf(args, "--skip-fbx") < 0)
+        if (!persistenceOnly && Array.IndexOf(args, "--skip-fbx") < 0)
             groupsPassed &= RunGroup("FBX", FbxReferenceChecks.Run, keepGoing);
         else Console.WriteLine("[Regression] FBX checks explicitly skipped (Windows path fixtures).");
         groupsPassed &= RunGroup("Authoring", AuthoringFeatureChecks.Run, keepGoing);
@@ -41,11 +42,12 @@ static class Program
         Directory.CreateDirectory(root);
         try
         {
-            if (Array.IndexOf(args, "--skip-material-export") < 0)
+            if (!persistenceOnly && Array.IndexOf(args, "--skip-material-export") < 0)
                 groupsPassed &= RunGroup("Material export", () => MaterialExportChecks.Run(root), keepGoing);
             else Console.WriteLine("[Regression] Material export checks explicitly skipped.");
             groupsPassed &= RunGroup("Export workflow", () => ExportWorkflowChecks.Run(root), keepGoing);
             CheckRecoveryOwnership();
+            groupsPassed &= RunGroup("Recovery protection", RecoveryProtectionChecks.Run, keepGoing);
             CheckProjectReadValidation();
             CheckReplacementRollback();
             var project = new EditorProjectFile { projectName = "Regression" };

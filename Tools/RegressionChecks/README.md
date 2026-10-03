@@ -30,3 +30,15 @@ For diagnosis on Linux, `--skip-fbx` bypasses the FBX suite (including its Windo
 absolute-path fixtures). `--skip-material-export` bypasses the separate material
 export suite if its platform-specific concurrent-folder check blocks later suites.
 Both skips are explicit in the output; a skipped run is not a full regression pass.
+Startup recovery protection checks cover late UI observation, duplicate suppression,
+normal-save independence, retry/discard resolution and non-destructive preservation.
+The default FBX path checks have a known Windows-path failure on Linux. Run
+`dotnet run --project Tools/RegressionChecks/RegressionChecks.csproj -- --skip-fbx`
+to execute the remaining checks; report the skipped FBX failure separately.
+`--persistence` runs step deletion, authoring logic, export workflow, persistence/history
+(including recovery ownership) and startup protection checks without the separate
+FBX/material export suites.
+Unity-only `RecoveryStartupWarningTests` cover the late-created library UI,
+close/reopen behavior, explicit discard, automatic retry and separation from later
+autosave errors. These PlayMode tests require an isolated test scene and must be
+run by the user after integration; the agent must not launch Unity.

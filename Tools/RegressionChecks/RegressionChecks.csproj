@@ -18,6 +18,7 @@
 <Compile Include="../../Assets/Scripts/Services/ScenarioPlaybackSession.cs" Link="Production/ScenarioPlaybackSession.cs" />
 <Compile Include="../../Assets/Scripts/Services/ScenarioFlow.cs" Link="Production/ScenarioFlow.cs" />
 <Compile Include="../../Assets/Scripts/Services/EditorProjectStore.cs" Link="Production/EditorProjectStore.cs" />
+<Compile Include="../../Assets/Scripts/Services/EditorProjectRecoveryProtection.cs" Link="Production/EditorProjectRecoveryProtection.cs" />
 <Compile Include="../../Assets/Scripts/ExportFileWriter.cs" Link="Production/ExportFileWriter.cs" />
 <Compile Include="../../Assets/Scripts/ExportFileNameUtility.cs" Link="Production/ExportFileNameUtility.cs" />
 <Compile Include="../../Assets/Scripts/CommandStack.cs" Link="Production/CommandStack.cs" />

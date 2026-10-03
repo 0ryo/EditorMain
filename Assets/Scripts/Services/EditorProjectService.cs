@@ -20,11 +20,13 @@ public sealed class EditorProjectService : MonoBehaviour
     public event Action<string, bool> StatusChanged;
     public event Action<bool> DirtyChanged;
     public event Action RecoveryChanged;
+    public event Action RecoveryProtectionChanged;
 
     public string CurrentProjectPath { get; private set; }
     public string CurrentProjectName { get; private set; } = "VRCourseEditor";
     public bool IsDirty { get; private set; }
     public float AutoSaveIntervalSeconds => autoSaveInterval;
+    public string RecoveryProtectionWarning => recoveryProtection.WarningMessage;
 
     [SerializeField, Min(MinAutoSaveIntervalSeconds)] float autoSaveInterval = DefaultAutoSaveIntervalSeconds;
 
@@ -43,6 +45,7 @@ public sealed class EditorProjectService : MonoBehaviour
     bool trackingInitialized;
     bool suppressTracking;
     readonly EditorProjectRecoverySession recoverySession = new EditorProjectRecoverySession();
+    readonly EditorProjectRecoveryProtection recoveryProtection = new EditorProjectRecoveryProtection();
 
     public static EditorProjectService Ensure(Transform host)
     {
@@ -59,10 +62,8 @@ public sealed class EditorProjectService : MonoBehaviour
         autoSaveInterval = NormalizeAutoSaveInterval(PlayerPrefs.GetFloat(
             AutoSaveIntervalPlayerPrefsKey,
             DefaultAutoSaveIntervalSeconds));
-        if (!EditorProjectStore.TryPreserveRecoveryAtStartup(out _, out var recoveryMigrationError))
-        {
-            Debug.LogWarning("[EditorProject] 自動保存を別の教材として保護できません: " + recoveryMigrationError);
-        }
+        recoveryProtection.Changed += OnRecoveryProtectionChanged;
+        recoveryProtection.TryPreserve(out _);
         ResolveReferences();
         PlacedObject.OnDisplayNameChanged += OnPlacedObjectMetadataChanged;
         PlacedObjectEditState.StateChanged += OnPlacedObjectStateChanged;
@@ -105,6 +106,7 @@ public sealed class EditorProjectService : MonoBehaviour
 
     void OnDestroy()
     {
+        recoveryProtection.Changed -= OnRecoveryProtectionChanged;
         UnbindGraph();
         UnbindPlacementController();
         UnbindCommandStack();
@@ -506,6 +508,7 @@ public sealed class EditorProjectService : MonoBehaviour
 
     void EstablishCleanBaseline()
     {
+        recoveryProtection.RefreshResolution();
         cleanFingerprint = BuildCurrentFingerprint();
         lastRecoveryFingerprint = null;
         trackingInitialized = !string.IsNullOrEmpty(cleanFingerprint);
@@ -515,6 +518,7 @@ public sealed class EditorProjectService : MonoBehaviour
 
     void EstablishDirtyBaseline(bool recoveryAlreadyExists)
     {
+        recoveryProtection.RefreshResolution();
         string current = BuildCurrentFingerprint();
         cleanFingerprint = string.Empty;
         lastRecoveryFingerprint = recoveryAlreadyExists ? current : null;
@@ -618,6 +622,9 @@ public sealed class EditorProjectService : MonoBehaviour
                 return true;
             }
 
+            // Retry startup preservation before the shared slot can be written.
+            // Keep this failure separate from ordinary later autosave failures.
+            if (recoveryProtection.HasFailure && !recoveryProtection.TryPreserve(out message)) return false;
             recoverySession.Save(EditorProjectSnapshotBuilder.Capture(graph, graph.curriculum.projectName));
             lastRecoveryFingerprint = fingerprint;
             message = "復旧用の自動保存を更新しました。";
@@ -638,14 +645,42 @@ public sealed class EditorProjectService : MonoBehaviour
     {
         if (!EditorProjectStore.DeleteRecovery(out var error))
         {
+            recoveryProtection.RefreshResolution();
             return Fail("自動保存データを破棄できません: " + error, out message);
         }
 
+        recoveryProtection.RefreshResolution();
         lastRecoveryFingerprint = null;
         message = "自動保存データを破棄しました。";
         Notify(() => RecoveryChanged?.Invoke());
         NotifyStatus(message, true);
         return true;
+    }
+
+    public bool RetryRecoveryProtection(out string message)
+    {
+        // Once resolved, retry must not move this session's newly owned recovery.
+        if (!recoveryProtection.HasFailure)
+        {
+            message = "復旧データの保護に問題はありません。";
+            return true;
+        }
+        bool succeeded = recoveryProtection.TryPreserve(out message);
+        if (succeeded)
+        {
+            Notify(() => RecoveryChanged?.Invoke());
+            NotifyStatus(message, true);
+        }
+        return succeeded;
+    }
+
+    public void RefreshRecoveryProtection() => recoveryProtection.RefreshResolution();
+
+    void OnRecoveryProtectionChanged()
+    {
+        if (recoveryProtection.HasFailure)
+            Debug.LogWarning("[EditorProject] " + recoveryProtection.WarningMessage);
+        Notify(() => RecoveryProtectionChanged?.Invoke());
     }
 
     void NotifyStatus(string message, bool succeeded) => Notify(() => StatusChanged?.Invoke(message, succeeded));
