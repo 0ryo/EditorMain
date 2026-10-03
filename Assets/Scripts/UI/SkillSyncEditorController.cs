@@ -720,35 +720,34 @@ public sealed class SkillSyncEditorController : MonoBehaviour
     void Export()
     {
         if(trial!=null || ghost!=null) return;
-        bool saved=project.Save(project.CurrentProjectName,out status);
-        validation=graph.ValidateGraph();
-        if(!validation.CanExport)
+        catalogStatus=null;
+        var result=TeachingMaterialExportWorkflow.Run(
+            (out string message)=>project.Save(project.CurrentProjectName,out message),
+            ()=>{validation=graph.ValidateGraph();return validation.CanExport;},
+            ()=>TeachingMaterialExportService.Export(graph.BuildScenarioExport(),placement));
+        status=result.message;
+        if(result.outcome==TeachingMaterialExportWorkflow.Outcome.InvalidGraph)
         {
             TopCenterNotification.Ensure(transform, view.inspectorTitle)?.Show("教材を書き出せません: " + ScenarioValidationText.GetFriendlyMessage(validation.errors[0]), true);
             view.Show(5);RefreshValues();
             var issue=validation.errors[0];
             view.Text("errorCount","要修正 "+validation.errors.Count+"件");
             view.Text("errorSummary",ScenarioValidationText.GetFriendlyMessage(issue));
-            view.Text("draftStatus",saved?"下書きは保存されています。":"下書きを保存できませんでした。 "+status);
+            view.Text("draftStatus","再編集用の下書きは保存されています。修正後に「教材を書き出す」を再試行してください。");
             view.Text("errorTitle",ScenarioValidationText.GetFriendlyMessage(issue));
             view.Text("errorDetail",issue.nodeId??issue.code);
             var fix=view.controls.FirstOrDefault(c=>c.action=="該当箇所を修正");
             if(fix!=null) UnityEngine.EventSystems.EventSystem.current?.SetSelectedGameObject(fix.button.gameObject);
             return;
         }
-        try
+        if(result.outcome==TeachingMaterialExportWorkflow.Outcome.Exported)
         {
-            var export=graph.BuildScenarioExport();
-            string path=TeachingMaterialExportService.Export(export,placement);
-            catalogStatus=null;
-            status="教材を出力しました: "+path;
-            status+=" / XR配布用: "+TeachingMaterialArchive.GetPath(path);
-            TopCenterNotification.Ensure(transform, view.inspectorTitle)?.Show("教材を出力しました: "+System.IO.Path.GetDirectoryName(path), false);
+            TopCenterNotification.Ensure(transform, view.inspectorTitle)?.Show("再編集用データを保存し、教材を出力しました: "+System.IO.Path.GetDirectoryName(result.exportPath), false);
         }
-        catch(Exception e) {
-            status="書き出しに失敗しました: "+e.Message;
+        else
+        {
             TopCenterNotification.Ensure(transform, view.inspectorTitle)?.Show(status, true);
-            Debug.LogException(e);
+            if(result.exception!=null) Debug.LogException(result.exception);
         }
         RefreshValues();
     }

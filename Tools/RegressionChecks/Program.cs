@@ -20,14 +20,21 @@ static class Program
             Console.WriteLine($"FBX: {refs.Count} bindings; {existing} original files exist");
             return;
         }
-        FbxReferenceChecks.Run();
-        AuthoringFeatureChecks.Run();
+        if (args.Length == 1 && args[0] == "--export-workflow")
+        {
+            RunExportWorkflowChecks();
+            return;
+        }
+        bool keepGoing = args.Length == 1 && args[0] == "--keep-going";
+        bool groupsPassed = RunGroup("FBX", FbxReferenceChecks.Run, keepGoing);
+        groupsPassed &= RunGroup("Authoring", AuthoringFeatureChecks.Run, keepGoing);
         var root = Path.Combine(Path.GetTempPath(), "SkillSyncChecks-" + Guid.NewGuid().ToString("N"));
         Application.persistentDataPath = root;
         Directory.CreateDirectory(root);
         try
         {
-            MaterialExportChecks.Run(root);
+            groupsPassed &= RunGroup("Material export", () => MaterialExportChecks.Run(root), keepGoing);
+            groupsPassed &= RunGroup("Export workflow", () => ExportWorkflowChecks.Run(root), keepGoing);
             CheckRecoveryOwnership();
             CheckProjectReadValidation();
             CheckReplacementRollback();
@@ -130,6 +137,26 @@ static class Program
             Directory.Delete(root, true);
         }
         Console.WriteLine($"[Regression] {checks} persistence / history checks passed.");
+        if (!groupsPassed) Environment.ExitCode = 1;
+    }
+
+    static bool RunGroup(string name, Action run, bool keepGoing)
+    {
+        try { run(); return true; }
+        catch (Exception ex) when (keepGoing)
+        {
+            Console.Error.WriteLine($"[Regression] {name} group FAILED: {ex}");
+            return false;
+        }
+    }
+
+    static void RunExportWorkflowChecks()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "SkillSyncExportChecks-" + Guid.NewGuid().ToString("N"));
+        Application.persistentDataPath = root;
+        Directory.CreateDirectory(root);
+        try { ExportWorkflowChecks.Run(root); }
+        finally { Directory.Delete(root, true); }
     }
     static void CheckReplacementRollback()
     {
