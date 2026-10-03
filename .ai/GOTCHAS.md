@@ -5,13 +5,14 @@
 - CodexはUnity Editor/CLIを起動しない。compile、PlayMode、build、Prefab/Scene再保存は未検証のまま人間へ渡す。
 - `Tools/RegressionChecks` に本番ロジックをリンクする.NET 8回帰runnerがある。Unity数学/JSONはadapterのためPlayMode/Unity serializationの代用にはならない。独自asmdef/Lint/CIは未確認。
 - `Assembly-CSharp.csproj` は調査時点でruntime C# 44本中31本の現行sourceが欠落していた。`dotnet build` の失敗/成功をUnity compileの代用にしない。
+- 新規`.meta`のGUIDは32桁の16進数を生成して使う。不正なGUIDではUnityが対応する`.cs`自体を無視し、呼出元にCS0103が出る。クラスがディスク上に存在しても、Editor.logのinvalid GUID警告と`.meta`を確認する。
 
 ## 文書と実装の既知差異
 
 - 教材切替では旧配置を先にDestroyしない。非表示stagingを準備し、旧instance・active状態・Curriculum参照・選択を保持して切替し、graph/UI復元成功後だけ旧配置とUndoを破棄する。失敗時は元instanceへ戻す必要があり、snapshotからの新規生成だけではUndo内の参照を守れない。commit後の通知例外で新配置を破棄しない。
 - project読込の欠損検査はNormalize前に行う。編集modelのfield initializerだけでは省略と正当な空集合を区別できないため、v5/v6は初期値なしEnvelopeで必須集合を確認する。旧形式の省略補完と未完成graphの参照欠損は保持し、出力検証を読込条件に流用しない。
 - RecoveryのprojectNameは元教材を一意に識別しない。起動時は同名教材へ上書きせず、元JSONを別名の「名前 復旧」へ移して保護する。Serviceの自動更新/後処理は`EditorProjectRecoverySession`経由で、成功した書込みとパス・内容が一致する復旧データだけを所有する。退避不能の他データは上書きせず、削除失敗後も所有権を手放して次教材による消失を防ぐ。Storeの無条件削除はユーザーの明示破棄専用（`QUALITY.md`）。
-- 編集projectは `Application.persistentDataPath/Projects`、配布用Scenario/Placement JSONは `Application.persistentDataPath/Exports` に分離されている。`Docs/rules/scenario_rules.md` の `scenarios` 表記や旧UI仕様の `Assets/Exports` は古い。
+- 編集projectは `Application.persistentDataPath/Projects`、配布用Scenario/Placement JSONはEditorのproject直下`Exports`、PlayerのDocuments内`SkillSync/Exports`へ分離されている。`Docs/rules/scenario_rules.md` の `scenarios` 表記や旧UI仕様の `Assets/Exports` は古い。
 - `Docs/worklog/worklog_UI/全体UI仕様.md` は日付順の追記文書で、古い「カード名のみ」仕様が後の3段カード仕様に置き換わっている。後半の新しい項目と現行codeを優先して突合する。
 - 同UI仕様の一部（2026-03-03付近）と `BuildUiPrefabs.cs` の一部commentには文字化けがある。文字化け箇所だけを根拠に仕様を断定しない。
 
@@ -57,9 +58,11 @@
 
 ## モデル取込・platform
 
+- 固定UIでは旧CatalogのCanvasGroupが透明のため、旧`statusText`だけへ取込エラーを表示するとユーザーに届かない。`CatalogUI.StatusChanged`を現在の画面へ接続する。glTFastの`GltfImport`はlogger省略時に詳細エラーを記録しないため、`CollectingLogger`を渡し、失敗時に詳細をConsoleにも残す。
+- GLBの圧縮入力サイズと展開後テクスチャメモリは別物。展開済みモデルへ入力の256 MB上限を適用すると、小さな正常GLBも拒否する。展開後256 MB超は実測値付きの警告とし、入力・参照素材の合計上限とは分離する。展開後の拒否では読込中の最大メモリも制限できない。
 - Unity EditorではFBXをAssetDatabaseへimportできる。PlayerではFBX経路はなく、Windows native dialog + `.glb/.gltf` のみ。
-- runtime imported modelは `persistentDataPath/ImportedModels` に素材とmanifestを保存して復元する。`DefaultRegistry.asset`は変更しない。FBXはEditorのasset参照なのでPlayerでは事前登録またはGLB/glTF化が必要。
-- runtime project/exportは`Application.persistentDataPath`配下を使う。Editor限定FBX importのfile選択はOSのDocumentsを初期位置にし、project内path判定には`FileUtil.GetProjectRelativePath`を使う。Windows以外の保存実機確認はない。
+- runtime imported modelは `persistentDataPath/ImportedModels` に素材とmanifestを保存して復元する。`DefaultRegistry.asset`は変更しない。FBXはEditorのasset参照なので、Editorの教材書き出しが作る`.unitypackage`をXR projectへ取り込み、JSONの`prefabAssetPath`と`typeId`で事前登録する。PlayerではFBX素材のパッケージ生成はできず、事前登録またはGLB/glTF化が必要。
+- 編集projectと素材ライブラリは`Application.persistentDataPath`配下を使う。配布先は`RuntimeExportPathUtility`が分離する。Editor限定FBX importのfile選択はOSのDocumentsを初期位置にし、project内path判定には`FileUtil.GetProjectRelativePath`を使う。Windows以外の保存実機確認はない。
 
 ## TMP
 

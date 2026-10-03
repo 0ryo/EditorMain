@@ -49,7 +49,7 @@
 - `Assets/Data/DefaultRegistry.asset`: 既定4種の `typeId` とPrefab参照。
 - `Docs/`: 詳細仕様、デザイン監査、旧作業履歴。
 
-ランタイムの配置・シナリオJSON出力先は、プロジェクト内のAssetsではなく `Application.persistentDataPath/Exports/` です。
+配置・シナリオJSONの出力先は、Editorではプロジェクト直下の`Exports/`、PlayerではDocuments内の`SkillSync/Exports/`です（Documentsが取得できない場合はpersistentDataPath配下）。「教材を書き出す」は毎回`XR教材データ-yyyyMMddHHmmss`の別フォルダーに、同名のJSON・ZIPとモデル素材・EditorのPrefabパッケージをまとめます。同秒の出力は末尾`-2`以降で区別し、以前の出力を保持します。
 
 ## 用語
 

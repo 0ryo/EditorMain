@@ -60,11 +60,11 @@
 
 ## D-008 — 編集用projectと配布用JSONを分離する
 
-- **Decision:** 再編集用の配置・Scenario統合dataはschema version付き `.skillsync.json` として `persistentDataPath/Projects` に保存し、配布用Scenario/Placement JSONは `persistentDataPath/Exports` に出力する。
-- **Reason:** 編集状態を欠落なく復元しつつ、runtime buildでも追加permissionや書込可能なAssets directoryへ依存しないため。
+- **Decision:** 再編集用の配置・Scenario統合dataはschema version付き `.skillsync.json` として `persistentDataPath/Projects` に保存する。配布先は浅い階層へ出力するユーザー方針に従い、Editorではproject直下`Exports`、PlayerではDocuments内`SkillSync/Exports`を使う（Documentsを取得できない場合はpersistentDataPathへfallback）。教材書き出しは毎回`XR教材データ-yyyyMMddHHmmss`の別フォルダーに同名のJSON・ZIPと素材をまとめ、過去の出力を上書きしない。同秒の保存は末尾`-2`以降で区別する。
+- **Reason:** 編集状態を欠落なく復元しつつ、配布物を見つけやすくまとめ、UnityのAssets import経路へ出力しないため。
 - **Alternatives:** graphと配置を別fileで管理する、配布JSONを再編集dataとして兼用する、`Application.dataPath/Exports`を維持する。
 - **Consequences:** project loadはmigrationとtypeId/ID検証後に一括置換する。保存先があるprojectは同じfileへautosaveし、未保存projectは `Projects/Recovery` へ置く。追加モデルはprojectとは別の `ImportedModels` ライブラリでtypeIdを永続化する。
-- **Evidence:** `Core/EditorProjectModel.cs`、`EditorProjectStore.cs`、`EditorProjectService.cs`、`RuntimeExportPathUtility.cs`。
+- **Evidence:** `Core/EditorProjectModel.cs`、`EditorProjectStore.cs`、`EditorProjectService.cs`、`RuntimeExportPathUtility.cs`、`TeachingMaterialExportService.cs`。
 
 ## D-009 — 成功するまで待機し、失敗設定を増やさない
 
