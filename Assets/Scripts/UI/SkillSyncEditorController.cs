@@ -102,6 +102,8 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         if(CommandService.I != null) CommandService.I.Stack.HistoryChanged += HistoryChanged;
         initialized=true;
         GraphChanged();RebuildLibrary();Refresh();GetComponent<CanvasGroup>().alpha=1;
+        if (!string.IsNullOrEmpty(project.RecoveryProtectionWarning))
+            EditorProjectPanel.Ensure(transform.root)?.ShowRecoveryProtectionWarning();
     }
     void OnDisable()
     {

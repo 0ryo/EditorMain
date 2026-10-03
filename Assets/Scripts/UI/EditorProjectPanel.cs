@@ -9,6 +9,7 @@ public sealed class EditorProjectPanel : MonoBehaviour
 {
     const string ControllerName = "EditorProjectPanelController";
     const string ModalName = "Panel_ProjectFiles";
+    const float RecoveryWarningHeight = 148f;
     static readonly ProfilerMarker RefreshProjectListMarker = new("EditorProjectPanel.RefreshProjectList");
     static readonly HashSet<EditorProjectPanel> Panels = new();
 
@@ -48,6 +49,7 @@ public sealed class EditorProjectPanel : MonoBehaviour
     Button confirmationSecondaryButton;
     Action confirmedAction;
     Action secondaryConfirmedAction;
+    bool recoveryWarningShown;
 #if !UNITY_EDITOR
     bool allowQuit;
 #endif
@@ -74,6 +76,8 @@ public sealed class EditorProjectPanel : MonoBehaviour
         if (uiRoot == null) uiRoot = transform.parent;
     }
 
+    void Start() => ShowRecoveryProtectionWarning();
+
     void OnDestroy()
     {
         Panels.Remove(this);
@@ -82,6 +86,7 @@ public sealed class EditorProjectPanel : MonoBehaviour
             projectService.StatusChanged -= OnServiceStatusChanged;
             projectService.DirtyChanged -= OnDirtyChanged;
             projectService.RecoveryChanged -= OnRecoveryChanged;
+            projectService.RecoveryProtectionChanged -= OnRecoveryProtectionChanged;
         }
 #if !UNITY_EDITOR
         Application.wantsToQuit -= HandleWantsToQuit;
@@ -111,6 +116,8 @@ public sealed class EditorProjectPanel : MonoBehaviour
         projectService.DirtyChanged += OnDirtyChanged;
         projectService.RecoveryChanged -= OnRecoveryChanged;
         projectService.RecoveryChanged += OnRecoveryChanged;
+        projectService.RecoveryProtectionChanged -= OnRecoveryProtectionChanged;
+        projectService.RecoveryProtectionChanged += OnRecoveryProtectionChanged;
 
         BuildOpenButton();
         BuildModal();
@@ -284,6 +291,7 @@ public sealed class EditorProjectPanel : MonoBehaviour
     {
         if (modal == null) BuildModal();
         if (modal == null) return;
+        projectService.RefreshRecoveryProtection();
 
         var graph = FindFirstObjectByType<CurriculumGraphService>();
         string name = graph != null && graph.curriculum != null
@@ -306,6 +314,14 @@ public sealed class EditorProjectPanel : MonoBehaviour
         if (projectService == null) Build();
         libraryMode = 0; // Always begin with saved lessons, not a previous Trash/Templates tab.
         Open();
+    }
+
+    public void ShowRecoveryProtectionWarning()
+    {
+        if (projectService == null || modal == null || recoveryWarningShown ||
+            string.IsNullOrEmpty(projectService.RecoveryProtectionWarning)) return;
+        recoveryWarningShown = true;
+        OpenForDesignUi();
     }
 
     void Close()
@@ -487,25 +503,31 @@ public sealed class EditorProjectPanel : MonoBehaviour
             if (libraryTabs[i] != null) libraryTabs[i].interactable = i != libraryMode;
         var projects = libraryMode == 1 ? EditorProjectStore.ListTemplates() :
             libraryMode == 2 ? EditorProjectStore.ListArchived() : EditorProjectStore.ListProjects();
+        float warningOffset = 0f;
+        if (!string.IsNullOrEmpty(projectService.RecoveryProtectionWarning))
+        {
+            CreateRecoveryProtectionWarning();
+            warningOffset = RecoveryWarningHeight + DesignTokens.SpaceSm;
+        }
         int rowIndex = 0;
         if (libraryMode == 0 && EditorProjectStore.TryGetRecovery(out var recovery))
         {
-            CreateRecoveryRow(recovery, rowIndex++);
+            CreateRecoveryRow(recovery, rowIndex++, warningOffset);
         }
 
         if (projects.Count == 0 && rowIndex == 0)
         {
             var empty = CreateText("Text_Empty", listContent, "この一覧にはまだ教材がありません", DesignTokens.FontSizeBody, DesignTokens.TextSecondary);
             empty.alignment = TextAlignmentOptions.Center;
-            SetListItemRect(empty.rectTransform, 0, 52f);
-            SetListContentHeight(68f);
+            SetListItemRect(empty.rectTransform, 0, 52f, warningOffset);
+            SetListContentHeight(68f + warningOffset);
             return;
         }
 
         foreach (var info in projects)
         {
             var row = CreateRect("Project_" + info.DisplayName, listContent);
-            SetListItemRect(row, rowIndex++, 92f);
+            SetListItemRect(row, rowIndex++, 92f, warningOffset);
             row.gameObject.AddComponent<Image>().color = DesignTokens.Surface;
             var label = CreateText("Label", row, info.DisplayName, DesignTokens.FontSizeBody, DesignTokens.TextPrimary);
             SetRect(label.rectTransform, new Vector2(12f, -6f), new Vector2(390f, 28f));
@@ -539,7 +561,26 @@ public sealed class EditorProjectPanel : MonoBehaviour
             UiRoundedTheme.ApplyToHierarchy(row, DesignTokens.CornerRadius);
             UiAccessibilityMetrics.EnsureButtonTargets(row);
         }
-        SetListContentHeight(16f + rowIndex * 92f + Mathf.Max(0, rowIndex - 1) * DesignTokens.SpaceSm);
+        SetListContentHeight(warningOffset + 16f + rowIndex * 92f + Mathf.Max(0, rowIndex - 1) * DesignTokens.SpaceSm);
+    }
+
+    void CreateRecoveryProtectionWarning()
+    {
+        var row = CreateRect("Project_RecoveryProtectionWarning", listContent);
+        SetListItemRect(row, 0, RecoveryWarningHeight);
+        row.gameObject.AddComponent<UnityEngine.UI.Image>().color = DesignTokens.BadgeBg(DesignTokens.Warning);
+        var warning = CreateText("Text_Warning", row, projectService.RecoveryProtectionWarning,
+            DesignTokens.FontSizeCaption, DesignTokens.TextPrimary);
+        SetRect(warning.rectTransform, new Vector2(12f, -8f), new Vector2(636f, 88f));
+        var retry = CreateButton("Button_RetryRecoveryProtection", row, "保護を再試行", 168f);
+        SetRect(retry.transform as RectTransform, new Vector2(12f, -100f), new Vector2(168f, 40f));
+        retry.onClick.AddListener(() =>
+        {
+            if (!projectService.RetryRecoveryProtection(out _))
+                OnServiceStatusChanged("復旧データを保護できません。警告の詳細を確認して再試行してください。", false);
+        });
+        UiRoundedTheme.ApplyToHierarchy(row, DesignTokens.CornerRadius);
+        UiAccessibilityMetrics.EnsureButtonTargets(row);
     }
 
     Button AddLibraryAction(RectTransform row, string label, int index, UnityEngine.Events.UnityAction action)
@@ -557,10 +598,10 @@ public sealed class EditorProjectPanel : MonoBehaviour
         HideConfirmation();
         RefreshProjectList();
     }
-    void CreateRecoveryRow(EditorProjectFileInfo info, int index)
+    void CreateRecoveryRow(EditorProjectFileInfo info, int index, float topOffset = 0f)
     {
         var row = CreateRect("Project_Recovery", listContent);
-        SetListItemRect(row, index, 92f);
+        SetListItemRect(row, index, 92f, topOffset);
         var rowImage = row.gameObject.AddComponent<Image>();
         rowImage.color = DesignTokens.BadgeBg(DesignTokens.Warning);
 
@@ -611,9 +652,9 @@ public sealed class EditorProjectPanel : MonoBehaviour
         SetButtonLabel(saveProjectButton, hasCurrentFile && sameProjectName ? "上書き保存" : "名前を付けて保存");
     }
 
-    static void SetListItemRect(RectTransform rect, int index, float height)
+    static void SetListItemRect(RectTransform rect, int index, float height, float topOffset = 0f)
     {
-        float top = 8f + index * (height + DesignTokens.SpaceSm);
+        float top = topOffset + 8f + index * (height + DesignTokens.SpaceSm);
         rect.anchorMin = new Vector2(0f, 1f);
         rect.anchorMax = new Vector2(1f, 1f);
         rect.pivot = new Vector2(0.5f, 1f);
@@ -708,6 +749,13 @@ public sealed class EditorProjectPanel : MonoBehaviour
     void OnRecoveryChanged()
     {
         if (listContent != null) RefreshProjectList();
+    }
+
+    void OnRecoveryProtectionChanged()
+    {
+        if (string.IsNullOrEmpty(projectService.RecoveryProtectionWarning)) recoveryWarningShown = false;
+        if (listContent != null) RefreshProjectList();
+        ShowRecoveryProtectionWarning();
     }
 
     void RefreshDirtyVisual()

@@ -20,15 +20,19 @@ static class Program
             Console.WriteLine($"FBX: {refs.Count} bindings; {existing} original files exist");
             return;
         }
-        FbxReferenceChecks.Run();
+        // FBX path checks currently require Windows path semantics. Keep the
+        // default suite intact while allowing remaining checks to run on Linux.
+        bool persistenceOnly = Array.IndexOf(args, "--persistence") >= 0;
+        if (!persistenceOnly && Array.IndexOf(args, "--skip-fbx") < 0) FbxReferenceChecks.Run();
         AuthoringFeatureChecks.Run();
         var root = Path.Combine(Path.GetTempPath(), "SkillSyncChecks-" + Guid.NewGuid().ToString("N"));
         Application.persistentDataPath = root;
         Directory.CreateDirectory(root);
         try
         {
-            MaterialExportChecks.Run(root);
+            if (!persistenceOnly) MaterialExportChecks.Run(root);
             CheckRecoveryOwnership();
+            RecoveryProtectionChecks.Run();
             CheckProjectReadValidation();
             CheckReplacementRollback();
             var project = new EditorProjectFile { projectName = "Regression" };
