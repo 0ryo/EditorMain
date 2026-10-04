@@ -79,6 +79,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         view.EnsureProjectLoadControl();
         view.EnsureConditionControls();
         view.EnsureStepControls();
+        SkillSyncConditionEditorView.Ensure(view);
         view.EnsureViewportLabels();
         TopCenterNotification.Ensure(transform, view.inspectorTitle);
         cameraView = EditWorkspace.ResolveCamera();
@@ -208,6 +209,15 @@ public sealed class SkillSyncEditorController : MonoBehaviour
     {
         if(Modal && action!="編集を続ける" && action!="該当箇所を修正") return;
         if(action!="PickA" && action!="PickB") GetComponent<SkillSyncObjectPicker>()?.Close();
+        if(action.StartsWith(SkillSyncConditionEditing.TypeActionPrefix,StringComparison.Ordinal))
+        {
+            if(trial!=null || Condition==null) return;
+            string type=action.Substring(SkillSyncConditionEditing.TypeActionPrefix.Length);
+            pickTarget=null;
+            graph.UpdateConditionData(Condition.nodeId,"Set condition type",data=>
+                SkillSyncConditionEditing.ChangeType(data,type,graph.curriculum.rules));
+            Refresh();return;
+        }
         switch(action)
         {
             case "配置を編集": EndTrial();CancelGhost();mode=0;pickTarget=null;break;
@@ -295,15 +305,13 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         }
         else if(role=="distance" || role=="hold")
         {
-            if(Condition!=null && Number(value,out float n))
+            if(Condition!=null)
             {
-                float v=role=="distance"?n/100:n;
-                string key=role=="distance"?ConditionTypeCatalog.DistanceKey:ConditionTypeCatalog.HoldSecondsKey;
-                var definition=ConditionTypeCatalog.Find(Condition.condition.type)?.parameters.FirstOrDefault(p=>p.key==key);
-                if(definition==null || v<definition.minValue || v>definition.maxValue) status="条件の許容範囲内の数値を入力してください";
-                else graph.UpdateConditionData(Condition.nodeId,"Edit condition",data=>ConditionTypeCatalog.SetNumber(data,key,v));
+                bool accepted=false;
+                graph.UpdateConditionData(Condition.nodeId,"Edit condition",data=>
+                    accepted=SkillSyncConditionEditing.TrySetValue(data,role=="distance"?0:1,value));
+                if(!accepted) status="条件の許容範囲内の数値を入力してください";
             }
-            else status="数値を入力してください";
         }
         Refresh();
     }
@@ -396,10 +404,11 @@ public sealed class SkillSyncEditorController : MonoBehaviour
     void OpenObjectPicker(string which)
     {
         if(Condition==null) {status="先に完了条件を追加してください";Refresh();return;}
+        if(which=="B" && !ConditionTypeCatalog.RequiresObjectB(Condition.condition.type)) return;
         var picker=GetComponent<SkillSyncObjectPicker>();
         if(picker==null)return;
         pickTarget=null;picker.SetPicking(null);
-        picker.Show(Placed,which=="A"?491:588,id=>{pickTarget=which;Pick(id);},()=>{
+        picker.Show(Placed,which=="A"?SkillSyncConditionEditorView.ObjectAPickerY:SkillSyncConditionEditorView.ObjectBPickerY,id=>{pickTarget=which;Pick(id);},()=>{
             pickTarget=which;status="対象をビューポートでクリックしてください（Escで取消）";Refresh();
         });
     }
@@ -407,6 +416,8 @@ public sealed class SkillSyncEditorController : MonoBehaviour
     {
         if(Condition==null) {pickTarget=null;status="先に完了条件を追加してください";Refresh();return;}
         string which=pickTarget;
+        if(which!="A" && (which!="B" || !ConditionTypeCatalog.RequiresObjectB(Condition.condition.type)))
+        {pickTarget=null;Refresh();return;}
         graph.UpdateConditionData(Condition.nodeId,"Choose condition object",data=>
         {
             if(which=="A") data.objectAId=id;else data.objectBId=id;
@@ -541,21 +552,25 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         view.Text("inspectorLabel",mode==1?"手順"+index:ghost!=null?"仮配置":current!=null?"選択中":"未選択");
         view.UpdateSelectionHeader();
         view.Value("stepTitle",Step?.step.title??"");view.Value("body",Step?.step.body??"");
-        view.Value("distance",Condition!=null?(DistanceLimit()*100).ToString("0.##"):"");
-        view.Value("hold",Condition!=null?HoldLimit().ToString("0.##"):"");
-        var a=FindPlaced(Condition?.condition.objectAId);var b=FindPlaced(Condition?.condition.objectBId);
+        view.Value("distance",SkillSyncConditionEditing.Value(Condition?.condition,0));
+        view.Value("hold",SkillSyncConditionEditing.Value(Condition?.condition,1));
+        bool requiresB=Condition!=null && ConditionTypeCatalog.RequiresObjectB(Condition.condition.type);
+        bool distanceCondition=SkillSyncConditionEditing.SupportsPcTrial(Condition?.condition);
+        var a=FindPlaced(Condition?.condition.objectAId);var b=requiresB?FindPlaced(Condition?.condition.objectBId):null;
         PositionLabel(view.partALabel,labelTargetA=trial!=null?trial.Find(Condition?.condition.objectAId):ghost!=null?ghost.Transform:a!=null?a.transform:target,
             trial!=null&&a!=null?a.GetDisplayName():ghost!=null?ghost.DisplayName:a!=null?a.GetDisplayName():current!=null?current.GetDisplayName():"");
         PositionLabel(view.partBLabel,labelTargetB=b!=null?b.transform:null,b!=null?b.GetDisplayName():"");
         if(view.objectAThumbnail!=null) {view.objectAThumbnail.texture=ObjectThumbnail(a);view.objectAThumbnail.enabled=a!=null;}
         if(view.objectBThumbnail!=null) {view.objectBThumbnail.texture=ObjectThumbnail(b);view.objectBThumbnail.enabled=b!=null;}
         if(view.conditionOverlay!=null) view.conditionOverlay.Configure(cameraView,
-            trial!=null?trial.Find(Condition?.condition.objectAId):mode==1 && a!=null?a.transform:null,
-            trial!=null?trial.Find(Condition?.condition.objectBId):mode==1 && b!=null?b.transform:null,DistanceLimit(),trial!=null && trial.InRange);
+            trial!=null?trial.Find(Condition?.condition.objectAId):mode==1 && distanceCondition && a!=null?a.transform:null,
+            trial!=null?trial.Find(Condition?.condition.objectBId):mode==1 && distanceCondition && b!=null?b.transform:null,DistanceLimit(),trial!=null && trial.InRange);
         view.Text("objectA",a!=null?a.GetDisplayName():"対象を選択してください");
         view.Text("objectB",b!=null?b.GetDisplayName():"対象を選択してください");
-        bool valid=a!=null && b!=null && a!=b && Condition!=null;
+        bool valid=SkillSyncConditionEditing.TargetsValid(Condition?.condition,id=>FindPlaced(id)!=null);
         var conditions=Step!=null?graph.GetConditionNodesForStep(stepId):new List<ScenarioNode>();
+        bool canTrial=valid && conditions.Count>0 && conditions.All(c=>SkillSyncConditionEditing.SupportsPcTrial(c.condition) &&
+            SkillSyncConditionEditing.TargetsValid(c.condition,id=>FindPlaced(id)!=null));
         int conditionIndex=conditions.FindIndex(c=>c.nodeId==conditionId);
         view.Text("conditionHeading","完了する条件");
         view.Text("conditionCounter",conditions.Count==0?"0件":conditionIndex>=0?$"{conditionIndex+1}/{conditions.Count}":"");
@@ -566,18 +581,22 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         view.Enable("NextCondition",conditionIndex>=0 && conditionIndex<conditions.Count-1);
         view.Enable("DeleteCondition",conditionIndex>=0);
         view.Enable("DeleteStep",Step!=null && trial==null && ghost==null);
-        view.Text("conditionSummary",Step==null?"先に手順を追加してください":Condition==null?"完了条件がありません。下の＋で追加してください":valid?$"{DistanceLimit()*100:0.##} cm以内で{HoldLimit():0.##}秒間保つと完了":"未設定の対象があります");
-        view.Enable("▶ この条件を試す",valid);
+        view.Text("conditionSummary",Step==null?"先に手順を追加してください":Condition==null?"完了条件がありません。下の＋で追加してください":
+            SkillSyncConditionEditing.Summary(Condition.condition)+(valid?"":"（対象未設定・参照不正）"));
+        SkillSyncConditionEditorView.Refresh(view,Condition?.condition,canTrial);
+        view.Enable("▶ この条件を試す",canTrial);
+        view.Enable("動作を確認",canTrial);
         view.Enable("↶ 元に戻す",trial==null);view.Enable("↷",trial==null);
         view.Enable("↑ 教材を書き出す",trial==null && ghost==null);
         view.Enable("教材を読み込む",!BlocksEditingShortcuts);
         view.Text("workspaceHint",trial!=null?"部品を選び、ギズモで操作 / 中・右ドラッグで視点移動":mode==1?$"手順{index}で使う部品を表示":"部品を選んで、作業面に配置します");
         view.Text("status",pickTarget!=null?status:ghost!=null?"＋ 仮配置中：クリックで確定 / Escで中止":trial!=null?trial.Complete?"✓ 条件が成立しました":"▶ 試行中：ギズモで部品を動かして条件を確かめます":current!=null?"● 選択中："+current.GetDisplayName()+" | Escで選択解除":"部品を選択してください");
-        if(trial==null) view.viewportDistance.text=valid?$"現在の距離 {Vector3.Distance(SkillSyncTrialSession.Center(a.transform),SkillSyncTrialSession.Center(b.transform))*100:0} cm":"対象を選択してください";
+        if(trial==null) view.viewportDistance.text=valid && distanceCondition?$"現在の距離 {Vector3.Distance(SkillSyncTrialSession.Center(a.transform),SkillSyncTrialSession.Center(b.transform))*100:0} cm":"対象を選択してください";
+        view.viewportDistance.transform.parent.gameObject.SetActive(distanceCondition && (view.State==1 || trial!=null));
         view.viewportGrid.text=$"グリッド {EditSnapSettings.GridSize*100:0.##} cm";
         view.viewportGrid.color=new Color32(88,103,124,255);
-        view.Text("viewportMode",mode==1||trial!=null?valid?"判定範囲を表示中":"対象を選択してください":EditSnapSettings.ShouldSnap?"作業面に吸着：ON":"作業面に吸着：OFF");
-        if(valid && cameraView!=null)
+        view.Text("viewportMode",mode==1||trial!=null?valid?distanceCondition?"判定範囲を表示中":"操作条件（PC試行は未対応）":"対象を選択してください":EditSnapSettings.ShouldSnap?"作業面に吸着：ON":"作業面に吸着：OFF");
+        if(valid && distanceCondition && cameraView!=null)
         {
             var ta=trial!=null?trial.Find(a.Id):a.transform;var tb=trial!=null?trial.Find(b.Id):b.transform;
             if(ta!=null && tb!=null)
@@ -636,17 +655,17 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         host.anchoredPosition=new Vector2(Mathf.Clamp(local.x-root.rect.xMin-host.rect.width/2,288,288+view.viewport.rect.width-host.rect.width),Mathf.Clamp(local.y-root.rect.yMax+50,-670,view.viewport.anchoredPosition.y));
     }
     float DistanceLimit() => Condition!=null?ConditionTypeCatalog.GetNumber(Condition.condition,ConditionTypeCatalog.DistanceKey,.1f):.1f;
-    float HoldLimit() => Condition!=null?ConditionTypeCatalog.GetNumber(Condition.condition,ConditionTypeCatalog.HoldSecondsKey,0):0;
+    float HoldLimit() => Condition?.condition.type==ConditionTypeCatalog.SnapHold?ConditionTypeCatalog.GetNumber(Condition.condition,ConditionTypeCatalog.HoldSecondsKey,0):0;
     void BeginTrial()
     {
         CancelGhost();
         if(catalog!=null && catalog.IsRestoringModels) {status="モデルの復元完了を待ってから試行してください";Refresh();return;}
-        if(Condition==null || FindPlaced(Condition.condition.objectAId)==null || FindPlaced(Condition.condition.objectBId)==null || Condition.condition.objectAId==Condition.condition.objectBId)
+        if(!SkillSyncConditionEditing.TargetsValid(Condition?.condition,id=>FindPlaced(id)!=null))
         {status="試す条件の対象を設定してください";Refresh();return;}
         var conditions=graph.GetConditionNodesForStep(stepId);
-        if(conditions.Any(c=>c.condition.type!=ConditionTypeCatalog.SnapHold && c.condition.type!=ConditionTypeCatalog.Proximity))
+        if(conditions.Any(c=>!SkillSyncConditionEditing.SupportsPcTrial(c.condition)))
         {status="この画面で試行できるのは距離・保持条件です。既存の条件データは保持しています。";Refresh();return;}
-        if(conditions.Any(c=>FindPlaced(c.condition.objectAId)==null || FindPlaced(c.condition.objectBId)==null || c.condition.objectAId==c.condition.objectBId))
+        if(conditions.Any(c=>!SkillSyncConditionEditing.TargetsValid(c.condition,id=>FindPlaced(id)!=null)))
         {status="手順内のすべての条件に対象を設定してください";Refresh();return;}
         EndTrial();pickTarget=null;
         trialMoveTool = FindFirstObjectByType<MoveTool>();
@@ -710,8 +729,10 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         view.Text("distanceStatus",trial.InRange?"✓ 距離の条件を満たしています":"距離の条件を確認しています");
         view.Text("holdValue",trial.HeldSeconds.ToString("0.0"));view.Text("holdLimit",$"秒 / {HoldLimit():0.0}秒");
         view.Text("holdStatus",trial.Complete?"✓ 保持時間の条件を満たしました":trial.Paused?"一時停止中":"保持時間を計測中");
-        view.Text("trialNote",trial.Complete?$"{DistanceLimit()*100:0.##} cm以内に{HoldLimit():0.##}秒間とどまり、":"範囲から離れると、保持時間は");
-        view.Text("trialNote2",trial.Complete?"この条件が成立しました。":"0秒から数え直します。");
+        bool holds=Condition?.condition.type==ConditionTypeCatalog.SnapHold;
+        view.Text("trialNote",holds?trial.Complete?$"{DistanceLimit()*100:0.##} cm以内に{HoldLimit():0.##}秒間とどまり、":"範囲から離れると、保持時間は":
+            $"{DistanceLimit()*100:0.##} cm以内に近づけると完了します。");
+        view.Text("trialNote2",holds?trial.Complete?"この条件が成立しました。":"0秒から数え直します。":trial.Complete?"この条件が成立しました。":"保持時間の条件はありません。");
         view.Text("log1",logs.Count>0?logs[0]:"");view.Text("log2",logs.Count>1?logs[1]:"");
         view.holdProgress.rectTransform.sizeDelta=new Vector2(352*(HoldLimit()<=0?trial.Complete?1:0:trial.HeldSeconds/HoldLimit()),8);
         view.holdProgress.color=trial.Complete?new Color32(21,115,74,255):new Color32(8,102,232,255);

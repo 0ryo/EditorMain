@@ -1,6 +1,13 @@
 <Project Sdk="Microsoft.NET.Sdk">
 <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><EnableDefaultCompileItems>true</EnableDefaultCompileItems><NoWarn>0649</NoWarn></PropertyGroup>
 <ItemGroup>
+<Compile Include="../../Assets/Scripts/UI/SkillSyncConditionEditing.cs" Link="Production/SkillSyncConditionEditing.cs" />
+<Compile Include="../../Assets/Scripts/Services/CurriculumGraphService.cs" Link="Production/CurriculumGraphService.cs" />
+<Compile Include="../../Assets/Scripts/Services/CurriculumGraphCommands.cs" Link="Production/CurriculumGraphCommands.cs" />
+<Compile Include="../../Assets/Scripts/Services/CurriculumGraphConnectionRules.cs" Link="Production/CurriculumGraphConnectionRules.cs" />
+<Compile Include="../../Assets/Scripts/Services/CurriculumGraphTraversal.cs" Link="Production/CurriculumGraphTraversal.cs" />
+<Compile Include="../../Assets/Scripts/Services/CurriculumGraphValidation.cs" Link="Production/CurriculumGraphValidation.cs" />
+<Compile Include="../../Assets/Scripts/Services/ScenarioExportBuilder.cs" Link="Production/ScenarioExportBuilder.cs" />
 <Compile Include="../../Assets/Scripts/Services/ModelAssetPath.cs" Link="Production/ModelAssetPath.cs" />
 <Compile Include="../../Assets/Scripts/Services/FbxTextureReferences.cs" Link="Production/FbxTextureReferences.cs" />
 <Compile Include="../../Assets/Scripts/Services/MaterialFileSearch.cs" Link="Production/MaterialFileSearch.cs" />
@@ -22,12 +29,6 @@
 <Compile Include="../../Assets/Scripts/ExportFileWriter.cs" Link="Production/ExportFileWriter.cs" />
 <Compile Include="../../Assets/Scripts/ExportFileNameUtility.cs" Link="Production/ExportFileNameUtility.cs" />
 <Compile Include="../../Assets/Scripts/CommandStack.cs" Link="Production/CommandStack.cs" />
-<Compile Include="../../Assets/Scripts/Services/CurriculumGraphService.cs" Link="Production/CurriculumGraphService.cs" />
-<Compile Include="../../Assets/Scripts/Services/CurriculumGraphCommands.cs" Link="Production/CurriculumGraphCommands.cs" />
 <Compile Include="../../Assets/Scripts/Services/CurriculumGraphStepDeletion.cs" Link="Production/CurriculumGraphStepDeletion.cs" />
-<Compile Include="../../Assets/Scripts/Services/CurriculumGraphTraversal.cs" Link="Production/CurriculumGraphTraversal.cs" />
-<Compile Include="../../Assets/Scripts/Services/CurriculumGraphConnectionRules.cs" Link="Production/CurriculumGraphConnectionRules.cs" />
-<Compile Include="../../Assets/Scripts/Services/CurriculumGraphValidation.cs" Link="Production/CurriculumGraphValidation.cs" />
-<Compile Include="../../Assets/Scripts/Services/ScenarioExportBuilder.cs" Link="Production/ScenarioExportBuilder.cs" />
 <Compile Include="../../Assets/Editor/Automation/AuthoringFeatureChecks.cs" Link="AuthoringFeatureChecks.cs" />
 </ItemGroup></Project>

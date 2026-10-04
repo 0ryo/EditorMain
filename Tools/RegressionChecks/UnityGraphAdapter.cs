@@ -1,37 +1,37 @@
-// Test-only scene boundary: graph edits use production services and commands.
-// Scene discovery is empty; this does not validate Unity object lifecycle or UI.
+// Test-only engine boundary. Graph mutations, snapshots, validation and export use production code.
 using System;
 using System.Collections.Generic;
+using UnityEngine;
 
 namespace UnityEngine
 {
+    public class MonoBehaviour : Object { }
     public enum FindObjectsInactive { Exclude }
     public enum FindObjectsSortMode { None }
     public class Object
     {
-        public static T[] FindObjectsByType<T>(FindObjectsInactive inactive, FindObjectsSortMode sort) => Array.Empty<T>();
+        public static PlacedObject[] placed = Array.Empty<PlacedObject>();
+        public static T[] FindObjectsByType<T>(FindObjectsInactive inactive, FindObjectsSortMode sort) => (T[])(object)placed;
     }
-    public class MonoBehaviour : Object { }
     public class Transform
     {
-        public Vector3 position;
+        public Vector3 position, localScale = Vector3.one;
         public Quaternion rotation = Quaternion.identity;
-        public Vector3 localScale = Vector3.one;
     }
 }
 
-public sealed class CommandService
+public class CommandService
 {
     public static CommandService I;
     public CommandStack Stack = new();
 }
 
-public sealed class PlacedObject
+public class PlacedObject
 {
-    public string id, typeId, sourceNodePath, sourceSignature;
+    public string id, typeId = "box", sourceNodePath, sourceSignature;
     public PlacedObject modelRoot;
-    public UnityEngine.Transform transform = new();
-    public void EnsureHasId() { }
+    public Transform transform = new();
+    public void EnsureHasId() { if (string.IsNullOrEmpty(id)) id = Guid.NewGuid().ToString(); }
 }
 
 public static class ImportedModelParts

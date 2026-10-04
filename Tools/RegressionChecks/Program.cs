@@ -30,6 +30,11 @@ static class Program
             StepDeletionChecks.Run();
             return;
         }
+        if (args.Length == 1 && args[0] == "--condition-editor")
+        {
+            ConditionEditorChecks.Run();
+            return;
+        }
         bool keepGoing = Array.IndexOf(args, "--keep-going") >= 0;
         bool persistenceOnly = Array.IndexOf(args, "--persistence") >= 0;
         bool groupsPassed = RunGroup("Step deletion", StepDeletionChecks.Run, keepGoing);
@@ -37,6 +42,7 @@ static class Program
             groupsPassed &= RunGroup("FBX", FbxReferenceChecks.Run, keepGoing);
         else Console.WriteLine("[Regression] FBX checks explicitly skipped (Windows path fixtures).");
         groupsPassed &= RunGroup("Authoring", AuthoringFeatureChecks.Run, keepGoing);
+        groupsPassed &= RunGroup("Condition editor", ConditionEditorChecks.Run, keepGoing);
         var root = Path.Combine(Path.GetTempPath(), "SkillSyncChecks-" + Guid.NewGuid().ToString("N"));
         Application.persistentDataPath = root;
         Directory.CreateDirectory(root);
