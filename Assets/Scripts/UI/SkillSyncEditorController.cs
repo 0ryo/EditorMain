@@ -91,6 +91,13 @@ public sealed class SkillSyncEditorController : MonoBehaviour
             var action=control.action;
             control.button.onClick.AddListener(()=>Act(action));
         }
+        if (view.conditionTypeDropdown != null)
+            view.conditionTypeDropdown.onValueChanged.AddListener(index =>
+            {
+                string type = SkillSyncConditionEditorView.TypeForDropdownIndex(view.conditionTypeDropdown, index);
+                if (type != null) Act(SkillSyncConditionEditing.TypeActionPrefix + type);
+                else Refresh();
+            });
         foreach(var field in view.fields)
         {
             var role=field.role;
@@ -582,7 +589,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         view.Enable("DeleteCondition",conditionIndex>=0);
         view.Enable("DeleteStep",Step!=null && trial==null && ghost==null);
         view.Text("conditionSummary",Step==null?"先に手順を追加してください":Condition==null?"完了条件がありません。下の＋で追加してください":
-            SkillSyncConditionEditing.Summary(Condition.condition)+(valid?"":"（対象未設定・参照不正）"));
+            SkillSyncConditionEditing.Summary(Condition.condition)+(valid?"":"\n対象未設定・参照不正"));
         SkillSyncConditionEditorView.Refresh(view,Condition?.condition,canTrial);
         view.Enable("▶ この条件を試す",canTrial);
         view.Enable("動作を確認",canTrial);

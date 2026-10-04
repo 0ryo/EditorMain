@@ -43,6 +43,7 @@ public sealed class SkillSyncDesignView : MonoBehaviour
     public TMP_Text viewportGrid;
     public SkillSyncViewportOverlay conditionOverlay;
     public UnityEngine.UI.RawImage objectAThumbnail, objectBThumbnail;
+    public TMP_Dropdown conditionTypeDropdown;
     public TMP_Text partALabel, partBLabel;
     public bool wideLayout;
     public int pdfRevision;
