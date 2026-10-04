@@ -170,8 +170,14 @@ public sealed class SkillSyncDesignView : MonoBehaviour
         if (visuals == null || controls == null) return;
         var heading = visuals.FirstOrDefault(visual => visual.role == "conditionHeading" && visual.label != null);
         if (heading == null || heading.target == null) return;
-        // The title occupies x=1184..1384. Keep its deletion action at the right
-        // of that row, above the description, inside the existing inspector.
+        // Reserve the right of the title row for deletion, with a 24px gap.
+        // The existing prefab title field spans the full 392px inspector width.
+        var title = fields?.FirstOrDefault(field => field.role == "stepTitle")?.input;
+        if (title != null)
+        {
+            var titleRect = (RectTransform)title.transform;
+            titleRect.sizeDelta = new Vector2(244, titleRect.sizeDelta.y);
+        }
         EnsureConditionButton("DeleteStep", "この手順を削除", 1452, 124,
             Color.white, new Color32(168, 44, 38, 255), new Color32(168, 44, 38, 255), 12,
             heading.target.transform.parent, heading, 1 << 1,
