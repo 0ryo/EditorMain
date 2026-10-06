@@ -13,6 +13,7 @@ public sealed class TopCenterNotification : MonoBehaviour
     RectTransform rect, canvasRect;
     UnityEngine.UI.Image background;
     float started, duration, canvasWidth, canvasHeight;
+    bool startPending;
 
     public static TopCenterNotification Ensure(Transform context, TMP_Text fontSource)
     {
@@ -55,7 +56,8 @@ public sealed class TopCenterNotification : MonoBehaviour
         label.richText = false; label.fontSizeMax = DesignTokens.FontSizeBody; label.fontSizeMin = DesignTokens.FontSizeMicro;
         background.color = error ? DesignTokens.NotificationErrorBackground : DesignTokens.NotificationSuccessBackground;
         ResizeToMessage();
-        started = Time.unscaledTime;
+        // A native file dialog can block the current frame for longer than the notice lifetime.
+        startPending = true;
         duration = SlideSeconds * 2 + (displaySeconds > 0 ? displaySeconds : error ? 8f : 1f);
         group.alpha = 1;
         rect.anchoredPosition = new Vector2(0, rect.rect.height);
@@ -84,6 +86,8 @@ public sealed class TopCenterNotification : MonoBehaviour
     void Update()
     {
         if (duration <= 0) return;
+        if (!Application.isFocused) { startPending = true; return; }
+        if (startPending) { started = Time.unscaledTime; startPending = false; }
         if (canvasWidth != canvasRect.rect.width || canvasHeight != canvasRect.rect.height) ResizeToMessage();
         float elapsed = Time.unscaledTime - started;
         float progress = elapsed < SlideSeconds ? Mathf.Clamp01(elapsed / SlideSeconds) : Mathf.Clamp01((duration - elapsed) / SlideSeconds);

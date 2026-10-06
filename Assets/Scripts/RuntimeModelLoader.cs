@@ -222,6 +222,8 @@ public static class RuntimeModelLoader
             process.StartInfo.RedirectStandardInput = true;
             process.StartInfo.RedirectStandardOutput = true;
             process.StartInfo.RedirectStandardError = true;
+            process.StartInfo.StandardOutputEncoding = System.Text.Encoding.UTF8;
+            process.StartInfo.StandardErrorEncoding = System.Text.Encoding.UTF8;
             process.StartInfo.CreateNoWindow = true;
             process.Start();
             process.StandardInput.WriteLine("try");
