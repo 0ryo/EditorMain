@@ -16,6 +16,7 @@ static class MaterialExportChecks
         File.WriteAllBytes(Path.Combine(directory, "input", "textures", "body.png"), new byte[] { 4, 5, 6 });
         ImportedModelStore.Save(source, "Imported/Used", "Used", "");
         ImportedModelStore.Save(source, "Imported/Unused", "Unused", "");
+        CheckGlbPortability(root);
         CheckSeparateExports(root);
         CheckModelNames(root, source);
         var export = new ScenarioExport { projectName = "Lesson" };
@@ -125,6 +126,73 @@ static class MaterialExportChecks
         Require(parallelDirectories.Distinct().Count() == parallelDirectories.Length &&
             parallelDirectories.All(Directory.Exists) && Directory.GetDirectories(directory, ".XR-*.tmp").Length == 0,
             "Concurrent exports reserve distinct folders without leaving staging folders");
+    }
+
+    public static void CheckGlbPortability(string root)
+    {
+        string input = Path.Combine(root, "GlbInput");
+        Directory.CreateDirectory(Path.Combine(input, "textures"));
+        string embedded = Path.Combine(input, "embedded.glb");
+        WriteGlb(embedded, "{\"asset\":{\"version\":\"2.0\"},\"buffers\":[{\"byteLength\":4}]," +
+            "\"bufferViews\":[{\"buffer\":0,\"byteLength\":4}],\"images\":[{\"bufferView\":0,\"mimeType\":\"image/png\"}]," +
+            "\"materials\":[{\"pbrMetallicRoughness\":{\"baseColorFactor\":[0.2,0.4,0.6,1]}}]}");
+        byte[] embeddedBytes = File.ReadAllBytes(embedded);
+        ImportedModelStore.Save(embedded, "Imported/EmbeddedGlb", "Embedded", "");
+
+        string external = Path.Combine(input, "external.glb");
+        WriteGlb(external, "{\"asset\":{\"version\":\"2.0\"},\"buffers\":[{\"byteLength\":4}]," +
+            "\"images\":[{\"uri\":\"textures/body%20color.png\"}]}");
+        byte[] texture = { 1, 3, 5, 7 };
+        File.WriteAllBytes(Path.Combine(input, "textures", "body color.png"), texture);
+        var externalRecord = ImportedModelStore.Save(external, "Imported/ExternalGlb", "External", "");
+        Directory.Delete(input, true); // The original Windows/source folder no longer exists.
+
+        var export = new ScenarioExport();
+        export.objects.Add(new PlacementExportObject { id = "embedded", typeId = "Imported/EmbeddedGlb" });
+        export.objects.Add(new PlacementExportObject { id = "external", typeId = "Imported/ExternalGlb" });
+        string output = Path.Combine(root, "GlbOutput");
+        string jsonPath = Path.Combine(output, "Lesson.json");
+        ScenarioModelBundle.Prepare(export, jsonPath);
+        TeachingMaterialArchive.Write(export, jsonPath);
+        string relocated = Path.Combine(root, "OtherDevice");
+        ZipFile.ExtractToDirectory(TeachingMaterialArchive.GetPath(jsonPath), relocated);
+        Directory.Delete(output, true);
+        foreach (var model in export.models)
+            ImportedModelStore.ValidateInput(Path.Combine(relocated, model.uri), RuntimeModelLoader.MaximumFileBytes);
+        string embeddedUri = export.models.Single(m => m.typeId == "Imported/EmbeddedGlb").uri;
+        string externalUri = export.models.Single(m => m.typeId == "Imported/ExternalGlb").uri;
+        Require(File.ReadAllBytes(Path.Combine(relocated, embeddedUri)).SequenceEqual(embeddedBytes),
+            "Embedded GLB material JSON and binary data survive export and relocation byte-for-byte");
+        string exportedTexture = Path.Combine(Path.GetDirectoryName(Path.Combine(relocated, externalUri)), "textures", "body color.png");
+        Require(File.ReadAllBytes(exportedTexture).SequenceEqual(texture), "External GLB images remain resolvable after relocation");
+        string relocatedJson = Path.Combine(relocated, "Lesson.json");
+        TeachingMaterialArchive.Write(export, relocatedJson);
+        byte[] goodArchive = File.ReadAllBytes(TeachingMaterialArchive.GetPath(relocatedJson));
+        File.Delete(exportedTexture);
+        Reject(() => TeachingMaterialArchive.Write(export, relocatedJson), "A missing GLB image blocks archive publication");
+        Require(File.ReadAllBytes(TeachingMaterialArchive.GetPath(relocatedJson)).SequenceEqual(goodArchive),
+            "Missing GLB texture leaves the previous archive intact");
+        File.Delete(Path.Combine(Path.GetDirectoryName(ImportedModelStore.ResolveModelPath(externalRecord)), "textures", "body color.png"));
+        Reject(() => ScenarioModelBundle.Prepare(export, Path.Combine(root, "BrokenGlb", "Lesson.json")),
+            "A missing library texture blocks bundle export before publication");
+    }
+
+    // Container-level fixture: rendering/PNG decoding is verified separately in Unity.
+    static void WriteGlb(string path, string json)
+    {
+        byte[] bytes = System.Text.Encoding.UTF8.GetBytes(json);
+        int paddedLength = (bytes.Length + 3) & ~3;
+        using var writer = new BinaryWriter(File.Create(path));
+        writer.Write(0x46546C67u);
+        writer.Write(2u);
+        writer.Write((uint)(12 + 8 + paddedLength + 8 + 4));
+        writer.Write((uint)paddedLength);
+        writer.Write(0x4E4F534Au);
+        writer.Write(bytes);
+        for (int i = bytes.Length; i < paddedLength; i++) writer.Write((byte)' ');
+        writer.Write(4u);
+        writer.Write(0x004E4942u);
+        writer.Write(new byte[] { 2, 4, 6, 8 });
     }
 
     static void CheckModelNames(string root, string source)

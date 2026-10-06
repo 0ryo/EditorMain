@@ -7,6 +7,18 @@ static class Program
     static int checks;
     static void Main(string[] args)
     {
+        if (args.Length == 1 && args[0] == "--glb-materials")
+        {
+            string sandbox = Path.Combine(Path.GetTempPath(), "GlbMaterialChecks-" + Guid.NewGuid().ToString("N"));
+            Application.persistentDataPath = sandbox;
+            try
+            {
+                MaterialExportChecks.CheckGlbPortability(sandbox);
+                Console.WriteLine("[Regression] GLB material portability checks passed.");
+            }
+            finally { if (Directory.Exists(sandbox)) Directory.Delete(sandbox, true); }
+            return;
+        }
         if (args.Length == 2 && args[0] == "--fbx")
         {
             var document = FbxTextureReferences.ReadDocument(args[1]);

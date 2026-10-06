@@ -21,6 +21,7 @@ public static class ScenarioModelBundle
             {
                 string sourceModel = ImportedModelStore.ResolveModelPath(record);
                 if (!File.Exists(sourceModel)) throw new IOException("保存済みモデルがありません: " + record.displayName);
+                ImportedModelStore.ValidateInput(sourceModel, RuntimeModelLoader.MaximumFileBytes);
                 string sourceDirectory = Path.Combine(Path.GetDirectoryName(record.recordPath), "payload");
                 string displayName = ExportFileNameUtility.SanitizeProjectName(record.displayName, Path.GetFileNameWithoutExtension(sourceModel));
                 string modelFolder = UniqueDirectoryName(Path.Combine(outputDirectory, bundleName), displayName);
@@ -33,6 +34,7 @@ public static class ScenarioModelBundle
                     File.Copy(source, target);
                 }
                 model.uri = bundleName + "/" + modelFolder + "/" + Path.GetFileName(sourceModel);
+                ImportedModelStore.ValidateInput(Path.Combine(outputDirectory, model.uri), RuntimeModelLoader.MaximumFileBytes);
                 model.requiresPreinstalledPrefab = false;
             }
             export.models.Add(model);

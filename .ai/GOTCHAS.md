@@ -58,6 +58,8 @@
 
 ## モデル取込・platform
 
+- glTFastの実行時読込用URP shaderはSceneの依存に現れず、Editorでは正常でもPlayerで欠損material／ピンク表示になる。`RuntimeGltfShaderBuildSetup`がビルド前にPBR・SpecularGlossiness・Unlit・Clearcoatの4 shaderをAlways Includedへ登録する。未知の追加モデルにも対応するため材質variantを保持し、初回ビルドのshader compileには時間がかかる。GLB内の画像・材質とUnity側のshaderは別物で、XR受信アプリ側にも対応shaderの同梱が必要。読み込み成功時にもglTFastのErrorとRendererのmaterial/shaderを検証し、不完全な登録を拒否する。
+- GLBにも外部画像URIを持つものがある。`ScenarioModelBundle`と`TeachingMaterialArchive`は配布前に参照素材を検証する。内蔵材質・画像は元GLBをバイト単位で保持し、外部素材は相対フォルダーごと同梱する。単体GLBで配れるのは参照素材が内蔵されている場合のみ。
 - 固定UIでは旧CatalogのCanvasGroupが透明のため、旧`statusText`だけへ取込エラーを表示するとユーザーに届かない。`CatalogUI.StatusChanged`を現在の画面へ接続する。glTFastの`GltfImport`はlogger省略時に詳細エラーを記録しないため、`CollectingLogger`を渡し、失敗時に詳細をConsoleにも残す。
 - GLBの圧縮入力サイズと展開後テクスチャメモリは別物。展開済みモデルへ入力の256 MB上限を適用すると、小さな正常GLBも拒否する。展開後256 MB超は実測値付きの警告とし、入力・参照素材の合計上限とは分離する。展開後の拒否では読込中の最大メモリも制限できない。
 - Unity EditorではFBXをAssetDatabaseへimportできる。PlayerではFBX経路はなく、Windows/macOSのfile dialogから`.glb/.gltf`を読み込む。macOSの`osascript`出力は`ProcessStartInfo.StandardOutputEncoding`をUTF-8に明示しないと日本語pathが`?`に化ける。native dialogはUnityの現在frameを長時間止めるため、通知の表示時計は次のfocus中frameで開始する。

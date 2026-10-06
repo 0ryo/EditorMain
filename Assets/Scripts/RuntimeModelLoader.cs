@@ -48,6 +48,12 @@ public static class RuntimeModelLoader
             progress?.Invoke($"モデルを読み込み中… 入力素材 {ToMiB(inputBytes)} MB（追加ボタンで中止）");
             if (!await gltf.Load(new Uri(file.FullName), cancellationToken: cancellationToken))
                 throw ImportFailure("モデルを読み込めません。", logger);
+            // glTFast can complete geometry loading despite failed textures/materials.
+            // Do not publish such a model as a successful import.
+            if (logger.Items != null)
+                foreach (var item in logger.Items)
+                    if (item.Type == LogType.Error)
+                        throw ImportFailure("モデルの素材を完全に読み込めません。", logger);
             cancellationToken.ThrowIfCancellationRequested();
             long loadedResourceBytes = EstimateLoadedResourceBytes(gltf);
             progress?.Invoke($"形状・材質を構築中… 読込資産のメモリ目安 {ToMiB(loadedResourceBytes)} MB（mesh・texture、追加ボタンで中止）");
@@ -123,7 +129,10 @@ public static class RuntimeModelLoader
         foreach (var renderer in model.GetComponentsInChildren<Renderer>(true))
             foreach (var material in renderer.sharedMaterials)
             {
-                if (material == null) continue;
+                if (material == null || material.shader == null || !material.shader.isSupported ||
+                    material.shader.name == "Hidden/InternalErrorShader")
+                    throw new IOException("マテリアルを表示できません: " + renderer.name +
+                        "。GLB描画用シェーダーを含む最新版のアプリを使用してください。");
                 foreach (var key in material.GetTexturePropertyNames())
                 {
                     var texture = material.GetTexture(key);

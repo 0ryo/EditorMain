@@ -24,6 +24,10 @@ negative command test.
   normal-save independence, retry/discard resolution and non-destructive preservation.
 - Material export checks cover referenced buffers/textures, duplicate model types,
   backups and failed writes.
+- `--glb-materials` checks embedded GLB byte preservation, external image references,
+  ZIP relocation with the original source removed, and missing-image export rejection.
+  `RuntimeGltfMaterialTests` separately checks actual glTFast material/texture creation
+  for PBR, unlit, specular-glossiness and clearcoat, plus missing-material rejection.
 
 Run a focused suite with `--condition-editor`, `--step-deletion` or `--export-workflow`:
 
@@ -32,7 +36,7 @@ dotnet run --project Tools/RegressionChecks/RegressionChecks.csproj -- --conditi
 ```
 
 Use `--keep-going` to report failed groups and continue through remaining groups;
-the command still exits nonzero if any group fails. On Linux, the default FBX group's
+the command still exits nonzero if any group fails. On macOS/Linux, the default FBX group's
 Windows absolute-path fixtures fail, and the unchanged concurrent export-folder
 reservation check can also fail on the host filesystem. These failures also occur
 on the unmodified baseline and must not be reported as a full-suite pass.
@@ -46,8 +50,8 @@ test fixtures, not actual Unity objects. Neither mode compiles the Unity UI/cont
 or validates native serialization, object lifecycle, glTF rendering, UI layout,
 PlayMode or platform file dialogs. Service dirty tracking and notification rendering
 still require Unity verification. Run `Tools/Automation/Check Authoring Logic` inside
-Unity for condition cases against actual Unity math/serialization. The agent must
-not launch Unity.
+Unity for condition cases against actual Unity math/serialization. Use Unity CLI for
+automated verification/builds; GUI interaction and manual PlayMode checks remain with the user.
 
 Unity-only `RecoveryStartupWarningTests` cover late-created library UI, close/reopen,
 explicit discard, automatic retry and separation from later autosave errors. Run

@@ -63,5 +63,6 @@ namespace UnityEngine
 // Import service uses this predicate; the glTF engine itself is outside this harness.
 public static class RuntimeModelLoader
 {
+    public const long MaximumFileBytes = 256L * 1024 * 1024;
     public static bool IsSupportedExtension(string path) => System.IO.Path.GetExtension(path).ToLowerInvariant() is ".glb" or ".gltf";
 }

@@ -34,6 +34,7 @@ public static class TeachingMaterialArchive
                     if (string.IsNullOrEmpty(model.uri)) continue;
                     string modelPath = Within(directory, model.uri);
                     if (!File.Exists(modelPath)) throw new FileNotFoundException("書き出すモデルがありません。", model.uri);
+                    ImportedModelStore.ValidateInput(modelPath, RuntimeModelLoader.MaximumFileBytes);
                     // The model's folder also contains the referenced glTF buffers and textures.
                     foreach (string file in Directory.GetFiles(Path.GetDirectoryName(modelPath), "*", SearchOption.AllDirectories))
                         files.Add(file);
