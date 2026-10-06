@@ -6,7 +6,8 @@ using UnityEngine;
 // Shared by the Prefab generator/updater and the existing Prefab compatibility path.
 public static class SkillSyncConditionEditorView
 {
-    public const float ObjectAPickerY = 556, ObjectBPickerY = 641;
+    const float CardTop = 394, CardWidth = 392, ContentWidth = 360;
+    const float Padding = 16, RowGap = 12, LabelHeight = 20, LabelGap = 8;
 
     public static void Ensure(SkillSyncDesignView view)
     {
@@ -25,60 +26,64 @@ public static class SkillSyncConditionEditorView
         }
         EnsureTypeDropdown(view, parent, heading.label, X(1200));
 
-        // Assign semantic roles to source-owned islands, including backgrounds and units.
+        // Source IDs are resolved once. Layout thereafter uses roles and the active definition.
         foreach (var visual in view.visuals)
         {
             bool Source(string id) => visual.sourceNodeIds?.Contains(id) == true;
-            var rect = (RectTransform)visual.target.transform;
-            if (Source("26:175")) { rect.sizeDelta = new Vector2(rect.sizeDelta.x, 379); }
-            if (Source("26:176")) { visual.role = "conditionTargetALabel"; Place(visual, 483); }
-            if (Source("26:177")) { visual.role = "conditionTargetABox"; Place(visual, 508); }
-            if (visual.role == "objectA") CenterPickerText(visual, 508);
-            if (Source("26:187")) Place(visual, 520);
-            if (Source("26:188")) { visual.role = "conditionTargetBLabel"; Place(visual, 568); }
-            if (Source("26:189")) { visual.role = "conditionTargetBBox"; Place(visual, 593); }
-            if (visual.role == "objectB") CenterPickerText(visual, 593);
-            if (Source("26:194")) { visual.role = "conditionTargetBArrow"; Place(visual, 606); }
-            if (Source("26:196")) { visual.role = "conditionParameter0Label"; Place(visual, 659); }
-            if (Source("26:197")) { visual.role = "conditionParameter0Box"; Place(visual, 686); }
+            if (Source("26:175") || Source("26:1869")) visual.role = "conditionEditorCard";
+            if (Source("26:176")) visual.role = "conditionTargetALabel";
+            if (Source("26:177")) visual.role = "conditionTargetABox";
+            if (Source("26:187")) visual.role = "conditionTargetAArrow";
+            if (Source("26:188")) visual.role = "conditionTargetBLabel";
+            if (Source("26:189") || Source("26:1883")) visual.role = "conditionTargetBBox";
+            if (Source("26:194")) visual.role = "conditionTargetBArrow";
+            if (Source("26:196")) visual.role = "conditionParameter0Label";
+            if (Source("26:197")) visual.role = "conditionParameter0Box";
             if (Source("26:199")) visual.role = "conditionParameter0Unit";
-            if (Source("26:201")) { visual.role = "conditionParameter1Label"; Place(visual, 659); }
-            if (Source("26:202")) { visual.role = "conditionParameter1Box"; Place(visual, 686); }
+            if (Source("26:201")) visual.role = "conditionParameter1Label";
+            if (Source("26:202")) visual.role = "conditionParameter1Box";
             if (Source("26:204")) visual.role = "conditionParameter1Unit";
-            if (Source("26:205"))
-            {
-                visual.role = "conditionEditorNote";
-                visual.label.fontSize = 12;
-                Place(visual, 747);
-                rect.sizeDelta = new Vector2(360, 24);
-                visual.label.textWrappingMode = TextWrappingModes.NoWrap;
-                visual.label.overflowMode = TextOverflowModes.Ellipsis;
-            }
+            if (Source("26:205") || Source("26:1896")) visual.role = "conditionEditorNote";
+            if (Source("26:206") || Source("26:1897")) visual.role = "conditionSummaryBox";
+            if (Source("26:209")) visual.role = "conditionAddBox";
+            if (Source("26:210")) visual.role = "conditionAddLabel";
+            if (Source("26:212") || Source("26:1903")) visual.role = "conditionTestBox";
+            if (Source("26:213") || Source("26:1904")) visual.role = "conditionTestLabel";
             if (Source("26:600") || Source("26:1001") || Source("26:604")) visual.role = "conditionTrialHoldBox";
+            if (visual.role == "conditionEditorCard") EnsureSurface(visual, Color.white, 1);
+            if (visual.role == "conditionSummaryBox") EnsureSurface(visual, new Color32(233, 242, 255, 255), 0);
+            if (visual.role == "inspectorLabel" && (visual.mask & 2) != 0)
+            {
+                Bounds(visual.label.rectTransform, X(1184), 108, CardWidth, 24);
+                CenterText(visual.label, TextAlignmentOptions.MidlineLeft, false);
+            }
+            if (visual.role == "conditionEditorNote")
+            {
+                visual.label.fontSize = 12;
+                CenterText(visual.label, TextAlignmentOptions.MidlineLeft, true);
+            }
             if (visual.role == "conditionSummary")
             {
-                rect.anchoredPosition = new Vector2(rect.anchoredPosition.x, -783);
-                rect.sizeDelta = new Vector2(360, 44);
-                visual.label.textWrappingMode = TextWrappingModes.Normal;
                 visual.label.fontSize = 14;
-                visual.label.alignment = TextAlignmentOptions.TopLeft;
-                visual.label.overflowMode = TextOverflowModes.Ellipsis;
+                CenterText(visual.label, TextAlignmentOptions.MidlineLeft, true);
             }
-            if (Source("26:206")) rect.sizeDelta = new Vector2(rect.sizeDelta.x, 62);
+            if (visual.role == "conditionAddLabel" || visual.role == "conditionTestLabel")
+            {
+                // Use one TMP label, including the icon, so its whole caption is centered.
+                visual.label.text = visual.role == "conditionAddLabel" ? "＋ 完了条件を追加" : "▶ この条件を試す";
+                visual.label.richText = false;
+                foreach (Transform child in visual.label.transform) child.gameObject.SetActive(false);
+                CenterText(visual.label, TextAlignmentOptions.Midline, false);
+            }
         }
         foreach (var field in view.fields.Where(f => f.role == "distance" || f.role == "hold"))
         {
-            var rect = (RectTransform)field.input.transform;
-            rect.anchoredPosition = new Vector2(rect.anchoredPosition.x, -686);
             field.input.contentType = TMP_InputField.ContentType.DecimalNumber;
+            CenterText(field.input.textComponent, TextAlignmentOptions.MidlineLeft, false);
+            Stretch(field.input.textViewport, 12, 0, -44, 0);
+            Stretch(field.input.textComponent.rectTransform, 0, 0, 0, 0);
         }
-        foreach (var control in view.controls.Where(c => c.action == "PickA" || c.action == "PickB"))
-        {
-            var rect = (RectTransform)control.button.transform;
-            rect.anchoredPosition = new Vector2(rect.anchoredPosition.x, control.action == "PickA" ? -508 : -593);
-        }
-        if (view.objectAThumbnail != null) SetY(view.objectAThumbnail.rectTransform, 516);
-        if (view.objectBThumbnail != null) SetY(view.objectBThumbnail.rectTransform, 601);
+        Layout(view, new ConditionNodeData { type = ConditionTypeCatalog.SnapHold });
     }
 
     public static void Refresh(SkillSyncDesignView view, ConditionNodeData condition, bool canTrial)
@@ -91,8 +96,10 @@ public static class SkillSyncConditionEditorView
         {
             if (visual.role == "holdStatus" || visual.role == "holdValue" || visual.role == "holdLimit" || visual.role == "conditionTrialHoldBox")
                 visual.target.SetActive(holdTrial && (visual.mask & (1 << view.State)) != 0);
+            if (visual.role == "objectA" || visual.role?.StartsWith("conditionTargetA", StringComparison.Ordinal) == true)
+                visual.target.SetActive(inspector && condition != null && (visual.mask & (1 << view.State)) != 0);
             if (visual.role == "objectB" || visual.role?.StartsWith("conditionTargetB", StringComparison.Ordinal) == true)
-                visual.target.SetActive(inspector && requiresB && (visual.mask & (1 << view.State)) != 0);
+                visual.target.SetActive(inspector && condition != null && requiresB && (visual.mask & (1 << view.State)) != 0);
             if (visual.role == "conditionTargetALabel") visual.label.text = requiresB ? "動かすもの" : "対象";
             if (visual.role == "conditionTargetBLabel") visual.label.text = condition?.type == ConditionTypeCatalog.RotationMatch ? "向きの基準" :
                 condition?.type == ConditionTypeCatalog.Separation ? "離す基準" : "近づける先";
@@ -117,14 +124,17 @@ public static class SkillSyncConditionEditorView
             field.input.gameObject.SetActive(active);
             field.input.interactable = editing && condition != null;
         }
-        view.SetVisible("PickB", requiresB);
+        view.SetVisible("PickA", condition != null);
+        view.SetVisible("PickB", condition != null && requiresB);
         view.Enable("PickA", condition != null); view.Enable("PickB", requiresB);
-        if (view.objectBThumbnail != null) view.objectBThumbnail.gameObject.SetActive(editing && requiresB);
+        if (view.objectAThumbnail != null) view.objectAThumbnail.gameObject.SetActive(inspector && condition != null);
+        if (view.objectBThumbnail != null) view.objectBThumbnail.gameObject.SetActive(inspector && condition != null && requiresB);
         view.holdProgress.gameObject.SetActive(holdTrial && (view.State == 2 || view.State == 4));
         var definition = ConditionTypeCatalog.Find(condition?.type);
         string label = definition?.label ?? condition?.type;
         view.Text("conditionEditorNote", condition == null ? "種類を選び、対象を設定してください" : definition == null ? "未対応の条件です。種類を確認してください" : !SkillSyncConditionEditing.SupportsPcTrial(condition) ?
-            label + "：保存・出力に対応（PC試行は未対応）" : !canTrial ? "PC試行には手順内の全条件の種類・対象を設定してください" : "PC試行：中心どうしの距離で判定します");
+            label + "：保存・出力に対応（PC試行は未対応）" : !canTrial ? "PC試行には全条件の種類・対象を設定してください" : "PC試行：中心どうしの距離で判定します");
+        if (inspector) Layout(view, condition);
     }
 
     public static string TypeForDropdownIndex(TMP_Dropdown dropdown, int index)
@@ -209,9 +219,15 @@ public static class SkillSyncConditionEditorView
         }
         view.conditionTypeDropdown = dropdown;
         Bounds((RectTransform)dropdown.transform, x, 394, 360, 44);
-        if (!view.visuals.Any(v => v.role == "conditionTypeDropdown"))
-            view.visuals = view.visuals.Concat(new[] { new SkillSyncDesignView.Visual
-                { target = dropdown.gameObject, role = "conditionTypeDropdown", mask = 1 << 1 } }).ToArray();
+        var visual = view.visuals.FirstOrDefault(v => v.role == "conditionTypeDropdown");
+        if (visual == null)
+        {
+            visual = new SkillSyncDesignView.Visual { target = dropdown.gameObject, role = "conditionTypeDropdown" };
+            view.visuals = view.visuals.Concat(new[] { visual }).ToArray();
+        }
+        visual.mask = 2 | 32;
+        // A generated control must be above the source-owned card in every Show() state.
+        visual.orders = Enumerable.Repeat(1001, 6).ToArray();
     }
 
     static void RefreshTypeDropdown(SkillSyncDesignView view, ConditionNodeData condition, bool editing)
@@ -261,30 +277,131 @@ public static class SkillSyncConditionEditorView
         rect.offsetMax = new Vector2(right, top);
     }
 
-    static void CenterPickerText(SkillSyncDesignView.Visual visual, float y)
+    static void Layout(SkillSyncDesignView view, ConditionNodeData condition)
     {
-        var rect = (RectTransform)visual.target.transform;
-        rect.anchoredPosition = new Vector2(rect.anchoredPosition.x, -y);
-        rect.sizeDelta = new Vector2(rect.sizeDelta.x, 48);
-        visual.label.alignment = TextAlignmentOptions.MidlineLeft;
-        visual.label.textWrappingMode = TextWrappingModes.NoWrap;
-        visual.label.overflowMode = TextOverflowModes.Ellipsis;
+        float X(float x) => view.wideLayout ? SkillSyncDesignLayout.MapX(x) : x;
+        void PlaceRole(string role, float x, float y, float width, float height)
+        {
+            foreach (var visual in view.visuals.Where(v => v.role == role))
+            {
+                var rect = (RectTransform)visual.target.transform;
+                // Shared refinements can parent captions to buttons/inputs. Coordinates
+                // belong to the inspector, so convert them instead of applying them twice.
+                var parent = (RectTransform)rect.parent;
+                var relative = Matrix4x4.identity;
+                for (var current = rect.parent; current != view.conditionTypeDropdown.transform.parent; current = current.parent)
+                    relative = Matrix4x4.TRS(current.localPosition, current.localRotation, current.localScale) * relative;
+                // Use the local hierarchy, since a saved overlay Canvas can have scale 0.
+                var point = relative.inverse.MultiplyPoint3x4(new Vector3(X(x), -y, 0));
+                Bounds(rect, point.x - parent.rect.xMin, parent.rect.yMax - point.y, width, height);
+            }
+        }
+        void PlaceControl(string action, float x, float y, float width, float height)
+        {
+            foreach (var control in view.controls.Where(c => c.action == action))
+                Bounds((RectTransform)control.button.transform, X(x), y, width, height);
+        }
+        float cursor = CardTop + Padding;
+        Bounds((RectTransform)view.conditionTypeDropdown.transform, X(1200), cursor, ContentWidth, 44);
+        cursor += 44;
+        void TargetRow(string target, UnityEngine.UI.RawImage thumbnail)
+        {
+            cursor += RowGap;
+            PlaceRole("conditionTarget" + target + "Label", 1200, cursor, ContentWidth, LabelHeight);
+            cursor += LabelHeight + LabelGap;
+            PlaceControl("Pick" + target, 1200, cursor, ContentWidth, 48);
+            PlaceRole("conditionTarget" + target + "Box", 1200, cursor, ContentWidth, 48);
+            bool hasThumbnail = thumbnail != null && thumbnail.enabled;
+            PlaceRole("object" + target, hasThumbnail ? 1276 : 1214, cursor, hasThumbnail ? 244 : 308, 48);
+            PlaceRole("conditionTarget" + target + "Arrow", 1530, cursor, 20, 48);
+            foreach (var visual in view.visuals.Where(v => v.role == "object" + target || v.role == "conditionTarget" + target + "Label" || v.role == "conditionTarget" + target + "Arrow"))
+            {
+                CenterText(visual.label, TextAlignmentOptions.MidlineLeft, false);
+                if (visual.role.EndsWith("Arrow", StringComparison.Ordinal))
+                    foreach (RectTransform glyph in visual.label.transform)
+                    {
+                        glyph.anchorMin = glyph.anchorMax = glyph.pivot = new Vector2(.5f, .5f);
+                        glyph.anchoredPosition = Vector2.zero;
+                    }
+            }
+            if (thumbnail != null) Bounds(thumbnail.rectTransform, X(1212), cursor + 7, 50, 34);
+            cursor += 48;
+        }
+        if (condition != null)
+        {
+            TargetRow("A", view.objectAThumbnail);
+            if (ConditionTypeCatalog.RequiresObjectB(condition.type)) TargetRow("B", view.objectBThumbnail);
+        }
+        if (SkillSyncConditionEditing.Parameter(condition, 0) != null)
+        {
+            cursor += RowGap;
+            for (int slot = 0; slot < 2; slot++)
+            {
+                float x = slot == 0 ? 1200 : 1390;
+                var input = view.fields.FirstOrDefault(f => f.role == (slot == 0 ? "distance" : "hold"))?.input;
+                if (input != null) Bounds((RectTransform)input.transform, X(x), cursor + LabelHeight + LabelGap, 170, 46);
+                PlaceRole("conditionParameter" + slot + "Label", x, cursor, 170, LabelHeight);
+                PlaceRole("conditionParameter" + slot + "Box", x, cursor + LabelHeight + LabelGap, 170, 46);
+                PlaceRole("conditionParameter" + slot + "Unit", x + 128, cursor + LabelHeight + LabelGap, 30, 46);
+                foreach (var visual in view.visuals.Where(v => v.role == "conditionParameter" + slot + "Label" || v.role == "conditionParameter" + slot + "Unit"))
+                    CenterText(visual.label, TextAlignmentOptions.MidlineLeft, false);
+            }
+            cursor += LabelHeight + LabelGap + 46;
+        }
+        float PreferredHeight(string role, float minimum) => view.visuals.Where(v => v.role == role && v.label != null)
+            .Select(v => Mathf.Ceil(v.label.GetPreferredValues(v.label.text, ContentWidth, Mathf.Infinity).y)).DefaultIfEmpty(minimum).Max();
+        cursor += RowGap;
+        float noteHeight = Mathf.Max(LabelHeight, PreferredHeight("conditionEditorNote", LabelHeight));
+        PlaceRole("conditionEditorNote", 1200, cursor, ContentWidth, noteHeight);
+        cursor += noteHeight + Padding;
+        PlaceRole("conditionEditorCard", 1184, CardTop, CardWidth, cursor - CardTop);
+        cursor += Padding;
+        float summaryHeight = Mathf.Max(54, PreferredHeight("conditionSummary", LabelHeight) + 24);
+        PlaceRole("conditionSummaryBox", 1184, cursor, CardWidth, summaryHeight);
+        PlaceRole("conditionSummary", 1200, cursor + 12, ContentWidth, summaryHeight - 24);
+        cursor += summaryHeight + Padding;
+        PlaceControl("＋ 完了条件を追加", 1184, cursor, CardWidth, 44);
+        PlaceRole("conditionAddBox", 1184, cursor, CardWidth, 44);
+        PlaceRole("conditionAddLabel", 1184, cursor, CardWidth, 44);
+        cursor += 44 + Padding;
+        PlaceControl("▶ この条件を試す", 1184, cursor, CardWidth, 44);
+        PlaceRole("conditionTestBox", 1184, cursor, CardWidth, 44);
+        PlaceRole("conditionTestLabel", 1184, cursor, CardWidth, 44);
+    }
+
+    static void CenterText(TMP_Text text, TextAlignmentOptions alignment, bool wrap)
+    {
+        if (text == null) return;
+        text.alignment = alignment;
+        text.margin = Vector4.zero;
+        text.textWrappingMode = wrap ? TextWrappingModes.Normal : TextWrappingModes.NoWrap;
+        text.overflowMode = TextOverflowModes.Ellipsis;
+        text.raycastTarget = false;
+    }
+
+    static void EnsureSurface(SkillSyncDesignView.Visual visual, Color color, float borderWidth)
+    {
+        var original = visual.target.GetComponent<UnityEngine.UI.Image>();
+        if (original != null) original.enabled = false;
+        var child = visual.target.transform.Find("ConditionSurface");
+        if (child == null)
+        {
+            child = new GameObject("ConditionSurface", typeof(RectTransform), typeof(SkillSyncRoundedGraphic)).transform;
+            child.SetParent(visual.target.transform, false);
+        }
+        Stretch((RectTransform)child, 0, 0, 0, 0);
+        var surface = child.GetComponent<SkillSyncRoundedGraphic>();
+        surface.color = color;
+        surface.borderWidth = borderWidth;
+        surface.borderColor = new Color32(205, 213, 224, 255);
+        surface.radius = 10;
+        surface.raycastTarget = false;
     }
 
     static void Bounds(RectTransform rect, float x, float y, float width, float height)
     {
         rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(0, 1);
-        rect.anchoredPosition = new Vector2(x, -y); rect.sizeDelta = new Vector2(width, height);
-    }
-    static void SetY(RectTransform rect, float y) => rect.anchoredPosition = new Vector2(rect.anchoredPosition.x, -y);
-    static void Place(SkillSyncDesignView.Visual visual, float y)
-    {
-        var rect = (RectTransform)visual.target.transform;
-        if (visual.label == null) SetY(rect, y);
-        else
-        {
-            // Keep the existing baseline offset while placing text by its visible top.
-            SetY(rect, y + visual.label.fontSize - 20);
-        }
+        rect.anchoredPosition = new Vector2(x, -y);
+        rect.sizeDelta = new Vector2(width, height);
     }
 }

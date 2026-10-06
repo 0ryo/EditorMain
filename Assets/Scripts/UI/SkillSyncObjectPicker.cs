@@ -15,10 +15,15 @@ public sealed class SkillSyncObjectPicker : MonoBehaviour
     public Action CancelPicking;
     void Awake() {dismiss.onClick.AddListener(Close);cancel.onClick.AddListener(()=>CancelPicking?.Invoke());}
     public void Close() {menu.SetActive(false);}
-    public void Show(PlacedObject[] objects,float y,Action<string> choose,Action eyedropper) {
+    public void Show(PlacedObject[] objects,RectTransform anchor,Action<string> choose,Action eyedropper) {
         foreach(var row in rows) Destroy(row);rows.Clear();
         float height=Mathf.Min(300,(objects.Length+1)*42+12);
-        panel.anchoredPosition=new Vector2(1200+SkillSyncDesignLayout.Extra,-Mathf.Min(y,988-height));
+        var corners = new Vector3[4];
+        anchor.GetWorldCorners(corners);
+        var menuRect = (RectTransform)menu.transform;
+        var local = menuRect.InverseTransformPoint(corners[0]);
+        float y = menuRect.rect.yMax - local.y;
+        panel.anchoredPosition = new Vector2(local.x - menuRect.rect.xMin, -Mathf.Min(y, menuRect.rect.height - 12 - height));
         panel.sizeDelta=new Vector2(360,height);
         Add("ビューポートから選択…",eyedropper);
         foreach(var obj in objects) {

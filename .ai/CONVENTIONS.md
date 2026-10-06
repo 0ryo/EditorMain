@@ -23,7 +23,8 @@
 - UI方式はuGUI + TextMeshPro。新規UIの正本は `UIRoot.prefab` とEditor builder。
 - Hierarchy名はコードから検索されるためAPIに近い。主なprefixは `Panel_`、`Button_`、`Input_`、`Text_`、`Row_`、`Scroll_`、`Node_`、suffixは `_Template` / `Template`。
 - 共有値は `DesignTokens`、色適用は `DesignTokenApplier`、角丸は `UiRoundedTheme`。
-- Canvas基準解像度は `DesignTokens.ReferenceResolution` (`1920x1080`)。
+- 旧UIのCanvas基準解像度は `DesignTokens.ReferenceResolution` (`1920x1080`)。現行の固定SkillSync UIは `SkillSyncDesignLayout` の2560×1440を基準に全体フィットする。
+- 条件編集の可変欄は `SkillSyncConditionEditorView` で種類の定義から表示・縦配置・カード高さをまとめて決める。非表示欄の場所を残さない。文字は1行/複数行とも背景の縦中央に置き、要約エラーは別行にする。親がボタンや入力欄の文字はInspector座標から変換する。
 - 表示stateはeventまたはpollingで同期する。例: `ModeChanged`、`PlacementTypeChanged`、`ObjectPlaced`、`OnSelectionChanged`、`PlacedObject.OnDisplayNameChanged`。
 - UIからgraphを直接編集せず `CurriculumGraphService` を通す。一方、`PlacedObject` の表示名/説明は詳細UIからComponent APIへ反映する現行実装がある。
 
@@ -51,6 +52,7 @@
 
 - `Tools/RegressionChecks`は依存追加なしの.NET 8回帰runner。productionの条件判定・保存・migration・CommandStackを直接リンクし、Unity数学/JSONの代替を使う。Unity固有のserialization・PlayModeを代替しない。`Tools/Automation/Check Authoring Logic`で同じ条件チェックをUnity上でも実行できる。独自asmdef、Lint、CIは未整備。
 - Codexの標準静的確認は `git diff --check`、対象pathの存在確認、`rg` による参照/旧値確認、必要に応じたJSON parse。
+- `ConditionEditorLayoutChecks` は実Prefabで6種類・未設定/設定済み・長い対象名・連続切替・表示state・旧条件・条件0件を検査する。文字meshと背景の中央一致、はみ出し、表示/描画順、空白/重なりをPlayerビルド前の必須検査にする。レイアウト変更時は `RunAndRender` の描画画像も確認する。
 - 修正完了時はCodexがUnity CLIで対象Playerをビルドし、結果と出力物を確認する。GUI操作・PlayModeの実機確認はユーザーが行い、失敗logを受けて修正する。
 
 ## ドキュメント

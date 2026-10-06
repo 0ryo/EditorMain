@@ -23,7 +23,7 @@
 - **Decision:** UIはuGUI + TextMeshPro、正本は `Assets/UI/Prefabs/UIRoot.prefab`。Scene/Prefab変更はEditor API automation経路を使う。
 - **Reason:** serialized参照をUnityに正しく書かせ、Scene直置きと手編集YAMLの破損riskを抑えるため。
 - **Alternatives:** UI Toolkitへ移行、Sceneへ直接配置、YAML直接編集、runtime hierarchyだけで構築。
-- **Consequences:** UI構造変更は `BuildUiPrefabs`、必要に応じ `ApplyUiPrefab`、runtime互換補完、仕様書を一緒に確認する。Codex自身はautomationを実行せず、ユーザーに実行方法を渡す。
+- **Consequences:** UI構造変更は `BuildUiPrefabs`、必要に応じ `ApplyUiPrefab`、runtime互換補完、仕様書を一緒に確認する。CodexはUnity CLIからEditor API automationを実行し、保存結果とPlayer buildを確認する。GUI・PlayModeの実機確認はユーザーが行う。
 - **Evidence:** `Docs/rules/ui_editing_rules.md`、`BuildUiPrefabs.cs`、`ApplyUiPrefab.cs`、`UIRoot.prefab`。
 
 ## D-004 — 既存Prefab・作業Scene互換のruntime補完を限定的に維持する

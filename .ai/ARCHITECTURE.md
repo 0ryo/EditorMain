@@ -85,7 +85,7 @@ persistentDataPath/Projects/*.skillsync.json
 - `DesignTokenApplier` / `UiRoundedTheme`: 既存Hierarchyへの見た目補正。
 - `BuildUiPrefabs.Build()`: codeから `UIRoot.prefab` 全体を生成して保存。
 - `ApplyUiPrefab.Apply()`: enabled build scenesと `EditorMain.unity` を開き、UIRoot追加、Catalog参照、Panel端を更新して保存。
-- `AutomationEntry`: `ApplyUiEdits`、`MigrateScenarioData`、`ValidateProject` の `-executeMethod` 向け入口。ただしCodexは実行しない。
+- `AutomationEntry`: `ApplyUiEdits`、`MigrateScenarioData`、`ValidateProject` の `-executeMethod` 向け入口。CodexはGUIを使わずUnity CLIから実行する。
 
 ## データフロー
 

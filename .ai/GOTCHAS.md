@@ -2,7 +2,7 @@
 
 ## 検証環境
 
-- CodexはUnity Editor/CLIを起動しない。compile、PlayMode、build、Prefab/Scene再保存は未検証のまま人間へ渡す。
+- CodexはGUI操作をせず、Unity CLIとEditor APIでcompile、Prefab更新、Player buildと出力物を確認する。GUI操作・PlayModeの実機確認はユーザーが行う。
 - `Tools/RegressionChecks` に本番ロジックをリンクする.NET 8回帰runnerがある。Unity数学/JSONはadapterのためPlayMode/Unity serializationの代用にはならない。独自asmdef/Lint/CIは未確認。
 - `Assembly-CSharp.csproj` は調査時点でruntime C# 44本中31本の現行sourceが欠落していた。`dotnet build` の失敗/成功をUnity compileの代用にしない。
 - 新規`.meta`のGUIDは32桁の16進数を生成して使う。不正なGUIDではUnityが対応する`.cs`自体を無視し、呼出元にCS0103が出る。クラスがディスク上に存在しても、Editor.logのinvalid GUID警告と`.meta`を確認する。
@@ -17,6 +17,8 @@
 - 同UI仕様の一部（2026-03-03付近）と `BuildUiPrefabs.cs` の一部commentには文字化けがある。文字化け箇所だけを根拠に仕様を断定しない。
 
 ## UI / Prefab
+
+- `SkillSyncDesignView.Show` はstate別 `Visual.orders` で毎回兄弟順を並べ直す。後から追加した要素にordersがないと既存の背景より下に入り、activeでも見えない。文字の中央揃えはTMP alignmentだけでなく実際の親・背景の座標を確認する。共有refinementがボタン文字/数値単位を子にしているため、Inspectorの固定座標をそのまま子へ渡すと二重に移動する。
 
 - 固定配置の`SkillSyncDesignView`は2560×1440を全体フィットする。`UiScaleController`を倍率の共通窓口とし、旧パネルの`DesignTokenApplier`から1920×1080へ戻さない。Camera rectは入力停止中もLateUpdateで追従する。固定配置ボタンの一括拡大は、隣接する操作領域や条件番号との重なりを起こすため適用しない。
 - 非表示の旧Outlinerもイベント購読は生きる。選択通知から非表示UIを全件再生成しない。固定UIの行は選択状態だけ更新し、同じ原型のサムネイルを配置個数分描画しない。ラベルの投影位置は文字情報の低頻度更新と分け、カメラ更新後のLateUpdateで反映する。

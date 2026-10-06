@@ -7,6 +7,10 @@
 - Directly mutating data from UI code is prohibited. Always go through the Service / UseCase layer (or its equivalent).
 - UI adjustments must preserve existing Prefab / Scene structure and be kept to the minimum necessary additions.
 
+- Center the rendered text block vertically within its actual background for both single and multiple lines. Measure wrapping text before sizing its surface; put validation details on a separate line.
+- Treat variant visibility and sizing as one layout operation: place only active rows, then derive the container and following controls from their total height.
+- Verify every affected variant, empty/invalid data, long captions and repeated transitions against the actual Prefab. Check draw order as well as activation, geometry and text bounds. Run `ConditionEditorLayoutChecks.RunAndRender` for condition editor changes and inspect both captures; its geometry checks also run before Player builds.
+
 ## 2. When Using UI Toolkit (UXML / USS)
 - Additions and modifications must follow this separation:
   - Layout: `.uxml`

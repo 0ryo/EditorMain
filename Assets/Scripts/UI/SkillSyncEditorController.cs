@@ -415,7 +415,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         var picker=GetComponent<SkillSyncObjectPicker>();
         if(picker==null)return;
         pickTarget=null;picker.SetPicking(null);
-        picker.Show(Placed,which=="A"?SkillSyncConditionEditorView.ObjectAPickerY:SkillSyncConditionEditorView.ObjectBPickerY,id=>{pickTarget=which;Pick(id);},()=>{
+        picker.Show(Placed,(RectTransform)view.controls.First(c=>c.action=="Pick"+which).button.transform,id=>{pickTarget=which;Pick(id);},()=>{
             pickTarget=which;status="対象をビューポートでクリックしてください（Escで取消）";Refresh();
         });
     }
@@ -556,7 +556,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         view.Value("height",target!=null?(target.position.y*100).ToString("0.##"):"");
         view.Value("angle",target!=null?target.eulerAngles.y.ToString("0.##"):"");
         int index=graph.GetDisplayOrderedSteps().FindIndex(s=>s.nodeId==stepId)+1;
-        view.Text("inspectorLabel",mode==1?"手順"+index:ghost!=null?"仮配置":current!=null?"選択中":"未選択");
+        view.Text("inspectorLabel",mode==1?Step!=null?"選択中の手順："+index:"手順を選択してください":ghost!=null?"仮配置":current!=null?"選択中":"未選択");
         view.UpdateSelectionHeader();
         view.Value("stepTitle",Step?.step.title??"");view.Value("body",Step?.step.body??"");
         view.Value("distance",SkillSyncConditionEditing.Value(Condition?.condition,0));
