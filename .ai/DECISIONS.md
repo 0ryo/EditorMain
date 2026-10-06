@@ -10,13 +10,13 @@
 - **Consequences:** INDEXのルーティングと各資料の重複排除・鮮度維持が必要。容易にソースから分かる情報は原則保存しない。
 - **Evidence:** 2026-08-20のユーザー指示、本外部知識環境。
 
-## D-002 — CodexはUnityを起動しない
+## D-002 — 修正後はCodexがPlayerをビルドする
 
-- **Decision:** CodexはUnity Editor/Unity CLIを起動せず、file変更とshellの静的確認だけを行う。
-- **Reason:** このプロジェクトのLocal Execution Policy。compile/runtimeは人間が確認する運用。
-- **Alternatives:** `-batchmode` / `-executeMethod` / Test RunnerをCodexが実行する。
-- **Consequences:** 完了報告には未実施のUnity確認と人間向けchecklistを含める。報告されたcompile/runtime errorはlogに基づき修正する。
-- **Evidence:** 旧 `AGENTS.md` Section 7（2026-02-28）、現行 `AGENTS.md`。
+- **Decision:** 修正完了時はCodexがUnity CLIで対象Playerをビルドし、結果と出力物を確認する。GUI操作・PlayModeの実機確認はユーザーが行う。
+- **Reason:** ソース修正後に配布アプリへ反映されない状態を防ぐため。
+- **Alternatives:** ビルドをユーザーだけが行う旧運用。
+- **Consequences:** 起動中の`.app`は上書きせず、別の場所にビルドして終了後に入れ替える。ビルド失敗はlogに基づき修正し、実機確認が残る場合は報告する。
+- **Evidence:** 2026-10-06のユーザー指示、現行 `AGENTS.md`。
 
 ## D-003 — uGUI Prefabを正本にし、Editor APIで更新する
 

@@ -28,7 +28,7 @@ git diff --check
 - Unity: `6000.2.6f2`。正確な確認が必要な場合は `ProjectSettings/ProjectVersion.txt` を読む。
 - リポジトリ内にプロジェクト固有のTest assembly、Lint設定、CI設定は確認できていない。
 - `Assembly-CSharp.csproj` はUnity生成後に更新されておらず、現在の全ソースを含まないため `dotnet build` を合否判定に使わない。
-- Unityのコンパイル・PlayMode・ビルド検証はユーザーが行う。CodexはUnity Editor/Unity CLIを起動しない。
+- 修正完了時はCodexがUnity CLIで対象Playerをビルドし、結果と出力物を確認する。起動中の`.app`は上書きせず、別の場所にビルドして終了後に入れ替える。GUI操作・PlayModeの実機確認はユーザーが行う。
 
 ## 絶対制約
 
