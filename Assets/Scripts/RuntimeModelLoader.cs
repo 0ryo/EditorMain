@@ -210,4 +210,34 @@ public static class RuntimeModelLoader
         return result;
     }
 #endif
+
+#if UNITY_STANDALONE_OSX
+    public static string OpenFileDialog(string title, string initialDir)
+    {
+        // Standard Additions provides the macOS file picker without a bundled native plugin.
+        using (var process = new System.Diagnostics.Process())
+        {
+            process.StartInfo.FileName = "/usr/bin/osascript";
+            process.StartInfo.UseShellExecute = false;
+            process.StartInfo.RedirectStandardInput = true;
+            process.StartInfo.RedirectStandardOutput = true;
+            process.StartInfo.RedirectStandardError = true;
+            process.StartInfo.CreateNoWindow = true;
+            process.Start();
+            process.StandardInput.WriteLine("try");
+            process.StandardInput.WriteLine("return POSIX path of (choose file of type {\"glb\", \"gltf\"} with prompt \"Select 3D Model\")");
+            process.StandardInput.WriteLine("on error number -128");
+            process.StandardInput.WriteLine("return \"\"");
+            process.StandardInput.WriteLine("end try");
+            process.StandardInput.Close();
+
+            string path = process.StandardOutput.ReadToEnd().TrimEnd('\r', '\n');
+            string error = process.StandardError.ReadToEnd();
+            process.WaitForExit();
+            if (process.ExitCode != 0)
+                throw new IOException("macOSのファイル選択を開けませんでした。 " + error.Trim());
+            return path;
+        }
+    }
+#endif
 }

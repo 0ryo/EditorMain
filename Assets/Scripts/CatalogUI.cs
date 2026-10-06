@@ -3183,9 +3183,18 @@ public class CatalogUI : MonoBehaviour
             return;
         }
 
-        string selectedPath = null;
-#if UNITY_STANDALONE_WIN
-        selectedPath = RuntimeModelLoader.OpenFileDialog("Select 3D Model", "");
+        string selectedPath;
+#if UNITY_STANDALONE_WIN || UNITY_STANDALONE_OSX
+        try
+        {
+            selectedPath = RuntimeModelLoader.OpenFileDialog("Select 3D Model", "");
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError("[Model import] File selection failed: " + ex);
+            SetImportResult("オブジェクトを読み込めません: " + ex.Message, true);
+            return;
+        }
 #else
         SetImportResult("オブジェクトを読み込めません: この環境ではファイル選択に対応していません。", true);
         return;

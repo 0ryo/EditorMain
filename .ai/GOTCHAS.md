@@ -60,7 +60,7 @@
 
 - 固定UIでは旧CatalogのCanvasGroupが透明のため、旧`statusText`だけへ取込エラーを表示するとユーザーに届かない。`CatalogUI.StatusChanged`を現在の画面へ接続する。glTFastの`GltfImport`はlogger省略時に詳細エラーを記録しないため、`CollectingLogger`を渡し、失敗時に詳細をConsoleにも残す。
 - GLBの圧縮入力サイズと展開後テクスチャメモリは別物。展開済みモデルへ入力の256 MB上限を適用すると、小さな正常GLBも拒否する。展開後256 MB超は実測値付きの警告とし、入力・参照素材の合計上限とは分離する。展開後の拒否では読込中の最大メモリも制限できない。
-- Unity EditorではFBXをAssetDatabaseへimportできる。PlayerではFBX経路はなく、Windows native dialog + `.glb/.gltf` のみ。
+- Unity EditorではFBXをAssetDatabaseへimportできる。PlayerではFBX経路はなく、Windows/macOSのfile dialogから`.glb/.gltf`を読み込む。macOSは`osascript`の`choose file`を使用する。
 - runtime imported modelは `persistentDataPath/ImportedModels` に素材とmanifestを保存して復元する。`DefaultRegistry.asset`は変更しない。FBXはEditorのasset参照なので、Editorの教材書き出しが作る`.unitypackage`をXR projectへ取り込み、JSONの`prefabAssetPath`と`typeId`で事前登録する。PlayerではFBX素材のパッケージ生成はできず、事前登録またはGLB/glTF化が必要。
 - 編集projectと素材ライブラリは`Application.persistentDataPath`配下を使う。配布先は`RuntimeExportPathUtility`が分離する。Editor限定FBX importのfile選択はOSのDocumentsを初期位置にし、project内path判定には`FileUtil.GetProjectRelativePath`を使う。Windows以外の保存実機確認はない。
 

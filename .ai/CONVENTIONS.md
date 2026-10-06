@@ -37,7 +37,7 @@
 ## 入力・platform分岐
 
 - 編集マウス入力は `EditInput` を共通入口にし、legacy Inputを優先、Input Systemをfallbackにする。
-- Editor APIは `#if UNITY_EDITOR`、Windows native dialogは `#if UNITY_STANDALONE_WIN` で囲む。
+- Editor APIは `#if UNITY_EDITOR`、PlayerのWindows native dialogは `#if UNITY_STANDALONE_WIN`、macOS file dialogは `#if UNITY_STANDALONE_OSX` で囲む。
 - text field focus中はcamera/mode shortcut等を抑止する。
 
 ## エラー処理とログ

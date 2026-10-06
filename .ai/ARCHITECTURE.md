@@ -73,7 +73,7 @@ persistentDataPath/Projects/*.skillsync.json
 ### Import / Export
 
 - `SelectedMaterialDiagnostics`は選択部分木の欠損slot・shader・素材参照をmain threadで採取し、`MaterialFileSearch`が指定フォルダー配下をworkerで検索する。`FbxTextureReferences`はbinary FBXのMaterial/Texture/Video/Connectionsと材質Properties70・既定templateを読み、元画像参照と材質定数を復元する。Blender Creatorの場合だけReflectionFactorをMetallic、sqrt(Shininess)/10をSmoothnessへ変換する。`FbxMaterialRepair`はEditorで画像をAssetsへ複製し、URP材質とModelImporterの外部material remapを保存する。選択部品のmodelRoot全体と同一typeIdの配置済みモデルにも反映する。再import前後はmeshのlocal file IDで参照を再解決し、readableなmeshでColliderを再構築する（編集固定状態は維持）。元の画像参照が無い材質は推測で割り当てない。同名候補が複数なら未復元として報告する。`MaterialSearchPanel`は復元ボタンのみを表示し、毎回フォルダー選択を必須にする。完了・失敗はroot Canvasの`TopCenterNotification`で一時表示する。モデル参照は選択meshのassetを優先し、`ModelAssetPath`で絶対パスをAssets相対・forward slashへ変換してからImporterを取得する。追加モデルの`originalSourcePath`はローカル検索の手がかりとしてlibrary manifestにだけ保存し、教材exportへ含めない。
-- `RuntimeModelLoader`: glTFastによる `.glb/.gltf` 読込。取込は取消tokenと段階表示を持ち、参照素材込み256 MB・JSON 16 MB上限を読込前に検証する。失敗時は途中生成物とglTF資源を解放し、成功時はカタログ原型が資源を所有する。Windows Playerだけnative file dialogを持つ。
+- `RuntimeModelLoader`: glTFastによる `.glb/.gltf` 読込。取込は取消tokenと段階表示を持ち、参照素材込み256 MB・JSON 16 MB上限を読込前に検証する。失敗時は途中生成物とglTF資源を解放し、成功時はカタログ原型が資源を所有する。Playerのfile dialogはWindowsではWin32 API、macOSではStandard Additionsの`choose file`を使う。
 - `CatalogUI` のEditor限定経路: `.fbx` を `Assets/ImportedFbx/` へコピー/Importし、Prefabとして登録。
 - `RuntimeExportPathUtility`: 配布先はEditorではproject直下の`Exports`、PlayerではDocumentsの`SkillSync/Exports`（Documentsが取得できない場合はpersistentDataPath配下）。編集projectと素材ライブラリは引き続きpersistentDataPathへ保存する。
 - `PlacementExportService`: Scene上の `PlacedObject` を共通の配布先へplacement JSONとして出力。
