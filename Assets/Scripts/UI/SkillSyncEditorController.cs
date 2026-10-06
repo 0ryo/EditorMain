@@ -564,9 +564,11 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         bool requiresB=Condition!=null && ConditionTypeCatalog.RequiresObjectB(Condition.condition.type);
         bool distanceCondition=SkillSyncConditionEditing.SupportsPcTrial(Condition?.condition);
         var a=FindPlaced(Condition?.condition.objectAId);var b=requiresB?FindPlaced(Condition?.condition.objectBId):null;
-        PositionLabel(view.partALabel,labelTargetA=trial!=null?trial.Find(Condition?.condition.objectAId):ghost!=null?ghost.Transform:a!=null?a.transform:target,
-            trial!=null&&a!=null?a.GetDisplayName():ghost!=null?ghost.DisplayName:a!=null?a.GetDisplayName():current!=null?current.GetDisplayName():"");
-        PositionLabel(view.partBLabel,labelTargetB=b!=null?b.transform:null,b!=null?b.GetDisplayName():"");
+        // Retain the selected condition, but only show its targets in the step view.
+        bool showConditionLabels=mode==1 || trial!=null;
+        PositionLabel(view.partALabel,labelTargetA=trial!=null?trial.Find(Condition?.condition.objectAId):ghost!=null?ghost.Transform:showConditionLabels&&a!=null?a.transform:target,
+            trial!=null&&a!=null?a.GetDisplayName():ghost!=null?ghost.DisplayName:showConditionLabels&&a!=null?a.GetDisplayName():current!=null?current.GetDisplayName():"");
+        PositionLabel(view.partBLabel,labelTargetB=showConditionLabels&&b!=null?b.transform:null,b!=null?b.GetDisplayName():"");
         if(view.objectAThumbnail!=null) {view.objectAThumbnail.texture=ObjectThumbnail(a);view.objectAThumbnail.enabled=a!=null;}
         if(view.objectBThumbnail!=null) {view.objectBThumbnail.texture=ObjectThumbnail(b);view.objectBThumbnail.enabled=b!=null;}
         if(view.conditionOverlay!=null) view.conditionOverlay.Configure(cameraView,
