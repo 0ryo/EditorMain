@@ -1,0 +1,31 @@
+{
+  "success": true,
+  "projectPath": "/Users/ryota/Library/Application Support/DefaultCompany/Editor/Projects/正解教材_タイヤ交換1本_先生検証用.skillsync.json",
+  "exportPath": "/Users/ryota/EditorMain/Exports/XR教材データ-20261014155510/XR教材データ-20261014155510.json",
+  "error": "",
+  "stepCount": 13,
+  "conditionCount": 21,
+  "objectCount": 5,
+  "warnings": [
+    "W-02: ObjectA 'teacher-car/part-28d77752b555467ca651ba15db376752' is reused across multiple steps.",
+    "W-02: ObjectA 'teacher-car/part-8c07fd60b55d4ee1a48801d5470c9a5d' is reused across multiple steps.",
+    "W-02: ObjectA 'teacher-car/part-c43c3de6e45d4f308e064bb765fe9d31' is reused across multiple steps.",
+    "W-02: ObjectA 'teacher-car/part-8835522801fa44dc927525774eccd9bd' is reused across multiple steps.",
+    "W-02: ObjectA 'teacher-replacement-tire' is reused across multiple steps."
+  ],
+  "verification": {
+    "unityProjectRoundTrip": true,
+    "modelPartRestoration": true,
+    "graphValidationErrors": 0,
+    "sequentialConditionPlayback": "13/13 steps completed",
+    "conditionRegressionChecks": 103,
+    "distributionZipCrcValid": true,
+    "playerBuild": {
+      "target": "StandaloneOSX",
+      "unity": "6000.2.6f2",
+      "success": true,
+      "path": "Builds/TeacherTireChange/SkillSyncEditor.app"
+    },
+    "manualGuiVerification": "Not performed"
+  }
+}

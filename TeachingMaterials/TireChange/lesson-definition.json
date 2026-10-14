@@ -1,0 +1,259 @@
+{
+  "projectName": "正解教材_タイヤ交換1本_先生検証用",
+  "steps": [
+    {
+      "title": "ジャッキアップする",
+      "body": "指定のジャッキポイントに受け皿を合わせ、ハンドルを操作して、左前のタイヤが地面から離れるまで車を上げる。",
+      "conditions": [
+        {
+          "title": "ジャッキのハンドルを押す",
+          "type": "Push",
+          "objectA": "jackHandle",
+          "objectB": ""
+        }
+      ],
+      "supplement": "開始前：平らで硬い場所に停車し、エンジン停止・駐車ブレーキ・車種に合ったシフト位置・輪止めを確認する。タイヤが接地している間に4個のナットを少し緩めておく。教材はこの準備とジャッキ配置が済んだ状態から始める。",
+      "caution": "車の下に入らない。車両とジャッキの取扱説明書に従う。模型は手順学習用の簡略フロアジャッキ。",
+      "durationMinutes": 1
+    },
+    {
+      "title": "ナット1を外す",
+      "body": "ナット1にレンチを合わせて反時計回りに緩め、ナットを引き抜いて、なくさない場所に置く。",
+      "conditions": [
+        {
+          "title": "ナット1を回す",
+          "type": "Turn",
+          "objectA": "nut1",
+          "objectB": "",
+          "angleDegrees": 90
+        },
+        {
+          "title": "ナット1を引く",
+          "type": "Pull",
+          "objectA": "nut1",
+          "objectB": ""
+        }
+      ],
+      "supplement": "取り外す順番は1 → 4 → 2 → 3。番号はこの教材の部品名に対応する。",
+      "caution": "最後のナットを外すときはタイヤを支える。90度は教材の操作検出値で、実作業の必要回転量ではない。",
+      "durationMinutes": 1
+    },
+    {
+      "title": "ナット4を外す",
+      "body": "ナット4にレンチを合わせて反時計回りに緩め、ナットを引き抜いて、なくさない場所に置く。",
+      "conditions": [
+        {
+          "title": "ナット4を回す",
+          "type": "Turn",
+          "objectA": "nut4",
+          "objectB": "",
+          "angleDegrees": 90
+        },
+        {
+          "title": "ナット4を引く",
+          "type": "Pull",
+          "objectA": "nut4",
+          "objectB": ""
+        }
+      ],
+      "supplement": "取り外す順番は1 → 4 → 2 → 3。番号はこの教材の部品名に対応する。",
+      "caution": "最後のナットを外すときはタイヤを支える。90度は教材の操作検出値で、実作業の必要回転量ではない。",
+      "durationMinutes": 1
+    },
+    {
+      "title": "ナット2を外す",
+      "body": "ナット2にレンチを合わせて反時計回りに緩め、ナットを引き抜いて、なくさない場所に置く。",
+      "conditions": [
+        {
+          "title": "ナット2を回す",
+          "type": "Turn",
+          "objectA": "nut2",
+          "objectB": "",
+          "angleDegrees": 90
+        },
+        {
+          "title": "ナット2を引く",
+          "type": "Pull",
+          "objectA": "nut2",
+          "objectB": ""
+        }
+      ],
+      "supplement": "取り外す順番は1 → 4 → 2 → 3。番号はこの教材の部品名に対応する。",
+      "caution": "最後のナットを外すときはタイヤを支える。90度は教材の操作検出値で、実作業の必要回転量ではない。",
+      "durationMinutes": 1
+    },
+    {
+      "title": "ナット3を外す",
+      "body": "ナット3にレンチを合わせて反時計回りに緩め、ナットを引き抜いて、なくさない場所に置く。",
+      "conditions": [
+        {
+          "title": "ナット3を回す",
+          "type": "Turn",
+          "objectA": "nut3",
+          "objectB": "",
+          "angleDegrees": 90
+        },
+        {
+          "title": "ナット3を引く",
+          "type": "Pull",
+          "objectA": "nut3",
+          "objectB": ""
+        }
+      ],
+      "supplement": "取り外す順番は1 → 4 → 2 → 3。番号はこの教材の部品名に対応する。",
+      "caution": "最後のナットを外すときはタイヤを支える。90度は教材の操作検出値で、実作業の必要回転量ではない。",
+      "durationMinutes": 1
+    },
+    {
+      "title": "タイヤを外す",
+      "body": "タイヤを両手で支えて手前に引き、車から外す。外したタイヤを作業の邪魔にならない場所に置く。",
+      "conditions": [
+        {
+          "title": "交換前タイヤを引く",
+          "type": "Pull",
+          "objectA": "oldTire",
+          "objectB": ""
+        }
+      ],
+      "supplement": "",
+      "caution": "タイヤを落としたり、足の上に置いたりしない。",
+      "durationMinutes": 1
+    },
+    {
+      "title": "交換用タイヤを持ってくる",
+      "body": "交換用タイヤを持ち、左前の取付位置まで運ぶ。",
+      "conditions": [
+        {
+          "title": "交換用タイヤをもつ",
+          "type": "Grabbed",
+          "objectA": "replacementTire",
+          "objectB": ""
+        }
+      ],
+      "supplement": "持ったことを検出する条件。運ぶ位置は次の手順で確認する。",
+      "caution": "",
+      "durationMinutes": 1
+    },
+    {
+      "title": "交換用タイヤをはめる",
+      "body": "ホイールの穴を車側の取付ボルトに合わせ、交換用タイヤを奥まで押し込む。",
+      "conditions": [
+        {
+          "title": "交換用タイヤを取付位置に合わせて保持",
+          "type": "SnapHold",
+          "objectA": "replacementTire",
+          "objectB": "mount",
+          "distanceMeters": 0.1,
+          "holdSeconds": 1
+        }
+      ],
+      "supplement": "ホイールが取付面に密着していることを確認する。距離10cm・1秒は教材用の判定値で、実際の取付精度を表さない。",
+      "caution": "",
+      "durationMinutes": 1
+    },
+    {
+      "title": "ナット1を付ける",
+      "body": "ナット1を対応するボルトに付け、手で時計回りにねじ込む。レンチで軽く締め、ホイールを固定する。",
+      "conditions": [
+        {
+          "title": "ナット1を押し込む",
+          "type": "Push",
+          "objectA": "nut1",
+          "objectB": ""
+        },
+        {
+          "title": "ナット1を回す",
+          "type": "Turn",
+          "objectA": "nut1",
+          "objectB": "",
+          "angleDegrees": 90
+        }
+      ],
+      "supplement": "付ける順番は1 → 4 → 2 → 3の対角順。全てのナットを軽く締める段階で、本締めは接地後に行う。",
+      "caution": "斜めにねじ込まない。90度は教材の操作検出値で、締付トルクの判定ではない。",
+      "durationMinutes": 1
+    },
+    {
+      "title": "ナット4を付ける",
+      "body": "ナット4を対応するボルトに付け、手で時計回りにねじ込む。レンチで軽く締め、ホイールを固定する。",
+      "conditions": [
+        {
+          "title": "ナット4を押し込む",
+          "type": "Push",
+          "objectA": "nut4",
+          "objectB": ""
+        },
+        {
+          "title": "ナット4を回す",
+          "type": "Turn",
+          "objectA": "nut4",
+          "objectB": "",
+          "angleDegrees": 90
+        }
+      ],
+      "supplement": "付ける順番は1 → 4 → 2 → 3の対角順。全てのナットを軽く締める段階で、本締めは接地後に行う。",
+      "caution": "斜めにねじ込まない。90度は教材の操作検出値で、締付トルクの判定ではない。",
+      "durationMinutes": 1
+    },
+    {
+      "title": "ナット2を付ける",
+      "body": "ナット2を対応するボルトに付け、手で時計回りにねじ込む。レンチで軽く締め、ホイールを固定する。",
+      "conditions": [
+        {
+          "title": "ナット2を押し込む",
+          "type": "Push",
+          "objectA": "nut2",
+          "objectB": ""
+        },
+        {
+          "title": "ナット2を回す",
+          "type": "Turn",
+          "objectA": "nut2",
+          "objectB": "",
+          "angleDegrees": 90
+        }
+      ],
+      "supplement": "付ける順番は1 → 4 → 2 → 3の対角順。全てのナットを軽く締める段階で、本締めは接地後に行う。",
+      "caution": "斜めにねじ込まない。90度は教材の操作検出値で、締付トルクの判定ではない。",
+      "durationMinutes": 1
+    },
+    {
+      "title": "ナット3を付ける",
+      "body": "ナット3を対応するボルトに付け、手で時計回りにねじ込む。レンチで軽く締め、ホイールを固定する。",
+      "conditions": [
+        {
+          "title": "ナット3を押し込む",
+          "type": "Push",
+          "objectA": "nut3",
+          "objectB": ""
+        },
+        {
+          "title": "ナット3を回す",
+          "type": "Turn",
+          "objectA": "nut3",
+          "objectB": "",
+          "angleDegrees": 90
+        }
+      ],
+      "supplement": "付ける順番は1 → 4 → 2 → 3の対角順。全てのナットを軽く締める段階で、本締めは接地後に行う。",
+      "caution": "斜めにねじ込まない。90度は教材の操作検出値で、締付トルクの判定ではない。",
+      "durationMinutes": 1
+    },
+    {
+      "title": "ジャッキを緩めて車を降ろす",
+      "body": "ジャッキのリリースバルブをゆっくり緩め、タイヤが接地するまで車を降ろす。車が安定したらジャッキを外す。",
+      "conditions": [
+        {
+          "title": "ジャッキのリリースバルブを回す",
+          "type": "Turn",
+          "objectA": "jackValve",
+          "objectB": "",
+          "angleDegrees": 15
+        }
+      ],
+      "supplement": "接地後の仕上げ：車両指定のトルクで4個のナットを対角順に本締めし、工具と輪止めを片付ける。先生は本締めまで確認する。",
+      "caution": "周囲に手足や物がないことを確認し、急に降ろさない。15度は教材の操作検出値。実際の開き量はジャッキの説明書に従う。",
+      "durationMinutes": 1
+    }
+  ]
+}
