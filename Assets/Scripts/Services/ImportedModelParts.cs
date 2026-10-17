@@ -213,7 +213,19 @@ public static class ImportedModelParts
 
     public static string Label(PlacedObject part)
     {
-        string name = part.GetDisplayName() + (IsGroup(part) ? "（グループ全体）" : "");
+        string name = part.GetDisplayName();
+        if (part.modelRoot)
+        {
+            int count = 0, ordinal = 0;
+            foreach (var other in part.modelRoot.GetComponentsInChildren<PlacedObject>(true))
+            {
+                if (other == part.modelRoot || other.modelRoot != part.modelRoot || other.GetDisplayName() != name) continue;
+                count++;
+                if (other == part) ordinal = count;
+            }
+            if (count > 1) name += " (" + ordinal + ")";
+        }
+        name += IsGroup(part) ? "（グループ全体）" : "";
         if (!part.modelRoot) return name;
         string id = part.Id;
         return part.modelRoot.GetDisplayName() + " / " + name + " [" +

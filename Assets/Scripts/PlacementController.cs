@@ -280,7 +280,7 @@ public class PlacementController : MonoBehaviour
 
     public bool PlaceForDesignUi(string typeId, Vector3 position, Quaternion rotation, Vector3 scale, string displayName)
     {
-        return PlaceType(typeId, position, rotation, scale, displayName, false);
+        return PlaceType(typeId, position, rotation, scale, PlacedObject.MakeUniqueDisplayName(string.IsNullOrWhiteSpace(displayName) ? PlacedObject.DefaultNameFor(typeId) : displayName.Trim()), false);
     }
 
     GameObject CreatePlacedObject(string typeId, out PlacedObject placed)
@@ -352,14 +352,35 @@ public class PlacedObject : MonoBehaviour
     public string Id => id;
     public string TypeId => typeId;
 
-    /// <summary>displayName が設定されていれば返し、未設定なら id を返す。</summary>
+    /// <summary>displayName が設定されていれば返し、未設定なら種類名（Prefab名）を返す。内部 id は返さない。</summary>
     public string GetDisplayName() =>
-        string.IsNullOrWhiteSpace(displayName) ? id : displayName;
+        string.IsNullOrWhiteSpace(displayName) ? DefaultNameFor(typeId, gameObject.name) : displayName;
+
+    public static string DefaultNameFor(string typeId, string fallback = null)
+    {
+        string name = string.IsNullOrWhiteSpace(typeId) ? null : typeId.Substring(typeId.LastIndexOf('/') + 1);
+        if (string.IsNullOrWhiteSpace(name)) name = fallback;
+        if (!string.IsNullOrWhiteSpace(name) && name.EndsWith("(Clone)", System.StringComparison.Ordinal)) name = name.Substring(0, name.Length - 7);
+        return string.IsNullOrWhiteSpace(name) ? "オブジェクト" : name.Trim();
+    }
+
+    /// <summary>既存の表示名と重複しない名前を返す（baseName, baseName (2), (3) ...）。</summary>
+    public static string MakeUniqueDisplayName(string baseName)
+    {
+        var used = new System.Collections.Generic.HashSet<string>();
+        foreach (var other in FindObjectsByType<PlacedObject>(FindObjectsInactive.Include, FindObjectsSortMode.None)) used.Add(other.GetDisplayName());
+        if (!used.Contains(baseName)) return baseName;
+        for (int n = 2; ; n++)
+        {
+            string candidate = baseName + " (" + n + ")";
+            if (!used.Contains(candidate)) return candidate;
+        }
+    }
 
     /// <summary>表示名を更新し OnDisplayNameChanged を発火する。</summary>
     public void SetDisplayName(string name)
     {
-        displayName = name?.Trim() ?? string.Empty;
+        displayName = string.IsNullOrWhiteSpace(name) ? DefaultNameFor(typeId, gameObject.name) : name.Trim();
         OnDisplayNameChanged?.Invoke(this);
     }
 
