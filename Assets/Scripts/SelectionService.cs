@@ -181,7 +181,7 @@ public class SelectionService : MonoBehaviour
         if (modifier && Input.GetKeyDown(KeyCode.C)) { CopySelected(); return; }
         if (EditInput.CancelPressedThisFrame()) { Select(null); return; }
         if (Current == null) return;
-        if (Input.GetKeyDown(KeyCode.Delete)) { DeleteSelected(); return; }
+        if (Input.GetKeyDown(KeyCode.Delete) || Input.GetKeyDown(KeyCode.Backspace)) { DeleteSelected(); return; }
         if (modifier && Input.GetKeyDown(KeyCode.D)) DuplicateSelected();
     }
 

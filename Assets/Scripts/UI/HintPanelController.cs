@@ -16,7 +16,7 @@ public class HintPanelController : MonoBehaviour
         "・3Dビュー上で Ctrl/Cmd + A: 全選択　Esc: 選択解除/範囲中止\n" +
         "・一覧のShiftクリック: 範囲選択　Ctrl/Cmdクリック: 個別追加/解除\n" +
         "・W/A/S/D または 矢印: グリッド幅ずつ移動\n" +
-        "・Delete: 削除　Ctrl/Cmd + D: 複製\n" +
+        "・Delete / Backspace: 削除　Ctrl/Cmd + D: 複製\n" +
         "・Ctrl/Cmd+C/V: コピー/貼付　Ctrl/Cmd+Shift+V: 元位置へ\n" +
         "・スナップ: 位置や角度を設定した間隔に自動で揃える機能\n" +
         "・Altを押している間: 配置・移動・回転のスナップを一時解除\n\n" +
@@ -125,6 +125,10 @@ public class HintPanelController : MonoBehaviour
         if (rect != null)
         {
             rect.sizeDelta = new Vector2(600f, 540f);
+            // The SkillSync canvas uses a 2560x1440 reference, so legacy dialogs need its 1.44x correction.
+            bool skillSync = transform.parent != null &&
+                transform.parent.GetComponentInChildren<SkillSyncDesignView>(true) != null;
+            rect.localScale = Vector3.one * (skillSync ? SkillSyncDesignLayout.Scale : 1f);
         }
 
         var title = transform.Find("Text_Title")?.GetComponent<TMP_Text>();
