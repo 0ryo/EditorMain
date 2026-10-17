@@ -1,7 +1,7 @@
 {
     "schemaVersion": 6,
     "projectName": "正解教材_タイヤ交換1本_先生検証用",
-    "savedAtUtc": "2026-10-14T06:55:10.1114360Z",
+    "savedAtUtc": "2026-10-17T00:53:44.8474690Z",
     "lastSaveWasAutomatic": false,
     "curriculum": {
         "schemaVersion": 5,
@@ -54,8 +54,8 @@
                 "nodeType": 2,
                 "step": {
                     "title": "ジャッキアップする",
-                    "body": "指定のジャッキポイントに受け皿を合わせ、ハンドルを操作して、左前のタイヤが地面から離れるまで車を上げる。",
-                    "supplement": "開始前：平らで硬い場所に停車し、エンジン停止・駐車ブレーキ・車種に合ったシフト位置・輪止めを確認する。タイヤが接地している間に4個のナットを少し緩めておく。教材はこの準備とジャッキ配置が済んだ状態から始める。",
+                    "body": "設置したジャッキの受け皿を確認し、ハンドルを操作して、左前のタイヤが地面から離れるまで車を上げる。",
+                    "supplement": "前の手順でジャッキを学習用設置枠へ移動した状態から始める。実車では指定のジャッキポイントへ受け皿を正しく合わせてから操作する。",
                     "caution": "車の下に入らない。車両とジャッキの取扱説明書に従う。模型は手順学習用の簡略フロアジャッキ。",
                     "durationMinutes": 1
                 },
@@ -1059,12 +1059,61 @@
                         }
                     ]
                 }
+            },
+            {
+                "nodeId": "step-jack-placement",
+                "nodeType": 2,
+                "step": {
+                    "title": "ジャッキを設置する",
+                    "body": "ジャッキ全体を持って、左前輪付近にある青い学習用設置枠へ移動し、枠の中心に合わせて1秒間保持する。",
+                    "supplement": "この枠は教材内でジャッキを移動・設置するための基準であり、実車の指定ジャッキポイントを表すものではない。実車では車両とジャッキの取扱説明書で指定位置を確認し、受け皿を正しく合わせる。",
+                    "caution": "設置前に平らで硬い場所、エンジン停止、駐車ブレーキ、車種に合ったシフト位置、輪止めを確認する。タイヤ接地中にナットを少し緩めておく。車の下に入らない。",
+                    "durationMinutes": 1
+                },
+                "condition": {
+                    "title": "手順1",
+                    "type": "SnapHold",
+                    "objectAId": "",
+                    "objectBId": "",
+                    "parameters": []
+                }
+            },
+            {
+                "nodeId": "cond-jack-placement",
+                "nodeType": 3,
+                "step": {
+                    "title": "",
+                    "body": "",
+                    "supplement": "",
+                    "caution": "",
+                    "durationMinutes": 0
+                },
+                "condition": {
+                    "title": "ジャッキ全体を学習用設置位置へ合わせて保持",
+                    "type": "SnapHold",
+                    "objectAId": "teacher-jack",
+                    "objectBId": "teacher-jack-placement",
+                    "parameters": [
+                        {
+                            "key": "distanceMeters",
+                            "numberValue": 0.10000000149011612,
+                            "textValue": "",
+                            "boolValue": false
+                        },
+                        {
+                            "key": "holdSeconds",
+                            "numberValue": 1.0,
+                            "textValue": "",
+                            "boolValue": false
+                        }
+                    ]
+                }
             }
         ],
         "edges": [
             {
                 "fromNodeId": "start-0001",
-                "toNodeId": "step-0001",
+                "toNodeId": "step-jack-placement",
                 "edgeType": 0
             },
             {
@@ -1236,6 +1285,16 @@
                 "fromNodeId": "step-0013",
                 "toNodeId": "end-0001",
                 "edgeType": 0
+            },
+            {
+                "fromNodeId": "step-jack-placement",
+                "toNodeId": "step-0001",
+                "edgeType": 0
+            },
+            {
+                "fromNodeId": "cond-jack-placement",
+                "toNodeId": "step-jack-placement",
+                "edgeType": 1
             }
         ]
     },
@@ -6675,600 +6734,6 @@
             "locked": false
         },
         {
-            "sourceNodePath": "0:%E8%87%AA%E5%8B%95%E8%BB%8A/13:Tire_Front_Left_parent",
-            "sourceSignature": "84D6EF3774D2F52A48E98CA5F9BF9E011875E434CCD8E0B42D373011D214E54E",
-            "parts": [
-                {
-                    "nodePath": "0:Front_Nat1_Left",
-                    "sourceSignature": "601984EEF5BE98772FAA747C7DA8463D652FECE1712BE9C8F3BC58FFBC761E62",
-                    "id": "teacher-old-tire/part-0efe7118d2254d9d994b26d85ef38e60",
-                    "displayName": "Front_Nat1_Left",
-                    "description": "",
-                    "editorGroupId": "",
-                    "hasDescriptionOverride": false,
-                    "localPosition": {
-                        "x": 2.3221259117126467,
-                        "y": 1.3056257963180543,
-                        "z": -3.570284605026245
-                    },
-                    "localRotation": {
-                        "x": 0.0,
-                        "y": 0.0,
-                        "z": 0.0,
-                        "w": 1.0
-                    },
-                    "localScale": {
-                        "x": 2.47948956489563,
-                        "y": 2.47948956489563,
-                        "z": 2.47948956489563
-                    },
-                    "active": false,
-                    "hidden": false,
-                    "locked": false
-                },
-                {
-                    "nodePath": "1:Front_Nat2_Left",
-                    "sourceSignature": "C9E35027F321F7A8008FF9EE07AA55C5D80E71BBCB96DCA6A882B3696B2E74C6",
-                    "id": "teacher-old-tire/part-6675cb84b8224e22bc12105bdaa0e300",
-                    "displayName": "Front_Nat2_Left",
-                    "description": "",
-                    "editorGroupId": "",
-                    "hasDescriptionOverride": false,
-                    "localPosition": {
-                        "x": 2.3221259117126467,
-                        "y": 1.3056257963180543,
-                        "z": -3.570284605026245
-                    },
-                    "localRotation": {
-                        "x": 0.0,
-                        "y": 0.0,
-                        "z": 0.0,
-                        "w": 1.0
-                    },
-                    "localScale": {
-                        "x": 2.47948956489563,
-                        "y": 2.47948956489563,
-                        "z": 2.47948956489563
-                    },
-                    "active": false,
-                    "hidden": false,
-                    "locked": false
-                },
-                {
-                    "nodePath": "2:Front_Nat3_Left",
-                    "sourceSignature": "59BA87D52C27FF694A8B687A501A321A4E00EAF7A6180EF1E450A5A66D45A88C",
-                    "id": "teacher-old-tire/part-2b0a9d65f9404a8e9a75e3116e12b779",
-                    "displayName": "Front_Nat3_Left",
-                    "description": "",
-                    "editorGroupId": "",
-                    "hasDescriptionOverride": false,
-                    "localPosition": {
-                        "x": 2.3221259117126467,
-                        "y": 1.3056257963180543,
-                        "z": -3.570284605026245
-                    },
-                    "localRotation": {
-                        "x": 0.0,
-                        "y": 0.0,
-                        "z": 0.0,
-                        "w": 1.0
-                    },
-                    "localScale": {
-                        "x": 2.47948956489563,
-                        "y": 2.47948956489563,
-                        "z": 2.47948956489563
-                    },
-                    "active": false,
-                    "hidden": false,
-                    "locked": false
-                },
-                {
-                    "nodePath": "3:Front_Nat4_Left",
-                    "sourceSignature": "7EBC715D335E9D5324AFF96F4F3E047426838147006F0B700102BF9F9F24A69F",
-                    "id": "teacher-old-tire/part-c03e74d9ebf04d4fb0e6e7672748f718",
-                    "displayName": "Front_Nat4_Left",
-                    "description": "",
-                    "editorGroupId": "",
-                    "hasDescriptionOverride": false,
-                    "localPosition": {
-                        "x": 2.3221259117126467,
-                        "y": 1.3056257963180543,
-                        "z": -3.570284605026245
-                    },
-                    "localRotation": {
-                        "x": 0.0,
-                        "y": 0.0,
-                        "z": 0.0,
-                        "w": 1.0
-                    },
-                    "localScale": {
-                        "x": 2.47948956489563,
-                        "y": 2.47948956489563,
-                        "z": 2.47948956489563
-                    },
-                    "active": false,
-                    "hidden": false,
-                    "locked": false
-                },
-                {
-                    "nodePath": "4:Front_Tread_Left",
-                    "sourceSignature": "3EDCBCDC8BEC9F833E5A59321FD3C491C3F5E96308E7FF9AF638BAD2903410F3",
-                    "id": "teacher-old-tire/part-b590462ccdb349b0aa4b4cc4a34bb0be",
-                    "displayName": "Front_Tread_Left",
-                    "description": "",
-                    "editorGroupId": "",
-                    "hasDescriptionOverride": false,
-                    "localPosition": {
-                        "x": 2.3221259117126467,
-                        "y": 1.3056257963180543,
-                        "z": -3.570284605026245
-                    },
-                    "localRotation": {
-                        "x": 0.0,
-                        "y": 0.0,
-                        "z": 0.0,
-                        "w": 1.0
-                    },
-                    "localScale": {
-                        "x": 2.47948956489563,
-                        "y": 2.47948956489563,
-                        "z": 2.47948956489563
-                    },
-                    "active": true,
-                    "hidden": false,
-                    "locked": false
-                },
-                {
-                    "nodePath": "5:Front_Wheel1_Left",
-                    "sourceSignature": "F983B4A387D1885C11B7540669F8F3226EE0E8C664722FA86B571C8468AA7ECF",
-                    "id": "teacher-old-tire/part-a5d06608992548ffa49e2ab2b5433f2b",
-                    "displayName": "Front_Wheel1_Left",
-                    "description": "",
-                    "editorGroupId": "",
-                    "hasDescriptionOverride": false,
-                    "localPosition": {
-                        "x": 2.3221259117126467,
-                        "y": 1.3056257963180543,
-                        "z": -3.570284605026245
-                    },
-                    "localRotation": {
-                        "x": 0.0,
-                        "y": 0.0,
-                        "z": 0.0,
-                        "w": 1.0
-                    },
-                    "localScale": {
-                        "x": 2.47948956489563,
-                        "y": 2.47948956489563,
-                        "z": 2.47948956489563
-                    },
-                    "active": true,
-                    "hidden": false,
-                    "locked": false
-                },
-                {
-                    "nodePath": "6:Front_Wheel2_Left",
-                    "sourceSignature": "69561DB720DEAE1DB51D0E2E15E8BE28F852884DBA4BAB39B565B3100128CAB1",
-                    "id": "teacher-old-tire/part-f332667850a547fb845a92f06f144579",
-                    "displayName": "Front_Wheel2_Left",
-                    "description": "",
-                    "editorGroupId": "",
-                    "hasDescriptionOverride": false,
-                    "localPosition": {
-                        "x": 2.3221259117126467,
-                        "y": 1.3056257963180543,
-                        "z": -3.570284605026245
-                    },
-                    "localRotation": {
-                        "x": 0.0,
-                        "y": 0.0,
-                        "z": 0.0,
-                        "w": 1.0
-                    },
-                    "localScale": {
-                        "x": 2.47948956489563,
-                        "y": 2.47948956489563,
-                        "z": 2.47948956489563
-                    },
-                    "active": true,
-                    "hidden": false,
-                    "locked": false
-                },
-                {
-                    "nodePath": "7:Front_Wheel3_Left",
-                    "sourceSignature": "89EC2C782EBF9FF015EE9047F6A97F24619B3C39B8C812583A49DC8E02828789",
-                    "id": "teacher-old-tire/part-8633970fbad441129e29eb4f256408d4",
-                    "displayName": "Front_Wheel3_Left",
-                    "description": "",
-                    "editorGroupId": "",
-                    "hasDescriptionOverride": false,
-                    "localPosition": {
-                        "x": 2.3221259117126467,
-                        "y": 1.3056257963180543,
-                        "z": -3.570284605026245
-                    },
-                    "localRotation": {
-                        "x": 0.0,
-                        "y": 0.0,
-                        "z": 0.0,
-                        "w": 1.0
-                    },
-                    "localScale": {
-                        "x": 2.47948956489563,
-                        "y": 2.47948956489563,
-                        "z": 2.47948956489563
-                    },
-                    "active": true,
-                    "hidden": false,
-                    "locked": false
-                }
-            ],
-            "id": "teacher-old-tire",
-            "typeId": "Imported/car_639268510102200860",
-            "displayName": "取り外すタイヤ",
-            "description": "",
-            "editorGroupId": "",
-            "hasDescriptionOverride": false,
-            "position": {
-                "x": 0.9365337491035461,
-                "y": 0.3665585517883301,
-                "z": -1.4399269819259644
-            },
-            "rotation": {
-                "x": 0.0,
-                "y": 1.0,
-                "z": 0.0,
-                "w": 4.371138828673793e-8
-            },
-            "scale": {
-                "x": 0.4033087491989136,
-                "y": 0.4033087491989136,
-                "z": 0.4033087491989136
-            },
-            "hidden": false,
-            "locked": false
-        },
-        {
-            "sourceNodePath": "0:%E8%87%AA%E5%8B%95%E8%BB%8A/13:Tire_Front_Left_parent",
-            "sourceSignature": "84D6EF3774D2F52A48E98CA5F9BF9E011875E434CCD8E0B42D373011D214E54E",
-            "parts": [
-                {
-                    "nodePath": "0:Front_Nat1_Left",
-                    "sourceSignature": "601984EEF5BE98772FAA747C7DA8463D652FECE1712BE9C8F3BC58FFBC761E62",
-                    "id": "teacher-replacement-tire/part-23cf734d23834314ad685b0ec736fc05",
-                    "displayName": "Front_Nat1_Left",
-                    "description": "",
-                    "editorGroupId": "",
-                    "hasDescriptionOverride": false,
-                    "localPosition": {
-                        "x": 2.3221259117126467,
-                        "y": 1.3056257963180543,
-                        "z": -3.570284605026245
-                    },
-                    "localRotation": {
-                        "x": 0.0,
-                        "y": 0.0,
-                        "z": 0.0,
-                        "w": 1.0
-                    },
-                    "localScale": {
-                        "x": 2.47948956489563,
-                        "y": 2.47948956489563,
-                        "z": 2.47948956489563
-                    },
-                    "active": false,
-                    "hidden": false,
-                    "locked": false
-                },
-                {
-                    "nodePath": "1:Front_Nat2_Left",
-                    "sourceSignature": "C9E35027F321F7A8008FF9EE07AA55C5D80E71BBCB96DCA6A882B3696B2E74C6",
-                    "id": "teacher-replacement-tire/part-4b3fedfbb93f4821bc481b227930637c",
-                    "displayName": "Front_Nat2_Left",
-                    "description": "",
-                    "editorGroupId": "",
-                    "hasDescriptionOverride": false,
-                    "localPosition": {
-                        "x": 2.3221259117126467,
-                        "y": 1.3056257963180543,
-                        "z": -3.570284605026245
-                    },
-                    "localRotation": {
-                        "x": 0.0,
-                        "y": 0.0,
-                        "z": 0.0,
-                        "w": 1.0
-                    },
-                    "localScale": {
-                        "x": 2.47948956489563,
-                        "y": 2.47948956489563,
-                        "z": 2.47948956489563
-                    },
-                    "active": false,
-                    "hidden": false,
-                    "locked": false
-                },
-                {
-                    "nodePath": "2:Front_Nat3_Left",
-                    "sourceSignature": "59BA87D52C27FF694A8B687A501A321A4E00EAF7A6180EF1E450A5A66D45A88C",
-                    "id": "teacher-replacement-tire/part-3c64c8e1fefc42c795397bfeaed1d382",
-                    "displayName": "Front_Nat3_Left",
-                    "description": "",
-                    "editorGroupId": "",
-                    "hasDescriptionOverride": false,
-                    "localPosition": {
-                        "x": 2.3221259117126467,
-                        "y": 1.3056257963180543,
-                        "z": -3.570284605026245
-                    },
-                    "localRotation": {
-                        "x": 0.0,
-                        "y": 0.0,
-                        "z": 0.0,
-                        "w": 1.0
-                    },
-                    "localScale": {
-                        "x": 2.47948956489563,
-                        "y": 2.47948956489563,
-                        "z": 2.47948956489563
-                    },
-                    "active": false,
-                    "hidden": false,
-                    "locked": false
-                },
-                {
-                    "nodePath": "3:Front_Nat4_Left",
-                    "sourceSignature": "7EBC715D335E9D5324AFF96F4F3E047426838147006F0B700102BF9F9F24A69F",
-                    "id": "teacher-replacement-tire/part-41782e13cb1745148d4f8c6b090b4127",
-                    "displayName": "Front_Nat4_Left",
-                    "description": "",
-                    "editorGroupId": "",
-                    "hasDescriptionOverride": false,
-                    "localPosition": {
-                        "x": 2.3221259117126467,
-                        "y": 1.3056257963180543,
-                        "z": -3.570284605026245
-                    },
-                    "localRotation": {
-                        "x": 0.0,
-                        "y": 0.0,
-                        "z": 0.0,
-                        "w": 1.0
-                    },
-                    "localScale": {
-                        "x": 2.47948956489563,
-                        "y": 2.47948956489563,
-                        "z": 2.47948956489563
-                    },
-                    "active": false,
-                    "hidden": false,
-                    "locked": false
-                },
-                {
-                    "nodePath": "4:Front_Tread_Left",
-                    "sourceSignature": "3EDCBCDC8BEC9F833E5A59321FD3C491C3F5E96308E7FF9AF638BAD2903410F3",
-                    "id": "teacher-replacement-tire/part-605ab3def75b48c8bab8af82b9fc6dc0",
-                    "displayName": "Front_Tread_Left",
-                    "description": "",
-                    "editorGroupId": "",
-                    "hasDescriptionOverride": false,
-                    "localPosition": {
-                        "x": 2.3221259117126467,
-                        "y": 1.3056257963180543,
-                        "z": -3.570284605026245
-                    },
-                    "localRotation": {
-                        "x": 0.0,
-                        "y": 0.0,
-                        "z": 0.0,
-                        "w": 1.0
-                    },
-                    "localScale": {
-                        "x": 2.47948956489563,
-                        "y": 2.47948956489563,
-                        "z": 2.47948956489563
-                    },
-                    "active": true,
-                    "hidden": false,
-                    "locked": false
-                },
-                {
-                    "nodePath": "5:Front_Wheel1_Left",
-                    "sourceSignature": "F983B4A387D1885C11B7540669F8F3226EE0E8C664722FA86B571C8468AA7ECF",
-                    "id": "teacher-replacement-tire/part-ba448b2d2d5f47818acafc80c019b83c",
-                    "displayName": "Front_Wheel1_Left",
-                    "description": "",
-                    "editorGroupId": "",
-                    "hasDescriptionOverride": false,
-                    "localPosition": {
-                        "x": 2.3221259117126467,
-                        "y": 1.3056257963180543,
-                        "z": -3.570284605026245
-                    },
-                    "localRotation": {
-                        "x": 0.0,
-                        "y": 0.0,
-                        "z": 0.0,
-                        "w": 1.0
-                    },
-                    "localScale": {
-                        "x": 2.47948956489563,
-                        "y": 2.47948956489563,
-                        "z": 2.47948956489563
-                    },
-                    "active": true,
-                    "hidden": false,
-                    "locked": false
-                },
-                {
-                    "nodePath": "6:Front_Wheel2_Left",
-                    "sourceSignature": "69561DB720DEAE1DB51D0E2E15E8BE28F852884DBA4BAB39B565B3100128CAB1",
-                    "id": "teacher-replacement-tire/part-5a6dc9d52267437da4e3ee8b282da014",
-                    "displayName": "Front_Wheel2_Left",
-                    "description": "",
-                    "editorGroupId": "",
-                    "hasDescriptionOverride": false,
-                    "localPosition": {
-                        "x": 2.3221259117126467,
-                        "y": 1.3056257963180543,
-                        "z": -3.570284605026245
-                    },
-                    "localRotation": {
-                        "x": 0.0,
-                        "y": 0.0,
-                        "z": 0.0,
-                        "w": 1.0
-                    },
-                    "localScale": {
-                        "x": 2.47948956489563,
-                        "y": 2.47948956489563,
-                        "z": 2.47948956489563
-                    },
-                    "active": true,
-                    "hidden": false,
-                    "locked": false
-                },
-                {
-                    "nodePath": "7:Front_Wheel3_Left",
-                    "sourceSignature": "89EC2C782EBF9FF015EE9047F6A97F24619B3C39B8C812583A49DC8E02828789",
-                    "id": "teacher-replacement-tire/part-838cc80d9bb74ac2a243d5f85127846d",
-                    "displayName": "Front_Wheel3_Left",
-                    "description": "",
-                    "editorGroupId": "",
-                    "hasDescriptionOverride": false,
-                    "localPosition": {
-                        "x": 2.3221259117126467,
-                        "y": 1.3056257963180543,
-                        "z": -3.570284605026245
-                    },
-                    "localRotation": {
-                        "x": 0.0,
-                        "y": 0.0,
-                        "z": 0.0,
-                        "w": 1.0
-                    },
-                    "localScale": {
-                        "x": 2.47948956489563,
-                        "y": 2.47948956489563,
-                        "z": 2.47948956489563
-                    },
-                    "active": true,
-                    "hidden": false,
-                    "locked": false
-                }
-            ],
-            "id": "teacher-replacement-tire",
-            "typeId": "Imported/car_639268510102200860",
-            "displayName": "交換用タイヤ",
-            "description": "",
-            "editorGroupId": "",
-            "hasDescriptionOverride": false,
-            "position": {
-                "x": 2.136533737182617,
-                "y": 0.3665585517883301,
-                "z": -2.239927053451538
-            },
-            "rotation": {
-                "x": 0.0,
-                "y": 1.0,
-                "z": 0.0,
-                "w": 4.371138828673793e-8
-            },
-            "scale": {
-                "x": 0.4033087491989136,
-                "y": 0.4033087491989136,
-                "z": 0.4033087491989136
-            },
-            "hidden": false,
-            "locked": false
-        },
-        {
-            "sourceNodePath": "",
-            "sourceSignature": "C58A0644DBAAAC563710A6D2858993B8F3BC8F1EE15FCE3696F119728DC1125A",
-            "parts": [
-                {
-                    "nodePath": "0:Socket_Wrench_Parent",
-                    "sourceSignature": "BD6B65D0E7AF4D5EA142A4C7A701E7F857E13B0661969A32C961CCCE7E865E5B",
-                    "id": "teacher-wrench/part-246d40c2783c43f5baa3d0a97d49a04a",
-                    "displayName": "Socket_Wrench_Parent",
-                    "description": "",
-                    "editorGroupId": "",
-                    "hasDescriptionOverride": false,
-                    "localPosition": {
-                        "x": 0.0,
-                        "y": 0.01621996983885765,
-                        "z": 0.0
-                    },
-                    "localRotation": {
-                        "x": 0.7071068286895752,
-                        "y": 0.0,
-                        "z": 0.0,
-                        "w": 0.7071068286895752
-                    },
-                    "localScale": {
-                        "x": 0.00044494643225334585,
-                        "y": 0.00044494643225334585,
-                        "z": 0.00044494643225334585
-                    },
-                    "active": true,
-                    "hidden": false,
-                    "locked": false
-                },
-                {
-                    "nodePath": "0:Socket_Wrench_Parent/0:Socket_Wrench_Handle",
-                    "sourceSignature": "820018871B06214A88873098CC0E361CAE66AE3DE4DACCE4AEB6D2D194110482",
-                    "id": "teacher-wrench/part-64f87f695cff4e30a34f36d3d9144cba",
-                    "displayName": "Socket_Wrench_Handle",
-                    "description": "",
-                    "editorGroupId": "",
-                    "hasDescriptionOverride": false,
-                    "localPosition": {
-                        "x": -244.7584991455078,
-                        "y": 0.0,
-                        "z": 116.90139770507813
-                    },
-                    "localRotation": {
-                        "x": 0.0,
-                        "y": 0.0,
-                        "z": 0.0,
-                        "w": 1.0
-                    },
-                    "localScale": {
-                        "x": 22.474611282348634,
-                        "y": 22.474611282348634,
-                        "z": 22.474611282348634
-                    },
-                    "active": true,
-                    "hidden": false,
-                    "locked": false
-                }
-            ],
-            "id": "teacher-wrench",
-            "typeId": "Imported/Socket_Wrench_639268510321211430",
-            "displayName": "ソケットレンチ",
-            "description": "",
-            "editorGroupId": "",
-            "hasDescriptionOverride": false,
-            "position": {
-                "x": 1.4696931838989258,
-                "y": 0.0780174508690834,
-                "z": -1.8399275541305543
-            },
-            "rotation": {
-                "x": 0.0,
-                "y": 0.0,
-                "z": 0.0,
-                "w": 1.0
-            },
-            "scale": {
-                "x": 1.0,
-                "y": 1.0,
-                "z": 1.0
-            },
-            "hidden": false,
-            "locked": false
-        },
-        {
             "sourceNodePath": "",
             "sourceSignature": "0C04A8D51F1CF9677D06ECC41207ED349DAA565A6B8B9D6496E3FDCA492B6830",
             "parts": [
@@ -7867,6 +7332,658 @@
             "description": "",
             "editorGroupId": "",
             "hasDescriptionOverride": false,
+            "position": {
+                "x": 2.1196930408477785,
+                "y": 0.0,
+                "z": -0.38992762565612795
+            },
+            "rotation": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0,
+                "w": 1.0
+            },
+            "scale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "hidden": false,
+            "locked": false
+        },
+        {
+            "sourceNodePath": "0:%E8%87%AA%E5%8B%95%E8%BB%8A/13:Tire_Front_Left_parent",
+            "sourceSignature": "84D6EF3774D2F52A48E98CA5F9BF9E011875E434CCD8E0B42D373011D214E54E",
+            "parts": [
+                {
+                    "nodePath": "0:Front_Nat1_Left",
+                    "sourceSignature": "601984EEF5BE98772FAA747C7DA8463D652FECE1712BE9C8F3BC58FFBC761E62",
+                    "id": "teacher-old-tire/part-0efe7118d2254d9d994b26d85ef38e60",
+                    "displayName": "Front_Nat1_Left",
+                    "description": "",
+                    "editorGroupId": "",
+                    "hasDescriptionOverride": false,
+                    "localPosition": {
+                        "x": 2.3221259117126467,
+                        "y": 1.3056257963180543,
+                        "z": -3.570284605026245
+                    },
+                    "localRotation": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 0.0,
+                        "w": 1.0
+                    },
+                    "localScale": {
+                        "x": 2.47948956489563,
+                        "y": 2.47948956489563,
+                        "z": 2.47948956489563
+                    },
+                    "active": false,
+                    "hidden": false,
+                    "locked": false
+                },
+                {
+                    "nodePath": "1:Front_Nat2_Left",
+                    "sourceSignature": "C9E35027F321F7A8008FF9EE07AA55C5D80E71BBCB96DCA6A882B3696B2E74C6",
+                    "id": "teacher-old-tire/part-6675cb84b8224e22bc12105bdaa0e300",
+                    "displayName": "Front_Nat2_Left",
+                    "description": "",
+                    "editorGroupId": "",
+                    "hasDescriptionOverride": false,
+                    "localPosition": {
+                        "x": 2.3221259117126467,
+                        "y": 1.3056257963180543,
+                        "z": -3.570284605026245
+                    },
+                    "localRotation": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 0.0,
+                        "w": 1.0
+                    },
+                    "localScale": {
+                        "x": 2.47948956489563,
+                        "y": 2.47948956489563,
+                        "z": 2.47948956489563
+                    },
+                    "active": false,
+                    "hidden": false,
+                    "locked": false
+                },
+                {
+                    "nodePath": "2:Front_Nat3_Left",
+                    "sourceSignature": "59BA87D52C27FF694A8B687A501A321A4E00EAF7A6180EF1E450A5A66D45A88C",
+                    "id": "teacher-old-tire/part-2b0a9d65f9404a8e9a75e3116e12b779",
+                    "displayName": "Front_Nat3_Left",
+                    "description": "",
+                    "editorGroupId": "",
+                    "hasDescriptionOverride": false,
+                    "localPosition": {
+                        "x": 2.3221259117126467,
+                        "y": 1.3056257963180543,
+                        "z": -3.570284605026245
+                    },
+                    "localRotation": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 0.0,
+                        "w": 1.0
+                    },
+                    "localScale": {
+                        "x": 2.47948956489563,
+                        "y": 2.47948956489563,
+                        "z": 2.47948956489563
+                    },
+                    "active": false,
+                    "hidden": false,
+                    "locked": false
+                },
+                {
+                    "nodePath": "3:Front_Nat4_Left",
+                    "sourceSignature": "7EBC715D335E9D5324AFF96F4F3E047426838147006F0B700102BF9F9F24A69F",
+                    "id": "teacher-old-tire/part-c03e74d9ebf04d4fb0e6e7672748f718",
+                    "displayName": "Front_Nat4_Left",
+                    "description": "",
+                    "editorGroupId": "",
+                    "hasDescriptionOverride": false,
+                    "localPosition": {
+                        "x": 2.3221259117126467,
+                        "y": 1.3056257963180543,
+                        "z": -3.570284605026245
+                    },
+                    "localRotation": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 0.0,
+                        "w": 1.0
+                    },
+                    "localScale": {
+                        "x": 2.47948956489563,
+                        "y": 2.47948956489563,
+                        "z": 2.47948956489563
+                    },
+                    "active": false,
+                    "hidden": false,
+                    "locked": false
+                },
+                {
+                    "nodePath": "4:Front_Tread_Left",
+                    "sourceSignature": "3EDCBCDC8BEC9F833E5A59321FD3C491C3F5E96308E7FF9AF638BAD2903410F3",
+                    "id": "teacher-old-tire/part-b590462ccdb349b0aa4b4cc4a34bb0be",
+                    "displayName": "Front_Tread_Left",
+                    "description": "",
+                    "editorGroupId": "",
+                    "hasDescriptionOverride": false,
+                    "localPosition": {
+                        "x": 2.3221259117126467,
+                        "y": 1.3056257963180543,
+                        "z": -3.570284605026245
+                    },
+                    "localRotation": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 0.0,
+                        "w": 1.0
+                    },
+                    "localScale": {
+                        "x": 2.47948956489563,
+                        "y": 2.47948956489563,
+                        "z": 2.47948956489563
+                    },
+                    "active": true,
+                    "hidden": false,
+                    "locked": false
+                },
+                {
+                    "nodePath": "5:Front_Wheel1_Left",
+                    "sourceSignature": "F983B4A387D1885C11B7540669F8F3226EE0E8C664722FA86B571C8468AA7ECF",
+                    "id": "teacher-old-tire/part-a5d06608992548ffa49e2ab2b5433f2b",
+                    "displayName": "Front_Wheel1_Left",
+                    "description": "",
+                    "editorGroupId": "",
+                    "hasDescriptionOverride": false,
+                    "localPosition": {
+                        "x": 2.3221259117126467,
+                        "y": 1.3056257963180543,
+                        "z": -3.570284605026245
+                    },
+                    "localRotation": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 0.0,
+                        "w": 1.0
+                    },
+                    "localScale": {
+                        "x": 2.47948956489563,
+                        "y": 2.47948956489563,
+                        "z": 2.47948956489563
+                    },
+                    "active": true,
+                    "hidden": false,
+                    "locked": false
+                },
+                {
+                    "nodePath": "6:Front_Wheel2_Left",
+                    "sourceSignature": "69561DB720DEAE1DB51D0E2E15E8BE28F852884DBA4BAB39B565B3100128CAB1",
+                    "id": "teacher-old-tire/part-f332667850a547fb845a92f06f144579",
+                    "displayName": "Front_Wheel2_Left",
+                    "description": "",
+                    "editorGroupId": "",
+                    "hasDescriptionOverride": false,
+                    "localPosition": {
+                        "x": 2.3221259117126467,
+                        "y": 1.3056257963180543,
+                        "z": -3.570284605026245
+                    },
+                    "localRotation": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 0.0,
+                        "w": 1.0
+                    },
+                    "localScale": {
+                        "x": 2.47948956489563,
+                        "y": 2.47948956489563,
+                        "z": 2.47948956489563
+                    },
+                    "active": true,
+                    "hidden": false,
+                    "locked": false
+                },
+                {
+                    "nodePath": "7:Front_Wheel3_Left",
+                    "sourceSignature": "89EC2C782EBF9FF015EE9047F6A97F24619B3C39B8C812583A49DC8E02828789",
+                    "id": "teacher-old-tire/part-8633970fbad441129e29eb4f256408d4",
+                    "displayName": "Front_Wheel3_Left",
+                    "description": "",
+                    "editorGroupId": "",
+                    "hasDescriptionOverride": false,
+                    "localPosition": {
+                        "x": 2.3221259117126467,
+                        "y": 1.3056257963180543,
+                        "z": -3.570284605026245
+                    },
+                    "localRotation": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 0.0,
+                        "w": 1.0
+                    },
+                    "localScale": {
+                        "x": 2.47948956489563,
+                        "y": 2.47948956489563,
+                        "z": 2.47948956489563
+                    },
+                    "active": true,
+                    "hidden": false,
+                    "locked": false
+                }
+            ],
+            "id": "teacher-old-tire",
+            "typeId": "Imported/car_639268510102200860",
+            "displayName": "取り外すタイヤ",
+            "description": "",
+            "editorGroupId": "",
+            "hasDescriptionOverride": false,
+            "position": {
+                "x": 0.9365337491035461,
+                "y": 0.3665585517883301,
+                "z": -1.4399269819259644
+            },
+            "rotation": {
+                "x": 0.0,
+                "y": 1.0,
+                "z": 0.0,
+                "w": 4.371138828673793e-8
+            },
+            "scale": {
+                "x": 0.4033087491989136,
+                "y": 0.4033087491989136,
+                "z": 0.4033087491989136
+            },
+            "hidden": false,
+            "locked": false
+        },
+        {
+            "sourceNodePath": "0:%E8%87%AA%E5%8B%95%E8%BB%8A/13:Tire_Front_Left_parent",
+            "sourceSignature": "84D6EF3774D2F52A48E98CA5F9BF9E011875E434CCD8E0B42D373011D214E54E",
+            "parts": [
+                {
+                    "nodePath": "0:Front_Nat1_Left",
+                    "sourceSignature": "601984EEF5BE98772FAA747C7DA8463D652FECE1712BE9C8F3BC58FFBC761E62",
+                    "id": "teacher-replacement-tire/part-23cf734d23834314ad685b0ec736fc05",
+                    "displayName": "Front_Nat1_Left",
+                    "description": "",
+                    "editorGroupId": "",
+                    "hasDescriptionOverride": false,
+                    "localPosition": {
+                        "x": 2.3221259117126467,
+                        "y": 1.3056257963180543,
+                        "z": -3.570284605026245
+                    },
+                    "localRotation": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 0.0,
+                        "w": 1.0
+                    },
+                    "localScale": {
+                        "x": 2.47948956489563,
+                        "y": 2.47948956489563,
+                        "z": 2.47948956489563
+                    },
+                    "active": false,
+                    "hidden": false,
+                    "locked": false
+                },
+                {
+                    "nodePath": "1:Front_Nat2_Left",
+                    "sourceSignature": "C9E35027F321F7A8008FF9EE07AA55C5D80E71BBCB96DCA6A882B3696B2E74C6",
+                    "id": "teacher-replacement-tire/part-4b3fedfbb93f4821bc481b227930637c",
+                    "displayName": "Front_Nat2_Left",
+                    "description": "",
+                    "editorGroupId": "",
+                    "hasDescriptionOverride": false,
+                    "localPosition": {
+                        "x": 2.3221259117126467,
+                        "y": 1.3056257963180543,
+                        "z": -3.570284605026245
+                    },
+                    "localRotation": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 0.0,
+                        "w": 1.0
+                    },
+                    "localScale": {
+                        "x": 2.47948956489563,
+                        "y": 2.47948956489563,
+                        "z": 2.47948956489563
+                    },
+                    "active": false,
+                    "hidden": false,
+                    "locked": false
+                },
+                {
+                    "nodePath": "2:Front_Nat3_Left",
+                    "sourceSignature": "59BA87D52C27FF694A8B687A501A321A4E00EAF7A6180EF1E450A5A66D45A88C",
+                    "id": "teacher-replacement-tire/part-3c64c8e1fefc42c795397bfeaed1d382",
+                    "displayName": "Front_Nat3_Left",
+                    "description": "",
+                    "editorGroupId": "",
+                    "hasDescriptionOverride": false,
+                    "localPosition": {
+                        "x": 2.3221259117126467,
+                        "y": 1.3056257963180543,
+                        "z": -3.570284605026245
+                    },
+                    "localRotation": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 0.0,
+                        "w": 1.0
+                    },
+                    "localScale": {
+                        "x": 2.47948956489563,
+                        "y": 2.47948956489563,
+                        "z": 2.47948956489563
+                    },
+                    "active": false,
+                    "hidden": false,
+                    "locked": false
+                },
+                {
+                    "nodePath": "3:Front_Nat4_Left",
+                    "sourceSignature": "7EBC715D335E9D5324AFF96F4F3E047426838147006F0B700102BF9F9F24A69F",
+                    "id": "teacher-replacement-tire/part-41782e13cb1745148d4f8c6b090b4127",
+                    "displayName": "Front_Nat4_Left",
+                    "description": "",
+                    "editorGroupId": "",
+                    "hasDescriptionOverride": false,
+                    "localPosition": {
+                        "x": 2.3221259117126467,
+                        "y": 1.3056257963180543,
+                        "z": -3.570284605026245
+                    },
+                    "localRotation": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 0.0,
+                        "w": 1.0
+                    },
+                    "localScale": {
+                        "x": 2.47948956489563,
+                        "y": 2.47948956489563,
+                        "z": 2.47948956489563
+                    },
+                    "active": false,
+                    "hidden": false,
+                    "locked": false
+                },
+                {
+                    "nodePath": "4:Front_Tread_Left",
+                    "sourceSignature": "3EDCBCDC8BEC9F833E5A59321FD3C491C3F5E96308E7FF9AF638BAD2903410F3",
+                    "id": "teacher-replacement-tire/part-605ab3def75b48c8bab8af82b9fc6dc0",
+                    "displayName": "Front_Tread_Left",
+                    "description": "",
+                    "editorGroupId": "",
+                    "hasDescriptionOverride": false,
+                    "localPosition": {
+                        "x": 2.3221259117126467,
+                        "y": 1.3056257963180543,
+                        "z": -3.570284605026245
+                    },
+                    "localRotation": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 0.0,
+                        "w": 1.0
+                    },
+                    "localScale": {
+                        "x": 2.47948956489563,
+                        "y": 2.47948956489563,
+                        "z": 2.47948956489563
+                    },
+                    "active": true,
+                    "hidden": false,
+                    "locked": false
+                },
+                {
+                    "nodePath": "5:Front_Wheel1_Left",
+                    "sourceSignature": "F983B4A387D1885C11B7540669F8F3226EE0E8C664722FA86B571C8468AA7ECF",
+                    "id": "teacher-replacement-tire/part-ba448b2d2d5f47818acafc80c019b83c",
+                    "displayName": "Front_Wheel1_Left",
+                    "description": "",
+                    "editorGroupId": "",
+                    "hasDescriptionOverride": false,
+                    "localPosition": {
+                        "x": 2.3221259117126467,
+                        "y": 1.3056257963180543,
+                        "z": -3.570284605026245
+                    },
+                    "localRotation": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 0.0,
+                        "w": 1.0
+                    },
+                    "localScale": {
+                        "x": 2.47948956489563,
+                        "y": 2.47948956489563,
+                        "z": 2.47948956489563
+                    },
+                    "active": true,
+                    "hidden": false,
+                    "locked": false
+                },
+                {
+                    "nodePath": "6:Front_Wheel2_Left",
+                    "sourceSignature": "69561DB720DEAE1DB51D0E2E15E8BE28F852884DBA4BAB39B565B3100128CAB1",
+                    "id": "teacher-replacement-tire/part-5a6dc9d52267437da4e3ee8b282da014",
+                    "displayName": "Front_Wheel2_Left",
+                    "description": "",
+                    "editorGroupId": "",
+                    "hasDescriptionOverride": false,
+                    "localPosition": {
+                        "x": 2.3221259117126467,
+                        "y": 1.3056257963180543,
+                        "z": -3.570284605026245
+                    },
+                    "localRotation": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 0.0,
+                        "w": 1.0
+                    },
+                    "localScale": {
+                        "x": 2.47948956489563,
+                        "y": 2.47948956489563,
+                        "z": 2.47948956489563
+                    },
+                    "active": true,
+                    "hidden": false,
+                    "locked": false
+                },
+                {
+                    "nodePath": "7:Front_Wheel3_Left",
+                    "sourceSignature": "89EC2C782EBF9FF015EE9047F6A97F24619B3C39B8C812583A49DC8E02828789",
+                    "id": "teacher-replacement-tire/part-838cc80d9bb74ac2a243d5f85127846d",
+                    "displayName": "Front_Wheel3_Left",
+                    "description": "",
+                    "editorGroupId": "",
+                    "hasDescriptionOverride": false,
+                    "localPosition": {
+                        "x": 2.3221259117126467,
+                        "y": 1.3056257963180543,
+                        "z": -3.570284605026245
+                    },
+                    "localRotation": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 0.0,
+                        "w": 1.0
+                    },
+                    "localScale": {
+                        "x": 2.47948956489563,
+                        "y": 2.47948956489563,
+                        "z": 2.47948956489563
+                    },
+                    "active": true,
+                    "hidden": false,
+                    "locked": false
+                }
+            ],
+            "id": "teacher-replacement-tire",
+            "typeId": "Imported/car_639268510102200860",
+            "displayName": "交換用タイヤ",
+            "description": "",
+            "editorGroupId": "",
+            "hasDescriptionOverride": false,
+            "position": {
+                "x": 2.136533737182617,
+                "y": 0.3665585517883301,
+                "z": -2.239927053451538
+            },
+            "rotation": {
+                "x": 0.0,
+                "y": 1.0,
+                "z": 0.0,
+                "w": 4.371138828673793e-8
+            },
+            "scale": {
+                "x": 0.4033087491989136,
+                "y": 0.4033087491989136,
+                "z": 0.4033087491989136
+            },
+            "hidden": false,
+            "locked": false
+        },
+        {
+            "sourceNodePath": "",
+            "sourceSignature": "C58A0644DBAAAC563710A6D2858993B8F3BC8F1EE15FCE3696F119728DC1125A",
+            "parts": [
+                {
+                    "nodePath": "0:Socket_Wrench_Parent",
+                    "sourceSignature": "BD6B65D0E7AF4D5EA142A4C7A701E7F857E13B0661969A32C961CCCE7E865E5B",
+                    "id": "teacher-wrench/part-246d40c2783c43f5baa3d0a97d49a04a",
+                    "displayName": "Socket_Wrench_Parent",
+                    "description": "",
+                    "editorGroupId": "",
+                    "hasDescriptionOverride": false,
+                    "localPosition": {
+                        "x": 0.0,
+                        "y": 0.01621996983885765,
+                        "z": 0.0
+                    },
+                    "localRotation": {
+                        "x": 0.7071068286895752,
+                        "y": 0.0,
+                        "z": 0.0,
+                        "w": 0.7071068286895752
+                    },
+                    "localScale": {
+                        "x": 0.00044494643225334585,
+                        "y": 0.00044494643225334585,
+                        "z": 0.00044494643225334585
+                    },
+                    "active": true,
+                    "hidden": false,
+                    "locked": false
+                },
+                {
+                    "nodePath": "0:Socket_Wrench_Parent/0:Socket_Wrench_Handle",
+                    "sourceSignature": "820018871B06214A88873098CC0E361CAE66AE3DE4DACCE4AEB6D2D194110482",
+                    "id": "teacher-wrench/part-64f87f695cff4e30a34f36d3d9144cba",
+                    "displayName": "Socket_Wrench_Handle",
+                    "description": "",
+                    "editorGroupId": "",
+                    "hasDescriptionOverride": false,
+                    "localPosition": {
+                        "x": -244.7584991455078,
+                        "y": 0.0,
+                        "z": 116.90139770507813
+                    },
+                    "localRotation": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 0.0,
+                        "w": 1.0
+                    },
+                    "localScale": {
+                        "x": 22.474611282348634,
+                        "y": 22.474611282348634,
+                        "z": 22.474611282348634
+                    },
+                    "active": true,
+                    "hidden": false,
+                    "locked": false
+                }
+            ],
+            "id": "teacher-wrench",
+            "typeId": "Imported/Socket_Wrench_639268510321211430",
+            "displayName": "ソケットレンチ",
+            "description": "",
+            "editorGroupId": "",
+            "hasDescriptionOverride": false,
+            "position": {
+                "x": 1.4696931838989258,
+                "y": 0.0780174508690834,
+                "z": -1.8399275541305543
+            },
+            "rotation": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0,
+                "w": 1.0
+            },
+            "scale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "hidden": false,
+            "locked": false
+        },
+        {
+            "sourceNodePath": "",
+            "sourceSignature": "5D16D790554EAC31246C601218C8E0E63840AD3956BBCA2F5CE89C3EEA6D2A99",
+            "parts": [
+                {
+                    "nodePath": "0:JackPlacementMarker",
+                    "sourceSignature": "57E06C52950E3F5B1EEB98E9CF8526BF9FD86E13D3D167A40FEEB85549FB4177",
+                    "id": "obj-0005/part-994429803cb2408daa12c6f6761d2e3b",
+                    "displayName": "JackPlacementMarker",
+                    "description": "",
+                    "editorGroupId": "",
+                    "hasDescriptionOverride": false,
+                    "localPosition": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 0.0
+                    },
+                    "localRotation": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 0.0,
+                        "w": 1.0
+                    },
+                    "localScale": {
+                        "x": 1.0,
+                        "y": 1.0,
+                        "z": 1.0
+                    },
+                    "active": true,
+                    "hidden": false,
+                    "locked": false
+                }
+            ],
+            "id": "teacher-jack-placement",
+            "typeId": "Imported/TeacherJackPlacementMarker",
+            "displayName": "学習用ジャッキ設置位置",
+            "description": "この枠は教材内でジャッキを移動・設置するための基準であり、実車の指定ジャッキポイントを表すものではない。実車では車両とジャッキの取扱説明書で指定位置を確認し、受け皿を正しく合わせる。",
+            "editorGroupId": "",
+            "hasDescriptionOverride": true,
             "position": {
                 "x": 0.6196931004524231,
                 "y": 0.0,

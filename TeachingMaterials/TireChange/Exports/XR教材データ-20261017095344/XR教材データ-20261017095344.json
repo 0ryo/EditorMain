@@ -9,14 +9,49 @@
     },
     "requiredActions": [
         {
-            "sourceNodeId": "step-0001",
+            "sourceNodeId": "step-jack-placement",
             "nextActionIds": [
                 "act-002"
             ],
             "id": "act-001",
+            "name": "ジャッキを設置する",
+            "body": "ジャッキ全体を持って、左前輪付近にある青い学習用設置枠へ移動し、枠の中心に合わせて1秒間保持する。",
+            "supplement": "この枠は教材内でジャッキを移動・設置するための基準であり、実車の指定ジャッキポイントを表すものではない。実車では車両とジャッキの取扱説明書で指定位置を確認し、受け皿を正しく合わせる。",
+            "caution": "設置前に平らで硬い場所、エンジン停止、駐車ブレーキ、車種に合ったシフト位置、輪止めを確認する。タイヤ接地中にナットを少し緩めておく。車の下に入らない。",
+            "durationMinutes": 1,
+            "conditions": [
+                {
+                    "type": "SnapHold",
+                    "aObjectId": "teacher-jack",
+                    "bObjectId": "teacher-jack-placement",
+                    "holdSeconds": 1.0,
+                    "distanceMeters": 0.10000000149011612,
+                    "parameters": [
+                        {
+                            "key": "distanceMeters",
+                            "numberValue": 0.10000000149011612,
+                            "textValue": "",
+                            "boolValue": false
+                        },
+                        {
+                            "key": "holdSeconds",
+                            "numberValue": 1.0,
+                            "textValue": "",
+                            "boolValue": false
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "sourceNodeId": "step-0001",
+            "nextActionIds": [
+                "act-003"
+            ],
+            "id": "act-002",
             "name": "ジャッキアップする",
-            "body": "指定のジャッキポイントに受け皿を合わせ、ハンドルを操作して、左前のタイヤが地面から離れるまで車を上げる。",
-            "supplement": "開始前：平らで硬い場所に停車し、エンジン停止・駐車ブレーキ・車種に合ったシフト位置・輪止めを確認する。タイヤが接地している間に4個のナットを少し緩めておく。教材はこの準備とジャッキ配置が済んだ状態から始める。",
+            "body": "設置したジャッキの受け皿を確認し、ハンドルを操作して、左前のタイヤが地面から離れるまで車を上げる。",
+            "supplement": "前の手順でジャッキを学習用設置枠へ移動した状態から始める。実車では指定のジャッキポイントへ受け皿を正しく合わせてから操作する。",
             "caution": "車の下に入らない。車両とジャッキの取扱説明書に従う。模型は手順学習用の簡略フロアジャッキ。",
             "durationMinutes": 1,
             "conditions": [
@@ -33,9 +68,9 @@
         {
             "sourceNodeId": "step-0002",
             "nextActionIds": [
-                "act-003"
+                "act-004"
             ],
-            "id": "act-002",
+            "id": "act-003",
             "name": "ナット1を外す",
             "body": "ナット1にレンチを合わせて反時計回りに緩め、ナットを引き抜いて、なくさない場所に置く。",
             "supplement": "取り外す順番は1 → 4 → 2 → 3。番号はこの教材の部品名に対応する。",
@@ -70,9 +105,9 @@
         {
             "sourceNodeId": "step-0003",
             "nextActionIds": [
-                "act-004"
+                "act-005"
             ],
-            "id": "act-003",
+            "id": "act-004",
             "name": "ナット4を外す",
             "body": "ナット4にレンチを合わせて反時計回りに緩め、ナットを引き抜いて、なくさない場所に置く。",
             "supplement": "取り外す順番は1 → 4 → 2 → 3。番号はこの教材の部品名に対応する。",
@@ -107,9 +142,9 @@
         {
             "sourceNodeId": "step-0004",
             "nextActionIds": [
-                "act-005"
+                "act-006"
             ],
-            "id": "act-004",
+            "id": "act-005",
             "name": "ナット2を外す",
             "body": "ナット2にレンチを合わせて反時計回りに緩め、ナットを引き抜いて、なくさない場所に置く。",
             "supplement": "取り外す順番は1 → 4 → 2 → 3。番号はこの教材の部品名に対応する。",
@@ -144,9 +179,9 @@
         {
             "sourceNodeId": "step-0005",
             "nextActionIds": [
-                "act-006"
+                "act-007"
             ],
-            "id": "act-005",
+            "id": "act-006",
             "name": "ナット3を外す",
             "body": "ナット3にレンチを合わせて反時計回りに緩め、ナットを引き抜いて、なくさない場所に置く。",
             "supplement": "取り外す順番は1 → 4 → 2 → 3。番号はこの教材の部品名に対応する。",
@@ -181,9 +216,9 @@
         {
             "sourceNodeId": "step-0006",
             "nextActionIds": [
-                "act-007"
+                "act-008"
             ],
-            "id": "act-006",
+            "id": "act-007",
             "name": "タイヤを外す",
             "body": "タイヤを両手で支えて手前に引き、車から外す。外したタイヤを作業の邪魔にならない場所に置く。",
             "supplement": "",
@@ -203,9 +238,9 @@
         {
             "sourceNodeId": "step-0007",
             "nextActionIds": [
-                "act-008"
+                "act-009"
             ],
-            "id": "act-007",
+            "id": "act-008",
             "name": "交換用タイヤを持ってくる",
             "body": "交換用タイヤを持ち、左前の取付位置まで運ぶ。",
             "supplement": "持ったことを検出する条件。運ぶ位置は次の手順で確認する。",
@@ -225,9 +260,9 @@
         {
             "sourceNodeId": "step-0008",
             "nextActionIds": [
-                "act-009"
+                "act-010"
             ],
-            "id": "act-008",
+            "id": "act-009",
             "name": "交換用タイヤをはめる",
             "body": "ホイールの穴を車側の取付ボルトに合わせ、交換用タイヤを奥まで押し込む。",
             "supplement": "ホイールが取付面に密着していることを確認する。距離10cm・1秒は教材用の判定値で、実際の取付精度を表さない。",
@@ -260,9 +295,9 @@
         {
             "sourceNodeId": "step-0009",
             "nextActionIds": [
-                "act-010"
+                "act-011"
             ],
-            "id": "act-009",
+            "id": "act-010",
             "name": "ナット1を付ける",
             "body": "ナット1を対応するボルトに付け、手で時計回りにねじ込む。レンチで軽く締め、ホイールを固定する。",
             "supplement": "付ける順番は1 → 4 → 2 → 3の対角順。全てのナットを軽く締める段階で、本締めは接地後に行う。",
@@ -297,9 +332,9 @@
         {
             "sourceNodeId": "step-0010",
             "nextActionIds": [
-                "act-011"
+                "act-012"
             ],
-            "id": "act-010",
+            "id": "act-011",
             "name": "ナット4を付ける",
             "body": "ナット4を対応するボルトに付け、手で時計回りにねじ込む。レンチで軽く締め、ホイールを固定する。",
             "supplement": "付ける順番は1 → 4 → 2 → 3の対角順。全てのナットを軽く締める段階で、本締めは接地後に行う。",
@@ -334,9 +369,9 @@
         {
             "sourceNodeId": "step-0011",
             "nextActionIds": [
-                "act-012"
+                "act-013"
             ],
-            "id": "act-011",
+            "id": "act-012",
             "name": "ナット2を付ける",
             "body": "ナット2を対応するボルトに付け、手で時計回りにねじ込む。レンチで軽く締め、ホイールを固定する。",
             "supplement": "付ける順番は1 → 4 → 2 → 3の対角順。全てのナットを軽く締める段階で、本締めは接地後に行う。",
@@ -371,9 +406,9 @@
         {
             "sourceNodeId": "step-0012",
             "nextActionIds": [
-                "act-013"
+                "act-014"
             ],
-            "id": "act-012",
+            "id": "act-013",
             "name": "ナット3を付ける",
             "body": "ナット3を対応するボルトに付け、手で時計回りにねじ込む。レンチで軽く締め、ホイールを固定する。",
             "supplement": "付ける順番は1 → 4 → 2 → 3の対角順。全てのナットを軽く締める段階で、本締めは接地後に行う。",
@@ -410,7 +445,7 @@
             "nextActionIds": [
                 "$end"
             ],
-            "id": "act-013",
+            "id": "act-014",
             "name": "ジャッキを緩めて車を降ろす",
             "body": "ジャッキのリリースバルブをゆっくり緩め、タイヤが接地するまで車を降ろす。車が安定したらジャッキを外す。",
             "supplement": "接地後の仕上げ：車両指定のトルクで4個のナットを対角順に本締めし、工具と輪止めを片付ける。先生は本締めまで確認する。",
@@ -6460,6 +6495,58 @@
             "id": "teacher-jack",
             "typeId": "Imported/TeacherTireChangeJack",
             "position": {
+                "x": 2.1196930408477785,
+                "y": 0.0,
+                "z": -0.38992762565612795
+            },
+            "rotation": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0,
+                "w": 1.0
+            },
+            "scale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            }
+        },
+        {
+            "sourceNodePath": "",
+            "sourceSignature": "5D16D790554EAC31246C601218C8E0E63840AD3956BBCA2F5CE89C3EEA6D2A99",
+            "parts": [
+                {
+                    "nodePath": "0:JackPlacementMarker",
+                    "sourceSignature": "57E06C52950E3F5B1EEB98E9CF8526BF9FD86E13D3D167A40FEEB85549FB4177",
+                    "id": "obj-0005/part-994429803cb2408daa12c6f6761d2e3b",
+                    "displayName": "JackPlacementMarker",
+                    "description": "",
+                    "editorGroupId": "",
+                    "hasDescriptionOverride": false,
+                    "localPosition": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 0.0
+                    },
+                    "localRotation": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 0.0,
+                        "w": 1.0
+                    },
+                    "localScale": {
+                        "x": 1.0,
+                        "y": 1.0,
+                        "z": 1.0
+                    },
+                    "active": true,
+                    "hidden": false,
+                    "locked": false
+                }
+            ],
+            "id": "teacher-jack-placement",
+            "typeId": "Imported/TeacherJackPlacementMarker",
+            "position": {
                 "x": 0.6196931004524231,
                 "y": 0.0,
                 "z": -1.139927625656128
@@ -7056,19 +7143,25 @@
     "models": [
         {
             "typeId": "Imported/car_639268510102200860",
-            "uri": "XR教材データ-20261014155510_assets/car/car.glb",
+            "uri": "XR教材データ-20261017095344_assets/car/car.glb",
             "prefabAssetPath": "",
             "requiresPreinstalledPrefab": false
         },
         {
             "typeId": "Imported/TeacherTireChangeJack",
-            "uri": "XR教材データ-20261014155510_assets/教材用ジャッキ/training-floor-jack.glb",
+            "uri": "XR教材データ-20261017095344_assets/教材用ジャッキ/training-floor-jack.glb",
+            "prefabAssetPath": "",
+            "requiresPreinstalledPrefab": false
+        },
+        {
+            "typeId": "Imported/TeacherJackPlacementMarker",
+            "uri": "XR教材データ-20261017095344_assets/学習用ジャッキ設置位置/jack-placement-marker.glb",
             "prefabAssetPath": "",
             "requiresPreinstalledPrefab": false
         },
         {
             "typeId": "Imported/Socket_Wrench_639268510321211430",
-            "uri": "XR教材データ-20261014155510_assets/Socket_Wrench/Socket_Wrench.glb",
+            "uri": "XR教材データ-20261017095344_assets/Socket_Wrench/Socket_Wrench.glb",
             "prefabAssetPath": "",
             "requiresPreinstalledPrefab": false
         }

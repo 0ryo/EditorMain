@@ -15,8 +15,9 @@ public sealed class ObjectScreenPicker : MonoBehaviour, IPointerClickHandler
     ObjectCandidatePreview preview;
     Texture2D cursor;
     TMP_FontAsset font;
+    PlacedObject currentTarget;
 
-    public static void Begin(ObjectDropdownBrowser owner, Func<string, bool> accept, TMP_FontAsset font)
+    public static void Begin(ObjectDropdownBrowser owner, Func<string, bool> accept, TMP_FontAsset font, PlacedObject currentTarget = null)
     {
         if (active) active.Close();
         var go = new GameObject("Object screen picker", typeof(RectTransform), typeof(Canvas), typeof(GraphicRaycaster), typeof(Image));
@@ -29,6 +30,7 @@ public sealed class ObjectScreenPicker : MonoBehaviour, IPointerClickHandler
         active.owner = owner;
         active.accept = accept;
         active.font = font;
+        active.currentTarget = currentTarget;
         active.preview = go.AddComponent<ObjectCandidatePreview>();
         active.cursor = MakeCursor();
         Cursor.SetCursor(active.cursor, new Vector2(5, 27), CursorMode.Auto);
@@ -48,12 +50,13 @@ public sealed class ObjectScreenPicker : MonoBehaviour, IPointerClickHandler
         preview.Show(candidate, candidate ? ImportedModelParts.Label(candidate) : "画面上のオブジェクトを選択（Esc / 右クリックでキャンセル）", font);
     }
 
-    static PlacedObject Pick(Vector2 point)
+    PlacedObject Pick(Vector2 point)
     {
         var camera = EditWorkspace.ResolveCamera();
         if (!camera || !camera.pixelRect.Contains(point) || PlacementController.IsScreenPositionOverBlockingUi(point)) return null;
         Physics.SyncTransforms();
-        return PlacedObjectPicker.TryPick(camera.ScreenPointToRay(point), ~0, out var picked, out _, out _) ? picked : null;
+        return PlacedObjectPicker.TryPick(camera.ScreenPointToRay(point), ~0, out var picked, out _, out _)
+            ? PlacedObjectOptionProvider.ScreenCandidate(picked, currentTarget) : null;
     }
 
     public void OnPointerClick(PointerEventData data)

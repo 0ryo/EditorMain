@@ -204,8 +204,19 @@ public static class ImportedModelParts
         return depth;
     }
 
-    public static string Label(PlacedObject part) => part.modelRoot
-        ? part.modelRoot.GetDisplayName() + " / " + part.GetDisplayName() + " [" +
-            (part.id.Length > 6 ? part.id.Substring(part.id.Length - 6) : part.id) + "]"
-        : part.GetDisplayName();
+    public static bool IsGroup(PlacedObject part)
+    {
+        if (!part || !IsImported(part)) return false;
+        var root = part.modelRoot ? part.modelRoot : part;
+        return part.GetComponentsInChildren<PlacedObject>(true).Any(child => child != part && child.modelRoot == root);
+    }
+
+    public static string Label(PlacedObject part)
+    {
+        string name = part.GetDisplayName() + (IsGroup(part) ? "（グループ全体）" : "");
+        if (!part.modelRoot) return name;
+        string id = part.Id;
+        return part.modelRoot.GetDisplayName() + " / " + name + " [" +
+            (id.Length > 6 ? id.Substring(id.Length - 6) : id) + "]";
+    }
 }

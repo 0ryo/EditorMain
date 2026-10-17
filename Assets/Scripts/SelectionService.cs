@@ -42,6 +42,8 @@ public class SelectionService : MonoBehaviour
     bool warnedCameraMissing;
     bool warnedPickMaskExclusion;
     float nextDependencyResolveTime;
+    PlacedObject drilledGroupRoot;
+    string drilledEditorGroupId;
     bool regionPending;
     bool regionDragging;
     bool regionAdditive;
@@ -159,13 +161,7 @@ public class SelectionService : MonoBehaviour
                 {
                     LogDebug($"Picked placed object: id={picked.Id}, name={picked.name}, mouse={mousePosition}");
                 }
-                if (AdditiveSelection || !Contains(picked)) Select(picked, AdditiveSelection);
-                else if (picked != Current)
-                {
-                    selected.Remove(picked);
-                    selected.Add(picked);
-                    PublishSelection();
-                }
+                SelectPicked(picked, AdditiveSelection);
             }
             else
             {
@@ -231,6 +227,7 @@ public class SelectionService : MonoBehaviour
 
     public void SelectMany(IEnumerable<PlacedObject> items, bool additive = false)
     {
+        ClearDrilledGroup();
         // Materialize before clearing: callers may pass Selected itself.
         var candidates = items == null ? new List<PlacedObject>() : items.Where(CanEdit).Distinct().ToList();
         candidates = SelectionGroups.Expand(candidates).Where(CanEdit).Distinct().ToList();
@@ -249,6 +246,7 @@ public class SelectionService : MonoBehaviour
 
     public void Select(PlacedObject po, bool additive)
     {
+        ClearDrilledGroup();
         if (CanEdit(po) && !string.IsNullOrEmpty(po.editorGroupId))
         {
             var members = SelectionGroups.Expand(new[] { po }).Where(CanEdit).ToList();
@@ -260,6 +258,57 @@ public class SelectionService : MonoBehaviour
             else SelectMany(members, additive);
             return;
         }
+        SelectIndividual(po, additive);
+    }
+
+    // Viewport taps enter a group first, then allow direct selection of its parts.
+    public void SelectPicked(PlacedObject picked, bool additive = false)
+    {
+        if (!CanEdit(picked)) return;
+        var root = SelectionGroups.PickRoot(picked);
+        var members = SelectionGroups.Expand(new[] { root }).Where(CanEdit).ToList();
+        bool sameDrilledGroup = selected.Count == 1 && Current != null &&
+            ((!string.IsNullOrEmpty(root.editorGroupId) && root.editorGroupId == drilledEditorGroupId) ||
+                (string.IsNullOrEmpty(root.editorGroupId) && root == drilledGroupRoot));
+        bool groupSelected = members.Count > 0 && members.All(Contains);
+        bool hasGroup = root != picked || !string.IsNullOrEmpty(root.editorGroupId) ||
+            root.GetComponentsInChildren<PlacedObject>(true).Any(part => part != root);
+        if (!additive && !hasGroup && Contains(picked))
+        {
+            ClearDrilledGroup();
+            if (picked != Current)
+            {
+                selected.Remove(picked);
+                selected.Add(picked);
+                PublishSelection();
+            }
+            return;
+        }
+        if (!additive && hasGroup && (sameDrilledGroup || groupSelected))
+        {
+            drilledGroupRoot = root;
+            drilledEditorGroupId = root.editorGroupId;
+            SelectIndividual(picked, false);
+            return;
+        }
+
+        ClearDrilledGroup();
+        if (additive && members.Any(Contains))
+        {
+            selected.RemoveAll(members.Contains);
+            PublishSelection();
+        }
+        else SelectMany(members, additive);
+    }
+
+    void ClearDrilledGroup()
+    {
+        drilledGroupRoot = null;
+        drilledEditorGroupId = null;
+    }
+
+    void SelectIndividual(PlacedObject po, bool additive)
+    {
         if (!additive) selected.Clear();
         if (CanEdit(po))
         {

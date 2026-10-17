@@ -6,6 +6,20 @@ using UnityEngine;
 // A flat editor selection group. Model parentage and all scenario IDs remain intact.
 public static class SelectionGroups
 {
+    // A model hierarchy is one editable object until the user drills into it.
+    // Explicit flat groups on a part take precedence over its model ancestors.
+    public static PlacedObject PickRoot(PlacedObject picked)
+    {
+        var root = picked;
+        for (var node = picked != null ? picked.transform : null; node != null; node = node.parent)
+        {
+            var placed = node.GetComponent<PlacedObject>();
+            if (placed == null) continue;
+            if (!string.IsNullOrEmpty(placed.editorGroupId)) return placed;
+            root = placed;
+        }
+        return root;
+    }
     public static IEnumerable<PlacedObject> Expand(IEnumerable<PlacedObject> source)
     {
         var items = source.Where(item => item != null).ToList();

@@ -40,6 +40,22 @@ public static class ImportedModelPartChecks
             Require(parts.Length == 4, "Root, group and two meshes registered without extra geometry");
             Require(source.GetComponentsInChildren<PlacedObject>(true).Length == 0, "Source remains untouched");
             Require(parts.Select(p => p.id).Distinct().Count() == 4, "Same-name parts have distinct IDs");
+            Require(ImportedModelParts.IsGroup(root) && ImportedModelParts.IsGroup(parts[1]) &&
+                !ImportedModelParts.IsGroup(parts[2]), "Model and assembly groups are distinguished from individual mesh parts");
+            Require(ImportedModelParts.Label(root).EndsWith("（グループ全体）") &&
+                ImportedModelParts.Label(parts[1]).Contains("（グループ全体）") &&
+                !ImportedModelParts.Label(parts[2]).Contains("（グループ全体）"), "Condition target labels identify complete groups");
+            Require(ImportedModelParts.Label(parts[2]) != ImportedModelParts.Label(parts[3]),
+                "Same-name component target labels remain distinct");
+            Require(PlacedObjectOptionProvider.ScreenCandidate(parts[2], null) == root &&
+                PlacedObjectOptionProvider.ScreenCandidate(parts[2], root) == parts[2] &&
+                PlacedObjectOptionProvider.ScreenCandidate(parts[3], parts[2]) == parts[3],
+                "Screen target picks the entire group first and individual components when the same model is specified again");
+            var otherModel = new GameObject("Other model");
+            instances.Add(otherModel);
+            var otherTarget = otherModel.AddComponent<PlacedObject>();
+            Require(PlacedObjectOptionProvider.ScreenCandidate(parts[2], otherTarget) == root,
+                "Screen target returns to complete-group selection when choosing a different model");
             string id = parts[2].id;
             ImportedModelParts.Register(root);
             Require(parts[2].id == id, "Repeated registration retains IDs");
@@ -106,7 +122,7 @@ public static class ImportedModelPartChecks
             try { ImportedModelParts.Resolve(source.transform, parts[2].partNodePath); }
             catch (InvalidOperationException) { missingRejected = true; }
             Require(missingRejected, "Changed source is rejected rather than silently rebinding");
-            Require(EditorProjectMigration.TryRead("{\"schemaVersion\":5,\"objects\":[]}", out var legacy, out _) &&
+            Require(EditorProjectMigration.TryRead("{\"schemaVersion\":5,\"objects\":[],\"curriculum\":{\"schemaVersion\":5,\"nodes\":[],\"edges\":[]}}", out var legacy, out _) &&
                 legacy.schemaVersion == 6, "Legacy project migration accepted");
             Debug.Log("[Part import] All checks passed: identity, hierarchy, visibility/lock, deletion, duplication and persistence.");
         }

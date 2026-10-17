@@ -43,4 +43,13 @@ public static class PlacedObjectOptionProvider
         if (options == null || options.Count == 0) return "empty";
         return string.Join("|", options.Select(o => $"{o.id}:{o.label}"));
     }
+
+    // A screen pick commits immediately. Reopening the same target lets the next
+    // click select a component inside that model, while a new model starts whole.
+    public static PlacedObject ScreenCandidate(PlacedObject picked, PlacedObject currentTarget)
+    {
+        if (!picked) return null;
+        var root = SelectionGroups.PickRoot(picked);
+        return currentTarget && SelectionGroups.PickRoot(currentTarget) == root ? picked : root;
+    }
 }

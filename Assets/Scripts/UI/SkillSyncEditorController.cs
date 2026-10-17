@@ -170,16 +170,15 @@ public sealed class SkillSyncEditorController : MonoBehaviour
                 ghost.Follow(cameraView,EditInput.MousePosition);
                 if(EditInput.LeftPressedThisFrame()) ConfirmGhost();
             }
-            else if(pickTarget!=null && EditInput.LeftPressedThisFrame())
+            else if(pickTarget!=null)
             {
-                if(Physics.Raycast(cameraView.ScreenPointToRay(EditInput.MousePosition),out var hit,10000))
-                {
-                    var p=hit.collider.GetComponentInParent<PlacedObject>();
-                    if(p!=null) Pick(p.Id);
-                }
+                var candidate=ScreenPickCandidate();
+                GetComponent<SkillSyncObjectPicker>()?.ShowCandidate(candidate);
+                if(candidate!=null && EditInput.LeftPressedThisFrame()) Pick(candidate.Id);
             }
             else if(trial!=null) SelectTrialObject();
         }
+        else if(pickTarget!=null) GetComponent<SkillSyncObjectPicker>()?.ClearPreview();
         if(trial!=null && Condition!=null)
         {
             bool before=trial.InRange, completed=trial.Complete;
@@ -431,6 +430,14 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         });
         pickTarget=null;status="対象を設定しました";Refresh();
     }
+    PlacedObject ScreenPickCandidate()
+    {
+        if(cameraView==null || Condition==null) return null;
+        Physics.SyncTransforms();
+        if(!PlacedObjectPicker.TryPick(cameraView.ScreenPointToRay(EditInput.MousePosition),~0,out var picked,out _,out _)) return null;
+        string currentId=pickTarget=="A"?Condition.condition.objectAId:Condition.condition.objectBId;
+        return PlacedObjectOptionProvider.ScreenCandidate(picked,FindPlaced(currentId));
+    }
     void NextStep()
     {
         var next=ScenarioFlow.Next(graph.curriculum,stepId).Where(n=>n.nodeType==ScenarioNodeType.Step).ToList();
@@ -574,8 +581,8 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         if(view.conditionOverlay!=null) view.conditionOverlay.Configure(cameraView,
             trial!=null?trial.Find(Condition?.condition.objectAId):mode==1 && distanceCondition && a!=null?a.transform:null,
             trial!=null?trial.Find(Condition?.condition.objectBId):mode==1 && distanceCondition && b!=null?b.transform:null,DistanceLimit(),trial!=null && trial.InRange);
-        view.Text("objectA",a!=null?a.GetDisplayName():"対象を選択してください");
-        view.Text("objectB",b!=null?b.GetDisplayName():"対象を選択してください");
+        view.Text("objectA",a!=null?ImportedModelParts.Label(a):"対象を選択してください");
+        view.Text("objectB",b!=null?ImportedModelParts.Label(b):"対象を選択してください");
         bool valid=SkillSyncConditionEditing.TargetsValid(Condition?.condition,id=>FindPlaced(id)!=null);
         var conditions=Step!=null?graph.GetConditionNodesForStep(stepId):new List<ScenarioNode>();
         bool canTrial=valid && conditions.Count>0 && conditions.All(c=>SkillSyncConditionEditing.SupportsPcTrial(c.condition) &&

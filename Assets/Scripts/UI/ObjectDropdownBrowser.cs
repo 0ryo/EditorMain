@@ -198,7 +198,10 @@ public sealed class ObjectDropdownBrowser : MonoBehaviour, IPointerEnterHandler,
     {
         Clear();
         dropdown.Hide();
-        ObjectScreenPicker.Begin(this, SelectObject, dropdown.captionText ? dropdown.captionText.font : TMP_Settings.defaultFontAsset);
+        RefreshObjects();
+        string currentId=dropdown.value>=0 && dropdown.value<ids.Count?ids[dropdown.value]:null;
+        objects.TryGetValue(currentId ?? string.Empty, out var current);
+        ObjectScreenPicker.Begin(this, SelectObject, dropdown.captionText ? dropdown.captionText.font : TMP_Settings.defaultFontAsset, current);
     }
 
     bool SelectObject(string id)

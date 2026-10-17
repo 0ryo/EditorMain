@@ -46,6 +46,7 @@ persistentDataPath/Projects/*.skillsync.json
 - `EditCameraController`: 初期・resetは透視投影。透視zoomは距離に比例する指数倍率で、旧serialized感度をAwakeで移行する。wheelは段階的に即時反映し、半段未満の入力は蓄積せず破棄する。中/右ドラッグorbit、Shift+中/右ドラッグpan、wheel zoom、選択focus、定型view、投影切替、resetを担当する。設定button下のcamera iconから開閉する`ViewportCameraToolbar`とshortcutから操作し、入力は`EditInput`経由で読む。`ViewportCameraToolbar`は3D viewport上部buttonの共通hover guideも提供する。
 - `CommandService` / `CommandStack` / command classes: 編集操作のDo/Undo/Redo。
 - `SelectionGroups`はTransform階層を変更しない平坦な選択グループ。`editorGroupId`を配置ルートと部品状態に保存し、複製・貼付けではグループIDも再発行する。Ctrl/Cmd+Gでグループ化、Shift併用で解除する。
+- ビューポートの通常クリックは`SelectionService.SelectPicked`で、初回は階層モデルのルートまたは平坦グループ全体を選択し、再クリックから同グループ内の個別部品選択へ切り替える。別グループ・選択解除・一覧からの明示選択で部品選択状態を解除する。移動・回転・拡縮は既存の`SelectionTransformSession`を通し、親子の二重変形を避ける。一覧では指定した階層行の選択を維持する。
 - `SelectionClipboard`はPlay中の配置物コピーをデータのsnapshotとして保持し、隠し配置instanceを作らない。`PasteSelectionCommand`は元Prefabと部品pathを検証して全件を非表示のstaging下で復元し、成功後に公開する。貼り付けごとに新IDを割り当て、Undo/Redoは同じinstanceとIDを保持する。子部品の単体コピーは元モデル内のpathを引き継ぎ、Scenario条件参照は複製しない。
 
 ### 編集ビューポートの表示
@@ -117,6 +118,7 @@ persistentDataPath/Projects/*.skillsync.json
 - Graphの規則は `CurriculumGraphService` に集約し、node UIはservice経由で変更する。
 - 条件の新規選択肢と旧形式の互換判定は `ConditionTypeCatalog.Definitions` / `Find` で区別する。操作条件の実行側入力契約は `IScenarioInteractionStateSource`、詳細は `Docs/rules/scenario_rules.md`。
 - 条件候補の検索・ホバーは `ObjectDropdownBrowser` → `ObjectCandidatePreview`。深度なしのMeshマスクから輪郭だけをUIへ重ね、編集選択・元素材・保存データには触れない。Resourcesの専用Shaderへカメラ描画開始時のview/projectionと各Rendererの現在のlocalToWorldを合成して渡し、SRPの暗黙の描画行列に依存しない。`ObjectScreenPicker`は対象欄の既存変更リスナーへIDを渡し、完了フレームも通常の配置・変形入力を抑止する。
+- 追加モデルの条件候補はルート・中間親も既存の`PlacedObject.id`で参照し、`ImportedModelParts.Label`が「グループ全体」を明示する。固定UIの候補も共通ラベルと輪郭表示を使う。画面からの条件指定は初回にルート、同じ対象を再指定した場合はクリックした部品を返す。平坦な編集用グループIDをシナリオの対象IDに変換することはしない。
 - 通常選択は `SelectionHighlightSet` から同じ形状描画を青色で利用する。対象ごとにマスクを作り輪郭を合成するため、選択対象同士の包含でも内側を見失わない。全選択で2枚のRenderTextureを共有する。`SelectionOutline`は拡縮の角位置計算・操作ハンドルを担当し、矩形の選択枠は描かない。
 - Catalog metadataは `PrefabRegistry` とruntime card stateに分かれる。追加モデルは`ImportedModelStore`のライブラリへ保存し、再起動時に同じtypeIdで登録する。GLB/glTFの配布素材は`ScenarioModelBundle`が同梱し、モデルfolder名は取込時に設定した`displayName`を使う。保存先で禁止される文字は置換し、大文字小文字を無視した同名は`-2`以降で区別する。JSONの`models.uri`とZIP内のfolderも同じ名前にする。
 - Editor-only AssetDatabase処理は `Assets/Editor/Automation/` または `#if UNITY_EDITOR` 内に閉じる。
