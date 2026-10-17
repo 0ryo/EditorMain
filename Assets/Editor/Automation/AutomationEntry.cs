@@ -14,10 +14,24 @@ public static class AutomationEntry
 
     public static void ApplyUiEdits()
     {
-        Debug.Log("[AutomationEntry] ApplyUiEdits started.");
+        var existing = AssetDatabase.LoadAssetAtPath<GameObject>(UiRootPrefabPath);
+        if (existing != null && existing.GetComponentInChildren<SkillSyncDesignView>(true) != null)
+        {
+            throw new InvalidOperationException(
+                "[AutomationEntry] ApplyUiEdits would rebuild UIRoot.prefab and lose the fixed SkillSync UI (SkillSyncDesignView). " +
+                "固定UIが失われるため中止しました。Use ApplySkillSyncDesign.ApplyViewportRefinements instead, or ApplyLegacyUiEditsDestructive to rebuild the legacy UI on purpose.");
+        }
+
+        ApplyLegacyUiEditsDestructive();
+    }
+
+    // Explicit legacy override: BuildUiPrefabs.Build() regenerates UIRoot.prefab and removes the fixed SkillSync UI.
+    public static void ApplyLegacyUiEditsDestructive()
+    {
+        Debug.Log("[AutomationEntry] ApplyLegacyUiEditsDestructive started.");
         BuildUiPrefabs.Build();
         ApplyUiPrefab.Apply();
-        Debug.Log("[AutomationEntry] ApplyUiEdits completed.");
+        Debug.Log("[AutomationEntry] ApplyLegacyUiEditsDestructive completed.");
     }
 
     public static void MigrateScenarioData()
@@ -45,24 +59,51 @@ public static class AutomationEntry
 
         RequirePrefabComponent<Canvas>(prefab);
         RequirePrefabComponent<GraphicRaycaster>(prefab);
-        RequirePrefabComponent<ViewportStatusStrip>(prefab);
 
-        var scenario = RequirePrefabComponent<ScenarioGraphUI>(prefab);
+        var design = RequirePrefabComponent<SkillSyncDesignView>(prefab);
+        RequirePrefabComponent<SkillSyncEditorController>(prefab);
         RequireSerializedReferences(
-            scenario,
+            design,
             UiRootPrefabPath,
-            "panelRoot",
-            "projectNameInput",
-            "addStepButton",
-            "addConditionButton",
-            "saveButton",
-            "statusText",
-            "nodeArea",
-            "graphContent",
-            "lineLayer",
-            "lineTemplate",
-            "stepNodeTemplate",
-            "resizeHandle");
+            "viewport",
+            "modal",
+            "modalBlocker",
+            "libraryContent",
+            "stepsContent",
+            "objectsContent",
+            "libraryTemplate",
+            "stepTemplate",
+            "objectTemplate");
+
+        // Legacy UI is dormant; missing parts only warn.
+        if (prefab.GetComponentInChildren<ViewportStatusStrip>(true) == null)
+        {
+            Debug.LogWarning($"[AutomationEntry] ViewportStatusStrip is missing from {UiRootPrefabPath} (optional).");
+        }
+
+        var scenario = prefab.GetComponentInChildren<ScenarioGraphUI>(true);
+        if (scenario == null)
+        {
+            Debug.LogWarning($"[AutomationEntry] ScenarioGraphUI is missing from {UiRootPrefabPath} (optional).");
+        }
+        else
+        {
+            RequireSerializedReferences(
+                scenario,
+                UiRootPrefabPath,
+                "panelRoot",
+                "projectNameInput",
+                "addStepButton",
+                "addConditionButton",
+                "saveButton",
+                "statusText",
+                "nodeArea",
+                "graphContent",
+                "lineLayer",
+                "lineTemplate",
+                "stepNodeTemplate",
+                "resizeHandle");
+        }
 
         var catalog = RequirePrefabComponent<CatalogUI>(prefab);
         RequireSerializedReferences(
