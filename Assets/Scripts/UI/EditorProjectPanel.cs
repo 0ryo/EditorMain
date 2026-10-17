@@ -172,6 +172,7 @@ public sealed class EditorProjectPanel : MonoBehaviour
         dialog.anchorMin = dialog.anchorMax = new Vector2(0.5f, 0.5f);
         dialog.pivot = new Vector2(0.5f, 0.5f);
         dialog.sizeDelta = new Vector2(720f, 620f);
+        dialog.localScale = Vector3.one * SkillSyncDesignLayout.Scale;
         var dialogImage = dialog.gameObject.AddComponent<Image>();
         dialogImage.color = DesignTokens.Surface;
 
@@ -385,13 +386,28 @@ public sealed class EditorProjectPanel : MonoBehaviour
 
     void RequestNewProject()
     {
-        ShowConfirmation("現在の編集内容を閉じて、新規プロジェクトを作成します。", () =>
+        if (!projectService.HasEditableContent())
         {
-            projectService.NewProject(GetProjectName(), out var message);
-            statusText.text = message;
-            RefreshSaveButtonLabel();
-            HideConfirmation();
-        });
+            NewProjectNow();
+            return;
+        }
+
+        ShowLoadConfirmation(
+            "現在の内容を保存してから新規プロジェクトを作成しますか？",
+            "保存して新規", "破棄して新規",
+            () =>
+            {
+                if (TrySaveCurrent()) NewProjectNow();
+            },
+            NewProjectNow);
+    }
+
+    void NewProjectNow()
+    {
+        projectService.NewProject(GetProjectName(), out var message);
+        statusText.text = message;
+        RefreshSaveButtonLabel();
+        HideConfirmation();
     }
 
     void RequestLoad(EditorProjectFileInfo info)
@@ -400,6 +416,7 @@ public sealed class EditorProjectPanel : MonoBehaviour
         {
             ShowLoadConfirmation(
                 $"現在の内容を保存してから「{info.DisplayName}」を読み込みますか？",
+                "保存して読込", "破棄して読込",
                 () => SaveCurrentThenLoad(info),
                 () => LoadProjectNow(info));
             return;
@@ -409,6 +426,11 @@ public sealed class EditorProjectPanel : MonoBehaviour
     }
 
     void SaveCurrentThenLoad(EditorProjectFileInfo info)
+    {
+        if (TrySaveCurrent()) LoadProjectNow(info);
+    }
+
+    bool TrySaveCurrent()
     {
         string currentName = GetProjectName();
         string safeCurrentName = ExportFileNameUtility.SanitizeProjectName(currentName, "VRCourseEditor");
@@ -430,17 +452,17 @@ public sealed class EditorProjectPanel : MonoBehaviour
             statusText.text = $"「{nameCollision.DisplayName}」は既に保存されています。現在の内容を保存する場合は別のプロジェクト名を入力してください。";
             statusText.color = DesignTokens.Warning;
             HideConfirmation();
-            return;
+            return false;
         }
 
         if (!projectService.Save(currentName, out var saveMessage))
         {
             statusText.text = saveMessage;
             HideConfirmation();
-            return;
+            return false;
         }
 
-        LoadProjectNow(info);
+        return true;
     }
 
     void LoadProjectNow(EditorProjectFileInfo info)
@@ -683,15 +705,15 @@ public sealed class EditorProjectPanel : MonoBehaviour
         confirmation.SetAsLastSibling();
     }
 
-    void ShowLoadConfirmation(string message, Action saveAction, Action discardAction)
+    void ShowLoadConfirmation(string message, string saveLabel, string discardLabel, Action saveAction, Action discardAction)
     {
         confirmedAction = saveAction;
         secondaryConfirmedAction = discardAction;
         confirmationText.text = message;
         confirmationText.rectTransform.offsetMax = new Vector2(-356f, 0f);
         SetButtonLabel(confirmationCancelButton, "キャンセル");
-        SetButtonLabel(confirmationSecondaryButton, "破棄して読込");
-        SetButtonLabel(confirmationPrimaryButton, "保存して読込");
+        SetButtonLabel(confirmationSecondaryButton, discardLabel);
+        SetButtonLabel(confirmationPrimaryButton, saveLabel);
         SetTopRight(confirmationCancelButton.transform as RectTransform, new Vector2(-268f, -7f), new Vector2(88f, 40f));
         SetTopRight(confirmationSecondaryButton.transform as RectTransform, new Vector2(-140f, -7f), new Vector2(120f, 40f));
         SetTopRight(confirmationPrimaryButton.transform as RectTransform, new Vector2(-12f, -7f), new Vector2(120f, 40f));
@@ -783,13 +805,22 @@ public sealed class EditorProjectPanel : MonoBehaviour
     {
         if (allowQuit || projectService == null || !projectService.IsDirty) return true;
 
-        projectService.SaveRecoveryNow(out _);
         Open();
-        ShowConfirmation("未保存の変更があります。終了するときは復旧用の自動保存を残します。", () =>
-        {
-            allowQuit = true;
-            Application.Quit();
-        });
+        ShowLoadConfirmation(
+            "未保存の変更があります。保存して終了しますか？",
+            "保存して終了", "破棄して終了",
+            () =>
+            {
+                if (!TrySaveCurrent()) return;
+                allowQuit = true;
+                Application.Quit();
+            },
+            () =>
+            {
+                projectService.DiscardOwnedRecovery();
+                allowQuit = true;
+                Application.Quit();
+            });
         return false;
     }
 #endif

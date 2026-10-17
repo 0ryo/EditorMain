@@ -609,19 +609,7 @@ public sealed class EditorProjectService : MonoBehaviour
         try
         {
             string fingerprint = BuildCurrentFingerprint();
-            if (!string.IsNullOrWhiteSpace(CurrentProjectPath))
-            {
-                CurrentProjectPath = EditorProjectStore.SaveAutomatic(
-                    EditorProjectSnapshotBuilder.Capture(graph, CurrentProjectName),
-                    CurrentProjectPath);
-                recoverySession.DeleteOwned(out _);
-                EstablishCleanBaseline();
-                message = "自動保存しました。";
-                Notify(() => RecoveryChanged?.Invoke());
-                Debug.Log("[EditorProject] " + message);
-                return true;
-            }
-
+            // Autosave only ever writes the recovery slot; the project file changes on explicit save.
             // Retry startup preservation before the shared slot can be written.
             // Keep this failure separate from ordinary later autosave failures.
             if (recoveryProtection.HasFailure && !recoveryProtection.TryPreserve(out message)) return false;
@@ -639,6 +627,14 @@ public sealed class EditorProjectService : MonoBehaviour
             Debug.LogWarning("[EditorProject] " + message);
             return false;
         }
+    }
+
+    // Drops only the recovery written by this session (used when the user discards unsaved changes on quit).
+    public void DiscardOwnedRecovery()
+    {
+        recoverySession.DeleteOwned(out _);
+        lastRecoveryFingerprint = null;
+        Notify(() => RecoveryChanged?.Invoke());
     }
 
     public bool DeleteRecovery(out string message)
