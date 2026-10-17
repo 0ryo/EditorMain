@@ -18,11 +18,12 @@ public sealed class SkillSyncEditorController : MonoBehaviour
     CurriculumGraphService graph;
     EditorProjectService project;
     EditorCameraController cameraController;
+    EditModeService subscribedModes;
     Camera cameraView;
     Rect previousCameraRect;
     Color previousCameraColor;
     string stepId, conditionId, search = "", category = "すべて", pickTarget;
-    string status = "", catalogStatus = "", librarySignature = "";
+    string status = "", librarySignature = "", transformTab = "移動";
     int mode;
     int validationErrorCount;
     bool validating;
@@ -71,7 +72,6 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         catalog = transform.root.GetComponentInChildren<CatalogUI>(true);
         if (catalog != null)
         {
-            catalogStatus = catalog.StatusMessage;
             catalog.StatusChanged += CatalogStatus;
         }
         placement = FindFirstObjectByType<PlacementController>();
@@ -116,6 +116,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         placement.ObjectPlaced += ObjectPlaced;
         project.StatusChanged += ProjectStatus;
         if(CommandService.I != null) CommandService.I.Stack.HistoryChanged += HistoryChanged;
+        if(EditModeService.I != null) {subscribedModes=EditModeService.I;subscribedModes.ModeChanged += EditModeChanged;}
         initialized=true;
         GraphChanged();RebuildLibrary();Refresh();GetComponent<CanvasGroup>().alpha=1;
         if (!string.IsNullOrEmpty(project.RecoveryProtectionWarning))
@@ -131,6 +132,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         if(project!=null) project.StatusChanged-=ProjectStatus;
         if(catalog!=null) catalog.StatusChanged-=CatalogStatus;
         if(CommandService.I!=null) CommandService.I.Stack.HistoryChanged-=HistoryChanged;
+        if(subscribedModes!=null) subscribedModes.ModeChanged-=EditModeChanged;
         if(cameraView!=null) {cameraView.rect=previousCameraRect;cameraView.backgroundColor=previousCameraColor;}
         if(Active==this) Active=null;
         thumbnails.Dispose();
@@ -162,7 +164,9 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         EditWorkspace.TransformShortcutsSuppressed=mode==1 && trial==null;
         var expansion=GetComponent<SkillSyncWorkspaceExpansion>();
         if(expansion!=null) {
-            expansion.SetExpanded(mode==0 && !Modal && trial==null && ghost==null && selection.Selected.Count!=1);
+            // UD-4 option A: keep the camera rect fixed so selecting a part never opens/closes the right panel.
+            // Flip back to "mode==0 && !Modal && trial==null && ghost==null && selection.Selected.Count!=1" to restore auto-expand.
+            expansion.SetExpanded(false);
             expansion.Tick(Time.unscaledDeltaTime);
         }
         if(!BlocksEditingShortcuts)
@@ -256,14 +260,14 @@ public sealed class SkillSyncEditorController : MonoBehaviour
             case "配置を編集": EndTrial();CancelGhost();mode=0;pickTarget=null;break;
             case "手順を編集": EndTrial();CancelGhost();mode=1;pickTarget=null;break;
             case "動作を確認": case "▶ この条件を試す": BeginTrial();return;
-            case "↶ 元に戻す": if(trial==null) CommandService.I?.Stack.Undo();break;
-            case "↷": if(trial==null) CommandService.I?.Stack.Redo();break;
+            case "↶ 元に戻す": if(trial==null) {var stack=CommandService.I?.Stack;string label=stack!=null?stack.UndoLabel:"";if(stack!=null && stack.CanUndo) {stack.Undo();Notify("元に戻しました："+JapaneseLabel(label),false);}}break;
+            case "↷": if(trial==null) {var stack=CommandService.I?.Stack;string label=stack!=null?stack.RedoLabel:"";if(stack!=null && stack.CanRedo) {stack.Redo();Notify("やり直しました："+JapaneseLabel(label),false);}}break;
             case "全体を見る": cameraController?.ResetToDefaultView();break;
             case "上から見る": cameraController?.SetViewPreset(EditorCameraController.ViewPreset.Top);break;
             case "選択を表示": cameraController?.FocusSelected();break;
-            case "移動": EditModeService.I?.SetMode(EditMode.Transform);break;
-            case "回転": EditModeService.I?.SetMode(EditMode.Transform);view.Focus("angle");break;
-            case "大きさ": EditModeService.I?.SetMode(EditMode.Scale);break;
+            case "移動": transformTab=action;EditModeService.I?.SetMode(EditMode.Transform);break;
+            case "回転": transformTab=action;EditModeService.I?.SetMode(EditMode.Transform);view.Focus("angle");break;
+            case "大きさ": transformTab=action;EditModeService.I?.SetMode(EditMode.Scale);break;
             case "←": Nudge(Vector3.left);break;
             case "→": Nudge(Vector3.right);break;
             case "↑": Nudge(Vector3.forward);break;
@@ -307,7 +311,12 @@ public sealed class SkillSyncEditorController : MonoBehaviour
     {
         if(trial!=null || Modal) return;
         if(role=="search") return;
-        if(role=="project") {if(!string.IsNullOrWhiteSpace(value)) SaveProject(value.Trim());}
+        if(role=="project")
+        {
+            if(string.IsNullOrWhiteSpace(value)) {}
+            else if(ProjectNameCollides(value.Trim())) {Notify("同じ名前の教材があります。別の名前にするか、教材一覧から上書きしてください",true);view.Value("project",project.CurrentProjectName);return;}
+            else SaveProject(value.Trim());
+        }
         else if(role=="name")
         {
             if(ghost!=null) ghost.DisplayName=value;
@@ -322,13 +331,20 @@ public sealed class SkillSyncEditorController : MonoBehaviour
             Transform target=ghost!=null?ghost.Transform:selection.Current!=null?selection.Current.transform:null;
             if(target!=null)
             {
+                if(role=="height" && (n<0f || n>300f)) {n=Mathf.Clamp(n,0f,300f);Notify("高さは0〜300 cmの範囲に丸めました",false);}
                 var session=ghost==null?new SelectionTransformSession(selection):null;
-                if(role=="height")
+                if(ghost!=null)
                 {
-                    if(ghost!=null) ghost.SetHeight(n/100f);
-                    else target.position=new Vector3(target.position.x,n/100f,target.position.z);
+                    if(role=="height") ghost.SetHeight(n/100f);
+                    else {var e=target.eulerAngles;target.rotation=Quaternion.Euler(e.x,n,e.z);}
                 }
-                else target.rotation=Quaternion.Euler(0,n,0);
+                else foreach(var item in selection.Selected.ToArray())
+                {
+                    if(item==null || !SelectionService.CanEdit(item)) continue;
+                    var t=item.transform;
+                    if(role=="height") t.position=new Vector3(t.position.x,n/100f,t.position.z);
+                    else {var e=t.eulerAngles;t.rotation=Quaternion.Euler(e.x,n,e.z);}
+                }
                 session?.Commit("Change object transform");
             }
         }
@@ -536,7 +552,46 @@ public sealed class SkillSyncEditorController : MonoBehaviour
     void ObjectPlaced(PlacedObject _,string __) {RevalidateAndSync();RebuildObjects();RefreshValues();}
     void HistoryChanged() {RevalidateAndSync();RebuildObjects();RefreshValues();}
     void ProjectStatus(string message,bool success) {if(!success && !string.IsNullOrEmpty(message)) Notify(message,true);else status=message;RefreshValues();}
-    void CatalogStatus(string message) {catalogStatus=message;RefreshValues();}
+    void CatalogStatus(string message)
+    {
+        if(string.IsNullOrEmpty(message)) return;
+        bool error=message.Contains("失敗")||message.Contains("エラー")||message.Contains("できません")||message.Contains("見つかりません")||message.Contains("不正")||message.Contains("無効")||message.Contains("Error")||message.Contains("error");
+        Notify(message,error);
+        RefreshValues();
+    }
+    void EditModeChanged(EditMode m)
+    {
+        if(m==EditMode.Scale) transformTab="大きさ";
+        else if(m==EditMode.Transform && transformTab=="大きさ") transformTab="移動";
+        RefreshValues();
+    }
+    bool ProjectNameCollides(string name)
+    {
+        string safe=ExportFileNameUtility.SanitizeProjectName(name,"VRCourseEditor");
+        var current=project.CurrentProjectPath;
+        foreach(var info in EditorProjectStore.ListProjects())
+        {
+            if(!string.Equals(info.DisplayName,safe,StringComparison.OrdinalIgnoreCase)) continue;
+            if(!string.IsNullOrEmpty(current) && string.Equals(info.Path,current,StringComparison.OrdinalIgnoreCase)) continue;
+            return true;
+        }
+        return false;
+    }
+    static string JapaneseLabel(string label)
+    {
+        if(string.IsNullOrEmpty(label)) return "操作";
+        if(label.StartsWith("Move ")) return "移動";
+        switch(label)
+        {
+            case "Edit step": return "手順の編集";
+            case "Add step": return "手順の追加";
+            case "Delete step": return "手順の削除";
+            case "Edit condition": return "完了条件の編集";
+            case "Set condition type": return "完了条件の種類の変更";
+            case "Change object transform": return "部品の位置・向きの変更";
+        }
+        return "操作";
+    }
     List<PrefabEntry> Entries() => catalog!=null?catalog.GetDesignLibraryEntries():placement.registry?.entries??new List<PrefabEntry>();
     static void Clear(List<SkillSyncDesignRow> rows)
     {foreach(var row in rows) if(row!=null) {row.gameObject.SetActive(false);Destroy(row.gameObject);} rows.Clear();}
@@ -628,7 +683,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         }
         view.Value("project",project.CurrentProjectName);
         view.Text("saved",project.IsDirty?"未保存の変更":"✓ 保存済み");
-        string footerStatus = string.IsNullOrEmpty(catalogStatus) ? status : catalogStatus;
+        string footerStatus = status;
         view.Text("footer",trial!=null?"試行中の操作は教材の初期配置に保存されません":(string.IsNullOrEmpty(footerStatus)?project.IsDirty?"未保存の変更があります":"✓ すべての変更を保存しました":footerStatus)+" ｜ "+ValidationSummary());
         view.Text("objectCount",Placed.Length+"件"+(ghost!=null?" ＋ 仮配置1件":""));
         view.Text("stepCount",graph.GetDisplayOrderedSteps().Count+"つの手順 ｜ "+ValidationSummary());
@@ -685,8 +740,8 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         view.Enable("教材を読み込む",!BlocksEditingShortcuts);
         view.Text("workspaceHint",trial!=null?"部品を選び、ギズモで操作 / 中・右ドラッグで視点移動":mode==1?$"手順{index}で使う部品を表示":"部品を選んで、作業面に配置します");
         view.Text("status",pickTarget!=null?status:ghost!=null?"＋ 仮配置中：クリックで確定 / Escで中止":trial!=null?trial.Complete?"✓ 条件が成立しました":"▶ 試行中：ギズモで部品を動かして条件を確かめます":current!=null?"● 選択中："+current.GetDisplayName()+" | Escで選択解除":"部品を選択してください");
-        if(trial==null) view.viewportDistance.text=valid && distanceCondition?$"現在の距離 {Vector3.Distance(SkillSyncTrialSession.Center(a.transform),SkillSyncTrialSession.Center(b.transform))*100:0} cm":"対象を選択してください";
-        view.viewportDistance.transform.parent.gameObject.SetActive(distanceCondition && (view.State==1 || trial!=null));
+        if(trial==null) view.viewportDistance.text=valid && distanceCondition?$"現在の距離 {Vector3.Distance(SkillSyncTrialSession.Center(a.transform),SkillSyncTrialSession.Center(b.transform))*100:0} cm":"";
+        view.viewportDistance.transform.parent.gameObject.SetActive(valid && distanceCondition && (view.State==1 || trial!=null));
         view.viewportGrid.text=$"グリッド {EditSnapSettings.GridSize*100:0.##} cm";
         view.viewportGrid.color=new Color32(88,103,124,255);
         view.Text("viewportMode",mode==1||trial!=null?valid?distanceCondition?"判定範囲を表示中":"操作条件（PC試行は未対応）":"対象を選択してください":EditSnapSettings.ShouldSnap?"作業面に吸着：ON":"作業面に吸着：OFF");
@@ -742,11 +797,12 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         }
         if (found) position=new Vector3(bounds.center.x,bounds.max.y,bounds.center.z);
         var point=cameraView.WorldToScreenPoint(position);
+        float lift=host.rect.height>0?host.rect.height:34f;
         if(point.z<=0) {host.gameObject.SetActive(false);return;}
         host.gameObject.SetActive(true);
         var root=(RectTransform)transform;
         RectTransformUtility.ScreenPointToLocalPointInRectangle(root,point,null,out var local);
-        host.anchoredPosition=new Vector2(Mathf.Clamp(local.x-root.rect.xMin-host.rect.width/2,288,288+view.viewport.rect.width-host.rect.width),Mathf.Clamp(local.y-root.rect.yMax+50,-670,view.viewport.anchoredPosition.y));
+        host.anchoredPosition=new Vector2(Mathf.Clamp(local.x-root.rect.xMin-host.rect.width/2,288,288+view.viewport.rect.width-host.rect.width),Mathf.Clamp(local.y-root.rect.yMax+lift+16,-670,view.viewport.anchoredPosition.y));
     }
     float DistanceLimit() => Condition!=null?ConditionTypeCatalog.GetNumber(Condition.condition,ConditionTypeCatalog.DistanceKey,.1f):.1f;
     float HoldLimit() => Condition?.condition.type==ConditionTypeCatalog.SnapHold?ConditionTypeCatalog.GetNumber(Condition.condition,ConditionTypeCatalog.HoldSecondsKey,0):0;
@@ -864,7 +920,6 @@ public sealed class SkillSyncEditorController : MonoBehaviour
     void Export()
     {
         if(trial!=null || ghost!=null) return;
-        catalogStatus=null;
         var result=TeachingMaterialExportWorkflow.Run(
             (out string message)=>project.Save(project.CurrentProjectName,out message),
             ()=>{validation=graph.ValidateGraph();return validation.CanExport;},
