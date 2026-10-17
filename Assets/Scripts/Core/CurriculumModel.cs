@@ -82,21 +82,3 @@ public class ConditionParameterData
     public string textValue;
     public bool boolValue;
 }
-
-// Legacy model types are retained for migration/fallback parsing only.
-[Serializable]
-public class StepNode
-{
-    public string id;
-    public string title = "タイトル";
-    public string description = "";
-    public List<ProximityPair> conditions = new List<ProximityPair>();
-    public List<string> nextStepIds = new List<string>();
-}
-
-[Serializable]
-public class ProximityPair
-{
-    public string aObjectId;
-    public string bObjectId;
-}

@@ -209,16 +209,6 @@ public class EditorCameraController : MonoBehaviour
         return true;
     }
 
-    public bool FocusOn(PlacedObject placedObject)
-    {
-        if (placedObject == null) return false;
-
-        EnsureCameraRig();
-        EditorCameraNavigationMath.GetFocusTarget(placedObject, out var center, out var radius);
-        FocusBounds(center, radius);
-        return true;
-    }
-
     void FocusBounds(Vector3 center, float radius)
     {
         EnsureCameraRig();

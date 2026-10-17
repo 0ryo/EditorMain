@@ -99,17 +99,12 @@ public static class DesignTokens
 
     // ── 4. スペーシングシステム ────────────────────────
 
-    public const float SpaceNone = 0f;
     public const float SpaceXs   = 4f;
     public const float SpaceSm   = 8f;
     public const float SpaceMd   = 16f;
-    public const float SpaceLg   = 24f;
-    public const float SpaceXl   = 32f;
-    public const float Space2Xl  = 48f;
 
     // ── 3. タイポグラフィ ─────────────────────────────
 
-    public const int FontSizeDisplay    = 32;
     public const int FontSizeHeading    = 20;
     public const int FontSizeSubheading = 16;
     public const int FontSizeBody       = 14;
@@ -120,7 +115,6 @@ public static class DesignTokens
 
     public const float CornerRadius       = 6f;
     public const float MinTouchTarget     = 44f;
-    public const float TransitionDuration = 0.15f; // 150ms
     public static readonly Vector2 ReferenceResolution = new Vector2(1920f, 1080f);
 
     // レスポンシブレイアウト
@@ -132,38 +126,25 @@ public static class DesignTokens
     public const float ScenarioMaxHeight     = 720f;
 
     // 円形要素（コネクタ・削除ボタン）
-    public const float ConnectorSize      = 24f;   // コネクタの幅・高さ
-    public const float DeleteButtonSize   = 22f;   // 削除ボタンの幅・高さ
 
     // ── 6. コンポーネント仕様 ─────────────────────────
 
     // ボタン共通
     public const float ButtonHeight      = 40f;
     public const float ButtonMinWidth    = 80f;
-    public const float ButtonPaddingH    = 20f;
-    public const float GhostButtonPadH   = 12f;
 
     // カード
-    public const float CardPadding       = SpaceMd;   // 16
-    public const float CardGap           = SpaceSm;   // 8
 
     // 入力フィールド
     public const float InputHeight       = 40f;
     public const float InputPaddingH     = 12f;
 
     // ドロップダウン
-    public const float DropdownTriggerH  = 40f;
     public const float DropdownItemH     = 36f;
 
     // ステータスバッジ
-    public const float BadgeHeight       = 24f;
-    public const float BadgePaddingH     = 8f;
-    public const float BadgeCornerRadius = 12f;
 
     // アイコン
-    public const float IconSizeSmall     = 16f;
-    public const float IconSizeStandard  = 20f;
-    public const float IconSizeLarge     = 24f;
 
     // 区切り線
     public const float DividerHeight     = 1f;

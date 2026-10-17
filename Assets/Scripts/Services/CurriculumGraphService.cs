@@ -615,16 +615,6 @@ public partial class CurriculumGraphService : MonoBehaviour
         return false;
     }
 
-    public List<string> GetParents(string nodeId)
-    {
-        EnsureGraphInitialized();
-        return curriculum.edges
-            .Where(e => e != null && e.edgeType == ScenarioEdgeType.StepFlow && e.toNodeId == nodeId)
-            .Select(e => e.fromNodeId)
-            .Distinct()
-            .ToList();
-    }
-
     public List<ScenarioNode> GetConditionNodesForStep(string stepNodeId)
     {
         EnsureGraphInitialized();

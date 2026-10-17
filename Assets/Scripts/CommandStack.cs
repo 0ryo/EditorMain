@@ -151,7 +151,6 @@ public class CommandStack
     public event Action<string, string, Exception> CommandFailed;
 
     public int UndoCount => undo.Count;
-    public int RedoCount => redo.Count;
     public bool CanUndo => undo.Count > 0;
     public bool CanRedo => redo.Count > 0;
     public string UndoLabel => CanUndo ? undo[undo.Count - 1].Label : string.Empty;

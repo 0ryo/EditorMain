@@ -70,21 +70,4 @@ public static class MaterialFileSearch
         name = name.Replace(" (Instance)", "").Trim().Normalize(NormalizationForm.FormC);
         return Extensions.Contains(Path.GetExtension(name)) ? Path.GetFileNameWithoutExtension(name) : name;
     }
-
-    public static string Format(Result result)
-    {
-        var text = new StringBuilder();
-        text.AppendLine($"調査: {result.files}ファイル / 名前一致候補: {result.matches.Count}件");
-        text.AppendLine("下記は検索候補です。実際の再接続結果は上部に表示します。");
-        foreach (var path in result.matches) text.AppendLine("[名前一致] " + path);
-        if (result.nearby.Count > 0)
-        {
-            text.AppendLine("以下は検索範囲内の素材です（対応未確認）。");
-            foreach (var path in result.nearby) text.AppendLine(path);
-        }
-        if (result.matches.Count == 0 && result.nearby.Count == 0) text.AppendLine("マテリアル・画像ファイルが見つかりませんでした。");
-        if (result.limited) text.AppendLine("検索・表示上限に達しました。フォルダーを絞って再検索してください。");
-        if (result.skippedDirectories > 0) text.AppendLine($"読取不可・リンク等で省略: {result.skippedDirectories}箇所");
-        return text.ToString();
-    }
 }

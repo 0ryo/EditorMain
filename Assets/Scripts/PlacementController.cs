@@ -430,10 +430,4 @@ public class PlacedObject : MonoBehaviour
         id = null;
         EnsureHasId();
     }
-
-    public void Init(string t)
-    {
-        InitType(t);
-        ForceNewId();
-    }
 }

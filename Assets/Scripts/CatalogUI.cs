@@ -3445,18 +3445,6 @@ public class CatalogUI : MonoBehaviour
         if (statusText != null) statusText.text = string.Empty;
     }
 
-    void ClearStatus()
-    {
-        StatusMessage = string.Empty;
-        StatusChanged?.Invoke(string.Empty);
-        if (statusText != null) statusText.text = string.Empty;
-        if (clearStatusCoroutine != null)
-        {
-            StopCoroutine(clearStatusCoroutine);
-            clearStatusCoroutine = null;
-        }
-    }
-
     TMP_InputField CreateInputField(Transform parent, string name, string placeholderText)
     {
         var root = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(TMP_InputField));
