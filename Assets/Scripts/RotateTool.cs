@@ -8,7 +8,7 @@ public class RotateTool : MonoBehaviour {
         if (ObjectScreenPicker.Capturing) return;
         if (EditModeService.I==null || EditModeService.I.Mode != EditMode.Transform) return;
         if (sel.Current == null) return;
-        if (EditWorkspace.IsTypingIntoInputField()) return;
+        if (EditWorkspace.AreTransformShortcutsBlocked()) return;
 
         if (Input.GetKeyDown(KeyCode.Q))  Add(stepDeg);
         if (Input.GetKeyDown(KeyCode.E))  Add(-stepDeg); // Eで逆回転でも可（好みで）

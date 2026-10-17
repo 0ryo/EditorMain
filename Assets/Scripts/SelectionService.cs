@@ -173,15 +173,16 @@ public class SelectionService : MonoBehaviour
             }
         }
 
-        bool modifier = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl) ||
-            Input.GetKey(KeyCode.LeftCommand) || Input.GetKey(KeyCode.RightCommand);
+        bool shortcutsBlocked = EditWorkspace.AreTransformShortcutsBlocked();
+        bool modifier = !shortcutsBlocked && (Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl) ||
+            Input.GetKey(KeyCode.LeftCommand) || Input.GetKey(KeyCode.RightCommand));
         if (modifier && Input.GetKeyDown(KeyCode.G)) { GroupSelected(EditInput.ShiftPressed()); return; }
         if (modifier && Input.GetKeyDown(KeyCode.A)) { SelectAll(); return; }
         if (modifier && Input.GetKeyDown(KeyCode.V)) { PasteSelected(EditInput.ShiftPressed()); return; }
         if (modifier && Input.GetKeyDown(KeyCode.C)) { CopySelected(); return; }
         if (EditInput.CancelPressedThisFrame()) { Select(null); return; }
         if (Current == null) return;
-        if (Input.GetKeyDown(KeyCode.Delete) || Input.GetKeyDown(KeyCode.Backspace)) { DeleteSelected(); return; }
+        if (!shortcutsBlocked && (Input.GetKeyDown(KeyCode.Delete) || Input.GetKeyDown(KeyCode.Backspace))) { DeleteSelected(); return; }
         if (modifier && Input.GetKeyDown(KeyCode.D)) DuplicateSelected();
     }
 

@@ -187,6 +187,11 @@ public static class EditWorkspace
         return false;
     }
 
+    // Set by the fixed lesson/scenario UI so 3D transform shortcuts do not fire while it owns the keyboard.
+    public static bool TransformShortcutsSuppressed { get; set; }
+
+    public static bool AreTransformShortcutsBlocked() => IsTypingIntoInputField() || TransformShortcutsSuppressed;
+
     public static bool IsTypingIntoInputField()
     {
         // A visible project modal captures editing shortcuts even when its input field is unfocused.

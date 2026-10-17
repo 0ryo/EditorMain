@@ -51,6 +51,7 @@ public class EditModeService : MonoBehaviour
 
     void Update()
     {
+        if (SkillSyncEditorController.Active != null) return; // Tab belongs to KeyboardAccessibilityController there.
         if (!Input.GetKeyDown(enterTransformModeKey)) return;
         if (EditWorkspace.IsTypingIntoInputField()) return;
 
