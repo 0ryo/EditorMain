@@ -94,6 +94,9 @@ public sealed class SkillSyncEditorController : MonoBehaviour
             var action=control.action;
             control.button.onClick.AddListener(()=>Act(action));
         }
+        var tryControl=view.controls.FirstOrDefault(c=>c.action=="▶ この条件を試す");
+        var tryLabel=tryControl?.button!=null?tryControl.button.GetComponentInChildren<TMP_Text>(true):null;
+        if(tryLabel!=null) tryLabel.text="▶ この手順を試す";
         if (view.conditionTypeDropdown != null)
             view.conditionTypeDropdown.onValueChanged.AddListener(index =>
             {
@@ -120,6 +123,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
     void OnDisable()
     {
         EndTrial(); CancelGhost();
+        EditWorkspace.TransformShortcutsSuppressed=false;
         if(graph!=null) graph.GraphChanged-=GraphChanged;
         if(selection!=null) selection.OnSelectionChanged-=SelectionChanged;
         if(placement!=null) placement.ObjectPlaced-=ObjectPlaced;
@@ -145,6 +149,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         {
             return;
         }
+        EditWorkspace.TransformShortcutsSuppressed=mode==1 && trial==null;
         var expansion=GetComponent<SkillSyncWorkspaceExpansion>();
         if(expansion!=null) {
             expansion.SetExpanded(mode==0 && !Modal && trial==null && ghost==null && selection.Selected.Count!=1);
@@ -274,7 +279,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
             case "初期配置に戻す": case "もう一度試す": ResetTrial();logs.Clear();trialTime=0;break;
             case "最初から試す":
                 EndTrial();stepId=graph.GetDisplayOrderedSteps().FirstOrDefault()?.nodeId;conditionId=null;GraphChanged();BeginTrial();return;
-            case "次の手順を確認": EndTrial();NextStep();mode=1;break;
+            case "次の手順を確認": {EndTrial();var before=stepId;NextStep();mode=1;if(stepId!=before) {BeginTrial();return;}break;}
             case "すべて": case "部品": case "環境": category=action;RebuildLibrary();break;
         }
         Refresh();
@@ -333,13 +338,13 @@ public sealed class SkillSyncEditorController : MonoBehaviour
     }
     void AddStep()
     {
-        if(!graph.TryAddStepAtEnd(out var step, out var reason))
+        if(!graph.TryInsertStepWithCondition(stepId, out var step, out var addedCondition, out var reason))
         {
             if(!string.IsNullOrWhiteSpace(reason)) Notify("手順を追加できません: "+reason,true);
             return;
         }
-        stepId=step.nodeId;
-        AddCondition();
+        stepId=step.nodeId;conditionId=addedCondition?.nodeId;
+        GraphChanged();view.Focus("stepTitle");
     }
     bool TryLinear(out List<ScenarioNode> steps)
     {
@@ -417,7 +422,8 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         var picker=GetComponent<SkillSyncObjectPicker>();
         if(picker==null)return;
         pickTarget=null;picker.SetPicking(null);
-        picker.Show(Placed,(RectTransform)view.controls.First(c=>c.action=="Pick"+which).button.transform,id=>{pickTarget=which;Pick(id);},()=>{
+        string otherId=which=="A"?Condition.condition.objectBId:Condition.condition.objectAId;
+        picker.Show(Placed.Where(p=>p.Id!=otherId).ToArray(),(RectTransform)view.controls.First(c=>c.action=="Pick"+which).button.transform,id=>{pickTarget=which;Pick(id);},()=>{
             pickTarget=which;Notify("対象をビューポートでクリックしてください（Escで取消）",false);Refresh();
         });
     }
@@ -427,6 +433,8 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         string which=pickTarget;
         if(which!="A" && (which!="B" || !ConditionTypeCatalog.RequiresObjectB(Condition.condition.type)))
         {pickTarget=null;Refresh();return;}
+        if(id==(which=="A"?Condition.condition.objectBId:Condition.condition.objectAId) && !string.IsNullOrEmpty(id))
+        {pickTarget=null;Notify("動かすものと同じ部品は選べません",true);Refresh();return;}
         graph.UpdateConditionData(Condition.nodeId,"Choose condition object",data=>
         {
             if(which=="A") data.objectAId=id;else data.objectBId=id;
@@ -650,7 +658,8 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         SkillSyncConditionEditorView.Refresh(view,Condition?.condition,canTrial);
         view.Enable("▶ この条件を試す",canTrial);
         view.Enable("動作を確認",canTrial);
-        view.Enable("↶ 元に戻す",trial==null);view.Enable("↷",trial==null);
+        view.Enable("↑ 上へ",index>1);view.Enable("↓ 下へ",index>0 && index<graph.GetDisplayOrderedSteps().Count);
+        view.Enable("↶ 元に戻す",trial==null && CommandService.I?.Stack.CanUndo==true);view.Enable("↷",trial==null && CommandService.I?.Stack.CanRedo==true);
         view.Enable("↑ 教材を書き出す",trial==null && ghost==null);
         view.Enable("教材を読み込む",!BlocksEditingShortcuts);
         view.Text("workspaceHint",trial!=null?"部品を選び、ギズモで操作 / 中・右ドラッグで視点移動":mode==1?$"手順{index}で使う部品を表示":"部品を選んで、作業面に配置します");
