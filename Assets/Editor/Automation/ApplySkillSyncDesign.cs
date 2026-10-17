@@ -42,6 +42,7 @@ public static class ApplySkillSyncDesign
             view.EnsureProjectLoadControl();view.EnsureConditionControls();view.EnsureStepControls();view.EnsureViewportLabels();
             SkillSyncConditionEditorView.Ensure(view);
             TopCenterNotification.Ensure(view.transform, view.inspectorTitle);
+            SkillSyncAuditChromePatch.Apply(view);SkillSyncAuditPanelPatch.Apply(view);
             var legacyHints = root.transform.Find("Button_Hints");
             if (legacyHints != null) legacyHints.gameObject.SetActive(false);
             view.Show(0);
@@ -340,6 +341,7 @@ public static class ApplySkillSyncDesign
             view.EnsureProjectLoadControl();view.EnsureConditionControls();view.EnsureStepControls();view.EnsureViewportLabels();
             SkillSyncConditionEditorView.Ensure(view);
             TopCenterNotification.Ensure(view.transform, view.inspectorTitle);
+            SkillSyncAuditChromePatch.Apply(view);SkillSyncAuditPanelPatch.Apply(view);
             view.modalBlocker.transform.SetAsLastSibling();modal.SetAsLastSibling();
             view.Show(0);
             PrefabUtility.SaveAsPrefabAsset(root,PrefabPath,out bool saved);
