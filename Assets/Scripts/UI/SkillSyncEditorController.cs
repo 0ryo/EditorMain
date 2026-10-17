@@ -5,6 +5,7 @@ using System.Globalization;
 using System.Linq;
 using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 
 [DefaultExecutionOrder(200)]
 [RequireComponent(typeof(SkillSyncDesignView))]
@@ -44,6 +45,9 @@ public sealed class SkillSyncEditorController : MonoBehaviour
     readonly Dictionary<string, GameObject> thumbnailSources = new();
     readonly List<Renderer> labelRenderers = new();
     SkillSyncDesignRow ghostRow;
+    string armedKey, scrolledStepId;
+    float armedUntil;
+    bool scrollObjectsPending;
     Transform labelTargetA, labelTargetB;
     readonly Vector3[] corners = new Vector3[4];
     GraphValidationResult validation;
@@ -113,6 +117,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         }
         graph.GraphChanged += GraphChanged;
         selection.OnSelectionChanged += SelectionChanged;
+        selection.DeleteGuard = ConfirmDeleteObjects;
         placement.ObjectPlaced += ObjectPlaced;
         project.StatusChanged += ProjectStatus;
         if(CommandService.I != null) CommandService.I.Stack.HistoryChanged += HistoryChanged;
@@ -127,7 +132,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         EndTrial(); CancelGhost();
         EditWorkspace.TransformShortcutsSuppressed=false;
         if(graph!=null) graph.GraphChanged-=GraphChanged;
-        if(selection!=null) selection.OnSelectionChanged-=SelectionChanged;
+        if(selection!=null) {selection.OnSelectionChanged-=SelectionChanged;selection.DeleteGuard=null;}
         if(placement!=null) placement.ObjectPlaced-=ObjectPlaced;
         if(project!=null) project.StatusChanged-=ProjectStatus;
         if(catalog!=null) catalog.StatusChanged-=CatalogStatus;
@@ -543,7 +548,43 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         if(before!=after) RebuildSteps();
     }
     string ValidationSummary() => validationErrorCount>0?"エラー"+validationErrorCount+"件":"問題なし";
-    void SelectionChanged(PlacedObject _) {RefreshLibrarySelection();RebuildObjects();RefreshValues();}
+    // Two-step confirm: the first press arms a 4 s window and the second press inside it proceeds.
+    bool ConfirmTwice(string key,string message)
+    {
+        if(armedKey==key && Time.unscaledTime<armedUntil) {armedKey=null;return true;}
+        armedKey=key;armedUntil=Time.unscaledTime+4f;
+        Notify(message,true);return false;
+    }
+    bool ConfirmDeleteObjects(IReadOnlyList<PlacedObject> items)
+    {
+        if(graph==null) return true;
+        var ids=new HashSet<string>(items.Select(p=>p.Id).Where(id=>!string.IsNullOrEmpty(id)));
+        var steps=graph.GetDisplayOrderedSteps();var used=new List<int>();
+        for(int i=0;i<steps.Count;i++)
+            if(graph.GetConditionNodesForStep(steps[i].nodeId).Any(c=>ids.Contains(c.condition.objectAId) || ids.Contains(c.condition.objectBId))) used.Add(i+1);
+        if(used.Count==0) return true;
+        string key="obj:"+string.Join(",",ids.OrderBy(i=>i,StringComparer.Ordinal));
+        return ConfirmTwice(key,string.Join("・",used.Select(n=>"手順"+n))+"の完了条件で使われています。もう一度削除すると削除します");
+    }
+    static bool CmdOrCtrl() => Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl) || Input.GetKey(KeyCode.LeftCommand) || Input.GetKey(KeyCode.RightCommand);
+    // Brings the row into view only when it is outside the viewport; never fights manual scrolling.
+    static void ScrollIntoView(RectTransform content,RectTransform row)
+    {
+        if(content==null || row==null) return;
+        var scroll=content.GetComponentInParent<ScrollRect>();
+        if(scroll==null) return;
+        var viewport=scroll.viewport!=null?scroll.viewport:(RectTransform)scroll.transform;
+        LayoutRebuilder.ForceRebuildLayoutImmediate(content);
+        float scrollable=content.rect.height-viewport.rect.height;
+        if(scrollable<=0f) return;
+        var bounds=RectTransformUtility.CalculateRelativeRectTransformBounds(content,row);
+        float top=content.rect.yMax-bounds.max.y,bottom=content.rect.yMax-bounds.min.y;
+        float offset=(1f-scroll.verticalNormalizedPosition)*scrollable;
+        if(top>=offset && bottom<=offset+viewport.rect.height) return;
+        float target=Mathf.Clamp(top-(viewport.rect.height-(bottom-top))*.5f,0f,scrollable);
+        scroll.verticalNormalizedPosition=Mathf.Clamp01(1f-target/scrollable);
+    }
+    void SelectionChanged(PlacedObject _) {scrollObjectsPending=true;RefreshLibrarySelection();RebuildObjects();RefreshValues();}
     void RefreshLibrarySelection()
     {
         string type = ghost != null ? ghost.TypeId : null;
@@ -616,6 +657,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
             var chosen=entry;row.button.onClick.AddListener(()=>BeginGhost(chosen));
             var remove=row.GetComponent<SkillSyncLibraryRemove>();
             if(remove!=null) remove.remove.onClick.AddListener(()=>{
+                if(!ConfirmTwice("lib:"+chosen.typeId,"もう一度押すとライブラリから外します（配置済みの部品は残ります）")) return;
                 if(ghost!=null && ghost.TypeId==chosen.typeId)CancelGhost();
                 catalog?.RemoveDesignLibraryEntry(chosen.typeId);RebuildLibrary();Refresh();
             });
@@ -629,8 +671,14 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         {
             var step=steps[i];var row=Row(view.stepTemplate,view.stepsContent,stepRows);
             bool hasIssue=stepsWithIssue.Contains(step.nodeId);
-            row.Set(hasIssue?step.step.title+"（要修正）":step.step.title,step.step.body,(i+1).ToString(),step.nodeId==stepId,!hasIssue);
+            row.Set(hasIssue?"⚠ "+step.step.title+"（要修正）":step.step.title,step.step.body,(i+1).ToString(),step.nodeId==stepId,!hasIssue);
             row.button.onClick.AddListener(()=>{EndTrial();stepId=step.nodeId;conditionId=null;mode=1;GraphChanged();});
+        }
+        if(stepId!=scrolledStepId)
+        {
+            scrolledStepId=stepId;
+            int at=steps.FindIndex(s=>s.nodeId==stepId);
+            if(at>=0 && at<stepRows.Count) ScrollIntoView(view.stepsContent,(RectTransform)stepRows[at].transform);
         }
     }
     void RebuildObjects()
@@ -662,11 +710,18 @@ public sealed class SkillSyncEditorController : MonoBehaviour
             {
                 row=Row(view.objectTemplate,view.objectsContent,objectRows); placedRows.Add(p,row);
                 if(row.thumbnail!=null) row.thumbnail.texture=ObjectThumbnail(p);
-                row.button.onClick.AddListener(()=>{if(pickTarget!=null) Pick(p.Id);else selection.Select(p);});
+                row.button.onClick.AddListener(()=>{if(pickTarget!=null) Pick(p.Id);else selection.SelectFromList(p,EditInput.ShiftPressed(),CmdOrCtrl(),OrderedPlaced());});
             }
             row.Set(p.GetDisplayName(),p.GetDescription(),"",selection.Contains(p));
         }
+        if(scrollObjectsPending)
+        {
+            scrollObjectsPending=false;
+            if(selection.Current!=null && placedRows.TryGetValue(selection.Current,out var currentRow)) ScrollIntoView(view.objectsContent,(RectTransform)currentRow.transform);
+        }
     }
+    // Row order on screen, so Shift range selection follows the list the user sees.
+    List<PlacedObject> OrderedPlaced() => placedRows.OrderBy(pair=>pair.Value.transform.GetSiblingIndex()).Select(pair=>pair.Key).Where(p=>p!=null).ToList();
     void Refresh()
     {
         if(!initialized) return;

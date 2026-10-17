@@ -9,6 +9,9 @@ public class SelectionService : MonoBehaviour
     public event System.Action<PlacedObject> OnSelectionChanged;
     public event System.Action<string> OperationMessage;
 
+    /// <summary>削除前の確認。false を返すと DeleteSelected は何もしない。</summary>
+    public System.Func<IReadOnlyList<PlacedObject>, bool> DeleteGuard;
+    PlacedObject listRangeAnchor;
     public Camera cam;
     public LayerMask pickMask = ~0;
     public PlacedObject Current;
@@ -337,7 +340,26 @@ public class SelectionService : MonoBehaviour
         var commands = selected.Where(CanEdit).Select(item => (IEditorCommand)new DeleteObjectCommand(
             item.gameObject, item.typeId, typeId => PlacedObjectRestoreFactory.Create(typeId, registry, placementController))).ToList();
         if (commands.Count == 0) return;
+        if (DeleteGuard != null && !DeleteGuard(selected.Where(CanEdit).ToList())) return;
         if (Execute(new CompositeEditorCommand("Delete selection", commands))) Select(null);
+    }
+
+    /// <summary>一覧の行クリック。range=Shift（直前の行から範囲選択）、toggle=Ctrl/Cmd（追加・解除）。order は一覧の表示順。</summary>
+    public void SelectFromList(PlacedObject po, bool range, bool toggle, IReadOnlyList<PlacedObject> order = null)
+    {
+        if (po == null) return;
+        if (!CanEdit(po)) { if (Current != null) Select(null); return; }
+        order ??= FindObjectsByType<PlacedObject>(FindObjectsSortMode.InstanceID);
+        var list = order.ToList();
+        int anchorIndex = list.IndexOf(listRangeAnchor), targetIndex = list.IndexOf(po);
+        if (range && anchorIndex >= 0 && targetIndex >= 0)
+        {
+            int first = Mathf.Min(anchorIndex, targetIndex);
+            SelectMany(list.GetRange(first, Mathf.Abs(anchorIndex - targetIndex) + 1), toggle);
+            return;
+        }
+        Select(po, toggle || range);
+        listRangeAnchor = po;
     }
 
     public void DuplicateSelected()
