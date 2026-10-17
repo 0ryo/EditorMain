@@ -218,7 +218,16 @@ public class CatalogUI : MonoBehaviour
         PlacementController.SetUiDragInProgress(isDragging);
     }
 
-    public void ImportForDesignUi() => OnClickAdd();
+    public void ImportForDesignUi() => StartCoroutine(ImportForDesignUiRoutine());
+    System.Collections.IEnumerator ImportForDesignUiRoutine()
+    {
+        // OSのファイル選択は描画を止めるため、先に案内を出して2フレーム描画させる。
+        TopCenterNotification.Ensure(transform, statusText)?.Show("ファイル選択ウィンドウを開きました（別ウィンドウ）", false, 3f);
+        yield return null;
+        yield return null;
+        OnClickAdd();
+    }
+    bool IsFixedDesignUi() => transform.root.GetComponentInChildren<SkillSyncDesignView>(true) != null;
     public void ShowDesignSettings()
     {
         EnsureRuntimeSettingsDialog(transform as RectTransform);
@@ -1025,8 +1034,9 @@ public class CatalogUI : MonoBehaviour
         windowRt.anchorMin = new Vector2(0.5f, 0.5f);
         windowRt.anchorMax = new Vector2(0.5f, 0.5f);
         windowRt.pivot = new Vector2(0.5f, 0.5f);
-        windowRt.sizeDelta = new Vector2(760f, 640f);
+        windowRt.sizeDelta = new Vector2(760f, 688f);
         windowRt.anchoredPosition = Vector2.zero;
+        windowRt.localScale = Vector3.one * (IsFixedDesignUi() ? SkillSyncDesignLayout.Scale : 1f);
 
         var windowImage = windowRt.GetComponent<Image>();
         if (windowImage == null) windowImage = windowRt.gameObject.AddComponent<Image>();
@@ -1037,7 +1047,7 @@ public class CatalogUI : MonoBehaviour
         tabsRt.anchorMax = new Vector2(0f, 1f);
         tabsRt.pivot = new Vector2(0f, 1f);
         tabsRt.offsetMin = new Vector2(16f, 16f);
-        tabsRt.offsetMax = new Vector2(172f, -16f);
+        tabsRt.offsetMax = new Vector2(172f, -64f);
         var tabsImage = tabsRt.GetComponent<Image>();
         if (tabsImage == null) tabsImage = tabsRt.gameObject.AddComponent<Image>();
         tabsImage.color = DesignTokens.BgPrimary;
@@ -1053,17 +1063,42 @@ public class CatalogUI : MonoBehaviour
         settingsTabGeneralButton = EnsureSettingsTabButton(tabsRt, settingsTabGeneralButton, "Tab_General", "一般");
         settingsTabIntegrationButton = EnsureSettingsTabButton(tabsRt, settingsTabIntegrationButton, "Tab_Integration", "連携");
         settingsTabAccountButton = EnsureSettingsTabButton(tabsRt, settingsTabAccountButton, "Tab_Account", "アカウント");
-        settingsHighContrastButton = EnsureSettingsTabButton(
+        settingsHighContrastButton = EnsureSettingsRegularButton(
             tabsRt, settingsHighContrastButton, "Button_HighContrast", GetHighContrastButtonLabel());
-        settingsDiagnosticsButton = EnsureSettingsTabButton(
+        settingsDiagnosticsButton = EnsureSettingsRegularButton(
             tabsRt, settingsDiagnosticsButton, "Button_ExportDiagnostics", "診断ログを保存");
+
+        var dialogTitle = FindOrCreateSettingsText(windowRt, "Text_DialogTitle", "詳細設定");
+        dialogTitle.fontSize = 20;
+        dialogTitle.alignment = TextAlignmentOptions.MidlineLeft;
+        dialogTitle.color = DesignTokens.TextPrimary;
+        var dialogTitleRt = dialogTitle.rectTransform;
+        dialogTitleRt.anchorMin = new Vector2(0f, 1f);
+        dialogTitleRt.anchorMax = new Vector2(1f, 1f);
+        dialogTitleRt.offsetMin = new Vector2(24f, -56f);
+        dialogTitleRt.offsetMax = new Vector2(-136f, -12f);
+        var closeButton = FindOrCreateSettingsButton(windowRt, windowRt.Find("Button_CloseSettings")?.GetComponent<Button>(), "Button_CloseSettings", "閉じる");
+        if (closeButton != null)
+        {
+            var closeRt = (RectTransform)closeButton.transform;
+            closeRt.anchorMin = closeRt.anchorMax = closeRt.pivot = new Vector2(1f, 1f);
+            closeRt.sizeDelta = new Vector2(96f, 36f);
+            closeRt.anchoredPosition = new Vector2(-16f, -12f);
+            closeButton.GetComponent<Image>().color = DesignTokens.BgSecondary;
+            var closeLabel = closeButton.GetComponentInChildren<TMP_Text>(true);
+            closeLabel.fontSize = 14;
+            closeLabel.alignment = TextAlignmentOptions.Center;
+            closeLabel.color = DesignTokens.TextPrimary;
+            closeButton.onClick.RemoveListener(CloseSettingsPanelFromOverlayClick);
+            closeButton.onClick.AddListener(CloseSettingsPanelFromOverlayClick);
+        }
 
         var contentRt = FindOrCreateSettingsRect(windowRt, "Content");
         contentRt.anchorMin = new Vector2(0f, 0f);
         contentRt.anchorMax = new Vector2(1f, 1f);
         contentRt.pivot = new Vector2(0f, 1f);
         contentRt.offsetMin = new Vector2(188f, 16f);
-        contentRt.offsetMax = new Vector2(-16f, -16f);
+        contentRt.offsetMax = new Vector2(-16f, -64f);
         var contentImage = contentRt.GetComponent<Image>();
         if (contentImage == null) contentImage = contentRt.gameObject.AddComponent<Image>();
         contentImage.color = DesignTokens.BgPrimary;
@@ -1166,6 +1201,24 @@ public class CatalogUI : MonoBehaviour
             settingsUiScaleSlider.minValue = 0.8f;
             settingsUiScaleSlider.maxValue = 1.4f;
             settingsUiScaleSlider.wholeNumbers = false;
+            // 固定UIは画面サイズに合わせて自動拡縮するため、手動倍率は効かない。
+            bool fixedUi = IsFixedDesignUi();
+            settingsUiScaleSlider.interactable = !fixedUi;
+            var scaleTitleRt = settingsGeneralContent != null ? settingsGeneralContent.Find("Text_UiScaleTitle") as RectTransform : null;
+            if (scaleTitleRt != null)
+            {
+                var caption = FindOrCreateSettingsText(settingsGeneralContent, "Text_UiScaleCaption", "固定UIでは画面サイズに自動で合わせます");
+                caption.fontSize = 13;
+                caption.alignment = TextAlignmentOptions.MidlineRight;
+                caption.color = DesignTokens.TextSecondary;
+                caption.raycastTarget = false;
+                var captionRt = caption.rectTransform;
+                captionRt.anchorMin = scaleTitleRt.anchorMin;
+                captionRt.anchorMax = scaleTitleRt.anchorMax;
+                captionRt.offsetMin = scaleTitleRt.offsetMin;
+                captionRt.offsetMax = scaleTitleRt.offsetMax;
+                caption.gameObject.SetActive(fixedUi);
+            }
         }
 
         if (settingsAutoSaveIntervalSlider != null)
@@ -1299,6 +1352,23 @@ public class CatalogUI : MonoBehaviour
         return button;
     }
 
+    Button EnsureSettingsRegularButton(RectTransform parent, Button button, string objectName, string labelText)
+    {
+        button = FindOrCreateSettingsButton(parent, button, objectName, labelText);
+        if (button == null) return button;
+        var layout = button.GetComponent<LayoutElement>();
+        if (layout == null) layout = button.gameObject.AddComponent<LayoutElement>();
+        layout.minHeight = layout.preferredHeight = 40f;
+        ((RectTransform)button.transform).sizeDelta = new Vector2(0f, 40f);
+        var image = button.GetComponent<Image>();
+        if (image != null) image.color = DesignTokens.Surface;
+        var label = button.GetComponentInChildren<TMP_Text>(true);
+        label.fontSize = 14;
+        label.alignment = TextAlignmentOptions.Center;
+        label.color = DesignTokens.TextPrimary;
+        return button;
+    }
+
     void EnsureGeneralSettingsContent(RectTransform contentRt)
     {
         if (contentRt == null) return;
@@ -1380,8 +1450,8 @@ public class CatalogUI : MonoBehaviour
         var gridLabelRt = gridLabel.rectTransform;
         gridLabelRt.anchorMin = new Vector2(0f, 1f);
         gridLabelRt.anchorMax = new Vector2(1f, 1f);
-        gridLabelRt.offsetMin = new Vector2(24f, -248f);
-        gridLabelRt.offsetMax = new Vector2(-24f, -220f);
+        gridLabelRt.offsetMin = new Vector2(24f, -246f);
+        gridLabelRt.offsetMax = new Vector2(-24f, -218f);
 
         var gridRow = FindOrCreateSettingsRect(contentRt, "GridSnapRow");
         gridRow.anchorMin = new Vector2(0f, 1f);
@@ -1400,8 +1470,8 @@ public class CatalogUI : MonoBehaviour
         var rotationLabelRt = rotationLabel.rectTransform;
         rotationLabelRt.anchorMin = new Vector2(0f, 1f);
         rotationLabelRt.anchorMax = new Vector2(1f, 1f);
-        rotationLabelRt.offsetMin = new Vector2(24f, -324f);
-        rotationLabelRt.offsetMax = new Vector2(-24f, -296f);
+        rotationLabelRt.offsetMin = new Vector2(24f, -322f);
+        rotationLabelRt.offsetMax = new Vector2(-24f, -294f);
 
         var rotationRow = FindOrCreateSettingsRect(contentRt, "RotationSnapRow");
         rotationRow.anchorMin = new Vector2(0f, 1f);
@@ -1576,7 +1646,7 @@ public class CatalogUI : MonoBehaviour
         var handle = FindOrCreateSettingsRect(handleSlideArea, "Handle");
         handle.anchorMin = new Vector2(0.5f, 0.5f);
         handle.anchorMax = new Vector2(0.5f, 0.5f);
-        handle.sizeDelta = new Vector2(18f, 30f);
+        handle.sizeDelta = new Vector2(18f, 28f); // バー高(20)+8以内
         var handleImage = handle.GetComponent<Image>();
         if (handleImage == null) handleImage = handle.gameObject.AddComponent<Image>();
         handleImage.color = DesignTokens.Surface;
@@ -1627,6 +1697,7 @@ public class CatalogUI : MonoBehaviour
         if (checkmark == null) checkmark = checkmarkRt.gameObject.AddComponent<Image>();
         checkmark.color = DesignTokens.Accent;
 
+        checkmark.raycastTarget = false;
         toggle.targetGraphic = background;
         toggle.graphic = checkmark;
         return toggle;
@@ -1912,7 +1983,7 @@ public class CatalogUI : MonoBehaviour
         nameLabel.color = DesignTokens.TextPrimary;
         nameLabel.fontSize = 13;
         nameLabel.alignment = TextAlignmentOptions.MidlineLeft;
-        nameLabel.text = "\u30AA\u30D6\u30B8\u30A7\u30AF\u30C8\u540D";
+        nameLabel.text = "3Dモデル名";
 
         var input = CreateInputField(windowRt, "Input_NewObjectName", "New Object");
 
@@ -2040,6 +2111,7 @@ public class CatalogUI : MonoBehaviour
         windowRt.pivot = new Vector2(0.5f, 0.5f);
         windowRt.sizeDelta = new Vector2(560f, 430f);
         windowRt.anchoredPosition = Vector2.zero;
+        windowRt.localScale = Vector3.one * (IsFixedDesignUi() ? SkillSyncDesignLayout.Scale : 1f);
     }
 
     void BindNewObjectSettingsReferences(RectTransform overlayRt)
@@ -2080,7 +2152,7 @@ public class CatalogUI : MonoBehaviour
         var title = windowRt.Find("Text_Title")?.GetComponent<TMP_Text>();
         if (title != null)
         {
-            title.text = "\u30AA\u30D6\u30B8\u30A7\u30AF\u30C8\u8A2D\u5B9A";
+            title.text = "3Dモデルの設定";
             title.fontSize = 16;
             title.color = DesignTokens.TextPrimary;
             title.alignment = TextAlignmentOptions.MidlineLeft;
@@ -2106,7 +2178,7 @@ public class CatalogUI : MonoBehaviour
         var nameLabel = windowRt.Find("Text_NameLabel")?.GetComponent<TMP_Text>();
         if (nameLabel != null)
         {
-            nameLabel.text = "\u30AA\u30D6\u30B8\u30A7\u30AF\u30C8\u540D";
+            nameLabel.text = "3Dモデル名";
             nameLabel.fontSize = 13;
             nameLabel.color = DesignTokens.TextPrimary;
             var rt = nameLabel.rectTransform;
@@ -3125,7 +3197,7 @@ public class CatalogUI : MonoBehaviour
 
         if (placementController == null)
         {
-            SetImportResult("オブジェクトを読み込めません: 配置サービスが見つかりません。", true);
+            SetImportResult("3Dモデルトを読み込めません: 配置サービスが見つかりません。", true);
             return;
         }
 
@@ -3160,7 +3232,7 @@ public class CatalogUI : MonoBehaviour
         }
         else
         {
-            SetImportResult($"オブジェクトを読み込めません: {EditorSupportedModelExtensionsLabel} を選択してください。", true);
+            SetImportResult($"3Dモデルトを読み込めません: {EditorSupportedModelExtensionsLabel} を選択してください。", true);
             return;
         }
 
@@ -3179,7 +3251,7 @@ public class CatalogUI : MonoBehaviour
 
         if (placementController == null)
         {
-            SetImportResult("オブジェクトを読み込めません: 配置サービスが見つかりません。", true);
+            SetImportResult("3Dモデルトを読み込めません: 配置サービスが見つかりません。", true);
             return;
         }
 
@@ -3192,11 +3264,11 @@ public class CatalogUI : MonoBehaviour
         catch (Exception ex)
         {
             Debug.LogError("[Model import] File selection failed: " + ex);
-            SetImportResult("オブジェクトを読み込めません: " + ex.Message, true);
+            SetImportResult("3Dモデルトを読み込めません: " + ex.Message, true);
             return;
         }
 #else
-        SetImportResult("オブジェクトを読み込めません: この環境ではファイル選択に対応していません。", true);
+        SetImportResult("3Dモデルトを読み込めません: この環境ではファイル選択に対応していません。", true);
         return;
 #endif
 
@@ -3208,7 +3280,7 @@ public class CatalogUI : MonoBehaviour
 
         if (!RuntimeModelLoader.IsSupportedExtension(selectedPath))
         {
-            SetImportResult("オブジェクトを読み込めません: .glb または .gltf ファイルを選択してください。", true);
+            SetImportResult("3Dモデルトを読み込めません: .glb または .gltf ファイルを選択してください。", true);
             return;
         }
 
@@ -3253,7 +3325,7 @@ public class CatalogUI : MonoBehaviour
 
         if (newObjectPathText != null)
         {
-            newObjectPathText.text = $"File: {assetPath}";
+            newObjectPathText.text = $"ファイル: {assetPath}";
         }
 
         if (newObjectSettingsPanel != null)
@@ -3263,21 +3335,21 @@ public class CatalogUI : MonoBehaviour
             newObjectSettingsPanel.SetAsLastSibling(); // Canvas 内の最前面へ
         }
 
-        SetImportResult("オブジェクトの読み込みに成功しました", false);
+        SetImportResult("3Dモデルを読み込みました", false);
     }
 
     void OnClickApplyNewObjectSettings()
     {
         if (pendingImportedPrefab == null || string.IsNullOrWhiteSpace(pendingImportedAssetPath))
         {
-            SetImportResult("オブジェクトを追加できません: 読み込み済みのオブジェクトがありません。", true);
+            SetImportResult("3Dモデルトを追加できません: 読み込み済みのオブジェクトがありません。", true);
             CloseNewObjectSettings(clearPending: true);
             return;
         }
 
         if (placementController == null)
         {
-            SetImportResult("オブジェクトを追加できません: 配置サービスが見つかりません。", true);
+            SetImportResult("3Dモデルトを追加できません: 配置サービスが見つかりません。", true);
             return;
         }
 
@@ -3298,10 +3370,10 @@ public class CatalogUI : MonoBehaviour
             saved = ImportedModelStore.Save(pendingImportedAssetPath, typeId, displayLabel,
                 newObjectDescriptionInput != null ? (newObjectDescriptionInput.text ?? string.Empty).Trim() : string.Empty, pendingOriginalSourcePath);
         }
-        catch (Exception ex) { SetImportResult("オブジェクトを保存できません: " + ex.Message, true); return; }
+        catch (Exception ex) { SetImportResult("3Dモデルトを保存できません: " + ex.Message, true); return; }
         if (!placementController.RegisterRuntimePrefab(typeId, pendingImportedPrefab))
         {
-            SetImportResult("オブジェクトを追加できません: 読み込んだオブジェクトを登録できません。", true);
+            SetImportResult("3Dモデルトを追加できません: 読み込んだオブジェクトを登録できません。", true);
             return;
         }
 
@@ -3311,7 +3383,7 @@ public class CatalogUI : MonoBehaviour
         RebuildCards();
 
         CloseNewObjectSettings(clearPending: true);
-        SetStatus("モデルを追加しました。配置後「一覧」で内部の部品を個別に選択できます。");
+        SetStatus("3Dモデルを追加しました。配置後「一覧」で内部の部品を個別に選択できます。");
     }
 
     void OnClickCancelNewObjectSettings()
