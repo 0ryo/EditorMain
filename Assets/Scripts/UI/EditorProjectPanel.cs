@@ -37,6 +37,7 @@ public sealed class EditorProjectPanel : MonoBehaviour
     Button saveProjectButton;
     RectTransform modal;
     TMP_Text dialogTitleText;
+    TMP_Text dirtyBadgeText;
     TMP_InputField projectNameInput;
     TMP_Text statusText;
     RectTransform listContent;
@@ -141,7 +142,7 @@ public sealed class EditorProjectPanel : MonoBehaviour
         openButton = existing != null ? existing.GetComponent<Button>() : null;
         if (openButton == null)
         {
-            openButton = CreateButton("Button_ProjectFiles", topBar, "プロジェクト", 112f);
+            openButton = CreateButton("Button_ProjectFiles", topBar, "教材一覧", 112f);
             var saveButton = topBar.Find("Button_SaveCurriculum");
             if (saveButton != null) openButton.transform.SetSiblingIndex(saveButton.GetSiblingIndex());
         }
@@ -176,14 +177,17 @@ public sealed class EditorProjectPanel : MonoBehaviour
         var dialogImage = dialog.gameObject.AddComponent<Image>();
         dialogImage.color = DesignTokens.Surface;
 
-        dialogTitleText = CreateText("Title", dialog, "プロジェクト", DesignTokens.FontSizeHeading, DesignTokens.TextPrimary);
-        SetRect(dialogTitleText.rectTransform, new Vector2(24f, -20f), new Vector2(560f, 36f));
+        dialogTitleText = CreateText("Title", dialog, "教材一覧", DesignTokens.FontSizeHeading, DesignTokens.TextPrimary);
+        SetRect(dialogTitleText.rectTransform, new Vector2(24f, -20f), new Vector2(360f, 36f));
+        dirtyBadgeText = CreateText("Badge_Dirty", dialog, "未保存の変更", DesignTokens.FontSizeCaption, DesignTokens.Warning);
+        SetTopRight(dirtyBadgeText.rectTransform, new Vector2(-112f, -24f), new Vector2(200f, 28f));
+        dirtyBadgeText.alignment = TextAlignmentOptions.MidlineRight;
 
         var close = CreateButton("Button_Close", dialog, "閉じる", 80f);
         SetTopRight(close.transform as RectTransform, new Vector2(-20f, -18f), new Vector2(80f, 36f));
         close.onClick.AddListener(Close);
 
-        var nameLabel = CreateText("Label_ProjectName", dialog, "プロジェクト名", DesignTokens.FontSizeCaption, DesignTokens.TextSecondary);
+        var nameLabel = CreateText("Label_ProjectName", dialog, "教材名", DesignTokens.FontSizeCaption, DesignTokens.TextSecondary);
         SetRect(nameLabel.rectTransform, new Vector2(24f, -72f), new Vector2(160f, 24f));
         projectNameInput = CreateInput("Input_ProjectName", dialog, "VRCourseEditor");
         SetRect(projectNameInput.transform as RectTransform, new Vector2(24f, -98f), new Vector2(672f, 40f));
@@ -255,6 +259,28 @@ public sealed class EditorProjectPanel : MonoBehaviour
         scroll.content = listContent;
         scroll.vertical = true;
         scroll.scrollSensitivity = 24f;
+
+        var barRect = CreateRect("Scrollbar_Vertical", scrollRoot);
+        barRect.anchorMin = new Vector2(1f, 0f);
+        barRect.anchorMax = new Vector2(1f, 1f);
+        barRect.pivot = new Vector2(1f, 0.5f);
+        barRect.offsetMin = new Vector2(-10f, 2f);
+        barRect.offsetMax = new Vector2(-2f, -2f);
+        var barImage = barRect.gameObject.AddComponent<Image>();
+        barImage.color = DesignTokens.BgSecondary;
+        var slidingArea = CreateRect("Sliding Area", barRect);
+        Stretch(slidingArea);
+        var handle = CreateRect("Handle", slidingArea);
+        Stretch(handle);
+        var handleImage = handle.gameObject.AddComponent<Image>();
+        handleImage.color = DesignTokens.TextTertiary;
+        var scrollbar = barRect.gameObject.AddComponent<Scrollbar>();
+        scrollbar.direction = Scrollbar.Direction.BottomToTop;
+        scrollbar.handleRect = handle;
+        scrollbar.targetGraphic = handleImage;
+        scroll.verticalScrollbar = scrollbar;
+        scroll.verticalScrollbarVisibility = ScrollRect.ScrollbarVisibility.AutoHideAndExpandViewport;
+        scroll.verticalScrollbarSpacing = 2f;
     }
 
     void BuildConfirmation(RectTransform dialog)
@@ -393,7 +419,7 @@ public sealed class EditorProjectPanel : MonoBehaviour
         }
 
         ShowLoadConfirmation(
-            "現在の内容を保存してから新規プロジェクトを作成しますか？",
+            "現在の内容を保存してから新しい教材を作成しますか？",
             "保存して新規", "破棄して新規",
             () =>
             {
@@ -449,7 +475,7 @@ public sealed class EditorProjectPanel : MonoBehaviour
             string.Equals(currentName, projectService.CurrentProjectName, StringComparison.Ordinal);
         if (nameCollision != null && !collisionIsCurrentFile && !savingCurrent)
         {
-            statusText.text = $"「{nameCollision.DisplayName}」は既に保存されています。現在の内容を保存する場合は別のプロジェクト名を入力してください。";
+            statusText.text = $"「{nameCollision.DisplayName}」は既に保存されています。現在の内容を保存する場合は別の教材名を入力してください。";
             statusText.color = DesignTokens.Warning;
             HideConfirmation();
             return false;
@@ -583,7 +609,7 @@ public sealed class EditorProjectPanel : MonoBehaviour
             UiRoundedTheme.ApplyToHierarchy(row, DesignTokens.CornerRadius);
             UiAccessibilityMetrics.EnsureButtonTargets(row);
         }
-        SetListContentHeight(warningOffset + 16f + rowIndex * 92f + Mathf.Max(0, rowIndex - 1) * DesignTokens.SpaceSm);
+        SetListContentHeight(warningOffset + 16f + DesignTokens.SpaceMd + rowIndex * 92f + Mathf.Max(0, rowIndex - 1) * DesignTokens.SpaceSm);
     }
 
     void CreateRecoveryProtectionWarning()
@@ -650,7 +676,7 @@ public sealed class EditorProjectPanel : MonoBehaviour
         discardRect.sizeDelta = new Vector2(64f, 36f);
         discard.onClick.AddListener(() => RequestRecoveryDelete(info));
 
-        var restore = CreateButton("Button_RestoreRecovery", row, "復元", 72f, true);
+        var restore = CreateButton("Button_RestoreRecovery", row, "復元", 72f);
         var restoreRect = restore.transform as RectTransform;
         restoreRect.anchorMin = restoreRect.anchorMax = new Vector2(1f, 0.5f);
         restoreRect.pivot = new Vector2(1f, 0.5f);
@@ -785,16 +811,17 @@ public sealed class EditorProjectPanel : MonoBehaviour
         bool dirty = projectService != null && projectService.IsDirty;
         if (dialogTitleText != null)
         {
-            dialogTitleText.text = dirty ? "プロジェクト  •  未保存" : "プロジェクト";
-            dialogTitleText.color = dirty ? DesignTokens.Warning : DesignTokens.TextPrimary;
+            dialogTitleText.text = "教材一覧";
+            dialogTitleText.color = DesignTokens.TextPrimary;
         }
+        if (dirtyBadgeText != null) dirtyBadgeText.gameObject.SetActive(dirty);
 
         if (openButton != null)
         {
             var label = openButton.GetComponentInChildren<TMP_Text>(true);
             if (label != null)
             {
-                label.text = dirty ? "プロジェクト  •" : "プロジェクト";
+                label.text = dirty ? "教材一覧  •" : "教材一覧";
                 label.color = dirty ? DesignTokens.Warning : DesignTokens.TextPrimary;
             }
         }

@@ -7,6 +7,9 @@ public class HintPanelController : MonoBehaviour
     const string ButtonName = "Button_Hints";
     const string PanelName = "Panel_Hints";
     const string HintBody =
+        "基本の流れ\n" +
+        "① 配置を編集 → ② 手順を編集 → ③ 動作を確認 → 書き出し\n" +
+        "・配置で部品を置き、手順で完了条件を決め、動作確認してから書き出します\n\n" +
         "視点操作\n" +
         "・右ドラッグ または 中ドラッグ: 回転\n" +
         "・Shift + 右/中ドラッグ: 平行移動　ホイール: ズーム\n" +
@@ -24,6 +27,10 @@ public class HintPanelController : MonoBehaviour
 
     [SerializeField] Button openButton;
     [SerializeField] Button closeButton;
+    const string ScrimName = "Scrim_Hints";
+    const float PanelHeight = 700f; // title 64 + body + 24 gap + close 64
+    const float BodyFontSize = 16f;
+    [SerializeField] RectTransform scrim;
     readonly Vector3[] worldCorners = new Vector3[4];
 
     public static HintPanelController Ensure(Transform parent)
@@ -56,6 +63,11 @@ public class HintPanelController : MonoBehaviour
         EnsureOpenButton(transform.parent);
         WireButtons();
         RefreshContent();
+    }
+
+    void Update()
+    {
+        if (Application.isFocused && EditInput.CancelPressedThisFrame()) Hide();
     }
 
     void LateUpdate()
@@ -109,14 +121,39 @@ public class HintPanelController : MonoBehaviour
 
     public void Show()
     {
+        EnsureScrim();
+        if (scrim != null) { scrim.gameObject.SetActive(true); scrim.SetAsLastSibling(); }
         gameObject.SetActive(true);
         PositionInViewport();
         transform.SetAsLastSibling();
     }
 
+    void EnsureScrim()
+    {
+        if (scrim == null && transform.parent != null)
+        {
+            var found = transform.parent.Find(ScrimName);
+            if (found != null) scrim = found as RectTransform;
+        }
+        if (scrim != null || transform.parent == null) return;
+        scrim = CreateRect(ScrimName, transform.parent);
+        SetRect(scrim, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+        var image = scrim.gameObject.AddComponent<Image>();
+        image.color = new Color(0f, 0f, 0f, 0.35f);
+        image.raycastTarget = true;
+        scrim.gameObject.AddComponent<EditorUiInputBlocker>();
+        scrim.gameObject.SetActive(false);
+    }
+
     public void Hide()
     {
+        if (scrim != null) scrim.gameObject.SetActive(false);
         gameObject.SetActive(false);
+    }
+
+    void OnDisable()
+    {
+        if (scrim != null) scrim.gameObject.SetActive(false);
     }
 
     void RefreshContent()
@@ -124,7 +161,7 @@ public class HintPanelController : MonoBehaviour
         var rect = transform as RectTransform;
         if (rect != null)
         {
-            rect.sizeDelta = new Vector2(600f, 540f);
+            rect.sizeDelta = new Vector2(600f, PanelHeight);
             // The SkillSync canvas uses a 2560x1440 reference, so legacy dialogs need its 1.44x correction.
             bool skillSync = transform.parent != null &&
                 transform.parent.GetComponentInChildren<SkillSyncDesignView>(true) != null;
@@ -137,7 +174,7 @@ public class HintPanelController : MonoBehaviour
         var body = transform.Find("Text_Body")?.GetComponent<TMP_Text>();
         if (body == null) return;
         body.text = HintBody;
-        body.fontSize = DesignTokens.FontSizeBody;
+        body.fontSize = Mathf.Max(DesignTokens.FontSizeBody, BodyFontSize);
         body.color = DesignTokens.TextSecondary;
         body.alignment = TextAlignmentOptions.TopLeft;
         body.textWrappingMode = TMPro.TextWrappingModes.Normal;
@@ -209,7 +246,7 @@ public class HintPanelController : MonoBehaviour
         root.anchorMin = new Vector2(0.5f, 0.5f);
         root.anchorMax = new Vector2(0.5f, 0.5f);
         root.pivot = new Vector2(0.5f, 0.5f);
-        root.sizeDelta = new Vector2(600f, 540f);
+        root.sizeDelta = new Vector2(600f, PanelHeight);
         root.anchoredPosition = Vector2.zero;
 
         var image = root.gameObject.AddComponent<Image>();
@@ -221,10 +258,10 @@ public class HintPanelController : MonoBehaviour
         var title = CreateText("Text_Title", root, "操作ヒント", DesignTokens.FontSizeHeading, DesignTokens.TextPrimary);
         SetRect(title.rectTransform, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(24f, -64f), new Vector2(-24f, -24f));
 
-        var body = CreateText("Text_Body", root, HintBody, DesignTokens.FontSizeBody, DesignTokens.TextSecondary);
+        var body = CreateText("Text_Body", root, HintBody, Mathf.Max(DesignTokens.FontSizeBody, BodyFontSize), DesignTokens.TextSecondary);
         body.alignment = TextAlignmentOptions.TopLeft;
         body.textWrappingMode = TMPro.TextWrappingModes.Normal;
-        SetRect(body.rectTransform, Vector2.zero, Vector2.one, new Vector2(24f, 80f), new Vector2(-24f, -88f));
+        SetRect(body.rectTransform, Vector2.zero, Vector2.one, new Vector2(24f, 88f), new Vector2(-24f, -72f));
 
         var close = CreateButton("Button_Close", root, "\u9589\u3058\u308B");
         SetRect(close.GetComponent<RectTransform>(), new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-104f, 24f), new Vector2(-24f, 64f));
