@@ -87,6 +87,7 @@ public sealed class ViewportOutliner : MonoBehaviour
 
     void LateUpdate()
     {
+        if (!gameObject.activeInHierarchy || SkillSyncEditorController.Active != null) return;
         ResolveReferences();
         ApplyCatalogLayout();
         RefreshTabContent();

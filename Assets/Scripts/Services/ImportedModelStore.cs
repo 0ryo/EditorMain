@@ -153,10 +153,7 @@ public static class ImportedModelStore
 
     public static void Write(ImportedModelRecord record)
     {
-        string temp = record.recordPath + ".tmp";
-        File.WriteAllText(temp, JsonUtility.ToJson(record, true));
-        if (File.Exists(record.recordPath)) File.Replace(temp, record.recordPath, record.recordPath + ".bak");
-        else File.Move(temp, record.recordPath);
+        ExportFileWriter.WriteAllTextWithBackup(record.recordPath, JsonUtility.ToJson(record, true));
     }
 
     static string Within(string directory, string relative)
