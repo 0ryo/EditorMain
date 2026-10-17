@@ -187,6 +187,38 @@ public partial class CurriculumGraphService : MonoBehaviour
         return added;
     }
 
+    // One undoable command: insert a step (with one bound condition) after afterStepId; null or unknown appends.
+    public bool TryInsertStepWithCondition(string afterStepId, out ScenarioNode addedStep, out ScenarioNode addedCondition, out string reason)
+    {
+        ScenarioNode candidate = null, candidateCondition = null;
+        string failureReason = null;
+        bool added = ExecuteCommand("Add step", () =>
+        {
+            List<ScenarioNode> steps;
+            if (GetNodes(ScenarioNodeType.Step).Count == 0) steps = new List<ScenarioNode>();
+            else if (!TryBuildLinearStepSequence(out steps, out failureReason)) return false;
+
+            int index = string.IsNullOrEmpty(afterStepId) ? -1 : steps.FindIndex(step => step.nodeId == afterStepId);
+            if (index < 0) index = steps.Count - 1;
+            var previous = index >= 0 ? steps[index] : GetStartNode();
+            var next = index + 1 < steps.Count ? steps[index + 1] : GetEndNode();
+            if (previous == null || next == null || GetMaxConditionsPerStep() < 1) return false;
+
+            RemoveEdge(previous.nodeId, next.nodeId, ScenarioEdgeType.StepFlow);
+            candidate = AddStep();
+            candidateCondition = AddCondition();
+            ConditionTypeCatalog.Normalize(candidateCondition.condition, curriculum.rules);
+            return TryAddEdge(previous.nodeId, candidate.nodeId, out failureReason) &&
+                   TryAddEdge(candidate.nodeId, next.nodeId, out failureReason) &&
+                   TryBindConditionToStep(candidateCondition.nodeId, candidate.nodeId, out failureReason);
+        });
+
+        addedStep = added ? candidate : null;
+        addedCondition = added ? candidateCondition : null;
+        reason = failureReason;
+        return added;
+    }
+
     public bool TryAddConditionToStep(string stepNodeId, out ScenarioNode addedCondition, out string reason)
     {
         ScenarioNode candidate = null;
