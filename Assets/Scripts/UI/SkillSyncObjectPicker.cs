@@ -51,7 +51,7 @@ public sealed class SkillSyncObjectPicker : MonoBehaviour
         if(picking.activeSelf!=(target!=null)) ClearPreview();
         picking.SetActive(target!=null);
         if(target==null)return;
-        instruction.text="初回はグループ全体／同じ対象の再指定で部品";
+        instruction.text="クリックでグループ全体、もう一度クリックで部品";
         picking.transform.SetAsLastSibling();
     }
     public void ShowCandidate(PlacedObject candidate)

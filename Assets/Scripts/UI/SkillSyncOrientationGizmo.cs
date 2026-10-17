@@ -1,3 +1,4 @@
+using TMPro;
 using UnityEngine;
 
 [RequireComponent(typeof(CanvasRenderer))]
@@ -8,8 +9,35 @@ public sealed class SkillSyncOrientationGizmo : UnityEngine.UI.MaskableGraphic
     readonly Vector3[] axes={Vector3.right,Vector3.up,Vector3.forward,-Vector3.right,-Vector3.up,-Vector3.forward};
     readonly Color32[] colors={new Color32(159,29,23,255),new Color32(25,97,47,255),new Color32(29,78,216,255)};
     readonly int[] order={0,1,2,3,4,5};
+    readonly TMP_Text[] labels=new TMP_Text[3];
+    protected override void OnEnable() {
+        base.OnEnable();
+        string[] names={"X","Y","Z"};
+        for(int i=0;i<3;i++) {
+            var child=transform.Find("AxisLabel"+names[i]);
+            if(!child) {
+                var rect=new GameObject("AxisLabel"+names[i],typeof(RectTransform)).GetComponent<RectTransform>();
+                rect.SetParent(transform,false);rect.anchorMin=rect.anchorMax=rect.pivot=new Vector2(.5f,.5f);rect.sizeDelta=new Vector2(14,14);
+                var text=rect.gameObject.AddComponent<TextMeshProUGUI>();
+                text.text=names[i];text.fontSize=10;text.fontStyle=FontStyles.Bold;text.alignment=TextAlignmentOptions.Center;
+                text.textWrappingMode=TextWrappingModes.NoWrap;text.raycastTarget=false;text.color=colors[i];
+                child=rect;
+            }
+            labels[i]=child.GetComponent<TMP_Text>();
+        }
+        UpdateLabels();
+    }
+    void UpdateLabels() {
+        if(sourceCamera==null) return;
+        var rotation=Quaternion.Inverse(sourceCamera.transform.rotation);
+        for(int i=0;i<3;i++) {
+            if(labels[i]==null) continue;
+            var direction=rotation*axes[i];
+            labels[i].rectTransform.anchoredPosition=(Vector2)direction*36;
+        }
+    }
     void LateUpdate() {
-        if(sourceCamera!=null && lastRotation!=sourceCamera.transform.rotation) {lastRotation=sourceCamera.transform.rotation;SetVerticesDirty();}
+        if(sourceCamera!=null && lastRotation!=sourceCamera.transform.rotation) {lastRotation=sourceCamera.transform.rotation;SetVerticesDirty();UpdateLabels();}
     }
     protected override void OnPopulateMesh(UnityEngine.UI.VertexHelper vh)
     {

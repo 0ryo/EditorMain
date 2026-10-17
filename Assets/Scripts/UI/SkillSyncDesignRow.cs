@@ -31,18 +31,35 @@ public sealed class SkillSyncDesignRow : MonoBehaviour
             status.text=selected?"選択中":detail;
             if(!selected) description.text="";
             status.color=Parse(selected?"#0866E8":"#58677C");
+            title.overflowMode=TextOverflowModes.Ellipsis;title.textWrappingMode=TextWrappingModes.NoWrap;
+            bool single=string.IsNullOrEmpty(description.text);
+            title.alignment=single?TextAlignmentOptions.MidlineLeft:TextAlignmentOptions.TopLeft;
+            title.rectTransform.anchoredPosition=new Vector2(94,-9);
+            title.rectTransform.sizeDelta=new Vector2(588,single?38.4f:24);
+        }
+        if(layout=="Steps") {
+            Place(title.rectTransform,60,16,16,24);
+            description.textWrappingMode=TextWrappingModes.Normal;description.overflowMode=TextOverflowModes.Ellipsis;description.maxVisibleLines=2;
+            Place(description.rectTransform,16,16,46,36);
         }
         if(layout=="Library") {
             background.borderWidth=selected?2:1;
             GetComponent<UnityEngine.UI.LayoutElement>().preferredHeight=pdfLayout?(selected?160.33f:142.63f):(selected?154:138);
-            title.rectTransform.anchoredPosition=new Vector2(16,pdfLayout?(selected?-96.82f:-87.45f):(selected?-93:-79));
-            description.rectTransform.anchoredPosition=new Vector2(16,pdfLayout?(selected?-125.98f:-114.52f):(selected?-121:-107));
+            title.alignment=TextAlignmentOptions.Top;description.alignment=TextAlignmentOptions.Top;
+            Place(title.rectTransform,8,8,pdfLayout?(selected?96.82f:87.45f):(selected?93:79),30);
+            Place(description.rectTransform,8,8,pdfLayout?(selected?125.98f:114.52f):(selected?121:107),24);
         }
         if(numberBackground!=null)
         {
             numberBackground.color=Parse(complete?"#15734A":selected?"#0866E8":"#EEF2F7");
             number.color=complete||selected?Color.white:Parse("#172236");
         }
+    }
+    // Top-anchored, horizontally stretched placement with pixel insets.
+    static void Place(RectTransform rect,float left,float right,float top,float height)
+    {
+        rect.anchorMin=new Vector2(0,1);rect.anchorMax=new Vector2(1,1);
+        rect.offsetMin=new Vector2(left,-top-height);rect.offsetMax=new Vector2(-right,-top);
     }
     static Color Parse(string hex) { ColorUtility.TryParseHtmlString(hex, out var c); return c; }
 }
