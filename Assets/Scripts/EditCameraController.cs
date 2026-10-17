@@ -68,12 +68,12 @@ public class EditorCameraController : MonoBehaviour
             return;
         }
 
-        bool typingBlocked = EditWorkspace.IsTypingIntoInputField();
+        bool typingBlocked = EditWorkspace.IsCameraInputBlocked();
         float scrollY = EditInput.ScrollY;
         bool middlePressed = EditInput.MiddlePressed();
         bool rightPressed = EditInput.RightPressed();
         bool shiftPressed = EditInput.ShiftPressed();
-        bool overBlockingUi = EditWorkspace.TryGetBlockingUiName(mousePosition, out _);
+        bool overBlockingUi = EditWorkspace.TryGetBlockingUiName(mousePosition, out _, true);
 
         if (typingBlocked)
         {

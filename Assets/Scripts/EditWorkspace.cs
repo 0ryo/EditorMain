@@ -148,7 +148,17 @@ public static class EditWorkspace
             Mathf.Round(groundPoint.z / snap) * snap);
     }
 
-    public static bool TryGetBlockingUiName(Vector2 screenPosition, out string blockingUiName)
+    // Camera navigation stays available during ghost placement / target picking, unlike keyboard shortcuts.
+    public static bool IsCameraInputBlocked()
+    {
+        if (!Application.isFocused || HasOpenModal || ObjectScreenPicker.Capturing) return true;
+        var selected = EventSystem.current != null ? EventSystem.current.currentSelectedGameObject : null;
+        if (selected == null) return false;
+        var tmpInput = selected.GetComponent<TMP_InputField>() ?? selected.GetComponentInParent<TMP_InputField>();
+        return tmpInput != null && tmpInput.isFocused;
+    }
+
+    public static bool TryGetBlockingUiName(Vector2 screenPosition, out string blockingUiName, bool forCamera = false)
     {
         blockingUiName = null;
         if (HasOpenModal)
@@ -156,7 +166,7 @@ public static class EditWorkspace
             blockingUiName = "Editor modal";
             return true;
         }
-        if (SkillSyncEditorController.Active != null && SkillSyncEditorController.Active.BlocksWorkspace(screenPosition))
+        if (SkillSyncEditorController.Active != null && (forCamera ? SkillSyncEditorController.Active.BlocksCamera(screenPosition) : SkillSyncEditorController.Active.BlocksWorkspace(screenPosition)))
         {
             blockingUiName = "SkillSyncDesign";
             return true;

@@ -33,6 +33,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
     MoveTool trialMoveTool;
     SkillSyncTrialSession trial;
     SkillSyncPlacementGhost ghost;
+    PrefabEntry ghostEntry;
     readonly List<string> logs = new();
     readonly SkillSyncModelThumbnails thumbnails = new();
     readonly List<SkillSyncDesignRow> libraryRows = new(), stepRows = new(), objectRows = new();
@@ -134,6 +135,15 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         if(Active==this) Active=null;
         thumbnails.Dispose();
     }
+    // Camera variant of BlocksWorkspace: ghost placement and target picking must not stop camera navigation.
+    public bool BlocksCamera(Vector2 point)
+    {
+        if (!Application.isFocused || EditWorkspace.HasOpenModal) return true;
+        if(!initialized) return false;
+        if(GetComponent<SkillSyncObjectPicker>()?.BlocksPointer(point)==true) return true;
+        if(Modal) return true;
+        return !RectTransformUtility.RectangleContainsScreenPoint(view.viewport,point);
+    }
     public bool BlocksWorkspace(Vector2 point)
     {
         if (!Application.isFocused || EditWorkspace.HasOpenModal) return true;
@@ -155,10 +165,15 @@ public sealed class SkillSyncEditorController : MonoBehaviour
             expansion.SetExpanded(mode==0 && !Modal && trial==null && ghost==null && selection.Selected.Count!=1);
             expansion.Tick(Time.unscaledDeltaTime);
         }
-        if(!BlocksEditingShortcuts && !TextInputFocused)
+        if(!BlocksEditingShortcuts)
         {
-            if(EditInput.ProjectShortcutPressedThisFrame(true)) SaveProject(project.CurrentProjectName);
-            if(EditInput.ProjectShortcutPressedThisFrame(false)) EditorProjectPanel.Ensure(transform.root)?.OpenForDesignUi();
+            if(EditInput.ProjectShortcutPressedThisFrame(true))
+            {
+                // Commit a focused input first (fires onEndEdit) so the typed value is saved in the same frame.
+                if(TextInputFocused) UnityEngine.EventSystems.EventSystem.current.SetSelectedGameObject(null);
+                SaveProject(project.CurrentProjectName);
+            }
+            if(!TextInputFocused && EditInput.ProjectShortcutPressedThisFrame(false)) EditorProjectPanel.Ensure(transform.root)?.OpenForDesignUi();
         }
         bool inside=RectTransformUtility.RectangleContainsScreenPoint(view.viewport,EditInput.MousePosition);
         if(!TextInputFocused && EditInput.CancelPressedThisFrame())
@@ -167,7 +182,11 @@ public sealed class SkillSyncEditorController : MonoBehaviour
             else if(Modal) {mode=1;view.Show(1);}
             else if(pickTarget!=null) pickTarget=null;
             else if(ghost!=null) CancelGhost();
-            else if(trial!=null) {EndTrial();mode=1;}
+            else if(trial!=null)
+            {
+                if(!trial.Paused) {trial.Paused=true;UpdateTrialGizmo();Notify("一時停止中：もう一度Escで編集に戻ります",false);}
+                else {EndTrial();mode=1;}
+            }
             else selection.Select(null);
             Refresh();
         }
@@ -176,7 +195,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
             if(ghost!=null)
             {
                 ghost.Follow(cameraView,EditInput.MousePosition);
-                if(EditInput.LeftPressedThisFrame()) ConfirmGhost();
+                if(EditInput.LeftPressedThisFrame()) ConfirmGhost(EditInput.ShiftPressed());
             }
             else if(pickTarget!=null)
             {
@@ -267,7 +286,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
             case "DeleteCondition": DeleteCondition();break;
             case "詳細設定": catalog?.ShowDesignSettings();return;
             case "ヘルプ": case "Guide": HintPanelController.Ensure(transform.root)?.Show();return;
-            case "Save": SaveProject(project.CurrentProjectName);break;
+            case "Save": if(trial!=null || ghost!=null) break; SaveProject(project.CurrentProjectName);break;
             case "教材を読み込む":
                 if (!BlocksEditingShortcuts) EditorProjectPanel.Ensure(transform.root)?.OpenForDesignUi();
                 return;
@@ -511,8 +530,8 @@ public sealed class SkillSyncEditorController : MonoBehaviour
     void SelectionChanged(PlacedObject _) {RefreshLibrarySelection();RebuildObjects();RefreshValues();}
     void RefreshLibrarySelection()
     {
-        string type = ghost != null ? ghost.TypeId : selection.Current != null ? selection.Current.TypeId : null;
-        foreach (var pair in libraryTypes) pair.Key.SetSelected(pair.Value == type);
+        string type = ghost != null ? ghost.TypeId : null;
+        foreach (var pair in libraryTypes) pair.Key.SetSelected(type != null && pair.Value == type);
     }
     void ObjectPlaced(PlacedObject _,string __) {RevalidateAndSync();RebuildObjects();RefreshValues();}
     void HistoryChanged() {RevalidateAndSync();RebuildObjects();RefreshValues();}
@@ -536,7 +555,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
             if(!string.IsNullOrEmpty(search) && (title+" "+entry.typeId).IndexOf(search,StringComparison.OrdinalIgnoreCase)<0) continue;
             bool env=entry.typeId.StartsWith("Env/",StringComparison.Ordinal);
             if(category=="環境" && !env || category=="部品" && env) continue;
-            var row=Row(view.libraryTemplate,view.libraryContent,libraryRows);row.Set(title,detail,"",ghost!=null?ghost.TypeId==entry.typeId:selection.Current!=null && selection.Current.TypeId==entry.typeId);
+            var row=Row(view.libraryTemplate,view.libraryContent,libraryRows);row.Set(title,detail,"",ghost!=null && ghost.TypeId==entry.typeId);
             if(row.thumbnail!=null) row.thumbnail.texture=thumbnails.Get(entry.prefab);
             libraryTypes[row]=entry.typeId;
             var chosen=entry;row.button.onClick.AddListener(()=>BeginGhost(chosen));
@@ -578,7 +597,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         {
             if (ghostRow == null) ghostRow=Row(view.objectTemplate,view.objectsContent,objectRows);
             ghostRow.transform.SetAsFirstSibling();
-            ghostRow.Set(ghost.DisplayName+"（仮配置）","未確定","",true);
+            ghostRow.Set(ghost.DisplayName+"（仮配置）","","",true);
             ghostRow.status.text="未確定";
             ghostRow.thumbnail.texture=thumbnails.Get(ghost.Transform.gameObject);
         }
@@ -662,6 +681,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         view.Enable("↑ 上へ",index>1);view.Enable("↓ 下へ",index>0 && index<graph.GetDisplayOrderedSteps().Count);
         view.Enable("↶ 元に戻す",trial==null && CommandService.I?.Stack.CanUndo==true);view.Enable("↷",trial==null && CommandService.I?.Stack.CanRedo==true);
         view.Enable("↑ 教材を書き出す",trial==null && ghost==null);
+        view.Enable("Save",trial==null && ghost==null);
         view.Enable("教材を読み込む",!BlocksEditingShortcuts);
         view.Text("workspaceHint",trial!=null?"部品を選び、ギズモで操作 / 中・右ドラッグで視点移動":mode==1?$"手順{index}で使う部品を表示":"部品を選んで、作業面に配置します");
         view.Text("status",pickTarget!=null?status:ghost!=null?"＋ 仮配置中：クリックで確定 / Escで中止":trial!=null?trial.Complete?"✓ 条件が成立しました":"▶ 試行中：ギズモで部品を動かして条件を確かめます":current!=null?"● 選択中："+current.GetDisplayName()+" | Escで選択解除":"部品を選択してください");
@@ -820,21 +840,25 @@ public sealed class SkillSyncEditorController : MonoBehaviour
     }
     void BeginGhost(PrefabEntry entry)
     {
+        if(ghost!=null && ghost.TypeId==entry.typeId) {CancelGhost();Refresh();return;}
         EndTrial();CancelGhost();placement.CancelPlacement();
-        try {ghost=new SkillSyncPlacementGhost(entry);}
+        try {ghost=new SkillSyncPlacementGhost(entry);ghostEntry=entry;}
         catch(Exception e) {Notify("仮配置を開始できません: "+e.Message,true);Debug.LogException(e);Refresh();return;}
         mode=0;
         ghost.Follow(cameraView,new Vector2(cameraView.pixelRect.center.x,cameraView.pixelRect.center.y));
         RefreshLibrarySelection();Refresh();
     }
     void CancelGhost() {ghost?.Dispose();ghost=null;if(selection!=null) RefreshLibrarySelection();}
-    void ConfirmGhost()
+    void ConfirmGhost(bool continuePlacing=false)
     {
         if(ghost==null) return;
+        var entry=ghostEntry;
         var pose=ghost.Transform;var position=pose.position;var rotation=pose.rotation;var scale=pose.localScale;string label=ghost.DisplayName;
         if(placement.PlaceForDesignUi(ghost.TypeId,position,rotation,scale,label))
         {
-            CancelGhost();Refresh();
+            CancelGhost();
+            if(continuePlacing && entry!=null) BeginGhost(entry);
+            Refresh();
         }
     }
     void Export()
@@ -865,7 +889,10 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         if(result.outcome==TeachingMaterialExportWorkflow.Outcome.Exported)
         {
             string dir=System.IO.Path.GetDirectoryName(result.exportPath);
-            TopCenterNotification.Ensure(transform, view.inspectorTitle)?.Show("再編集用データを保存し、教材を書き出しました: "+dir, false, 8f, "フォルダを開く", ()=>Application.OpenURL("file://"+dir));
+            if(string.IsNullOrEmpty(dir) || !System.IO.Path.IsPathRooted(dir))
+                TopCenterNotification.Ensure(transform, view.inspectorTitle)?.Show("再編集用データを保存し、教材を書き出しました", false, 8f);
+            else
+                TopCenterNotification.Ensure(transform, view.inspectorTitle)?.Show("再編集用データを保存し、教材を書き出しました: "+dir, false, 8f, "フォルダを開く", ()=>Application.OpenURL(new System.Uri(dir).AbsoluteUri));
         }
         else
         {
