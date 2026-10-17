@@ -30,15 +30,31 @@ public static class SkillSyncConditionEditing
         return (parameter.key == ConditionTypeCatalog.DistanceKey ? value * 100 : value).ToString("0.##", CultureInfo.CurrentCulture);
     }
 
-    public static bool TrySetValue(ConditionNodeData condition, int slot, string input)
+    public static bool TrySetValue(ConditionNodeData condition, int slot, string input) => TrySetValue(condition, slot, input, out _);
+
+    // Numeric input is clamped to the parameter range; non-numeric input is rejected without mutation.
+    public static bool TrySetValue(ConditionNodeData condition, int slot, string input, out bool clamped)
     {
+        clamped = false;
         var parameter = Parameter(condition, slot);
         if (parameter == null || !float.TryParse(input, NumberStyles.Float, CultureInfo.CurrentCulture, out float value) ||
             float.IsNaN(value) || float.IsInfinity(value)) return false;
         if (parameter.key == ConditionTypeCatalog.DistanceKey) value /= 100;
-        if (value < parameter.minValue || value > parameter.maxValue) return false;
-        ConditionTypeCatalog.SetNumber(condition, parameter.key, value);
+        float bounded = Math.Max(parameter.minValue, Math.Min(parameter.maxValue, value));
+        clamped = bounded != value;
+        ConditionTypeCatalog.SetNumber(condition, parameter.key, bounded);
         return true;
+    }
+
+    public static string RangeHint(ConditionNodeData condition, int slot)
+    {
+        var parameter = Parameter(condition, slot);
+        if (parameter == null) return "";
+        bool distance = parameter.key == ConditionTypeCatalog.DistanceKey;
+        float scale = distance ? 100 : 1;
+        string unit = distance ? "cm" : parameter.key == ConditionTypeCatalog.AngleKey ? "度" : "秒";
+        return (parameter.minValue * scale).ToString("0.##", CultureInfo.CurrentCulture) + "〜" +
+            (parameter.maxValue * scale).ToString("0.##", CultureInfo.CurrentCulture) + " " + unit;
     }
 
     public static bool TargetsValid(ConditionNodeData condition, Func<string, bool> exists)

@@ -76,8 +76,16 @@ static class ConditionEditorChecks
             Check(CommandService.I.Stack.Undo() && SkillSyncConditionEditing.Value(Current(), 0) == "90", "Parameter Undo");
             Check(CommandService.I.Stack.Redo() && SkillSyncConditionEditing.Value(Current(), 0) == "270.5", "Parameter Redo");
             string snapshot = JsonUtility.ToJson(Current());
-            foreach (string invalid in new[] { "NaN", "Infinity", "-1", "0", "36001", "text" })
-                Check(!SkillSyncConditionEditing.TrySetValue(Current(), 0, invalid) && JsonUtility.ToJson(Current()) == snapshot, "Reject invalid angle without mutation: " + invalid);
+            foreach (string invalid in new[] { "NaN", "Infinity", "text", "" })
+                Check(!SkillSyncConditionEditing.TrySetValue(Current(), 0, invalid, out bool rejectedClamp) && !rejectedClamp && JsonUtility.ToJson(Current()) == snapshot, "Reject non-numeric angle without mutation: " + invalid);
+            bool isClamped = false;
+            graph.UpdateConditionData(id, "Clamp angle high", data => SkillSyncConditionEditing.TrySetValue(data, 0, "36001", out isClamped));
+            Check(isClamped && ConditionTypeCatalog.GetNumber(Current(), ConditionTypeCatalog.AngleKey) == 36000f, "Angle above range is clamped to the maximum");
+            graph.UpdateConditionData(id, "Clamp angle low", data => SkillSyncConditionEditing.TrySetValue(data, 0, "0", out isClamped));
+            Check(isClamped && Math.Abs(ConditionTypeCatalog.GetNumber(Current(), ConditionTypeCatalog.AngleKey) - .1f) < .00001f, "Angle below range is clamped to the minimum");
+            graph.UpdateConditionData(id, "In-range angle", data => SkillSyncConditionEditing.TrySetValue(data, 0, "270.5", out isClamped));
+            Check(!isClamped && ConditionTypeCatalog.GetNumber(Current(), ConditionTypeCatalog.AngleKey) == 270.5f, "In-range angle is not flagged as clamped");
+            Check(SkillSyncConditionEditing.RangeHint(Current(), 0) == "0.1〜36000 度" && SkillSyncConditionEditing.RangeHint(Current(), 5) == "", "Range hint for angle and unused slot");
             graph.UpdateConditionData(id, "Back to hold", data => SkillSyncConditionEditing.ChangeType(data, "SnapHold", graph.curriculum.rules));
             Check(Current().objectBId == "missing" && SkillSyncConditionEditing.Value(Current(), 0) == "25" && SkillSyncConditionEditing.Value(Current(), 1) == "3", "Switching restores retained B, distance and hold");
             Check(!SkillSyncConditionEditing.TargetsValid(Current(), value => value == "a" || value == "b") && !graph.ValidateGraph().CanExport, "Two-target condition still rejects missing B");

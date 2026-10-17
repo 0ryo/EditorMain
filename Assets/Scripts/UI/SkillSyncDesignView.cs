@@ -106,9 +106,9 @@ public sealed class SkillSyncDesignView : MonoBehaviour
             if (label == null) continue;
             var background = label.transform.parent.GetComponent<SkillSyncRoundedGraphic>();
             if (background != null) {
-                background.color = new Color32(60, 65, 72, 175);
-                background.borderColor = Color.clear;
-                background.borderWidth = 0;
+                background.color = new Color32(60, 65, 72, 230);
+                background.borderColor = Color.white;
+                background.borderWidth = 1;
                 background.SetVerticesDirty();
             }
             label.color = Color.white;
@@ -126,6 +126,10 @@ public sealed class SkillSyncDesignView : MonoBehaviour
         var parent = heading.target.transform.parent;
         int mask = heading.mask;
         float X(float sourceX) => wideLayout ? SkillSyncDesignLayout.MapX(sourceX) : sourceX;
+        // Heading, counter, previous/next and delete share one vertical center (button row: y 337, height MinTouchTarget).
+        var headingRect = heading.label.rectTransform;
+        if (headingRect.anchorMin == new Vector2(0, 1) && headingRect.anchorMax == new Vector2(0, 1))
+            headingRect.anchoredPosition = new Vector2(headingRect.anchoredPosition.x, -(337 + (DesignTokens.MinTouchTarget - headingRect.sizeDelta.y) / 2));
 
         var counter = visuals.FirstOrDefault(v => v.role == "conditionCounter");
         if (counter == null || counter.label == null)
@@ -133,7 +137,7 @@ public sealed class SkillSyncDesignView : MonoBehaviour
             var counterRect = new GameObject("ConditionCounter", typeof(RectTransform), typeof(TextMeshProUGUI)).GetComponent<RectTransform>();
             counterRect.SetParent(parent, false);
             counterRect.anchorMin = counterRect.anchorMax = counterRect.pivot = new Vector2(0, 1);
-            counterRect.anchoredPosition = new Vector2(X(1364), -354);
+            counterRect.anchoredPosition = new Vector2(X(1364), -347);
             counterRect.sizeDelta = new Vector2(32, 24);
             var counterLabel = counterRect.GetComponent<TextMeshProUGUI>();
             counterLabel.font = heading.label.font;
@@ -155,14 +159,14 @@ public sealed class SkillSyncDesignView : MonoBehaviour
         }
         var counterTransform = (RectTransform)counter.target.transform;
         counterTransform.anchorMin = counterTransform.anchorMax = counterTransform.pivot = new Vector2(0, 1);
-        counterTransform.anchoredPosition = new Vector2(X(1364), -354);
+        counterTransform.anchoredPosition = new Vector2(X(1364), -347);
         counterTransform.sizeDelta = new Vector2(32, 24);
         counter.mask = mask;
         counter.orders = heading.orders;
 
         EnsureConditionButton("PreviousCondition", "<", 1314, 32, new Color32(255, 255, 255, 255), new Color32(205, 213, 224, 255), new Color32(23, 34, 54, 255), 17, parent, heading, mask, X);
         EnsureConditionButton("NextCondition", ">", 1400, DesignTokens.MinTouchTarget, new Color32(255, 255, 255, 255), new Color32(205, 213, 224, 255), new Color32(23, 34, 54, 255), 17, parent, heading, mask, X);
-        EnsureConditionButton("DeleteCondition", "この条件を削除", 1452, 124, new Color32(168, 44, 38, 255), new Color32(168, 44, 38, 255), Color.white, 12, parent, heading, mask, X);
+        EnsureConditionButton("DeleteCondition", "この条件を削除", 1452, 124, Color.white, new Color32(168, 44, 38, 255), new Color32(168, 44, 38, 255), 14, parent, heading, mask, X);
     }
 
     // Used both by Editor prefab generation and the compatibility path before listeners are wired.
@@ -180,9 +184,21 @@ public sealed class SkillSyncDesignView : MonoBehaviour
             titleRect.sizeDelta = new Vector2(244, titleRect.sizeDelta.y);
         }
         EnsureConditionButton("DeleteStep", "この手順を削除", 1452, 124,
-            Color.white, new Color32(168, 44, 38, 255), new Color32(168, 44, 38, 255), 12,
+            Color.white, new Color32(168, 44, 38, 255), new Color32(168, 44, 38, 255), 14,
             heading.target.transform.parent, heading, 1 << 1,
             x => wideLayout ? SkillSyncDesignLayout.MapX(x) : x, 146);
+        // Align with the title row: right of the title field (24px gap), same vertical center.
+        var button = controls.FirstOrDefault(c => c.action == "DeleteStep")?.button;
+        if (title != null && button != null && title.transform.parent == button.transform.parent)
+        {
+            var titleRect = (RectTransform)title.transform;
+            var parentRect = (RectTransform)titleRect.parent;
+            var buttonRect = (RectTransform)button.transform;
+            float right = titleRect.localPosition.x + (1 - titleRect.pivot.x) * titleRect.rect.width;
+            float centerY = titleRect.localPosition.y + (.5f - titleRect.pivot.y) * titleRect.rect.height;
+            buttonRect.anchoredPosition = new Vector2(right + 24 - parentRect.rect.xMin,
+                centerY + buttonRect.sizeDelta.y / 2 - parentRect.rect.yMax);
+        }
     }
 
     void EnsureConditionButton(string action, string caption, float sourceX, float width, Color surfaceColor, Color borderColor, Color textColor, float fontSize,
@@ -316,6 +332,8 @@ public sealed class SkillSyncDesignView : MonoBehaviour
         foreach (var v in visuals) v.target.SetActive((v.mask & bit) != 0);
         foreach (var v in visuals.Where(v=>(v.mask & bit)!=0).OrderBy(v=>v.orders!=null && v.orders.Length>state?v.orders[state]:0))
             v.target.transform.SetAsLastSibling();
+        // In trial states the steps list must not cover the buttons ("最初から試す"), so it goes first and the controls follow it.
+        if (state == 2 || state == 4) stepsContent.parent.parent.SetAsLastSibling();
         foreach (var c in controls)
         {
             c.button.gameObject.SetActive((c.mask & bit) != 0);
@@ -338,7 +356,7 @@ public sealed class SkillSyncDesignView : MonoBehaviour
         viewportDistance.transform.parent.gameObject.SetActive(state == 1 || state == 2 || state == 4 || state == 5);
         holdProgress.transform.SetAsLastSibling();
         libraryContent.parent.parent.SetAsLastSibling();
-        stepsContent.parent.parent.SetAsLastSibling();
+        if (state != 2 && state != 4) stepsContent.parent.parent.SetAsLastSibling();
         objectsContent.parent.parent.SetAsLastSibling();
         if(objectAThumbnail!=null) {objectAThumbnail.gameObject.SetActive(state==1||state==5);objectAThumbnail.transform.SetAsLastSibling();}
         if(objectBThumbnail!=null) {objectBThumbnail.gameObject.SetActive(state==1);objectBThumbnail.transform.SetAsLastSibling();}

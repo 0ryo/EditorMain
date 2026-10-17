@@ -8,6 +8,10 @@ public static class SkillSyncConditionEditorView
 {
     const float CardTop = 394, CardWidth = 392, ContentWidth = 360;
     const float Padding = 16, RowGap = 12, LabelHeight = 20, LabelGap = 8;
+    // One glyph, size and weight for every dropdown/picker arrow.
+    const string ArrowGlyph = "v";
+    const float ArrowSize = 14;
+    static readonly Color32 ArrowColor = new Color32(88, 103, 124, 255);
 
     public static void Ensure(SkillSyncDesignView view)
     {
@@ -92,8 +96,13 @@ public static class SkillSyncConditionEditorView
         bool editing = view.State == 1, inspector = editing || view.State == 5;
         bool holdTrial = condition?.type == ConditionTypeCatalog.SnapHold;
         RefreshTypeDropdown(view, condition, editing);
+        // State 1 without a condition (no step): show only the summary text.
+        bool hideEmpty = editing && condition == null;
         foreach (var visual in view.visuals)
         {
+            if (editing && visual.target != null && (visual.role == "conditionCounter" || visual.role == "conditionTestBox" || visual.role == "conditionTestLabel" ||
+                visual.role == "conditionEditorCard" || visual.role == "conditionEditorNote"))
+                visual.target.SetActive(!hideEmpty && (visual.mask & (1 << view.State)) != 0);
             if (visual.role == "holdStatus" || visual.role == "holdValue" || visual.role == "holdLimit" || visual.role == "conditionTrialHoldBox")
                 visual.target.SetActive(holdTrial && (visual.mask & (1 << view.State)) != 0);
             if (visual.role == "objectA" || visual.role?.StartsWith("conditionTargetA", StringComparison.Ordinal) == true)
@@ -123,7 +132,9 @@ public static class SkillSyncConditionEditorView
             bool active = inspector && SkillSyncConditionEditing.Parameter(condition, field.role == "distance" ? 0 : 1) != null;
             field.input.gameObject.SetActive(active);
             field.input.interactable = editing && condition != null;
+            if (field.input.placeholder is TMP_Text hint) hint.text = SkillSyncConditionEditing.RangeHint(condition, field.role == "distance" ? 0 : 1);
         }
+        view.SetVisible("▶ この条件を試す", !hideEmpty);
         view.SetVisible("PickA", condition != null);
         view.SetVisible("PickB", condition != null && requiresB);
         view.Enable("PickA", condition != null); view.Enable("PickB", requiresB);
@@ -168,8 +179,7 @@ public static class SkillSyncConditionEditorView
             Stretch(caption.rectTransform, 16, 0, -36, 0);
             caption.overflowMode = TextOverflowModes.Ellipsis;
             var arrow = AddText("Arrow", root.transform, fontSource, 14, TextAlignmentOptions.Midline);
-            arrow.text = "v";
-            arrow.color = new Color32(88, 103, 124, 255);
+            StyleArrow(arrow);
             Stretch(arrow.rectTransform, 328, 0, -12, 0);
 
             var template = new GameObject("Template", typeof(RectTransform), typeof(UnityEngine.UI.Image), typeof(UnityEngine.UI.ScrollRect));
@@ -218,6 +228,7 @@ public static class SkillSyncConditionEditorView
             template.SetActive(false);
         }
         view.conditionTypeDropdown = dropdown;
+        StyleDropdownList(dropdown);
         Bounds((RectTransform)dropdown.transform, x, 394, 360, 44);
         var visual = view.visuals.FirstOrDefault(v => v.role == "conditionTypeDropdown");
         if (visual == null)
@@ -228,6 +239,56 @@ public static class SkillSyncConditionEditorView
         visual.mask = 2 | 32;
         // A generated control must be above the source-owned card in every Show() state.
         visual.orders = Enumerable.Repeat(1001, 6).ToArray();
+    }
+
+    static void StyleArrow(TMP_Text arrow)
+    {
+        arrow.text = ArrowGlyph;
+        arrow.fontSize = ArrowSize;
+        arrow.fontWeight = FontWeight.Medium;
+        arrow.color = ArrowColor;
+        arrow.richText = false;
+    }
+
+    // Idempotent: rounded white list surface with border and shadow, above the parameter fields, full-width item highlight.
+    static void StyleDropdownList(TMP_Dropdown dropdown)
+    {
+        var arrow = dropdown.transform.Find("Arrow");
+        if (arrow != null && arrow.GetComponent<TMP_Text>() != null) StyleArrow(arrow.GetComponent<TMP_Text>());
+        var template = dropdown.template;
+        if (template == null) return;
+        var image = template.GetComponent<UnityEngine.UI.Image>();
+        if (image != null) image.color = Color.clear;
+        var canvas = template.GetComponent<Canvas>() ?? template.gameObject.AddComponent<Canvas>();
+        canvas.overrideSorting = true;
+        canvas.sortingOrder = 30000;
+        if (template.GetComponent<UnityEngine.UI.GraphicRaycaster>() == null) template.gameObject.AddComponent<UnityEngine.UI.GraphicRaycaster>();
+        void Surface(string name, Color32 fill, Color32 border, float borderWidth, Vector2 offset, int index)
+        {
+            var child = template.Find(name);
+            if (child == null)
+            {
+                child = new GameObject(name, typeof(RectTransform), typeof(SkillSyncRoundedGraphic)).transform;
+                child.SetParent(template, false);
+            }
+            child.SetSiblingIndex(index);
+            var rect = (RectTransform)child;
+            Stretch(rect, offset.x, offset.y, offset.x, offset.y);
+            var graphic = child.GetComponent<SkillSyncRoundedGraphic>();
+            graphic.color = fill; graphic.borderColor = border; graphic.borderWidth = borderWidth; graphic.radius = 8; graphic.raycastTarget = false;
+        }
+        Surface("Shadow", new Color32(23, 34, 54, 40), new Color32(23, 34, 54, 0), 0, new Vector2(2, -4), 0);
+        Surface("Surface", Color.white, new Color32(205, 213, 224, 255), 1, Vector2.zero, 1);
+        var item = template.Find("Viewport/Content/Item") as RectTransform;
+        if (item == null) return;
+        item.anchorMin = new Vector2(0, 1); item.anchorMax = new Vector2(1, 1);
+        var toggle = item.GetComponent<UnityEngine.UI.Toggle>();
+        if (toggle == null) return;
+        var colors = toggle.colors;
+        colors.normalColor = Color.white;
+        colors.highlightedColor = colors.selectedColor = new Color32(233, 242, 255, 255);
+        colors.pressedColor = new Color32(214, 229, 252, 255);
+        toggle.colors = colors;
     }
 
     static void RefreshTypeDropdown(SkillSyncDesignView view, ConditionNodeData condition, bool editing)
@@ -253,6 +314,9 @@ public static class SkillSyncConditionEditorView
         dropdown.SetValueWithoutNotify(Mathf.Max(0, selectedType));
         dropdown.RefreshShownValue();
         dropdown.interactable = editing && condition != null;
+        // Without a condition (no step) the type selector is hidden; otherwise Show() masks decide.
+        if (editing) dropdown.gameObject.SetActive(condition != null);
+        else if (condition == null) dropdown.gameObject.SetActive(false);
     }
 
     static TextMeshProUGUI AddText(string name, Transform parent, TMP_Text source, float size, TextAlignmentOptions alignment)
@@ -318,11 +382,12 @@ public static class SkillSyncConditionEditorView
             {
                 CenterText(visual.label, TextAlignmentOptions.MidlineLeft, false);
                 if (visual.role.EndsWith("Arrow", StringComparison.Ordinal))
-                    foreach (RectTransform glyph in visual.label.transform)
-                    {
-                        glyph.anchorMin = glyph.anchorMax = glyph.pivot = new Vector2(.5f, .5f);
-                        glyph.anchoredPosition = Vector2.zero;
-                    }
+                {
+                    // Same glyph/size/weight as the type dropdown arrow; the source vector glyphs are hidden.
+                    StyleArrow(visual.label);
+                    CenterText(visual.label, TextAlignmentOptions.Midline, false);
+                    foreach (Transform glyph in visual.label.transform) glyph.gameObject.SetActive(false);
+                }
             }
             if (thumbnail != null) Bounds(thumbnail.rectTransform, X(1212), cursor + 7, 50, 34);
             cursor += 48;
