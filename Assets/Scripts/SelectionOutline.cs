@@ -23,6 +23,7 @@ public class SelectionOutline : MonoBehaviour
     Vector3 dragStartPosition;
     Vector3 dragStartCenterWorld;
     float dragStartScreenDistance;
+    int targetChangedFrame = -1;
     Material runtimeLineMaterial;
     Texture2D scaleCursorTexture;
     Bounds cachedLocalBounds;
@@ -60,6 +61,7 @@ public class SelectionOutline : MonoBehaviour
 
     public void ShowFor(GameObject t)
     {
+        if (target != t) targetChangedFrame = Time.frameCount;
         target = t;
         ResetScaleState();
         localBoundsDirty = true;
@@ -123,6 +125,7 @@ public class SelectionOutline : MonoBehaviour
         {
             if (!EditInput.LeftPressedThisFrame()) return;
             if (PlacementController.IsScreenPositionOverBlockingUi(EditInput.MousePosition)) return;
+            if (Time.frameCount == targetChangedFrame) return;
             TryBeginScaleDrag(EditInput.MousePosition);
             return;
         }
@@ -187,7 +190,8 @@ public class SelectionOutline : MonoBehaviour
         dragStartScale = target.transform.localScale;
         dragStartPosition = target.transform.position;
         dragStartCenterWorld = target.transform.TransformPoint(GetTargetLocalBounds().center);
-        dragStartScreenDistance = Vector2.Distance(centerScreen, nearestCorner);
+        dragStartScreenDistance = Vector2.Distance(centerScreen, pointer);
+        if (dragStartScreenDistance <= 0.001f) dragStartScreenDistance = Vector2.Distance(centerScreen, nearestCorner);
         if (dragStartScreenDistance <= 0.001f) return;
 
         var selection = FindFirstObjectByType<SelectionService>();
