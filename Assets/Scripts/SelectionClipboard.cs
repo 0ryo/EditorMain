@@ -118,6 +118,7 @@ internal sealed class PasteSelectionCommand : IEditorCommand, IDiscardableEditor
                 placed.sourceNodePath = data.sourceNodePath;
                 placed.sourceSignature = data.sourceSignature;
                 placed.displayName = data.displayName;
+                placed.displayName = PlacedObject.MakeUniqueDisplayName(placed.GetDisplayName(), placed);
                 placed.description = data.description;
                 placed.hasDescriptionOverride = data.hasDescriptionOverride;
                 placed.ForceNewId();

@@ -95,6 +95,7 @@ public class DuplicateObjectCommand : IEditorCommand, IDiscardableEditorCommand 
 
             if (sourcePlaced != null) ImportedModelParts.ReidentifyDuplicate(placed, sourcePlaced);
             else placed.ForceNewId();
+            placed.displayName=PlacedObject.MakeUniqueDisplayName(placed.GetDisplayName(), placed);
             instance.transform.localScale = source.transform.lossyScale;
             var editState=instance.GetComponent<PlacedObjectEditState>();
             if (editState!=null){
