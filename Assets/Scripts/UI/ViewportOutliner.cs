@@ -437,7 +437,7 @@ public sealed class ViewportOutliner : MonoBehaviour
         {
             bool searching = searchInput != null && !string.IsNullOrWhiteSpace(searchInput.text);
             var fold = CreateListButton(row, "Button_ToggleChildren",
-                !searching && collapsedGroups.Contains(placed) ? "▸" : "▾", 24f, false);
+                !searching && collapsedGroups.Contains(placed) ? "▶" : "▼", 24f, false);
             fold.interactable = !searching;
             fold.onClick.AddListener(() => ToggleGroup(placed));
             ConfigureTreeButton(fold, rowImage.color);

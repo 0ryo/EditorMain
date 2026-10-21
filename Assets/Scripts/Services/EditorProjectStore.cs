@@ -316,6 +316,12 @@ public static class EditorProjectStore
             // A name (or timestamp) cannot identify the original project. Preserve
             // the exact recovery bytes as a separate lesson before any new session
             // can replace/delete the shared recovery slot. Move never overwrites.
+            // A recovery identical to a lesson already in the list (its saved file or an earlier copy) adds nothing; drop it instead of piling up copies.
+            if (FindSameContent(recovery) != null)
+            {
+                DeleteRecovery(out _);
+                return true;
+            }
             preservedPath = MoveToAvailableName(RecoveryPath, ProjectsDirectory, recovery.projectName + " 復旧");
             originalName = recovery.projectName;
             preserved = true;
@@ -326,6 +332,34 @@ public static class EditorProjectStore
             error = ex.Message;
             return false;
         }
+    }
+
+    // True for a protected copy made from a recovery slot ("name 復旧", "name 復旧 (2)").
+    public static bool IsPreservedRecoveryName(string displayName) =>
+        !string.IsNullOrEmpty(displayName) && System.Text.RegularExpressions.Regex.IsMatch(displayName, @" 復旧( \(\d+\))?$");
+
+    static string FindSameContent(EditorProjectFile recovery)
+    {
+        string wanted = ContentFingerprint(recovery);
+        if (!Directory.Exists(ProjectsDirectory)) return null;
+        foreach (string path in Directory.GetFiles(ProjectsDirectory, "*" + FileSuffix, SearchOption.TopDirectoryOnly))
+            if (TryLoad(path, out var project, out _) && project != null && string.Equals(ContentFingerprint(project), wanted, StringComparison.Ordinal))
+                return path;
+        return null;
+    }
+
+    // Compares what the lesson contains, not when or how it was written.
+    static string ContentFingerprint(EditorProjectFile project)
+    {
+        string savedAt = project.savedAtUtc;
+        bool automatic = project.lastSaveWasAutomatic;
+        try
+        {
+            project.savedAtUtc = string.Empty;
+            project.lastSaveWasAutomatic = false;
+            return JsonUtility.ToJson(project);
+        }
+        finally { project.savedAtUtc = savedAt; project.lastSaveWasAutomatic = automatic; }
     }
 
     public static IReadOnlyList<EditorProjectFileInfo> ListProjects()

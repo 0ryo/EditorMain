@@ -128,18 +128,26 @@ public sealed class SkillSyncObjectPicker : MonoBehaviour
             var placed=node.GetComponent<PlacedObject>();
             if(placed && children.ContainsKey(placed)) expanded.Add(placed);
         }
-        float height=all.Length>10?480:Mathf.Min(480,SearchHeight+30+(all.Length+1)*RowHeight);
-        var corners = new Vector3[4];
-        anchor.GetWorldCorners(corners);
-        var menuRect = (RectTransform)menu.transform;
-        var local = menuRect.InverseTransformPoint(corners[0]);
-        float y = menuRect.rect.yMax - local.y;
-        panel.anchoredPosition = new Vector2(local.x - menuRect.rect.xMin, -Mathf.Min(y, menuRect.rect.height - 12 - height));
-        panel.sizeDelta=new Vector2(PanelWidth,height);
         EnsureSearch();
         search.SetTextWithoutNotify("");
         menu.SetActive(true);menu.transform.SetAsLastSibling();
         Rebuild(true);
+        // Directly under the field that was pressed (above it when there is more room there), only as tall as its rows,
+        // so the label above the field stays visible and each field's list opens at its own place.
+        float wanted=Mathf.Min(480,SearchHeight+30+rows.Count*RowHeight);
+        if(all.Length+1>rows.Count) wanted=Mathf.Max(wanted,Mathf.Min(480,SearchHeight+30+6*RowHeight));
+        var corners = new Vector3[4];
+        anchor.GetWorldCorners(corners);
+        var menuRect = (RectTransform)menu.transform;
+        var bottomLeft = menuRect.InverseTransformPoint(corners[0]);
+        var topLeft = menuRect.InverseTransformPoint(corners[1]);
+        float under = menuRect.rect.yMax - bottomLeft.y, over = menuRect.rect.yMax - topLeft.y;
+        float below = menuRect.rect.height - 12 - under, above = over - 12;
+        bool openBelow = below >= wanted || below >= above;
+        float height = Mathf.Max(SearchHeight + 30 + 2 * RowHeight, Mathf.Min(wanted, openBelow ? below : above));
+        float top = openBelow ? under : Mathf.Max(12, over - height);
+        panel.anchoredPosition = new Vector2(bottomLeft.x - menuRect.rect.xMin, -top);
+        panel.sizeDelta=new Vector2(PanelWidth,height);
         search.Select();search.ActivateInputField();
     }
 
@@ -183,6 +191,14 @@ public sealed class SkillSyncObjectPicker : MonoBehaviour
             if(parent==null) {roots.Add(o);continue;}
             if(!children.TryGetValue(parent,out var list)) children[parent]=list=new List<PlacedObject>();
             list.Add(o);
+        }
+        // A group whose only content is another group (a model's wrapper node) lists that group's parts directly,
+        // so the same thing is not offered twice.
+        foreach(var parent in children.Keys.ToList())
+        {
+            if(!children.TryGetValue(parent,out var list)) continue;
+            while(list.Count==1 && children.TryGetValue(list[0],out var inner) && inner.Count>0) {children.Remove(list[0]);list=inner;}
+            children[parent]=list;
         }
         roots.Sort((a,b)=>Natural(labels[a],labels[b]));
         foreach(var list in children.Values) list.Sort((a,b)=>Natural(labels[a],labels[b]));

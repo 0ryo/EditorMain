@@ -244,6 +244,8 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         if(!initialized) return;
         if(!Application.isFocused || EditWorkspace.HasOpenModal)
         {
+            // The start screen opens before the catalog names the cards; rename them behind it.
+            if(Time.frameCount%15==0 && LibrarySignature(Entries())!=librarySignature) RebuildLibrary();
             return;
         }
         EditWorkspace.TransformShortcutsSuppressed=mode==1 && trial==null;
@@ -332,8 +334,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
             if(highlightType!=null && Time.unscaledTime>highlightUntil) {highlightType=null;RefreshLibrarySelection();}
             if(objectsDirty) {objectsDirty=false;RebuildObjects();}
             RefreshValues();
-            var signature=string.Join("|",Entries().Select(e=>e.typeId));
-            if(signature!=librarySignature) RebuildLibrary();
+            if(LibrarySignature(Entries())!=librarySignature) RebuildLibrary();
         }
     }
     void LateUpdate()
@@ -1070,10 +1071,13 @@ public sealed class SkillSyncEditorController : MonoBehaviour
     {foreach(var row in rows) if(row!=null) {row.gameObject.SetActive(false);Destroy(row.gameObject);} rows.Clear();}
     SkillSyncDesignRow Row(SkillSyncDesignRow template,RectTransform parent,List<SkillSyncDesignRow> rows)
     {var row=Instantiate(template,parent);row.gameObject.SetActive(true);rows.Add(row);return row;}
+    // Includes whether the catalog has named each card yet, so cards built before it is ready (internal IDs) are renamed once it is.
+    string LibrarySignature(IEnumerable<PrefabEntry> entries) =>
+        string.Join("|",entries.Select(e=>e.typeId+(catalog!=null && catalog.TryGetTypeInfo(e.typeId,out _,out _)?"+":"-")));
     void RebuildLibrary()
     {
         if(view==null) return;
-        Clear(libraryRows);libraryTypes.Clear();thumbnailSources.Clear();var entries=Entries();librarySignature=string.Join("|",entries.Select(e=>e.typeId));
+        Clear(libraryRows);libraryTypes.Clear();thumbnailSources.Clear();var entries=Entries();librarySignature=LibrarySignature(entries);
         // A card that appeared after "3Dモデルを追加" is shown whatever the search or category, and pointed out below.
         var ids=entries.Where(e=>e.prefab!=null).Select(e=>e.typeId).ToList();
         string added=knownLibraryTypes!=null && importWatch && (catalog==null || !catalog.IsRestoringModels)?ids.FirstOrDefault(id=>!knownLibraryTypes.Contains(id)):null;
@@ -1089,7 +1093,8 @@ public sealed class SkillSyncEditorController : MonoBehaviour
             if(entry.prefab==null) continue;
             thumbnailSources[entry.typeId] = entry.prefab;
             string title=entry.prefab.name,detail=entry.typeId;
-            if(catalog!=null) catalog.TryGetTypeInfo(entry.typeId,out title,out detail);
+            // Before the catalog has named a card, show its model name rather than the internal ID.
+            if(catalog!=null && !catalog.TryGetTypeInfo(entry.typeId,out title,out detail)) {title=entry.prefab.name;detail="";}
             if(!string.IsNullOrEmpty(search) && (title+" "+entry.typeId).IndexOf(search,StringComparison.OrdinalIgnoreCase)<0) continue;
             bool env=entry.typeId.StartsWith("Env/",StringComparison.Ordinal);
             if(category=="環境" && !env || category=="部品" && env) continue;

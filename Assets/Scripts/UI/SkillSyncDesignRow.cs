@@ -26,13 +26,12 @@ public sealed class SkillSyncDesignRow : MonoBehaviour
         if (hasValue && headingValue == heading && detailValue == detail && indexValue == index && selectedValue == selected && completeValue == complete) return;
         hasValue = true; headingValue = heading; detailValue = detail; indexValue = index; selectedValue = selected; completeValue = complete;
         title.text = heading ?? ""; description.text = detail ?? "";
-        // A finished step keeps its number ("✓3"), shrunk to fit the badge.
+        // A finished step keeps just its number on the green badge: "✓3" read as one cramped mark.
         if (numberSize == 0) numberSize = number.fontSize;
-        number.text = complete && !string.IsNullOrEmpty(index) ? "✓" + index : complete ? "✓" : index;
+        number.text = complete && string.IsNullOrEmpty(index) ? "✓" : index;
         number.textWrappingMode = TextWrappingModes.NoWrap;
-        number.enableAutoSizing = complete;
-        number.fontSizeMin = 9; number.fontSizeMax = numberSize;
-        if (!complete) number.fontSize = numberSize;
+        number.enableAutoSizing = false;
+        number.fontSize = numberSize;
         var background = GetComponent<SkillSyncRoundedGraphic>();
         background.color = Parse(complete ? "#EAF7F0" : selected ? "#EAF2FF" : "#FFFFFF");
         background.borderColor = Parse(selected ? "#0866E8" : "#CDD5E0");
@@ -69,7 +68,7 @@ public sealed class SkillSyncDesignRow : MonoBehaviour
         }
     }
     public UnityEngine.UI.Button Expander => expander;
-    // Indents the row by tree depth and shows the ▸/▾ fold arrow when the row has parts below it.
+    // Indents the row by tree depth and shows the ▶/▼ fold arrow when the row has parts below it (▸/▾ are not in the Japanese font).
     public void SetTree(int depth, bool hasChildren, bool open)
     {
         indent = depth * TreeStep;
@@ -90,12 +89,12 @@ public sealed class SkillSyncDesignRow : MonoBehaviour
             expanderLabel=labelObject.GetComponent<TextMeshProUGUI>();
             var labelRect=expanderLabel.rectTransform;labelRect.SetParent(rect,false);
             labelRect.anchorMin=Vector2.zero;labelRect.anchorMax=Vector2.one;labelRect.offsetMin=labelRect.offsetMax=Vector2.zero;
-            expanderLabel.font=title.font;expanderLabel.fontSize=18;expanderLabel.alignment=TextAlignmentOptions.Center;
+            expanderLabel.font=title.font;expanderLabel.fontSize=12;expanderLabel.alignment=TextAlignmentOptions.Center;
             expanderLabel.color=Parse("#58677C");expanderLabel.raycastTarget=false;
         }
         expander.gameObject.SetActive(hasChildren);
         ((RectTransform)expander.transform).anchoredPosition=new Vector2(4+indent,-9);
-        expanderLabel.text=open?"▾":"▸";
+        expanderLabel.text=open?"▼":"▶";
     }
     // Top-anchored, horizontally stretched placement with pixel insets.
     static void Place(RectTransform rect,float left,float right,float top,float height)

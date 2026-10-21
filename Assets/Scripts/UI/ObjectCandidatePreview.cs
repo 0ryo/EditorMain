@@ -115,9 +115,8 @@ public sealed class ObjectCandidatePreview : MonoBehaviour
         panel.GetComponent<Image>().color = new Color(0.08f, 0.08f, 0.08f, 0.97f);
         panel.GetComponent<Image>().raycastTarget = false;
         var rect = (RectTransform)panel.transform;
-        rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 1f);
-        rect.pivot = new Vector2(0.5f, 1f);
-        rect.anchoredPosition = new Vector2(0, -12);
+        rect.anchorMin = rect.anchorMax = Vector2.zero;
+        rect.pivot = new Vector2(0f, 1f);
         label = new GameObject("Label", typeof(RectTransform), typeof(TextMeshProUGUI)).GetComponent<TMP_Text>();
         label.transform.SetParent(panel.transform, false);
         label.font = font;
@@ -147,13 +146,20 @@ public sealed class ObjectCandidatePreview : MonoBehaviour
         if (labelCanvas && labelCanvas.gameObject.activeSelf)
         {
             float width = Mathf.Min(760, Screen.width - 24);
+            var panel = (RectTransform)label.transform.parent;
             if (measuredLabel != label.text || measuredWidth != width)
             {
                 measuredLabel = label.text;
                 measuredWidth = width;
-                ((RectTransform)label.transform.parent).sizeDelta = new Vector2(width,
-                    label.GetPreferredValues(label.text, width - 24, 0).y + 16);
+                float fitted = Mathf.Min(width, label.GetPreferredValues(label.text).x + 24);
+                panel.sizeDelta = new Vector2(fitted, label.GetPreferredValues(label.text, fitted - 24, 0).y + 16);
             }
+            // Beside the pointer (the row being hovered), kept on screen; the top edge of the screen is outside the app in full screen.
+            Vector2 pointer = EditInput.MousePosition, size = panel.sizeDelta;
+            float x = Mathf.Clamp(pointer.x + 16, 12, Mathf.Max(12, Screen.width - size.x - 12));
+            float y = pointer.y - 20;
+            if (y - size.y < 12) y = pointer.y + size.y + 12;
+            panel.anchoredPosition = new Vector2(x, Mathf.Min(y, Screen.height - 12));
         }
         // Reuse the texture while the pointer crosses adjacent rows during scrolling.
         if (!target && Time.unscaledTime - clearedAt > 0.5f) ReleaseMask();

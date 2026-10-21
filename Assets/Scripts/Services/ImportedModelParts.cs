@@ -36,12 +36,29 @@ public static class ImportedModelParts
             part.typeId = root.typeId;
             part.partNodePath = PathFrom(root.transform, node);
             if (string.IsNullOrEmpty(part.sourceSignature)) part.sourceSignature = Signature(node);
-            if (string.IsNullOrWhiteSpace(part.displayName)) part.displayName = node.name;
+            if (string.IsNullOrWhiteSpace(part.displayName)) part.displayName = DefaultPartName(node.name);
         }
         EnsurePicking(root);
         foreach (var part in root.GetComponentsInChildren<PlacedObject>(true))
             if (!part.GetComponent<PlacedObjectEditState>()) part.gameObject.AddComponent<PlacedObjectEditState>();
     }
+
+    // Japanese names for the nodes of the bundled teaching models (jack, marker, wrench); other models keep their node names.
+    // Only the label changes: parts are still matched by node path.
+    static readonly Dictionary<string, string> BuiltInPartNames = new Dictionary<string, string>
+    {
+        { "TrainingFloorJack", "ジャッキ本体" }, { "JackFrame", "フレーム" }, { "FrameRailLeft", "左フレーム" }, { "FrameRailRight", "右フレーム" },
+        { "FrontCrossMember", "前の横材" }, { "RearPumpHousing", "ポンプ部" },
+        { "JackWheelRearLeft", "後輪（左）" }, { "JackWheelRearRight", "後輪（右）" }, { "JackWheelFrontLeft", "前輪（左）" }, { "JackWheelFrontRight", "前輪（右）" },
+        { "JackLiftArm", "リフトアーム" }, { "LiftArmBeam", "アーム" }, { "HydraulicRam", "油圧シリンダー" },
+        { "JackSaddle", "受け皿" }, { "SaddleRubberPad", "受け皿のゴム" },
+        { "JackOperatingHandle", "操作ハンドル" }, { "OperatingHandleShaft", "ハンドルの柄" }, { "OperatingHandleGrip", "ハンドルの握り" },
+        { "JackReleaseValve", "下降バルブ" }, { "ReleaseValveStem", "バルブの軸" }, { "ReleaseValveKnob", "バルブのつまみ" },
+        { "JackPlacementMarker", "ジャッキ設置位置" }, { "Socket_Wrench_Parent", "ソケットレンチ" }, { "Socket_Wrench_Handle", "レンチの柄" },
+    };
+
+    public static string DefaultPartName(string nodeName) =>
+        nodeName != null && BuiltInPartNames.TryGetValue(nodeName, out var name) ? name : nodeName;
 
     public static void EnsurePicking(PlacedObject root, bool refreshMesh = false)
     {

@@ -252,8 +252,9 @@ public sealed class EditorProjectPanel : MonoBehaviour
         scrollbar.handleRect = handle;
         scrollbar.targetGraphic = handleImage;
         scroll.verticalScrollbar = scrollbar;
-        scroll.verticalScrollbarVisibility = ScrollRect.ScrollbarVisibility.AutoHideAndExpandViewport;
-        scroll.verticalScrollbarSpacing = 2f;
+        // The bar's width is always reserved: a selected row grows, and a bar that appeared then would narrow and shift every row.
+        viewport.offsetMax = new Vector2(-12f, 0f);
+        scroll.verticalScrollbarVisibility = ScrollRect.ScrollbarVisibility.AutoHide;
     }
 
     static string RevealFolderLabel => ProjectFileLocation.RevealLabel == "フォルダを開く"

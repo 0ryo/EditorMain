@@ -71,10 +71,12 @@ public sealed class TopCenterNotification : MonoBehaviour
         if (!repeat && !string.IsNullOrEmpty(message)) RecordHistory(message, error);
         // The same message only restarts the timer; a different one waits so an error is never overwritten.
         if (repeat) { current = entry; startPending = true; return; }
-        if (duration > 0)
+        // The help covers the middle of the screen; notices wait until it is closed (they are in the history already).
+        if (duration > 0 || HintPanelController.IsOpen)
         {
             if (queue.Count >= MaxQueued && !DropOldestInfo(error)) return;
             queue.Enqueue(entry);
+            if (!gameObject.activeSelf) gameObject.SetActive(true); // Update shows it once the help closes.
             return;
         }
         Display(entry);
@@ -216,7 +218,8 @@ public sealed class TopCenterNotification : MonoBehaviour
     void Update()
     {
         if (historyRoot != null && historyRoot.gameObject.activeSelf && Application.isFocused && EditInput.CancelPressedThisFrame()) CloseHistory();
-        if (duration <= 0) return;
+        if (HintPanelController.IsOpen) { if (duration > 0) EndCurrent(false); return; }
+        if (duration <= 0) { if (queue.Count > 0) Display(queue.Dequeue()); return; }
         if (!Application.isFocused) { startPending = true; return; }
         if (startPending) { started = Time.unscaledTime; startPending = false; }
         if (canvasWidth != canvasRect.rect.width || canvasHeight != canvasRect.rect.height) ResizeToMessage();
@@ -227,13 +230,15 @@ public sealed class TopCenterNotification : MonoBehaviour
         // Fade plus a short slide from just above the final spot: it never sweeps across the header.
         rect.anchoredPosition = new Vector2(shownX, shownY + (1f - eased) * SlideDistance * uiScale);
         group.alpha = eased;
-        if (elapsed >= duration)
-        {
-            duration = 0; group.alpha = 0; label.text = "";
-            group.blocksRaycasts = group.interactable = false; background.raycastTarget = false;
-            current = default;
-            if (queue.Count > 0) Display(queue.Dequeue());
-        }
+        if (elapsed >= duration) EndCurrent(true);
+    }
+
+    void EndCurrent(bool showNext)
+    {
+        duration = 0; group.alpha = 0; label.text = "";
+        group.blocksRaycasts = group.interactable = false; background.raycastTarget = false;
+        current = default;
+        if (showNext && queue.Count > 0) Display(queue.Dequeue());
     }
 
     // ---- Notification history: the last MaxHistory messages, newest first, opened from the header's 通知履歴 button. ----

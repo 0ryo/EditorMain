@@ -67,7 +67,7 @@ public class HintPanelController : MonoBehaviour
                 "・「↑ 教材を書き出す」：書き出し先を選ぶと、教材名のフォルダとZIPができます。XRアプリにはZIPを渡します\n" +
                 "・書き出せない問題があるときは、直す場所の一覧が出ます\n" +
                 Heading("元に戻す") +
-                "・" + m + "+Z：元に戻す　" + m + "+Shift+Z（" + m + "+Y）：やり直す。ヘッダーの ↶ ↷ でも操作できます";
+                "・" + m + "+Z：元に戻す　" + m + "+Shift+Z（" + m + "+Y）：やり直す。ヘッダーの「元に戻す」「やり直す」ボタンでも操作できます";
         }
     }
 
@@ -171,8 +171,12 @@ public class HintPanelController : MonoBehaviour
         }
     }
 
+    // While the help is shown, notices wait (TopCenterNotification) instead of covering its text.
+    public static bool IsOpen { get; private set; }
+
     public void Show()
     {
+        IsOpen = true;
         EnsureScrim();
         if (scrim != null) { scrim.gameObject.SetActive(true); scrim.SetAsLastSibling(); }
         gameObject.SetActive(true);
@@ -201,12 +205,14 @@ public class HintPanelController : MonoBehaviour
 
     public void Hide()
     {
+        IsOpen = false;
         if (scrim != null) scrim.gameObject.SetActive(false);
         gameObject.SetActive(false);
     }
 
     void OnDisable()
     {
+        IsOpen = false;
         if (scrim != null) scrim.gameObject.SetActive(false);
     }
 
@@ -320,6 +326,9 @@ public class HintPanelController : MonoBehaviour
         var viewport = CreateRect("Viewport", scroll);
         SetRect(viewport, Vector2.zero, Vector2.one, Vector2.zero, new Vector2(-14f, 0f));
         viewport.gameObject.AddComponent<RectMask2D>();
+        // The wheel only reaches the ScrollRect through something it can hit; the text itself is not a raycast target.
+        var wheelTarget = viewport.gameObject.AddComponent<Image>();
+        wheelTarget.color = Color.clear;
         var body = CreateText("Text_Body", viewport, HintBody.TrimStart('\n'), Mathf.Max(DesignTokens.FontSizeBody, BodyFontSize), DesignTokens.TextPrimary);
         body.alignment = TextAlignmentOptions.TopLeft;
         body.textWrappingMode = TMPro.TextWrappingModes.Normal;

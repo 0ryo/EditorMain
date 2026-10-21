@@ -20,9 +20,11 @@ public static class EditorProjectRecents
             if (EditorProjectStore.TryGetFileInfo(path, out var info)) result.Add(info);
         }
         if (result.Count < count)
-            foreach (var info in EditorProjectStore.ListRecentlyWritten(count + result.Count))
+            foreach (var info in EditorProjectStore.ListRecentlyWritten(count + result.Count + 20))
             {
                 if (result.Count >= count) break;
+                // Recovery copies stay in "教材を開く"; they only crowd out real lessons here.
+                if (EditorProjectStore.IsPreservedRecoveryName(info.DisplayName)) continue;
                 if (!result.Any(item => string.Equals(item.Path, info.Path, StringComparison.OrdinalIgnoreCase))) result.Add(info);
             }
         return result;
