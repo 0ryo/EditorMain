@@ -14,7 +14,7 @@ public sealed class SkillSyncViewportGuide
     static readonly Color Accent = new Color32(8, 102, 232, 255);
     static readonly Color Ink = new Color32(23, 34, 54, 255);
     static readonly Color Muted = new Color32(88, 103, 124, 255);
-    public const string FormatNote = "GLB/glTF形式に対応しています（FBX等はBlender等でGLBに書き出してください）";
+    public const string FormatNote = "GLB・glTF形式の3Dモデルを追加できます";
 
     readonly SkillSyncDesignView view;
     readonly TMP_FontAsset font;

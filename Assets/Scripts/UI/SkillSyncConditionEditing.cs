@@ -113,7 +113,7 @@ public static class SkillSyncConditionEditing
     public static string DistanceWarning(float limitMeters, float minimumMeters)
     {
         if (!DistanceLikelyUnreachable(limitMeters, minimumMeters)) return null;
-        return $"{limitMeters * 100:0.##} cmは近すぎて成立しない可能性があります。位置を示すには目印の部品を置き、そこへ近づけます";
+        return $"{limitMeters * 100:0.##} cmは近すぎて成立しない可能性があります。決まった位置へ動かすなら、そこに目印の部品を置いて近づける先にします";
     }
 
     // What the player must do for the condition to be met, as the runtime judges it (ScenarioConditionEvaluator).

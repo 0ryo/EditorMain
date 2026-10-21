@@ -52,6 +52,7 @@ public class CatalogUI : MonoBehaviour
     [SerializeField] RectTransform settingsIntegrationContent;
     [SerializeField] RectTransform settingsAccountContent;
     [SerializeField] Slider settingsSensitivitySlider;
+    Button settingsCameraInputButton;
     [SerializeField] TMP_Text settingsSensitivityValueText;
     [SerializeField] Toggle settingsSnapEnabledToggle;
     [SerializeField] Slider settingsGridSnapSlider;
@@ -1406,6 +1407,9 @@ public class CatalogUI : MonoBehaviour
         return button;
     }
 
+    static string CameraInputCaption() => EditorCameraInputSettings.UseTrackpad
+        ? "操作：トラックパッド（押すと切替）" : "操作：マウス（押すと切替）";
+
     void EnsureGeneralSettingsContent(RectTransform contentRt)
     {
         if (contentRt == null) return;
@@ -1422,7 +1426,24 @@ public class CatalogUI : MonoBehaviour
         titleRt.anchorMin = new Vector2(0f, 1f);
         titleRt.anchorMax = new Vector2(1f, 1f);
         titleRt.offsetMin = new Vector2(24f, -56f);
-        titleRt.offsetMax = new Vector2(-24f, -24f);
+        titleRt.offsetMax = new Vector2(-268f, -24f);
+
+        // Mouse / trackpad switch (detected automatically; this overrides it). It used to sit on the 3D screen.
+        settingsCameraInputButton = EnsureSettingsRegularButton(contentRt, settingsCameraInputButton, "Button_CameraInputMode", CameraInputCaption());
+        if (settingsCameraInputButton != null)
+        {
+            var modeRt = (RectTransform)settingsCameraInputButton.transform;
+            modeRt.anchorMin = modeRt.anchorMax = modeRt.pivot = Vector2.one;
+            modeRt.sizeDelta = new Vector2(236f, 36f);
+            modeRt.anchoredPosition = new Vector2(-24f, -22f);
+            var modeLabel = settingsCameraInputButton.GetComponentInChildren<TMP_Text>(true);
+            settingsCameraInputButton.onClick.RemoveAllListeners();
+            settingsCameraInputButton.onClick.AddListener(() =>
+            {
+                EditorCameraInputSettings.Toggle();
+                if (modeLabel != null) modeLabel.text = CameraInputCaption();
+            });
+        }
 
         var sliderRow = FindOrCreateSettingsRect(contentRt, "SliderRow");
         sliderRow.anchorMin = new Vector2(0f, 1f);

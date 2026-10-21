@@ -180,7 +180,7 @@ public static class SkillSyncConditionEditorView
         var definition = ConditionTypeCatalog.Find(condition?.type);
         view.Text("conditionEditorNote", NoteText(condition, definition, warning));
         if (view.conditionList != null)
-            view.conditionList.gameObject.SetActive((editing || view.State == 5) && condition != null && view.conditionList.Count > 0);
+            view.conditionList.gameObject.SetActive((editing || view.State == 5) && condition != null && view.conditionList.Count > 1);
         if (inspector) Layout(view, condition);
     }
 
@@ -609,9 +609,14 @@ public static class SkillSyncConditionEditorView
         PlaceRole("conditionEditorCard", 1184, CardTop, CardWidth, cursor - CardTop);
         cursor += Padding;
         var list = view.conditionList;
-        bool useList = condition != null && list != null && list.Count > 0;
-        foreach (var summary in view.visuals.Where(v => v.role == "conditionSummary"))
-            summary.target.SetActive(!useList && (summary.mask & (1 << view.State)) != 0);
+        // With a single condition the editor above already says everything, so no summary card follows it.
+        bool single = condition != null && list != null && list.Count == 1;
+        bool useList = condition != null && list != null && list.Count > 1;
+        foreach (var summary in view.visuals.Where(v => v.role == "conditionSummary" || v.role == "conditionSummaryBox"))
+        {
+            bool show = summary.role == "conditionSummaryBox" ? !single : !useList && !single;
+            summary.target.SetActive(show && (summary.mask & (1 << view.State)) != 0);
+        }
         if (useList)
         {
             // The list is the summary: one card per condition, shortened to the space the inspector has left.
@@ -622,7 +627,7 @@ public static class SkillSyncConditionEditorView
             list.SetBounds(X(1184) + ListPadding, cursor + ListPadding, CardWidth - 2 * ListPadding, visible);
             cursor += boxHeight + Padding;
         }
-        else
+        else if (!single)
         {
             float summaryHeight = Mathf.Max(54, PreferredHeight("conditionSummary", LabelHeight) + 24);
             PlaceRole("conditionSummaryBox", 1184, cursor, CardWidth, summaryHeight);

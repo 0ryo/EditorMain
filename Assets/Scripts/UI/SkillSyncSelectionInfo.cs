@@ -29,9 +29,9 @@ public sealed class SkillSyncSelectionInfo
             var parent = SkillSyncPartsTree.ParentOf(part);
             if (inside > 0)
             {
-                info.title = "グループ「" + part.GetDisplayName() + "」（部品" + inside + "個）";
+                // One placed model reads as its own name; "グループ" is kept for parts the user grouped.
+                info.title = part.GetDisplayName();
                 info.hint = DrillHint;
-                info.compactTitle = true;
             }
             else if (parent != null)
             {

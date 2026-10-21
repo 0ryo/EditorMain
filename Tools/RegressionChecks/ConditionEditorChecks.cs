@@ -80,12 +80,12 @@ static class ConditionEditorChecks
                 Check(!SkillSyncConditionEditing.TrySetValue(Current(), 0, invalid, out bool rejectedClamp) && !rejectedClamp && JsonUtility.ToJson(Current()) == snapshot, "Reject non-numeric angle without mutation: " + invalid);
             bool isClamped = false;
             graph.UpdateConditionData(id, "Clamp angle high", data => SkillSyncConditionEditing.TrySetValue(data, 0, "36001", out isClamped));
-            Check(isClamped && ConditionTypeCatalog.GetNumber(Current(), ConditionTypeCatalog.AngleKey) == 36000f, "Angle above range is clamped to the maximum");
+            Check(isClamped && ConditionTypeCatalog.GetNumber(Current(), ConditionTypeCatalog.AngleKey) == 3600f, "Angle above range is clamped to the maximum");
             graph.UpdateConditionData(id, "Clamp angle low", data => SkillSyncConditionEditing.TrySetValue(data, 0, "0", out isClamped));
             Check(isClamped && Math.Abs(ConditionTypeCatalog.GetNumber(Current(), ConditionTypeCatalog.AngleKey) - .1f) < .00001f, "Angle below range is clamped to the minimum");
             graph.UpdateConditionData(id, "In-range angle", data => SkillSyncConditionEditing.TrySetValue(data, 0, "270.5", out isClamped));
             Check(!isClamped && ConditionTypeCatalog.GetNumber(Current(), ConditionTypeCatalog.AngleKey) == 270.5f, "In-range angle is not flagged as clamped");
-            Check(SkillSyncConditionEditing.RangeHint(Current(), 0) == "0.1〜36000 度" && SkillSyncConditionEditing.RangeHint(Current(), 5) == "", "Range hint for angle and unused slot");
+            Check(SkillSyncConditionEditing.RangeHint(Current(), 0) == "0.1〜3600 度" && SkillSyncConditionEditing.RangeHint(Current(), 5) == "", "Range hint for angle and unused slot");
             Check(SkillSyncConditionEditing.Choice(Current()) == 0 && SkillSyncConditionEditing.ChoiceLabel(Current()) == "どちらでも", "Turn direction defaults to either");
             graph.UpdateConditionData(id, "Turn clockwise", data => SkillSyncConditionEditing.SetChoice(data, ConditionTypeCatalog.TurnClockwise));
             Check(graph.BuildScenarioExport().requiredActions.Single().conditions.Single().parameters.Any(p => p.key == ConditionTypeCatalog.TurnDirectionKey && p.numberValue == 1), "Turn direction is exported");

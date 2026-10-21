@@ -209,7 +209,16 @@ public static class ConditionEditorLayoutChecks
     {
         var list = view.conditionList;
         Require(list != null, "Condition list exists");
-        foreach (int count in new[] { 1, 2, 3, 8 })
+        // One condition: the editor card says it all, so neither the list nor the summary card follows it.
+        foreach (string type in new[] { ConditionTypeCatalog.SnapHold, ConditionTypeCatalog.Turn })
+        {
+            Configure(view, type, true);
+            list.SetItems(new List<SkillSyncItemList.Item> { new SkillSyncItemList.Item { id = "condition-0", number = 1, selected = true, title = "近づけて保持：部品 → ジャッキ" } });
+            SkillSyncConditionEditorView.Refresh(view, Condition(type), true);
+            Canvas.ForceUpdateCanvases();
+            Require(!list.gameObject.activeInHierarchy && !Active(view, "conditionSummary") && !Active(view, "conditionSummaryBox"), type + ": a single condition has no summary card");
+        }
+        foreach (int count in new[] { 2, 3, 8 })
         foreach (bool warning in new[] { false, true })
         foreach (string type in new[] { ConditionTypeCatalog.SnapHold, ConditionTypeCatalog.Proximity, ConditionTypeCatalog.Turn })
         {
@@ -256,7 +265,7 @@ public static class ConditionEditorLayoutChecks
         var captures = new List<Texture2D>();
         foreach (var (count, type, warning) in new[]
         {
-            (1, ConditionTypeCatalog.Turn, false), (2, ConditionTypeCatalog.SnapHold, false), (3, ConditionTypeCatalog.Proximity, true),
+            (2, ConditionTypeCatalog.SnapHold, false), (3, ConditionTypeCatalog.Proximity, true),
             (2, ConditionTypeCatalog.SnapHold, true), (8, ConditionTypeCatalog.Proximity, false), (4, ConditionTypeCatalog.Turn, false)
         })
         {
@@ -331,13 +340,13 @@ public static class ConditionEditorLayoutChecks
         var rule = Visual(view, "trialRule").label;
         CheckRuleFits(rule, "trial rule");
         view.Show(1);
-        // A finished step keeps its number inside the badge.
+        // A finished step keeps just its number inside the green badge (no "✓3").
         foreach (string index in new[] { "3", "14" })
         {
             var row = UnityEngine.Object.Instantiate(view.stepTemplate, view.stepsContent);
             row.gameObject.SetActive(true);
             row.Set("手順 " + index, "条件1件", index, false, true);
-            Require(row.number.text == "✓" + index, "Finished step row keeps its number: " + index);
+            Require(row.number.text == index, "Finished step row keeps its number: " + index);
             row.number.ForceMeshUpdate(true, true);
             Require(row.number.textBounds.size.x <= row.number.rectTransform.rect.width + 1, "Finished step number " + index + " fits its badge");
             UnityEngine.Object.DestroyImmediate(row.gameObject);

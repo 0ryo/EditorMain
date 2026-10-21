@@ -121,7 +121,8 @@ public sealed class SkillSyncDesignView : MonoBehaviour
             if (text != null && text.text == "作業台 / 上面を表示") text.gameObject.SetActive(false);
     }
 
-    // Header file buttons, right to left: 教材を開く, ヘルプ, 通知履歴, 保存, 新規. The saved pill becomes display-only;
+    // Header file buttons, right to left: 教材を開く, ヘルプ, 保存, 新規. The saved pill becomes display-only;
+    // 通知履歴 is kept as a control but hidden (the help opens the history), so the header stays short.
     // 保存 is the explicit button (with its shortcut) and 新規 starts a new lesson. Built at runtime, so no Prefab change is needed.
     public void EnsureProjectFileControls()
     {
@@ -143,6 +144,7 @@ public sealed class SkillSyncDesignView : MonoBehaviour
         var create = EnsureHeaderButton("新規", "新規", help);
         SetCaption(open.button, "教材を開く");
         SetCaption(history.button, "通知履歴");
+        history.mask = 0; history.button.gameObject.SetActive(false);
         SetButtonHint("保存", "教材を保存します（" + ShortcutModifierName + "+S）");
 
         const float gap = 10f;
@@ -152,7 +154,7 @@ public sealed class SkillSyncDesignView : MonoBehaviour
         float exportWidth = Mathf.Min(exportRect.sizeDelta.x, Mathf.Max(120f, CaptionWidth(export.button) + 40f));
         MoveHeaderButton(export, exportRight - exportWidth, exportWidth);
         float cursor = exportRight - exportWidth - gap;
-        foreach (var item in new[] { open, help, history, save, create })
+        foreach (var item in new[] { open, help, save, create })
         {
             var rect = (RectTransform)item.button.transform;
             float width = item == help ? rect.sizeDelta.x : Mathf.Max(item == create ? 64f : 92f, CaptionWidth(item.button) + 32f);
@@ -478,6 +480,8 @@ public sealed class SkillSyncDesignView : MonoBehaviour
             SetCaption(chip.button, "⚠ 要修正");
             SetButtonHint("IssueChip", "クリックすると、直す必要がある場所へ移動します");
         }
+        // The step list already marks what needs fixing (and export lists it); the header chip only repeated it.
+        if (chip != null) chip.mask = 0;
         SetVisible("IssueChip", false);
 
         var summary = visuals.FirstOrDefault(visual => visual.role == "errorSummary" && visual.label != null);
@@ -642,6 +646,7 @@ public sealed class SkillSyncDesignView : MonoBehaviour
 
     public void Show(int state)
     {
+        RestoreInspector(); // before the masks decide, so nothing hidden for an empty step view leaks into another state
         State = state;
         int bit = 1 << state;
         foreach (var v in visuals) v.target.SetActive((v.mask & bit) != 0);
@@ -722,6 +727,42 @@ public sealed class SkillSyncDesignView : MonoBehaviour
     public void SetVisible(string action, bool visible)
     {
         foreach (var c in controls) if (c.action == action) c.button.gameObject.SetActive(visible && (c.mask & (1 << State)) != 0);
+    }
+    readonly List<GameObject> hiddenInspector = new List<GameObject>();
+    // Step view without steps: everything below the right panel's heading would only be disabled, so it is hidden
+    // until a step exists. Found by position (the panel's own surface is the one that contains the heading).
+    public void HideInspectorBelowHeading()
+    {
+        var heading = visuals.FirstOrDefault(v => v.role == "inspectorLabel" && v.target.activeInHierarchy)?.label;
+        if (heading == null) return;
+        var parent = heading.transform.parent;
+        Rect World(Transform t)
+        {
+            var c = new Vector3[4]; ((RectTransform)t).GetWorldCorners(c);
+            return Rect.MinMaxRect(c[0].x, c[0].y, c[2].x, c[2].y);
+        }
+        var label = World(heading.transform);
+        Rect? panel = null;
+        foreach (Transform child in parent)
+        {
+            if (!child.gameObject.activeSelf || !(child is RectTransform)) continue;
+            var r = World(child);
+            if (r.Contains(label.center) && (panel == null || r.height > panel.Value.height)) panel = r;
+        }
+        if (panel == null) return;
+        foreach (Transform child in parent)
+        {
+            if (!child.gameObject.activeSelf || !(child is RectTransform) || child == heading.transform) continue;
+            var r = World(child);
+            if (r.Contains(label.center) || !panel.Value.Contains(r.center) || r.center.y >= label.yMin) continue;
+            child.gameObject.SetActive(false);
+            hiddenInspector.Add(child.gameObject);
+        }
+    }
+    public void RestoreInspector()
+    {
+        foreach (var go in hiddenInspector) if (go != null) go.SetActive(true);
+        hiddenInspector.Clear();
     }
     public void Focus(string role)
     {

@@ -46,7 +46,7 @@ public class HintPanelController : MonoBehaviour
                 "・行の目：隠す／表示　鍵：ロック（ロック中の部品は選べず、編集できません）\n" +
                 Heading("3D画面の見方") +
                 "・右ドラッグ（中ボタンも可）：回転　Shift+右ドラッグ：平行移動　ホイール：ズーム\n" +
-                "・トラックパッド：2本指で回転、Shift+2本指で平行移動、" + m + "+2本指でズーム（右上の「操作」ボタンでマウスと切り替え）\n" +
+                "・トラックパッド：2本指で回転、Shift+2本指で平行移動、" + m + "+2本指でズーム（配置画面の右下「詳細設定」でマウスと切り替え）\n" +
                 "・" + alt + "+ドラッグ（部品のない所）：回転。Shiftも押すと平行移動\n" +
                 "・1／3／7：正面／右／上から　O：平行投影と透視投影を切り替え\n" +
                 "・F：選んだ部品を画面に収める　Home：全体を見る\n" +
@@ -57,7 +57,7 @@ public class HintPanelController : MonoBehaviour
                 "・すべての完了条件がそろうと次の手順へ進みます（順不同）。順番が必要なときは手順を分けてください\n" +
                 Heading("動作確認") +
                 "・「動作を確認」で、部品を動かして完了条件が成立するか確かめます\n" +
-                "・パソコンで判定できない条件は「成立にする」で成立として進められます\n" +
+                "・満たしにくい条件やパソコンで判定できない条件は「成立にする」（最後の条件では「成立として次へ」）で進められます\n" +
                 "・「▶ 最初から通して確認」：最初の手順から続けて確認　Esc：一時停止、もう一度Escで編集に戻る\n" +
                 "・確認中に動かした位置は、教材の配置には保存されません\n" +
                 Heading("教材のファイル") +
@@ -373,6 +373,14 @@ public class HintPanelController : MonoBehaviour
 
         var controller = root.gameObject.AddComponent<HintPanelController>();
         controller.closeButton = close;
+        // The notice history left the header (too many buttons for a first visit); it is opened from here.
+        var history = CreateButton("Button_History", root, "これまでのお知らせ");
+        SetRect(history.GetComponent<RectTransform>(), Vector2.zero, Vector2.zero, new Vector2(28f, 24f), new Vector2(248f, 64f));
+        history.onClick.AddListener(() =>
+        {
+            controller.Hide();
+            TopCenterNotification.Ensure(controller.transform, title)?.ToggleHistory();
+        });
         root.gameObject.SetActive(false);
         return controller;
     }

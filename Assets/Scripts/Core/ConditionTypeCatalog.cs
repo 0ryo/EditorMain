@@ -75,7 +75,7 @@ public static class ConditionTypeCatalog
         new Definition { id = Push, label = "押す", requiresObjectB = false, parameters = Array.Empty<ParameterDefinition>() },
         new Definition { id = Pull, label = "引く", requiresObjectB = false, parameters = Array.Empty<ParameterDefinition>() },
         new Definition { id = Turn, label = "回す", requiresObjectB = false,
-            parameters = new[] { Parameter(AngleKey, "回す角度 (度)", 90f, 0.1f, 36000f),
+            parameters = new[] { Parameter(AngleKey, "回す角度 (度)", 90f, 0.1f, 3600f),
                 Choice(TurnDirectionKey, "回す向き", "どちらでも", "時計回り", "反時計回り") } },
         new Definition { id = Released, label = "手放す", requiresObjectB = false, parameters = Array.Empty<ParameterDefinition>() }
     };

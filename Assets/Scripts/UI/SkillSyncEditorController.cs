@@ -82,6 +82,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
     string warningSignature = "";
     bool stepRowsShowTrial, stepRebuildPending, trialCarried;
     int trialStartIndex;
+    TMPro.TMP_InputField partsSearch;
     // Body drag during a trial: moves the trial copy only, along the floor through the grabbed point.
     Transform trialDragTarget;
     Vector3 trialDragGrab, trialDragStart;
@@ -142,7 +143,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         cameraView = EditWorkspace.ResolveCamera();
         if(view.orientation!=null) view.orientation.sourceCamera=cameraView;
         cameraController = FindFirstObjectByType<EditorCameraController>();
-        SkillSyncViewportTools.Ensure(view,view.objectTemplate.title.font,selection,cameraController,()=>Act("選択を表示"));
+        SkillSyncViewportTools.Ensure(view,view.objectTemplate.title.font,cameraController);
         if (cameraView != null) { previousCameraRect=cameraView.rect; previousCameraColor=cameraView.backgroundColor; }
         foreach(var control in view.controls)
         {
@@ -183,7 +184,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
             }
             if(role=="search") field.input.onValueChanged.AddListener(value=>{search=value;RebuildLibrary();});
         }
-        var partsSearch=SkillSyncPartsSearch.Ensure(view.objectsContent.parent.parent as RectTransform,view.objectTemplate.title.font);
+        partsSearch=SkillSyncPartsSearch.Ensure(view.objectsContent.parent.parent as RectTransform,view.objectTemplate.title.font);
         if(partsSearch!=null) partsSearch.onValueChanged.AddListener(value=>{partsFilter=value??"";RebuildObjects();});
         view.objectsContent.GetComponentInParent<ScrollRect>()?.onValueChanged.AddListener(_=>ShowVisiblePartThumbnails());
         graph.GraphChanged += GraphChanged;
@@ -617,7 +618,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         items.Add(new SkillSyncContextMenu.Item{label="複製",action=()=>Act("複製")});
         if(info.canGroup) items.Add(new SkillSyncContextMenu.Item{label="グループにする",action=()=>GroupSelection(false)});
         if(info.canUngroup) items.Add(new SkillSyncContextMenu.Item{label="グループを解除",action=()=>GroupSelection(true)});
-        items.Add(new SkillSyncContextMenu.Item{label="選択部分を表示",action=()=>Act("選択を表示")});
+        items.Add(new SkillSyncContextMenu.Item{label="選んだ部品に寄る",action=()=>Act("選択を表示")});
         var chosen=selection.Selected.ToList();
         items.Add(new SkillSyncContextMenu.Item{label="隠す",action=()=>SetPartState(chosen,false,true)});
         items.Add(new SkillSyncContextMenu.Item{label="ロック",action=()=>SetPartState(chosen,true,true)});
@@ -776,7 +777,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         {
             if(which=="A") data.objectAId=id;else data.objectBId=id;
         });
-        pickTarget=null;GetComponent<SkillSyncObjectPicker>()?.SetPicking(null);Notify("対象を設定しました",false);Refresh();
+        pickTarget=null;GetComponent<SkillSyncObjectPicker>()?.SetPicking(null);Refresh(); // the field shows the new target; no notice needed
     }
     void CommitProvisional()
     {
@@ -829,14 +830,14 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         {
             case "保存": case "↑ 教材を書き出す": case "新規": case "教材を読み込む":
                 if(trial!=null) return "動作確認中は使えません。「編集に戻る」を押してください";
-                if(ghost!=null) return "部品の仮配置中は使えません。置くか、Escでやめてください";
+                if(ghost!=null) return "部品を置く場所を選んでいる間は使えません。置くか、Escでやめてください";
                 if(BlocksEditingShortcuts) return "開いている画面を閉じると使えます";
                 break;
             case "↶ 元に戻す": return trial!=null?"動作確認中は使えません":"元に戻せる操作がありません";
             case "↷": return trial!=null?"動作確認中は使えません":"やり直せる操作がありません";
             case "複製": case "削除": return "部品を選ぶと使えます";
             case "移動": case "回転": case "大きさ": return "部品を選ぶと使えます";
-            case "DeleteStep": return Step==null?"手順を選ぶと使えます":"動作確認中、仮配置中は削除できません";
+            case "DeleteStep": return Step==null?"手順を選ぶと使えます":"動作確認中や、部品を置く場所を選んでいる間は削除できません";
             case "DeleteCondition": return "削除できる完了条件がありません";
             case "＋ 完了条件を追加": return Step==null?"先に手順を追加してください":"完了条件は最大"+graph.GetMaxConditionsPerStep()+"件までです";
             case "↑ 上へ": return Step==null?"手順を選ぶと使えます":"すでに先頭の手順です";
@@ -844,7 +845,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
             case "最初から通して確認": case "最初から試す":
                 if(steps.Count==0) return "手順を追加すると使えます";
                 if(trial!=null) return "動作確認中は使えません";
-                if(ghost!=null) return "部品の仮配置中は使えません";
+                if(ghost!=null) return "部品を置く場所を選んでいる間は使えません";
                 break;
             case "PickA": return "完了条件を選ぶと使えます";
             case "PickB": return Condition==null?"完了条件を選ぶと使えます":"この条件では2つ目の部品を使いません";
@@ -853,7 +854,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
             case "field:stepTitle": case "field:body": return "手順を選ぶと使えます";
         }
         if(trial!=null) return "動作確認中は編集できません";
-        if(ghost!=null) return "部品の仮配置中は使えません。置くか、Escでやめてください";
+        if(ghost!=null) return "部品を置く場所を選んでいる間は使えません。置くか、Escでやめてください";
         return "";
     }
     // Cmd+S / the 保存 button. A never-saved lesson asks for a name first; the result is announced with a way to find the file.
@@ -911,7 +912,8 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         else
         {
             bool neverSaved=saveState==EditorProjectService.SaveStatus.NeverSaved;
-            view.SetSavedState(neverSaved?"未保存":saveState==EditorProjectService.SaveStatus.Unsaved?"未保存の変更あり":"✓ 保存済み",
+            // One word for unsaved work, whether or not the lesson was ever saved; "未保存" alone only for an untouched new lesson.
+            view.SetSavedState(neverSaved && !project.IsDirty?"未保存":saveState==EditorProjectService.SaveStatus.Saved?"✓ 保存済み":"未保存の変更あり",
                 saveState==EditorProjectService.SaveStatus.Saved || neverSaved && !project.IsDirty?0:1);
         }
         // Only unsaved work makes the save button stand out (an untouched new lesson has nothing to save).
@@ -1196,7 +1198,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
             if (ghostRow == null) ghostRow=Row(view.objectTemplate,view.objectsContent,objectRows);
             ghostRow.transform.SetAsFirstSibling();
             ghostRow.SetTree(0,false,false);
-            ghostRow.Set(ghost.DisplayName+"（仮配置）","","",true);
+            ghostRow.Set(ghost.DisplayName+"（配置前）","","",true);
             ghostRow.status.text="未確定";
             ghostRow.thumbnail.texture=thumbnails.Get(ghost.Transform.gameObject);
             offset=1;
@@ -1363,6 +1365,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
     void RefreshValues()
     {
         if(!initialized) return;
+        view.RestoreInspector();
         var picker=GetComponent<SkillSyncObjectPicker>();
         if(picker!=null) {
             picker.CancelPicking=()=>{pickTarget=null;Refresh();};
@@ -1374,7 +1377,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         var saveState=project.SaveState;
         string footerStatus = status;
         view.Text("footer",trial!=null?"動作確認中の操作は教材の初期配置に保存されません":(string.IsNullOrEmpty(footerStatus)?saveState==EditorProjectService.SaveStatus.Saved?"✓ すべての変更を保存しました":"未保存の変更があります":footerStatus)+" ｜ "+ValidationSummary());
-        view.Text("objectCount",objectCountText+(ghost!=null?" ＋ 仮配置1件":""));
+        view.Text("objectCount",objectCountText+(ghost!=null?" ＋ 配置前1件":""));
         view.Text("stepCount","手順 "+graph.GetDisplayOrderedSteps().Count+"件 ｜ "+ValidationSummary());
         var current=selection.Current;
         Transform target=ghost!=null?ghost.Transform:current!=null?current.transform:null;
@@ -1387,7 +1390,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         view.Value("height",relative?"0":target!=null?HeightText(target):"");
         view.Value("angle",relative?"0":target!=null?target.eulerAngles.y.ToString("0.##"):"");
         int index=graph.GetDisplayOrderedSteps().FindIndex(s=>s.nodeId==stepId)+1;
-        view.Text("inspectorLabel",mode==1?Step!=null?"手順"+index+"の題名":"手順を選択してください":ghost!=null?"仮配置":current!=null?"選択中":"未選択");
+        view.Text("inspectorLabel",mode==1?Step!=null?"手順"+index+"の題名":graph.GetDisplayOrderedSteps().Count==0?"まだ手順がありません":"手順を選択してください":ghost!=null?"配置前":current!=null?"選択中":"未選択");
         view.UpdateSelectionHeader();
         view.Value("stepTitle",Step?.step.title??"");view.Value("body",Step?.step.body??"");
         view.Value("distance",SkillSyncConditionEditing.Value(Condition?.condition,0));
@@ -1420,7 +1423,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         view.Enable("DeleteCondition",conditionIndex>=0);
         view.Enable("＋ 完了条件を追加",Step!=null && conditions.Count<maxConditions);
         view.Text("conditionAddLabel",conditions.Count<maxConditions?"＋ 完了条件を追加":"条件は最大"+maxConditions+"件です");
-        if(deleteConditionLabel!=null) deleteConditionLabel.text=conditions.Count==1?"最後の条件を削除":"この条件を削除";
+        if(deleteConditionLabel!=null) deleteConditionLabel.text="この条件を削除";
         view.Enable("DeleteStep",Step!=null && trial==null && ghost==null);
         if(view.conditionList!=null) view.conditionList.SetItems(conditions.Select((c,i)=>ConditionItem(c,i,lookup)).ToList());
         view.Text("conditionSummary",Step==null?"先に手順を追加してください":Condition==null?"完了条件がありません。下の＋で追加してください":
@@ -1447,12 +1450,15 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         else if(noSteps) guide?.SetEmptyHint("最初の手順を作りましょう","左下の「＋ 手順を追加」を押すと、手順が1つ増えます。\n手順ごとに、完了の条件を右側で決めます");
         else guide?.SetEmptyHint(null,null);
         guide?.Refresh(view.State==0 || view.State==3,libraryEmptyText);
-        view.Text("status",pickTarget!=null?status:ghost!=null?"＋ 仮配置中：クリックで置く / Shift+クリックで続けて置く / Escでやめる":trial!=null?trial.Complete?"✓ 条件が成立しました":"▶ 動作確認中：部品をドラッグするか、矢印や輪のつまみで動かして確かめます":current!=null?(selectionInfo.multiple && selectionInfo.title.EndsWith("選択中",StringComparison.Ordinal)?"● "+selectionInfo.title:"● 選択中："+selectionInfo.title)+" | Escで選択解除":"部品を選択してください");
+        // Empty screens show only what can be used: no parts → no parts search; no steps → only the right panel's heading.
+        if(partsSearch!=null) partsSearch.gameObject.SetActive(Placed.Length>0 || !string.IsNullOrEmpty(partsFilter));
+        if(noSteps) view.HideInspectorBelowHeading();
+        view.Text("status",pickTarget!=null?status:ghost!=null?"＋ 置く場所をクリック / Shift+クリックで続けて置く / Escでやめる":trial!=null?trial.Complete?"✓ 条件が成立しました":"▶ 動作確認中：部品をドラッグするか、矢印や輪のつまみで動かして確かめます":current!=null?(selectionInfo.multiple && selectionInfo.title.EndsWith("選択中",StringComparison.Ordinal)?"● "+selectionInfo.title:"● 選択中："+selectionInfo.title)+" | Escで選択解除":"部品を選択してください");
         if(trial==null) view.viewportDistance.text=valid && distanceCondition?$"現在の距離 {Vector3.Distance(SkillSyncTrialSession.Center(a.transform),SkillSyncTrialSession.Center(b.transform))*100:0} cm":"";
         view.viewportDistance.transform.parent.gameObject.SetActive(valid && distanceCondition && (view.State==1 || trial!=null));
         view.viewportGrid.text=EditSnapSettings.Enabled?$"吸着の間隔 {EditSnapSettings.GridSize*100:0.##} cm":"吸着：オフ";
         view.viewportGrid.color=new Color32(88,103,124,255);
-        view.Text("viewportMode",mode==1||trial!=null?valid?distanceCondition?"判定範囲（球）を表示中":"この完了条件はPCでは自動判定できません":"対象を選択してください":EditSnapSettings.ShouldSnap?"作業面に吸着：ON":"作業面に吸着：OFF");
+        view.Text("viewportMode",mode==1||trial!=null?valid?distanceCondition?"近づける範囲を表示中":"PCでは自動で判定しない条件です":"対象を選択してください":EditSnapSettings.ShouldSnap?"作業面に吸着：ON":"作業面に吸着：OFF");
         bool hasPart=ghost!=null || current!=null;
         extras?.Refresh(transformTab,selectionInfo,view.State==0 && ghost==null && trial==null && current!=null,ScaleText(current),view.State==0 && !hasPart);
         // Nothing to edit yet: the inputs and buttons that act on a part/step look unavailable and say what to select (UXE-22).
@@ -1777,7 +1783,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         highlightType=null;
         EndTrial();CancelGhost();placement.CancelPlacement();
         try {ghost=new SkillSyncPlacementGhost(entry);ghostEntry=entry;ghost.DisplayName=LibraryTitle(entry);}
-        catch(Exception e) {Notify("仮配置を開始できません: "+e.Message,true);Debug.LogException(e);Refresh();return;}
+        catch(Exception e) {Notify("部品を置く準備ができません: "+e.Message,true);Debug.LogException(e);Refresh();return;}
         mode=0;
         ghost.Follow(cameraView,new Vector2(cameraView.pixelRect.center.x,cameraView.pixelRect.center.y));
         RefreshLibrarySelection();Refresh();

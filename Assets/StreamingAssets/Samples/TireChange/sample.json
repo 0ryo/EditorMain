@@ -6,6 +6,6 @@
     { "typeId": "Imported/car_639268510102200860", "displayName": "car", "description": "", "file": "models/car.glb" },
     { "typeId": "Imported/TeacherTireChangeJack", "displayName": "教材用ジャッキ", "description": "ジャッキの本体、持ち上げ用ハンドル、下降用バルブを示す教材用モデルです。", "file": "models/training-floor-jack.glb" },
     { "typeId": "Imported/Socket_Wrench_639268510321211430", "displayName": "Socket_Wrench", "description": "", "file": "models/Socket_Wrench.glb" },
-    { "typeId": "Imported/TeacherJackPlacementMarker", "displayName": "学習用ジャッキ設置位置", "description": "ジャッキ全体の床原点を合わせる学習用の枠。実車の指定ジャッキポイントではありません。", "file": "models/jack-placement-marker.glb" }
+    { "typeId": "Imported/TeacherJackPlacementMarker", "displayName": "学習用ジャッキ設置位置", "description": "ジャッキを置く位置を示す学習用の枠です（実車のジャッキポイントではありません）。", "file": "models/jack-placement-marker.glb" }
   ]
 }

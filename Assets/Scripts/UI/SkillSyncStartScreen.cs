@@ -116,12 +116,10 @@ public sealed class SkillSyncStartScreen : MonoBehaviour
         bool hasNotice = notice != null && EditorProjectStore.TryGetFileInfo(notice.path, out _);
         if (hasNotice) { BuildRecoveryNotice(notice); Spacer(20f); }
 
-        var sample = SkillSyncSamples.TireChange();
         var cards = Row("Cards", 16f, 176f);
         Card(cards, "＋  新しい教材を作る", "空の教材から始めます。", true, Close);
-        Card(cards, "テンプレートから作る", "保存したテンプレートのコピーから作ります。", false, () => { page = Page.Templates; Rebuild(); });
-        if (sample != null)
-            Card(cards, "見本を開く", sample.title + "のコピーを開きます。見本自体は変わりません。", false, () => OpenSample(sample));
+        // One card for "start from a copy": the bundled sample and the user's own templates are listed together.
+        Card(cards, "見本・テンプレートから作る", "完成例や保存したテンプレートのコピーから始めます。", false, () => { page = Page.Templates; Rebuild(); });
         Spacer(24f);
 
         AddText("RecentTitle", "最近使った教材", 22, DesignTokens.TextPrimary, FontStyles.Bold);
@@ -190,14 +188,20 @@ public sealed class SkillSyncStartScreen : MonoBehaviour
         SkillSyncModalKit.Style(back, "← 戻る", SkillSyncModalKit.ButtonKind.Quiet);
         back.button.onClick.AddListener(() => { page = Page.Home; Rebuild(); });
         Spacer(6f);
-        AddText("Title", "テンプレートから作る", 34, DesignTokens.TextPrimary, FontStyles.Bold);
+        AddText("Title", "見本・テンプレートから作る", 34, DesignTokens.TextPrimary, FontStyles.Bold);
         Spacer(4f);
-        AddText("Subtitle", "選んだテンプレートのコピーを、新しい教材として開きます。テンプレート自体は変わりません。", 20, DesignTokens.TextSecondary);
+        AddText("Subtitle", "選んだもののコピーを、新しい教材として開きます。元の見本やテンプレートは変わりません。", 20, DesignTokens.TextSecondary);
         Spacer(18f);
+        var sample = SkillSyncSamples.TireChange();
+        if (sample != null)
+        {
+            ListRow(sample.title, "見本", () => OpenSample(sample));
+            Spacer(6f);
+        }
         var templates = EditorProjectStore.ListTemplates();
         if (templates.Count == 0)
         {
-            AddText("Empty", "テンプレートはまだありません。「教材を開く」の一覧で、保存済みの教材を選んで［テンプレートにする］を押すと、ここに追加されます。", 20, DesignTokens.TextPrimary);
+            AddText("Empty", "保存したテンプレートはまだありません。「教材を開く」の一覧で、保存済みの教材を選んで［テンプレートにする］を押すと、ここに追加されます。", 20, DesignTokens.TextPrimary);
             Spacer(14f);
             var open = SkillSyncModalKit.NewButton("Button_OpenLibrary", panel, font);
             SkillSyncModalKit.Style(open, "教材を開く", SkillSyncModalKit.ButtonKind.Secondary);
