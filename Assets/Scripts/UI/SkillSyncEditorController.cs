@@ -83,6 +83,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
     bool stepRowsShowTrial, stepRebuildPending, trialCarried;
     int trialStartIndex;
     TMPro.TMP_InputField partsSearch;
+    float nextLineBreakSweep;
     // Body drag during a trial: moves the trial copy only, along the floor through the grabbed point.
     Transform trialDragTarget;
     Vector3 trialDragGrab, trialDragStart;
@@ -243,6 +244,8 @@ public sealed class SkillSyncEditorController : MonoBehaviour
     void Update()
     {
         if(!initialized) return;
+        // Labels and dialogs are built at runtime all the time; new ones get phrase-aware Japanese line breaks.
+        if(Time.unscaledTime>=nextLineBreakSweep) {nextLineBreakSweep=Time.unscaledTime+1f;SkillSyncLineBreak.Attach(transform.root);}
         if(!Application.isFocused || EditWorkspace.HasOpenModal)
         {
             // The start screen opens before the catalog names the cards; rename them behind it.

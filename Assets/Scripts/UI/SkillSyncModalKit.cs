@@ -79,6 +79,7 @@ public static class SkillSyncModalKit
         text.alignment = alignment;
         text.textWrappingMode = wrap ? TextWrappingModes.Normal : TextWrappingModes.NoWrap;
         text.overflowMode = wrap ? TextOverflowModes.Overflow : TextOverflowModes.Ellipsis;
+        SkillSyncLineBreak.Attach(text);
         return text;
     }
 
