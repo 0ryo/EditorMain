@@ -105,13 +105,9 @@ public sealed class SkillSyncDesignView : MonoBehaviour
     {
         if (controls == null || visuals == null) return;
         var help = controls.FirstOrDefault(c => c.action == "ヘルプ");
-        var fontSource = visuals.FirstOrDefault(v => v.label != null)?.label;
-        if (help?.button == null || fontSource == null) return;
-        const float width = 124f, gap = 12f;
-        var helpRect = (RectTransform)help.button.transform;
-        float x = helpRect.anchoredPosition.x - gap - width;
-        EnsureConditionButton("通知履歴", "通知履歴", x, width, Color.white, new Color32(205, 213, 224, 255), new Color32(23, 34, 54, 255), 14,
-            helpRect.parent, new Visual { label = fontSource }, help.mask, sourceX => sourceX, -helpRect.anchoredPosition.y - 2f);
+        if (help?.button == null) return;
+        // Same look as the other header buttons; EnsureProjectFileControls puts it in line.
+        EnsureHeaderButton("通知履歴", "通知履歴", help);
     }
 
     public static string ShortcutModifierName => Application.platform == RuntimePlatform.OSXPlayer || Application.platform == RuntimePlatform.OSXEditor ? "Cmd" : "Ctrl";
@@ -142,14 +138,20 @@ public sealed class SkillSyncDesignView : MonoBehaviour
         var oldSave = controls.FirstOrDefault(c => c.action == "Save");
         if (oldSave?.button != null) { oldSave.mask = 0; oldSave.button.gameObject.SetActive(false); }
 
-        var save = EnsureHeaderButton("保存", "保存  " + ShortcutModifierName + "+S", help);
+        // The shortcut moves to the hover caption: the header has no room for the "要修正" chip otherwise.
+        var save = EnsureHeaderButton("保存", "保存", help);
         var create = EnsureHeaderButton("新規", "新規", help);
         SetCaption(open.button, "教材を開く");
         SetCaption(history.button, "通知履歴");
+        SetButtonHint("保存", "教材を保存します（" + ShortcutModifierName + "+S）");
 
-        const float gap = 12f;
+        const float gap = 10f;
         var exportRect = (RectTransform)export.button.transform;
-        float cursor = exportRect.anchoredPosition.x - gap;
+        // The export button hugs its caption (right edge kept) so the header keeps a free slot for the problem chip.
+        float exportRight = exportRect.anchoredPosition.x + exportRect.sizeDelta.x;
+        float exportWidth = Mathf.Min(exportRect.sizeDelta.x, Mathf.Max(120f, CaptionWidth(export.button) + 40f));
+        MoveHeaderButton(export, exportRight - exportWidth, exportWidth);
+        float cursor = exportRight - exportWidth - gap;
         foreach (var item in new[] { open, help, history, save, create })
         {
             var rect = (RectTransform)item.button.transform;
@@ -188,6 +190,75 @@ public sealed class SkillSyncDesignView : MonoBehaviour
     {
         var label = button.GetComponentInChildren<TMP_Text>(true);
         if (label != null) { label.text = caption; label.textWrappingMode = TextWrappingModes.NoWrap; }
+    }
+
+    // Hover caption of a control (see SkillSyncHoverTip). Empty text removes the caption.
+    public void SetButtonHint(string action, string text)
+    {
+        var control = controls?.FirstOrDefault(c => c.action == action);
+        if (control?.button == null) return;
+        var look = control.button.GetComponent<SkillSyncDisabledLook>();
+        if (look != null) { look.SetHint(text); return; }
+        var tip = control.button.GetComponent<SkillSyncHoverTip>();
+        if (tip == null)
+        {
+            if (string.IsNullOrEmpty(text)) return;
+            tip = control.button.gameObject.AddComponent<SkillSyncHoverTip>();
+            tip.font = control.button.GetComponentInChildren<TMP_Text>(true)?.font;
+        }
+        tip.text = text;
+    }
+
+    // Reason a control cannot be used right now, keyed by its action ("field:<role>" for input fields); set by the controller.
+    [NonSerialized] public Func<string, string> disabledReason;
+
+    // Every fixed button and input field dims while it cannot be used and explains why on hover (SkillSyncDisabledLook).
+    public void AttachDisabledLooks()
+    {
+        if (controls == null) return;
+        var font = visuals?.FirstOrDefault(v => v.label != null)?.label.font;
+        foreach (var control in controls)
+        {
+            if (control?.button == null) continue;
+            string action = control.action; var rect = (RectTransform)control.button.transform;
+            SkillSyncDisabledLook.Attach(control.button, font, () => disabledReason?.Invoke(action), () => BackdropsOf(rect));
+        }
+        if (fields == null) return;
+        foreach (var field in fields)
+        {
+            if (field?.input == null) continue;
+            string key = "field:" + field.role; var rect = (RectTransform)field.input.transform;
+            SkillSyncDisabledLook.Attach(field.input, font, () => disabledReason?.Invoke(key), () => BackdropsOf(rect));
+        }
+    }
+
+    // Prefab graphics (a button's or field's background box) that sit exactly behind a control but are not its children.
+    IEnumerable<GameObject> BackdropsOf(RectTransform rect)
+    {
+        var corners = new Vector3[4];
+        rect.GetWorldCorners(corners);
+        var area = Rect.MinMaxRect(corners[0].x, corners[0].y, corners[2].x, corners[2].y);
+        float tolerance = 3f * Mathf.Abs(rect.lossyScale.x);
+        foreach (var visual in visuals)
+        {
+            if (visual.label != null || visual.target == null) continue;
+            var other = visual.target.transform as RectTransform;
+            if (other == null || other == rect || other.IsChildOf(rect) || rect.IsChildOf(other)) continue;
+            other.GetWorldCorners(corners);
+            var box = Rect.MinMaxRect(corners[0].x, corners[0].y, corners[2].x, corners[2].y);
+            if (box.xMin <= area.xMin + tolerance && box.yMin <= area.yMin + tolerance && box.xMax >= area.xMax - tolerance && box.yMax >= area.yMax - tolerance &&
+                box.width * box.height <= area.width * area.height * 2.5f)
+                yield return visual.target;
+        }
+    }
+
+    // Inputs of a role that has nothing to edit (no part/step selected) are disabled; Show() restores the per-state default.
+    public void SetFieldAvailable(string role, bool available)
+    {
+        if (fields == null) return;
+        bool stateAllows = State != 5 && State != 2 && State != 4;
+        foreach (var field in fields)
+            if (field.role == role && field.input != null) field.input.interactable = stateAllows && available;
     }
 
     static float CaptionWidth(UnityEngine.UI.Button button)
@@ -366,6 +437,14 @@ public sealed class SkillSyncDesignView : MonoBehaviour
         // The small reorder hint sits where the button goes; the up/down buttons already say it.
         foreach (var hint in visuals)
             if (hint.label != null && hint.label.text == "順番は後から変更できます") { hint.mask = 0; hint.target.SetActive(false); }
+        // While trying, the prefab's own restart button must sit on the box where "＋ 手順を追加" is (it floated over the step list).
+        var restart = controls.FirstOrDefault(c => c.action == "最初から試す");
+        if (restart?.button != null && restart.button.transform.parent == add.button.transform.parent)
+        {
+            var restartRect = (RectTransform)restart.button.transform; var addRect = (RectTransform)add.button.transform;
+            restartRect.anchorMin = addRect.anchorMin; restartRect.anchorMax = addRect.anchorMax; restartRect.pivot = addRect.pivot;
+            restartRect.anchoredPosition = addRect.anchoredPosition; restartRect.sizeDelta = addRect.sizeDelta;
+        }
         EnsureConditionButton("最初から通して確認", "▶ 最初から通して確認", 16, 232, Color.white, new Color32(8, 102, 232, 255), new Color32(8, 102, 232, 255), 15,
             add.button.transform.parent, heading, 1 << 1, x => x, 940);
     }
@@ -379,10 +458,26 @@ public sealed class SkillSyncDesignView : MonoBehaviour
         if (heading == null || help?.button == null) return;
         // Right beside the Help island, vertically centered on the 40px header buttons (states 0-4; the dialog covers state 5).
         var helpRect = (RectTransform)help.button.transform;
-        const float width = 224f, gap = 12f;
+        // The chip owns the slot left of 新規 (reserved even while hidden so the buttons never jump); it clicks through to the next problem.
+        const float gap = 10f;
         var red = new Color32(168, 44, 38, 255);
-        EnsureConditionButton("IssueChip", "⚠ 要修正", helpRect.anchoredPosition.x - gap - width, width, Color.white, red, red, 14,
+        var create = controls.FirstOrDefault(c => c.action == "新規");
+        var redo = controls.FirstOrDefault(c => c.action == "↷");
+        float right = create?.button != null ? ((RectTransform)create.button.transform).anchoredPosition.x : helpRect.anchoredPosition.x;
+        EnsureConditionButton("IssueChip", "⚠ 要修正 99件", right - gap - 120f, 120f, Color.white, red, red, 14,
             helpRect.parent, heading, 31, x => x, -helpRect.anchoredPosition.y - (DesignTokens.MinTouchTarget - helpRect.sizeDelta.y) / 2);
+        var chip = controls.FirstOrDefault(c => c.action == "IssueChip");
+        if (chip?.button != null)
+        {
+            var chipRect = (RectTransform)chip.button.transform;
+            float width = Mathf.Max(112f, CaptionWidth(chip.button) + 28f);
+            float room = redo?.button != null ? right - gap - (((RectTransform)redo.button.transform).anchoredPosition.x + ((RectTransform)redo.button.transform).sizeDelta.x + gap) : width;
+            width = Mathf.Min(width, Mathf.Max(80f, room));
+            chipRect.anchoredPosition = new Vector2(right - gap - width, chipRect.anchoredPosition.y);
+            chipRect.sizeDelta = new Vector2(width, chipRect.sizeDelta.y);
+            SetCaption(chip.button, "⚠ 要修正");
+            SetButtonHint("IssueChip", "クリックすると、直す必要がある場所へ移動します");
+        }
         SetVisible("IssueChip", false);
 
         var summary = visuals.FirstOrDefault(visual => visual.role == "errorSummary" && visual.label != null);
@@ -599,6 +694,17 @@ public sealed class SkillSyncDesignView : MonoBehaviour
     public void Text(string role, string value)
     {
         foreach (var v in visuals) if (v.role == role && v.label != null) v.label.text = value ?? "";
+    }
+    // The prefab places a unit caption right after a two-digit number; longer numbers ("184") must push it along.
+    public void FollowUnit(string valueRole, string unitRole, float gap = 15f)
+    {
+        var value = visuals.FirstOrDefault(v => v.role == valueRole && v.label != null)?.label;
+        var unit = visuals.FirstOrDefault(v => v.role == unitRole && v.label != null)?.label;
+        if (value == null || unit == null) return;
+        float width = value.GetPreferredValues(value.text).x;
+        value.rectTransform.sizeDelta = new Vector2(Mathf.Max(value.rectTransform.sizeDelta.x, width), value.rectTransform.sizeDelta.y);
+        var position = unit.rectTransform.anchoredPosition;
+        unit.rectTransform.anchoredPosition = new Vector2(value.rectTransform.anchoredPosition.x + width + gap, position.y);
     }
     public void Value(string role, string value)
     {

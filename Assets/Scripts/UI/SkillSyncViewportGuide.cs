@@ -18,7 +18,8 @@ public sealed class SkillSyncViewportGuide
 
     readonly SkillSyncDesignView view;
     readonly TMP_FontAsset font;
-    RectTransform placementPill, loadingPill;
+    RectTransform placementPill, loadingPill, emptyCard;
+    TMP_Text emptyTitle, emptyBody;
     TMP_Text placementLabel, loadingLabel, emptyLabel, formatLabel;
     Button cancelButton;
     GameObject formatHost;
@@ -126,6 +127,33 @@ public sealed class SkillSyncViewportGuide
         if (loading) loadingPill.SetAsLastSibling();
     }
 
+    // First-use card in the middle of an empty 3D screen (no parts yet / no steps yet); it never takes clicks or drags.
+    public void SetEmptyHint(string title, string body)
+    {
+        if (view.viewport == null) return;
+        bool show = !string.IsNullOrEmpty(title);
+        if (emptyCard == null)
+        {
+            if (!show) return;
+            var go = new GameObject("EmptyHint", typeof(RectTransform), typeof(SkillSyncRoundedGraphic));
+            emptyCard = (RectTransform)go.transform;
+            emptyCard.SetParent(view.viewport, false);
+            emptyCard.anchorMin = emptyCard.anchorMax = new Vector2(.5f, .32f); emptyCard.pivot = new Vector2(.5f, .5f);
+            emptyCard.anchoredPosition = Vector2.zero; emptyCard.sizeDelta = new Vector2(600, 150); // low, so part-name labels over the objects stay clear
+            var surface = go.GetComponent<SkillSyncRoundedGraphic>();
+            surface.color = new Color32(255, 255, 255, 240); surface.borderColor = new Color32(205, 213, 224, 255);
+            surface.radius = 14; surface.borderWidth = 1; surface.raycastTarget = false;
+            emptyTitle = NewLabel(emptyCard, "Title", 22, Ink, TextAlignmentOptions.Top);
+            emptyTitle.fontStyle = FontStyles.Bold;
+            emptyTitle.rectTransform.offsetMin = new Vector2(24, 0); emptyTitle.rectTransform.offsetMax = new Vector2(-24, -18);
+            emptyBody = NewLabel(emptyCard, "Body", 16, Muted, TextAlignmentOptions.Top);
+            emptyBody.textWrappingMode = TextWrappingModes.Normal;
+            emptyBody.rectTransform.offsetMin = new Vector2(24, 0); emptyBody.rectTransform.offsetMax = new Vector2(-24, -56);
+        }
+        if (show) { emptyTitle.text = title; emptyBody.text = body ?? ""; emptyCard.SetAsLastSibling(); }
+        if (emptyCard.gameObject.activeSelf != show) emptyCard.gameObject.SetActive(show);
+    }
+
     void BuildLibraryTexts()
     {
         var add = view.controls.FirstOrDefault(c => c.action == "＋ 3Dモデルを読み込む" && c.button != null)?.button;
@@ -157,6 +185,8 @@ public sealed class SkillSyncViewportGuide
     public void Refresh(bool libraryVisible, string emptyMessage)
     {
         if (formatHost != null && formatHost.activeSelf != libraryVisible) formatHost.SetActive(libraryVisible);
+        // SkillSyncDesignView.Show re-sorts the prefab graphics on every call; without this the panel background hides the note.
+        if (formatHost != null && libraryVisible && formatHost.transform.GetSiblingIndex() != formatHost.transform.parent.childCount - 1) formatHost.transform.SetAsLastSibling();
         if (emptyLabel != null)
         {
             bool show = libraryVisible && !string.IsNullOrEmpty(emptyMessage);

@@ -308,7 +308,7 @@ public sealed class SkillSyncStartScreen : MonoBehaviour
     {
         var button = SkillSyncModalKit.NewButton("Card", parent, font);
         button.label.gameObject.SetActive(false); Destroy(button.label.gameObject);
-        button.layout.flexibleWidth = 1f;
+        button.layout.flexibleWidth = 1f; button.layout.minWidth = 0f; button.layout.preferredWidth = 0f; // equal-width cards
         button.surface.radius = 12f; button.surface.borderWidth = 1.5f;
         Color fill = primary ? DesignTokens.Accent : DesignTokens.Surface;
         button.surface.color = fill;
