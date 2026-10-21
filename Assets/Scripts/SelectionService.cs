@@ -9,7 +9,7 @@ public class SelectionService : MonoBehaviour
     public event System.Action<PlacedObject> OnSelectionChanged;
     public event System.Action<string> OperationMessage;
 
-    /// <summary>削除前の確認。false を返すと DeleteSelected は何もしない。</summary>
+    /// <summary>削除前の確認。false を返すと DeleteSelected は何もしない（確認ダイアログで承諾後に DeleteSelected(true) を呼ぶ）。</summary>
     public System.Func<IReadOnlyList<PlacedObject>, bool> DeleteGuard;
     PlacedObject listRangeAnchor;
     public Camera cam;
@@ -335,12 +335,13 @@ public class SelectionService : MonoBehaviour
         OnSelectionChanged?.Invoke(Current);
     }
 
-    public void DeleteSelected()
+    /// <summary>skipGuard=true は DeleteGuard の確認ダイアログで「削除」が選ばれた後の実削除に使う。</summary>
+    public void DeleteSelected(bool skipGuard = false)
     {
         var commands = selected.Where(CanEdit).Select(item => (IEditorCommand)new DeleteObjectCommand(
             item.gameObject, item.typeId, typeId => PlacedObjectRestoreFactory.Create(typeId, registry, placementController))).ToList();
         if (commands.Count == 0) return;
-        if (DeleteGuard != null && !DeleteGuard(selected.Where(CanEdit).ToList())) return;
+        if (!skipGuard && DeleteGuard != null && !DeleteGuard(selected.Where(CanEdit).ToList())) return;
         if (Execute(new CompositeEditorCommand("Delete selection", commands))) Select(null);
     }
 

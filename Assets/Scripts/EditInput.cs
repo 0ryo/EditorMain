@@ -29,6 +29,17 @@ public static class EditInput
 #endif
     }
 
+    public static bool ConfirmPressedThisFrame()
+    {
+#if ENABLE_LEGACY_INPUT_MANAGER
+        return Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter);
+#elif ENABLE_INPUT_SYSTEM
+        return Keyboard.current != null && (Keyboard.current.enterKey.wasPressedThisFrame || Keyboard.current.numpadEnterKey.wasPressedThisFrame);
+#else
+        return false;
+#endif
+    }
+
     public static bool TabPressedThisFrame()
     {
 #if ENABLE_LEGACY_INPUT_MANAGER

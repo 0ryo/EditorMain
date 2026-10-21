@@ -98,6 +98,20 @@ public sealed class SkillSyncDesignView : MonoBehaviour
         controls = controls.Concat(new[] { new Control { button = button, action = "教材を読み込む", mask = help.mask } }).ToArray();
     }
 
+    // Header button that opens the recent-notification list; sits in the free gap left of the help button.
+    public void EnsureNotificationHistoryControl()
+    {
+        if (controls == null || visuals == null) return;
+        var help = controls.FirstOrDefault(c => c.action == "ヘルプ");
+        var fontSource = visuals.FirstOrDefault(v => v.label != null)?.label;
+        if (help?.button == null || fontSource == null) return;
+        const float width = 124f, gap = 12f;
+        var helpRect = (RectTransform)help.button.transform;
+        float x = helpRect.anchoredPosition.x - gap - width;
+        EnsureConditionButton("通知履歴", "通知履歴", x, width, Color.white, new Color32(205, 213, 224, 255), new Color32(23, 34, 54, 255), 14,
+            helpRect.parent, new Visual { label = fontSource }, help.mask, sourceX => sourceX, -helpRect.anchoredPosition.y - 2f);
+    }
+
     // Kept in the Prefab update path and as a compatibility path for older UIRoot assets.
     public void EnsureViewportLabels()
     {

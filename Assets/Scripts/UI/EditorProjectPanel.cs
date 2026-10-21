@@ -43,13 +43,6 @@ public sealed class EditorProjectPanel : MonoBehaviour
     RectTransform listContent;
     int libraryMode;
     readonly Button[] libraryTabs = new Button[3];
-    RectTransform confirmation;
-    TMP_Text confirmationText;
-    Button confirmationCancelButton;
-    Button confirmationPrimaryButton;
-    Button confirmationSecondaryButton;
-    Action confirmedAction;
-    Action secondaryConfirmedAction;
     bool recoveryWarningShown;
 #if !UNITY_EDITOR
     bool allowQuit;
@@ -97,14 +90,13 @@ public sealed class EditorProjectPanel : MonoBehaviour
     void Update()
     {
         if (modal == null || !modal.gameObject.activeInHierarchy ||
-            !Application.isFocused || !EditInput.CancelPressedThisFrame()) return;
+            !Application.isFocused || SkillSyncConfirmDialog.IsOpen || !EditInput.CancelPressedThisFrame()) return;
 
         var selected = UnityEngine.EventSystems.EventSystem.current?.currentSelectedGameObject;
         var input = selected != null ? selected.GetComponent<TMP_InputField>() : null;
         if (input != null && input.isFocused) return;
 
-        if (confirmation != null && confirmation.gameObject.activeInHierarchy) HideConfirmation();
-        else Close();
+        Close();
     }
 
     void Build()
@@ -222,11 +214,10 @@ public sealed class EditorProjectPanel : MonoBehaviour
             int mode = i;
             libraryTabs[i] = CreateButton("Button_Library" + i, dialog, tabNames[i], 216f);
             SetRect(libraryTabs[i].transform as RectTransform, new Vector2(24f + i * 228f, -264f), new Vector2(216f, 36f));
-            libraryTabs[i].onClick.AddListener(() => { libraryMode = mode; HideConfirmation(); RefreshProjectList(); });
+            libraryTabs[i].onClick.AddListener(() => { libraryMode = mode; RefreshProjectList(); });
         }
 
         BuildProjectList(dialog);
-        BuildConfirmation(dialog);
         UiRoundedTheme.ApplyToHierarchy(dialog, DesignTokens.CornerRadius);
         UiAccessibilityMetrics.EnsureButtonTargets(dialog);
         RefreshDirtyVisual();
@@ -283,56 +274,30 @@ public sealed class EditorProjectPanel : MonoBehaviour
         scroll.verticalScrollbarSpacing = 2f;
     }
 
-    void BuildConfirmation(RectTransform dialog)
-    {
-        confirmation = CreateRect("Panel_Confirmation", dialog);
-        confirmation.anchorMin = new Vector2(0f, 0f);
-        confirmation.anchorMax = new Vector2(1f, 0f);
-        confirmation.pivot = new Vector2(0.5f, 0f);
-        confirmation.offsetMin = new Vector2(24f, 18f);
-        confirmation.offsetMax = new Vector2(-24f, 72f);
-        var image = confirmation.gameObject.AddComponent<Image>();
-        image.color = DesignTokens.BgSecondary;
-
-        confirmationText = CreateText("Text_Message", confirmation, string.Empty, DesignTokens.FontSizeCaption, DesignTokens.TextPrimary);
-        confirmationText.rectTransform.anchorMin = new Vector2(0f, 0f);
-        confirmationText.rectTransform.anchorMax = new Vector2(1f, 1f);
-        confirmationText.rectTransform.offsetMin = new Vector2(12f, 0f);
-        confirmationText.rectTransform.offsetMax = new Vector2(-184f, 0f);
-        confirmationText.alignment = TextAlignmentOptions.MidlineLeft;
-
-        confirmationCancelButton = CreateButton("Button_Cancel", confirmation, "キャンセル", 88f);
-        SetTopRight(confirmationCancelButton.transform as RectTransform, new Vector2(-96f, -7f), new Vector2(88f, 40f));
-        confirmationCancelButton.onClick.AddListener(HideConfirmation);
-        confirmationPrimaryButton = CreateButton("Button_Confirm", confirmation, "実行", 72f, true);
-        SetTopRight(confirmationPrimaryButton.transform as RectTransform, new Vector2(-12f, -7f), new Vector2(72f, 40f));
-        confirmationPrimaryButton.onClick.AddListener(ConfirmPendingAction);
-        confirmationSecondaryButton = CreateButton("Button_SecondaryConfirm", confirmation, "破棄して読込", 120f);
-        SetTopRight(confirmationSecondaryButton.transform as RectTransform, new Vector2(-140f, -7f), new Vector2(120f, 40f));
-        confirmationSecondaryButton.onClick.AddListener(ConfirmSecondaryPendingAction);
-        confirmationSecondaryButton.gameObject.SetActive(false);
-        confirmation.gameObject.SetActive(false);
-    }
-
     void Open()
     {
         if (modal == null) BuildModal();
         if (modal == null) return;
         projectService.RefreshRecoveryProtection();
 
+        SyncNameInput();
+        RefreshSaveButtonLabel();
+        RefreshDirtyVisual();
+        statusText.text = projectService.IsDirty ? "未保存の変更があります" : string.Empty;
+        statusText.color = projectService.IsDirty ? DesignTokens.Warning : DesignTokens.TextSecondary;
+        RefreshProjectList();
+        modal.gameObject.SetActive(true);
+        modal.SetAsLastSibling();
+    }
+
+    // The name field is the source of the save name, so it must match the current lesson even while the panel is closed.
+    void SyncNameInput()
+    {
         var graph = FindFirstObjectByType<CurriculumGraphService>();
         string name = graph != null && graph.curriculum != null
             ? graph.curriculum.projectName
             : projectService.CurrentProjectName;
         projectNameInput.SetTextWithoutNotify(string.IsNullOrWhiteSpace(name) ? "VRCourseEditor" : name);
-        RefreshSaveButtonLabel();
-        RefreshDirtyVisual();
-        statusText.text = projectService.IsDirty ? "未保存の変更があります" : string.Empty;
-        statusText.color = projectService.IsDirty ? DesignTokens.Warning : DesignTokens.TextSecondary;
-        HideConfirmation();
-        RefreshProjectList();
-        modal.gameObject.SetActive(true);
-        modal.SetAsLastSibling();
     }
 
     public void OpenForDesignUi()
@@ -353,7 +318,6 @@ public sealed class EditorProjectPanel : MonoBehaviour
 
     void Close()
     {
-        HideConfirmation();
         if (modal != null) modal.gameObject.SetActive(false);
     }
 
@@ -380,7 +344,9 @@ public sealed class EditorProjectPanel : MonoBehaviour
             string.Equals(existing.Path, projectService.CurrentProjectPath, StringComparison.OrdinalIgnoreCase);
         if (existing != null && !isCurrentFile)
         {
-            ShowConfirmation($"「{existing.DisplayName}」を上書きします。", () => SaveProjectNow(name));
+            Ask($"「{existing.DisplayName}」を上書きしますか？",
+                "同じ名前の教材がすでに保存されています。上書きすると、保存済みの内容は新しい内容に置き換わります。",
+                "上書き保存", () => SaveProjectNow(name), destructive: true);
             return;
         }
 
@@ -392,7 +358,6 @@ public sealed class EditorProjectPanel : MonoBehaviour
         projectService.Save(name, out var message);
         statusText.text = message;
         RefreshSaveButtonLabel();
-        HideConfirmation();
         RefreshProjectList();
     }
 
@@ -412,20 +377,21 @@ public sealed class EditorProjectPanel : MonoBehaviour
 
     void RequestNewProject()
     {
-        if (!projectService.HasEditableContent())
+        // Nothing to lose when there are no unsaved changes, so do not ask.
+        if (!projectService.IsDirty)
         {
             NewProjectNow();
             return;
         }
 
-        ShowLoadConfirmation(
-            "現在の内容を保存してから新しい教材を作成しますか？",
-            "保存して新規", "破棄して新規",
+        Ask("現在の教材を保存しますか？",
+            $"「{projectService.CurrentProjectName}」に未保存の変更があります。新しい教材を作る前に保存しますか？",
+            "保存して新規作成",
             () =>
             {
                 if (TrySaveCurrent()) NewProjectNow();
             },
-            NewProjectNow);
+            secondaryLabel: "保存せず新規作成", onSecondary: NewProjectNow);
     }
 
     void NewProjectNow()
@@ -433,18 +399,18 @@ public sealed class EditorProjectPanel : MonoBehaviour
         projectService.NewProject(GetProjectName(), out var message);
         statusText.text = message;
         RefreshSaveButtonLabel();
-        HideConfirmation();
     }
 
     void RequestLoad(EditorProjectFileInfo info)
     {
-        if (projectService.HasEditableContent())
+        // Nothing to lose when there are no unsaved changes, so do not ask.
+        if (projectService.IsDirty)
         {
-            ShowLoadConfirmation(
-                $"現在の内容を保存してから「{info.DisplayName}」を読み込みますか？",
-                "保存して読込", "破棄して読込",
+            Ask("現在の教材を保存しますか？",
+                $"「{projectService.CurrentProjectName}」に未保存の変更があります。「{info.DisplayName}」を開く前に保存しますか？",
+                "保存して開く",
                 () => SaveCurrentThenLoad(info),
-                () => LoadProjectNow(info));
+                secondaryLabel: "保存せず開く", onSecondary: () => LoadProjectNow(info));
             return;
         }
 
@@ -475,16 +441,16 @@ public sealed class EditorProjectPanel : MonoBehaviour
             string.Equals(currentName, projectService.CurrentProjectName, StringComparison.Ordinal);
         if (nameCollision != null && !collisionIsCurrentFile && !savingCurrent)
         {
+            // The user has to edit the name, so make sure the name field is on screen.
+            if (modal != null && !modal.gameObject.activeInHierarchy) Open();
             statusText.text = $"「{nameCollision.DisplayName}」は既に保存されています。現在の内容を保存する場合は別の教材名を入力してください。";
             statusText.color = DesignTokens.Warning;
-            HideConfirmation();
             return false;
         }
 
         if (!projectService.Save(currentName, out var saveMessage))
         {
             statusText.text = saveMessage;
-            HideConfirmation();
             return false;
         }
 
@@ -502,12 +468,13 @@ public sealed class EditorProjectPanel : MonoBehaviour
             RefreshProjectList();
             RefreshDirtyVisual();
         }
-        HideConfirmation();
     }
 
     void RequestRecoveryLoad(EditorProjectFileInfo info)
     {
-        ShowConfirmation($"現在の編集内容を閉じて「{info.DisplayName}」の自動保存を復元します。", () =>
+        Ask("復旧データを開きますか？",
+            $"現在の編集内容を閉じて、「{info.DisplayName}」の復旧データを開きます。保存していない変更は失われます。",
+            "復旧データを開く", () =>
         {
             bool loaded = projectService.LoadRecovery(out var message);
             statusText.text = message;
@@ -517,18 +484,18 @@ public sealed class EditorProjectPanel : MonoBehaviour
                 RefreshSaveButtonLabel();
                 RefreshDirtyVisual();
             }
-            HideConfirmation();
-        });
+        }, destructive: true);
     }
 
     void RequestRecoveryDelete(EditorProjectFileInfo info)
     {
-        ShowConfirmation($"「{info.DisplayName}」の自動保存データを破棄します。", () =>
+        Ask("復旧データを破棄しますか？",
+            $"「{info.DisplayName}」の復旧データを破棄します。この操作は元に戻せません。",
+            "破棄", () =>
         {
             projectService.DeleteRecovery(out var message);
             statusText.text = message;
-            HideConfirmation();
-        });
+        }, destructive: true);
     }
 
     void RefreshProjectList()
@@ -596,11 +563,12 @@ public sealed class EditorProjectPanel : MonoBehaviour
                 if (libraryMode == 0) AddLibraryAction(row, "読込", 0, () => RequestLoad(info));
                 AddLibraryAction(row, libraryMode == 1 ? "教材を作成" : "複製", 1, () => DuplicateSaved(info, false));
                 if (libraryMode == 0) AddLibraryAction(row, "テンプレート化", 2, () => DuplicateSaved(info, true));
-                var delete = AddLibraryAction(row, "削除", 3, () => ShowConfirmation(
-                    $"「{info.DisplayName}」を削除済みへ移します。", () =>
+                var delete = AddLibraryAction(row, "削除", 3, () => Ask(
+                    "教材をゴミ箱へ移しますか？",
+                    $"「{info.DisplayName}」をゴミ箱へ移します。ゴミ箱から戻すこともできます。",
+                    "ゴミ箱へ移す", () =>
                     {
                         projectService.ArchiveSaved(info.Path, out _);
-                        HideConfirmation();
                         RefreshProjectList();
                     }));
                 delete.interactable = !string.Equals(info.Path, projectService.CurrentProjectPath, StringComparison.OrdinalIgnoreCase);
@@ -643,7 +611,6 @@ public sealed class EditorProjectPanel : MonoBehaviour
     {
         if (!projectService.DuplicateSaved(info.Path, asTemplate, out _)) return;
         libraryMode = asTemplate ? 1 : 0;
-        HideConfirmation();
         RefreshProjectList();
     }
     void CreateRecoveryRow(EditorProjectFileInfo info, int index, float topOffset = 0f)
@@ -717,58 +684,9 @@ public sealed class EditorProjectPanel : MonoBehaviour
         listContent.anchoredPosition = new Vector2(listContent.anchoredPosition.x, 0f);
     }
 
-    void ShowConfirmation(string message, Action action)
-    {
-        confirmedAction = action;
-        secondaryConfirmedAction = null;
-        confirmationText.text = message;
-        confirmationText.rectTransform.offsetMax = new Vector2(-184f, 0f);
-        SetButtonLabel(confirmationPrimaryButton, "実行");
-        SetTopRight(confirmationPrimaryButton.transform as RectTransform, new Vector2(-12f, -7f), new Vector2(72f, 40f));
-        SetTopRight(confirmationCancelButton.transform as RectTransform, new Vector2(-96f, -7f), new Vector2(88f, 40f));
-        confirmationSecondaryButton.gameObject.SetActive(false);
-        confirmation.gameObject.SetActive(true);
-        confirmation.SetAsLastSibling();
-    }
-
-    void ShowLoadConfirmation(string message, string saveLabel, string discardLabel, Action saveAction, Action discardAction)
-    {
-        confirmedAction = saveAction;
-        secondaryConfirmedAction = discardAction;
-        confirmationText.text = message;
-        confirmationText.rectTransform.offsetMax = new Vector2(-356f, 0f);
-        SetButtonLabel(confirmationCancelButton, "キャンセル");
-        SetButtonLabel(confirmationSecondaryButton, discardLabel);
-        SetButtonLabel(confirmationPrimaryButton, saveLabel);
-        SetTopRight(confirmationCancelButton.transform as RectTransform, new Vector2(-268f, -7f), new Vector2(88f, 40f));
-        SetTopRight(confirmationSecondaryButton.transform as RectTransform, new Vector2(-140f, -7f), new Vector2(120f, 40f));
-        SetTopRight(confirmationPrimaryButton.transform as RectTransform, new Vector2(-12f, -7f), new Vector2(120f, 40f));
-        confirmationSecondaryButton.gameObject.SetActive(true);
-        confirmation.gameObject.SetActive(true);
-        confirmation.SetAsLastSibling();
-    }
-
-    void ConfirmPendingAction()
-    {
-        var action = confirmedAction;
-        confirmedAction = null;
-        action?.Invoke();
-    }
-
-    void ConfirmSecondaryPendingAction()
-    {
-        var action = secondaryConfirmedAction;
-        confirmedAction = null;
-        secondaryConfirmedAction = null;
-        action?.Invoke();
-    }
-
-    void HideConfirmation()
-    {
-        confirmedAction = null;
-        secondaryConfirmedAction = null;
-        if (confirmation != null) confirmation.gameObject.SetActive(false);
-    }
+    // All confirmations go through the central dialog (Esc = cancel, Enter = primary).
+    static void Ask(string title, string message, string confirmLabel, Action onConfirm, bool destructive = false, string secondaryLabel = null, Action onSecondary = null)
+        => SkillSyncConfirmDialog.Show(title, message, confirmLabel, onConfirm, destructive: destructive, secondaryLabel: secondaryLabel, onSecondary: onSecondary);
 
     void OnServiceStatusChanged(string message, bool succeeded)
     {
@@ -832,17 +750,18 @@ public sealed class EditorProjectPanel : MonoBehaviour
     {
         if (allowQuit || projectService == null || !projectService.IsDirty) return true;
 
-        Open();
-        ShowLoadConfirmation(
-            "未保存の変更があります。保存して終了しますか？",
-            "保存して終了", "破棄して終了",
+        SyncNameInput();
+        Ask("終了する前に保存しますか？",
+            $"「{projectService.CurrentProjectName}」に未保存の変更があります。保存せずに終了すると、変更は失われます。",
+            "保存して終了",
             () =>
             {
                 if (!TrySaveCurrent()) return;
                 allowQuit = true;
                 Application.Quit();
             },
-            () =>
+            secondaryLabel: "保存せず終了",
+            onSecondary: () =>
             {
                 projectService.DiscardOwnedRecovery();
                 allowQuit = true;

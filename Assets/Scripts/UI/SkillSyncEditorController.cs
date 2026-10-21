@@ -45,8 +45,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
     readonly Dictionary<string, GameObject> thumbnailSources = new();
     readonly List<Renderer> labelRenderers = new();
     SkillSyncDesignRow ghostRow;
-    string armedKey, scrolledStepId;
-    float armedUntil;
+    string scrolledStepId;
     bool scrollObjectsPending;
     Transform labelTargetA, labelTargetB;
     readonly Vector3[] corners = new Vector3[4];
@@ -87,6 +86,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         view.EnsureProjectLoadControl();
         view.EnsureConditionControls();
         view.EnsureStepControls();
+        view.EnsureNotificationHistoryControl();
         SkillSyncConditionEditorView.Ensure(view);
         view.EnsureViewportLabels();
         TopCenterNotification.Ensure(transform, view.inspectorTitle);
@@ -294,6 +294,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
             case "NextCondition": MoveCondition(1);break;
             case "DeleteCondition": DeleteCondition();break;
             case "詳細設定": catalog?.ShowDesignSettings();return;
+            case "通知履歴": TopCenterNotification.Ensure(transform,view.inspectorTitle)?.ToggleHistory();return;
             case "ヘルプ": case "Guide": HintPanelController.Ensure(transform.root)?.Show();return;
             case "Save": if(trial!=null || ghost!=null) break; SaveProject(project.CurrentProjectName);break;
             case "教材を読み込む":
@@ -548,13 +549,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         if(before!=after) RebuildSteps();
     }
     string ValidationSummary() => validationErrorCount>0?"エラー"+validationErrorCount+"件":"問題なし";
-    // Two-step confirm: the first press arms a 4 s window and the second press inside it proceeds.
-    bool ConfirmTwice(string key,string message)
-    {
-        if(armedKey==key && Time.unscaledTime<armedUntil) {armedKey=null;return true;}
-        armedKey=key;armedUntil=Time.unscaledTime+4f;
-        Notify(message,true);return false;
-    }
+    // Deleting parts that step conditions use asks first in the central dialog; the real delete runs only after "削除".
     bool ConfirmDeleteObjects(IReadOnlyList<PlacedObject> items)
     {
         if(graph==null) return true;
@@ -563,8 +558,11 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         for(int i=0;i<steps.Count;i++)
             if(graph.GetConditionNodesForStep(steps[i].nodeId).Any(c=>ids.Contains(c.condition.objectAId) || ids.Contains(c.condition.objectBId))) used.Add(i+1);
         if(used.Count==0) return true;
-        string key="obj:"+string.Join(",",ids.OrderBy(i=>i,StringComparer.Ordinal));
-        return ConfirmTwice(key,string.Join("・",used.Select(n=>"手順"+n))+"の完了条件で使われています。もう一度削除すると削除します");
+        string subject=items.Count==1?"「"+items[0].GetDisplayName()+"」":"選択中の"+items.Count+"個の部品";
+        SkillSyncConfirmDialog.Show("使用中の部品を削除しますか？",
+            subject+"は"+string.Join("・",used.Select(n=>"手順"+n))+"の完了条件で使われています。削除すると、その完了条件は成立しなくなります。「元に戻す」で復元できます。",
+            "削除",()=>selection.DeleteSelected(true),destructive:true);
+        return false;
     }
     static bool CmdOrCtrl() => Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl) || Input.GetKey(KeyCode.LeftCommand) || Input.GetKey(KeyCode.RightCommand);
     // Brings the row into view only when it is outside the viewport; never fights manual scrolling.
@@ -593,10 +591,10 @@ public sealed class SkillSyncEditorController : MonoBehaviour
     void ObjectPlaced(PlacedObject _,string __) {RevalidateAndSync();RebuildObjects();RefreshValues();}
     void HistoryChanged() {RevalidateAndSync();RebuildObjects();RefreshValues();}
     void ProjectStatus(string message,bool success) {if(!success && !string.IsNullOrEmpty(message)) Notify(message,true);else status=message;RefreshValues();}
-    void CatalogStatus(string message)
+    // The catalog reports severity explicitly; never infer it from the wording.
+    void CatalogStatus(string message,bool error)
     {
         if(string.IsNullOrEmpty(message)) return;
-        bool error=message.Contains("失敗")||message.Contains("エラー")||message.Contains("できません")||message.Contains("見つかりません")||message.Contains("不正")||message.Contains("無効")||message.Contains("Error")||message.Contains("error");
         Notify(message,error);
         RefreshValues();
     }
@@ -656,11 +654,12 @@ public sealed class SkillSyncEditorController : MonoBehaviour
             libraryTypes[row]=entry.typeId;
             var chosen=entry;row.button.onClick.AddListener(()=>BeginGhost(chosen));
             var remove=row.GetComponent<SkillSyncLibraryRemove>();
-            if(remove!=null) remove.remove.onClick.AddListener(()=>{
-                if(!ConfirmTwice("lib:"+chosen.typeId,"もう一度押すとライブラリから外します（配置済みの部品は残ります）")) return;
-                if(ghost!=null && ghost.TypeId==chosen.typeId)CancelGhost();
-                catalog?.RemoveDesignLibraryEntry(chosen.typeId);RebuildLibrary();Refresh();
-            });
+            if(remove!=null) remove.remove.onClick.AddListener(()=>SkillSyncConfirmDialog.Show("ライブラリから外しますか？",
+                "「"+title+"」をライブラリから外します。すでに配置した部品はそのまま残ります。",
+                "外す",()=>{
+                    if(ghost!=null && ghost.TypeId==chosen.typeId)CancelGhost();
+                    catalog?.RemoveDesignLibraryEntry(chosen.typeId);RebuildLibrary();Refresh();
+                },destructive:true));
         }
     }
     void RebuildSteps()

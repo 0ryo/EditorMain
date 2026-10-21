@@ -17,7 +17,9 @@ public static class EditWorkspace
 
     public static Transform GetOpenModalRoot(Transform within = null)
     {
-        var modal = EditorProjectPanel.GetOpenModalRoot(within);
+        var modal = SkillSyncConfirmDialog.GetOpenModalRoot(within);
+        if (modal != null) return modal;
+        modal = EditorProjectPanel.GetOpenModalRoot(within);
         if (modal != null) return modal;
         modal = CatalogUI.GetOpenModalRoot();
         return modal != null && (within == null || modal == within || modal.IsChildOf(within)) ? modal : null;

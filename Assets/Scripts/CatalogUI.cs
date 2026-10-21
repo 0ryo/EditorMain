@@ -198,9 +198,9 @@ public class CatalogUI : MonoBehaviour
                 }
             }
             RebuildCards();
-            if (warnings.Count > 0) SetStatus("モデル復元: " + string.Join(" / ", warnings));
+            if (warnings.Count > 0) SetStatus("一部の3Dモデルを復元できませんでした: " + string.Join(" / ", warnings), true);
         }
-        catch (Exception ex) { SetStatus("モデル一覧を読み取れません: " + ex.Message); }
+        catch (Exception ex) { SetStatus("追加済みの3Dモデルを読み取れません: " + ex.Message, true); }
         finally { IsRestoringModels = false; }
     }
 
@@ -255,13 +255,13 @@ public class CatalogUI : MonoBehaviour
 
         if (placementController == null)
         {
-            SetStatus("PlacementController is not found.");
+            SetStatus("部品を配置できません。アプリを再起動してからもう一度お試しください。", true);
             return;
         }
 
         if (!placementController.PlaceOnceAtScreenPoint(typeId, screenPosition))
         {
-            SetStatus("Placement failed.");
+            SetStatus("この位置には部品を配置できません。別の場所をクリックしてください。", true);
         }
     }
 
@@ -2996,7 +2996,7 @@ public class CatalogUI : MonoBehaviour
         if (EditorDiagnosticLog.TryExportLatest(out var path, out var error))
             SetStatus("診断ログを保存しました: " + path);
         else
-            SetStatus("診断ログを保存できません: " + error);
+            SetStatus("診断ログを保存できません: " + error, true);
     }
 
     void OnClickSettingsRevert()
@@ -3058,7 +3058,8 @@ public class CatalogUI : MonoBehaviour
             onSelectType?.Invoke(typeId);
         }
 
-        SetStatus($"配置モード: {typeId}");
+        TryGetTypeInfo(typeId, out var placingLabel, out _);
+        SetStatus($"「{(string.IsNullOrWhiteSpace(placingLabel) ? "部品" : placingLabel)}」を配置します。3D画面をクリックして置いてください。");
     }
 
     string GetPlacementControllerName()
@@ -3070,6 +3071,7 @@ public class CatalogUI : MonoBehaviour
     void OnClickRemoveCard(string typeId)
     {
         if (string.IsNullOrWhiteSpace(typeId)) return;
+        TryGetTypeInfo(typeId, out var removedLabel, out _);
         var stored = importedModels.Find(item => string.Equals(item.typeId, typeId, StringComparison.OrdinalIgnoreCase));
         if (stored != null)
         {
@@ -3078,7 +3080,7 @@ public class CatalogUI : MonoBehaviour
             catch (Exception ex)
             {
                 stored.hidden = false;
-                SetStatus("カタログの変更を保存できません: " + ex.Message);
+                SetStatus("ライブラリの変更を保存できません: " + ex.Message, true);
                 return;
             }
         }
@@ -3092,7 +3094,7 @@ public class CatalogUI : MonoBehaviour
 
         ApplyFilter(searchInput != null ? searchInput.text : string.Empty);
         RefreshPlacementCardHighlight(boundPlacementController != null ? boundPlacementController.CurrentTypeId : null);
-        SetStatus($"Removed card: {typeId}");
+        SetStatus($"「{(string.IsNullOrWhiteSpace(removedLabel) ? "3Dモデル" : removedLabel)}」をライブラリから外しました。配置済みの部品は残っています。");
     }
 
     void OnSearchChanged(string text)
@@ -3147,7 +3149,7 @@ public class CatalogUI : MonoBehaviour
 
     System.Threading.CancellationTokenSource modelImportCancellation;
     public string StatusMessage { get; private set; } = string.Empty;
-    public event Action<string> StatusChanged;
+    public event Action<string, bool> StatusChanged; // (message, isError)
 
     async System.Threading.Tasks.Task<GameObject> LoadSelectedModel(string path)
     {
@@ -3164,11 +3166,11 @@ public class CatalogUI : MonoBehaviour
             }
             return model;
         }
-        catch (System.OperationCanceledException) { if (this != null) SetStatus("モデル取込を中止しました。"); }
+        catch (System.OperationCanceledException) { if (this != null) SetStatus("3Dモデルの追加をやめました。"); }
         catch (Exception ex)
         {
             Debug.LogError("[Model import] " + path + "\n" + ex);
-            if (this != null) SetImportResult("オブジェクトの読み込みに失敗しました: " + ex.Message, true);
+            if (this != null) SetImportResult("3Dモデルを追加できません: " + ex.Message, true);
         }
         finally
         {
@@ -3187,7 +3189,7 @@ public class CatalogUI : MonoBehaviour
         if (modelImportCancellation != null)
         {
             modelImportCancellation.Cancel();
-            SetStatus("取込を中止しています…");
+            SetStatus("3Dモデルの追加をやめています…");
             return;
         }
 #if UNITY_EDITOR
@@ -3197,14 +3199,14 @@ public class CatalogUI : MonoBehaviour
 
         if (placementController == null)
         {
-            SetImportResult("3Dモデルトを読み込めません: 配置サービスが見つかりません。", true);
+            SetImportResult("3Dモデルを追加できません: 配置サービスが見つかりません。", true);
             return;
         }
 
         var selectedPath = EditorModelImportService.SelectModelPath();
         if (string.IsNullOrWhiteSpace(selectedPath))
         {
-            SetStatus("Object selection canceled.");
+            SetStatus("3Dモデルの選択をやめました。");
             return;
         }
 
@@ -3217,13 +3219,13 @@ public class CatalogUI : MonoBehaviour
             try
             {
                 if (!EditorModelImportService.TryLoadFbxAsset(selectedPath, out prefab, out assetPath, out errorMessage))
-                { SetImportResult("オブジェクトの読み込みに失敗しました: " + errorMessage, true); return; }
+                { SetImportResult("3Dモデルを追加できません: " + errorMessage, true); return; }
             }
-            catch (Exception ex) { SetImportResult("オブジェクトの読み込みに失敗しました: " + ex.Message, true); return; }
+            catch (Exception ex) { SetImportResult("3Dモデルを追加できません: " + ex.Message, true); return; }
         }
         else if (RuntimeModelLoader.IsSupportedExtension(selectedPath))
         {
-            SetStatus("Loading 3D model...");
+            SetStatus("3Dモデルを追加しています…");
             prefab = await LoadSelectedModel(selectedPath);
             if (prefab == null)
             {
@@ -3232,7 +3234,7 @@ public class CatalogUI : MonoBehaviour
         }
         else
         {
-            SetImportResult($"3Dモデルトを読み込めません: {EditorSupportedModelExtensionsLabel} を選択してください。", true);
+            SetImportResult($"3Dモデルを追加できません: {EditorSupportedModelExtensionsLabel} を選択してください。", true);
             return;
         }
 
@@ -3251,7 +3253,7 @@ public class CatalogUI : MonoBehaviour
 
         if (placementController == null)
         {
-            SetImportResult("3Dモデルトを読み込めません: 配置サービスが見つかりません。", true);
+            SetImportResult("3Dモデルを追加できません: 配置サービスが見つかりません。", true);
             return;
         }
 
@@ -3264,27 +3266,27 @@ public class CatalogUI : MonoBehaviour
         catch (Exception ex)
         {
             Debug.LogError("[Model import] File selection failed: " + ex);
-            SetImportResult("3Dモデルトを読み込めません: " + ex.Message, true);
+            SetImportResult("3Dモデルを追加できません: " + ex.Message, true);
             return;
         }
 #else
-        SetImportResult("3Dモデルトを読み込めません: この環境ではファイル選択に対応していません。", true);
+        SetImportResult("3Dモデルを追加できません: この環境ではファイル選択に対応していません。", true);
         return;
 #endif
 
         if (string.IsNullOrWhiteSpace(selectedPath))
         {
-            SetStatus("File selection canceled.");
+            SetStatus("3Dモデルの選択をやめました。");
             return;
         }
 
         if (!RuntimeModelLoader.IsSupportedExtension(selectedPath))
         {
-            SetImportResult("3Dモデルトを読み込めません: .glb または .gltf ファイルを選択してください。", true);
+            SetImportResult("3Dモデルを追加できません: .glb または .gltf ファイルを選択してください。", true);
             return;
         }
 
-        SetStatus("Loading 3D model...");
+        SetStatus("3Dモデルを追加しています…");
         var loadedModel = await LoadSelectedModel(selectedPath);
         if (loadedModel == null)
         {
@@ -3299,7 +3301,7 @@ public class CatalogUI : MonoBehaviour
     {
         if (prefab == null || string.IsNullOrWhiteSpace(assetPath))
         {
-            SetImportResult("オブジェクトの読み込みに失敗しました: オブジェクト設定を準備できません。", true);
+            SetImportResult("3Dモデルを追加できません: 設定画面を準備できません。", true);
             return;
         }
 
@@ -3342,14 +3344,14 @@ public class CatalogUI : MonoBehaviour
     {
         if (pendingImportedPrefab == null || string.IsNullOrWhiteSpace(pendingImportedAssetPath))
         {
-            SetImportResult("3Dモデルトを追加できません: 読み込み済みのオブジェクトがありません。", true);
+            SetImportResult("3Dモデルを追加できません: 追加する3Dモデルが選ばれていません。", true);
             CloseNewObjectSettings(clearPending: true);
             return;
         }
 
         if (placementController == null)
         {
-            SetImportResult("3Dモデルトを追加できません: 配置サービスが見つかりません。", true);
+            SetImportResult("3Dモデルを追加できません: 配置サービスが見つかりません。", true);
             return;
         }
 
@@ -3370,10 +3372,10 @@ public class CatalogUI : MonoBehaviour
             saved = ImportedModelStore.Save(pendingImportedAssetPath, typeId, displayLabel,
                 newObjectDescriptionInput != null ? (newObjectDescriptionInput.text ?? string.Empty).Trim() : string.Empty, pendingOriginalSourcePath);
         }
-        catch (Exception ex) { SetImportResult("3Dモデルトを保存できません: " + ex.Message, true); return; }
+        catch (Exception ex) { SetImportResult("3Dモデルを保存できません: " + ex.Message, true); return; }
         if (!placementController.RegisterRuntimePrefab(typeId, pendingImportedPrefab))
         {
-            SetImportResult("3Dモデルトを追加できません: 読み込んだオブジェクトを登録できません。", true);
+            SetImportResult("3Dモデルを追加できません: 読み込んだ3Dモデルを登録できません。", true);
             return;
         }
 
@@ -3383,13 +3385,13 @@ public class CatalogUI : MonoBehaviour
         RebuildCards();
 
         CloseNewObjectSettings(clearPending: true);
-        SetStatus("3Dモデルを追加しました。配置後「一覧」で内部の部品を個別に選択できます。");
+        SetStatus("3Dモデルを追加しました。配置後は「配置した部品」から内部の部品を個別に選べます。");
     }
 
     void OnClickCancelNewObjectSettings()
     {
         CloseNewObjectSettings(clearPending: true);
-        SetStatus("Object settings canceled.");
+        SetStatus("3Dモデルの追加をやめました。");
     }
 
     void CloseNewObjectSettings(bool clearPending)
@@ -3408,14 +3410,15 @@ public class CatalogUI : MonoBehaviour
     }
     void SetImportResult(string message, bool error)
     {
-        SetStatus(message);
+        SetStatus(message, error);
         TopCenterNotification.Ensure(transform, statusText)?.Show(message, error);
     }
 
-    void SetStatus(string message)
+    // isError is explicit so subscribers never guess severity from the wording.
+    void SetStatus(string message, bool isError = false)
     {
         StatusMessage = message;
-        StatusChanged?.Invoke(message);
+        StatusChanged?.Invoke(message, isError);
         if (statusText == null)
         {
             Debug.LogWarning("[CatalogUI] " + message);
@@ -3441,7 +3444,7 @@ public class CatalogUI : MonoBehaviour
         yield return new WaitForSeconds(delay);
         clearStatusCoroutine = null;
         StatusMessage = string.Empty;
-        StatusChanged?.Invoke(string.Empty);
+        StatusChanged?.Invoke(string.Empty, false);
         if (statusText != null) statusText.text = string.Empty;
     }
 
