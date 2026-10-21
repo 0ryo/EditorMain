@@ -19,7 +19,7 @@ public sealed class SkillSyncDesignRow : MonoBehaviour
     TMP_Text expanderLabel;
     string headingValue, detailValue, indexValue;
     bool hasValue, selectedValue, completeValue;
-    float numberSize;
+    float numberSize, titleSize;
     public void SetSelected(bool selected) => Set(headingValue, detailValue, indexValue, selected, completeValue);
     public void Set(string heading, string detail, string index, bool selected, bool complete = false)
     {
@@ -51,6 +51,9 @@ public sealed class SkillSyncDesignRow : MonoBehaviour
         }
         if(layout=="Steps") {
             Place(title.rectTransform,60,16,16,24);
+            // A short title ("ジャッキを設置する") shrinks a little before it is cut off with "…".
+            if (titleSize == 0) titleSize = title.fontSize;
+            title.enableAutoSizing = true; title.fontSizeMax = titleSize; title.fontSizeMin = Mathf.Max(11, titleSize - 4);
             description.textWrappingMode=TextWrappingModes.Normal;description.overflowMode=TextOverflowModes.Ellipsis;description.maxVisibleLines=2;
             Place(description.rectTransform,16,16,46,36);
         }

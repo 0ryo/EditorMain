@@ -728,6 +728,28 @@ public sealed class SkillSyncDesignView : MonoBehaviour
     {
         foreach (var c in controls) if (c.action == action) c.button.gameObject.SetActive(visible && (c.mask & (1 << State)) != 0);
     }
+    // The 3D screen's mode pill (text plus its small surface); hidden while it has nothing to say.
+    public void SetViewportModeVisible(bool visible)
+    {
+        var mode = visuals.FirstOrDefault(v => v.role == "viewportMode" && v.label != null);
+        if (mode == null) return;
+        var corners = new Vector3[4];
+        ((RectTransform)mode.target.transform).GetWorldCorners(corners);
+        Vector3 center = (corners[0] + corners[2]) * .5f;
+        foreach (var v in visuals)
+        {
+            if ((v.mask & (1 << State)) == 0) continue;
+            if (v != mode)
+            {
+                if (v.label != null || v.target.transform.parent != mode.target.transform.parent) continue;
+                ((RectTransform)v.target.transform).GetWorldCorners(corners);
+                var surface = Rect.MinMaxRect(corners[0].x, corners[0].y, corners[2].x, corners[2].y);
+                if (!surface.Contains(center) || surface.width > 3 * Mathf.Abs(((RectTransform)mode.target.transform).rect.width * mode.target.transform.lossyScale.x) + 1) continue;
+            }
+            if (v.target.activeSelf != visible) v.target.SetActive(visible);
+        }
+    }
+
     readonly List<GameObject> hiddenInspector = new List<GameObject>();
     // Step view without steps: everything below the right panel's heading would only be disabled, so it is hidden
     // until a step exists. Found by position (the panel's own surface is the one that contains the heading).

@@ -922,6 +922,18 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         // Only unsaved work makes the save button stand out (an untouched new lesson has nothing to save).
         view.SetHeaderEmphasis("保存",project.IsDirty);
     }
+    // The header field is narrow; a cut-off lesson name can be read in full by resting the pointer on it.
+    void RefreshProjectNameTip()
+    {
+        var input=view.fields.FirstOrDefault(f=>f.role=="project")?.input;
+        if(input==null || input.textComponent==null) return;
+        string name=project.CurrentProjectName??"";
+        bool cut=input.textComponent.GetPreferredValues(name).x>input.textComponent.rectTransform.rect.width;
+        var tip=input.GetComponent<SkillSyncHoverTip>();
+        if(!cut) {if(tip!=null) tip.text="";return;}
+        if(tip==null) {tip=input.gameObject.AddComponent<SkillSyncHoverTip>();tip.font=view.objectTemplate.title.font;}
+        tip.text=name+"（クリックで名前を変更）";
+    }
     // One short line while the name is edited, shown in the saved-state pill right below the field.
     void ShowNameHint(string typed)
     {
@@ -1377,6 +1389,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         }
         view.Value("project",project.CurrentProjectName);
         RefreshSavedPill();
+        RefreshProjectNameTip();
         var saveState=project.SaveState;
         string footerStatus = status;
         view.Text("footer",trial!=null?"動作確認中の操作は教材の初期配置に保存されません":(string.IsNullOrEmpty(footerStatus)?saveState==EditorProjectService.SaveStatus.Saved?"✓ すべての変更を保存しました":"未保存の変更があります":footerStatus)+" ｜ "+ValidationSummary());
@@ -1456,12 +1469,13 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         // Empty screens show only what can be used: no parts → no parts search; no steps → only the right panel's heading.
         if(partsSearch!=null) partsSearch.gameObject.SetActive(Placed.Length>0 || !string.IsNullOrEmpty(partsFilter));
         if(noSteps) view.HideInspectorBelowHeading();
-        view.Text("status",pickTarget!=null?status:ghost!=null?"＋ 置く場所をクリック / Shift+クリックで続けて置く / Escでやめる":trial!=null?trial.Complete?"✓ 条件が成立しました":"▶ 動作確認中：部品をドラッグするか、矢印や輪のつまみで動かして確かめます":current!=null?(selectionInfo.multiple && selectionInfo.title.EndsWith("選択中",StringComparison.Ordinal)?"● "+selectionInfo.title:"● 選択中："+selectionInfo.title)+" | Escで選択解除":"部品を選択してください");
+        view.Text("status",pickTarget!=null?status:ghost!=null?"＋ 部品を置く場所を選んでいます":trial!=null?trial.Complete?"✓ 条件が成立しました":"▶ 動作確認中：部品をドラッグするか、矢印や輪のつまみで動かして確かめます":current!=null?"Escで選択を解除":"部品を選択してください"); // the right panel already names what is selected
         if(trial==null) view.viewportDistance.text=valid && distanceCondition?$"現在の距離 {Vector3.Distance(SkillSyncTrialSession.Center(a.transform),SkillSyncTrialSession.Center(b.transform))*100:0} cm":"";
         view.viewportDistance.transform.parent.gameObject.SetActive(valid && distanceCondition && (view.State==1 || trial!=null));
         view.viewportGrid.text=EditSnapSettings.Enabled?$"吸着の間隔 {EditSnapSettings.GridSize*100:0.##} cm":"吸着：オフ";
         view.viewportGrid.color=new Color32(88,103,124,255);
-        view.Text("viewportMode",mode==1||trial!=null?valid?distanceCondition?"近づける範囲を表示中":"PCでは自動で判定しない条件です":"対象を選択してください":EditSnapSettings.ShouldSnap?"作業面に吸着：ON":"作業面に吸着：OFF");
+        string modeText=mode==1||trial!=null?valid?distanceCondition?"近づける範囲を表示中":"PCでは自動で判定しない条件です":"対象を選択してください":"";
+        view.Text("viewportMode",modeText);view.SetViewportModeVisible(modeText.Length>0);
         bool hasPart=ghost!=null || current!=null;
         extras?.Refresh(transformTab,selectionInfo,view.State==0 && ghost==null && trial==null && current!=null,ScaleText(current),view.State==0 && !hasPart);
         // Nothing to edit yet: the inputs and buttons that act on a part/step look unavailable and say what to select (UXE-22).

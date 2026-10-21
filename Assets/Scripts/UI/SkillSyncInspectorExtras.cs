@@ -267,7 +267,8 @@ public sealed class SkillSyncInspectorExtras
         signature = layoutKey;
 
         float y = fieldBottom + Gap;
-        SetActive(scaleLabel, showScale); SetActive(scaleField, showScale); SetActive(scaleGuide, showScale);
+        // The blue box on the 3D screen already says "角をドラッグして大きさを変えます"; the line beside the field only repeated it.
+        SetActive(scaleLabel, showScale); SetActive(scaleField, showScale); SetActive(scaleGuide, false);
         if (showScale)
         {
             Place(scaleLabel.rectTransform, left, y);
