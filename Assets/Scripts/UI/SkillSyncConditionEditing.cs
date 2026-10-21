@@ -101,10 +101,11 @@ public static class SkillSyncConditionEditing
     public static bool UsesCenterDistance(ConditionNodeData condition) =>
         condition != null && (condition.type == ConditionTypeCatalog.Proximity || condition.type == ConditionTypeCatalog.SnapHold);
 
-    // Two solid parts cannot be closer than their sizes allow. The smallest axis-wise sum of half sizes
-    // is the nearest they can stand side by side; far below it the condition cannot be met in practice.
+    // A part's centre cannot get deeper into a solid part than that part's thinnest half size, so far below
+    // the thicker of the two the condition cannot be met in practice. Flat or hollow targets (a marker frame,
+    // a socket) stay unwarned because one part may sit on or inside the other.
     public static float MinimumCenterDistance(float ax, float ay, float az, float bx, float by, float bz) =>
-        Math.Min(ax + bx, Math.Min(ay + by, az + bz));
+        Math.Max(Math.Min(ax, Math.Min(ay, az)), Math.Min(bx, Math.Min(by, bz)));
 
     public static bool DistanceLikelyUnreachable(float limitMeters, float minimumMeters) =>
         minimumMeters > 0 && limitMeters < minimumMeters * .5f;

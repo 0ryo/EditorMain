@@ -46,7 +46,9 @@ public static class AuthoringFeatureChecks
     {
         // A distance far below what the two parts' sizes allow is warned about; reachable distances are not.
         float apart = SkillSyncConditionEditing.MinimumCenterDistance(.9f, .75f, 2.2f, .25f, .2f, .15f);
-        Check(System.Math.Abs(apart - .95f) < .0001f, "Nearest centre distance uses the smallest axis-wise sum of half sizes");
+        Check(System.Math.Abs(apart - .75f) < .0001f, "Nearest centre distance uses the thicker part's thinnest half size");
+        float onMarker = SkillSyncConditionEditing.MinimumCenterDistance(.25f, .2f, .15f, .3f, .005f, .3f);
+        Check(SkillSyncConditionEditing.DistanceWarning(.1f, onMarker) == null, "A jack moved onto a flat marker frame is not warned");
         Check(SkillSyncConditionEditing.DistanceWarning(.1f, apart) != null, "A 10 cm limit between a car and a jack is warned");
         Check(SkillSyncConditionEditing.DistanceWarning(.1f, apart).Contains("目印"), "The warning points to a marker part");
         Check(SkillSyncConditionEditing.DistanceWarning(.6f, apart) == null, "A distance within reach of the sizes is not warned");

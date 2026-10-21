@@ -13,7 +13,7 @@ public sealed class TopCenterNotification : MonoBehaviour
     const float Padding = 24f;
     const float MaximumWidth = 1100f;
     // Below the header (88) and the 3D screen toolbar row (to ~152), so the notice never covers tabs, Undo or camera buttons.
-    const float InfoSeconds = 3f, ErrorSeconds = 8f, ActionWidth = 160f, HeaderBottom = 160f, SlideDistance = 14f;
+    const float InfoSeconds = 3f, ErrorSeconds = 8f, ActionWidth = 160f, HeaderBottom = 160f, ModalHeaderBottom = 92f, GizmoClearance = 100f, SlideDistance = 14f;
     // About 16 px on a 1440x900 window (the SkillSync root is scaled 1.44 and the canvas reference is 2560 wide).
     const int NoticeFontSize = 20, HistoryFontSize = 18, MaxHistory = 20;
     const int MaxQueued = 4;
@@ -165,13 +165,20 @@ public sealed class TopCenterNotification : MonoBehaviour
         var root = (RectTransform)skillSync.transform;
         var r = root.rect;
         if (r.width <= 0f || r.height <= 0f) return;
-        var anchor = canvasRect.InverseTransformPoint(root.TransformPoint(new Vector3(r.center.x, r.yMax - HeaderBottom, 0f)));
-        var left = canvasRect.InverseTransformPoint(root.TransformPoint(new Vector3(r.xMin, r.yMax, 0f)));
-        var right = canvasRect.InverseTransformPoint(root.TransformPoint(new Vector3(r.xMax, r.yMax, 0f)));
+        // Centered over the 3D screen, narrower than it by the orientation gizmo at its top right, so the notice never covers it.
+        var area = skillSync.viewport != null && skillSync.viewport.rect.width > 0f ? skillSync.viewport : root;
+        var a = area.rect;
+        // While a dialog is open the notice moves up under the header, so it never covers a dialog's title.
+        float top = EditWorkspace.HasOpenModal ? ModalHeaderBottom : HeaderBottom;
+        var anchor = canvasRect.InverseTransformPoint(root.TransformPoint(new Vector3(r.center.x, r.yMax - top, 0f)));
+        var center = canvasRect.InverseTransformPoint(area.TransformPoint(new Vector3(a.center.x, 0f, 0f)));
+        var left = canvasRect.InverseTransformPoint(area.TransformPoint(new Vector3(a.xMin, 0f, 0f)));
+        var right = canvasRect.InverseTransformPoint(area.TransformPoint(new Vector3(a.xMax, 0f, 0f)));
         uiScale = SkillSyncDesignLayout.Scale;
-        shownX = anchor.x - canvasRect.rect.center.x;
+        shownX = center.x - canvasRect.rect.center.x;
         shownY = anchor.y - canvasRect.rect.yMax - Margin * 0.5f * uiScale;
-        availableWidthLimit = Mathf.Max(1f, Mathf.Min(canvasWidth, right.x - left.x) - Margin * 2 * uiScale);
+        float clearance = area == root ? 0f : GizmoClearance * uiScale;
+        availableWidthLimit = Mathf.Max(1f, Mathf.Min(canvasWidth, right.x - left.x) - Margin * 2 * uiScale - clearance * 2f);
     }
 
     float availableWidthLimit;

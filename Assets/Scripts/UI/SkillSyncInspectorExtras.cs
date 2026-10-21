@@ -244,11 +244,11 @@ public sealed class SkillSyncInspectorExtras
         if (ready && container.GetSiblingIndex() != container.parent.childCount - 1) container.SetAsLastSibling();
     }
 
-    public void Refresh(string tab, SkillSyncSelectionInfo info, bool visible, string scaleText)
+    public void Refresh(string tab, SkillSyncSelectionInfo info, bool visible, string scaleText, bool nothingSelected = false)
     {
         if (!ready) return;
         ApplyTabs(tab);
-        ApplyModeText(tab);
+        ApplyModeText(tab, nothingSelected);
         ApplySnap();
         bool relative = visible && info.multiple;
         heightLabel.text = relative ? "高さ（動かす量）" : "床からの高さ";
@@ -323,9 +323,15 @@ public sealed class SkillSyncInspectorExtras
     }
 
     // The box under the tabs says what the chosen tab does, instead of a fixed, untrue "locked to the floor".
-    void ApplyModeText(string tab)
+    void ApplyModeText(string tab, bool nothingSelected)
     {
         if (boxTitle == null || boxBody == null) return;
+        if (nothingSelected)
+        {
+            boxTitle.text = "部品を選んでください";
+            boxBody.text = "3D画面か「配置した部品」で選びます";
+            return;
+        }
         switch (tab)
         {
             case "回転":
