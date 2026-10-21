@@ -47,6 +47,7 @@ public class SelectionService : MonoBehaviour
     float nextDependencyResolveTime;
     PlacedObject drilledGroupRoot;
     string drilledEditorGroupId;
+    SelectionBodyDrag bodyDrag;
     bool regionPending;
     bool regionDragging;
     bool regionAdditive;
@@ -67,12 +68,12 @@ public class SelectionService : MonoBehaviour
         highlights.Refresh(this, selected);
     }
 
-    void OnDisable() { CancelRegion(); highlights.Clear(); }
+    void OnDisable() { CancelRegion(); bodyDrag?.Cancel(); highlights.Clear(); }
     void OnDestroy() { regionOverlay?.Dispose(); highlights.Clear(); }
 
     void OnApplicationFocus(bool hasFocus)
     {
-        if (!hasFocus) CancelRegion();
+        if (!hasFocus) { CancelRegion(); bodyDrag?.Cancel(); }
     }
 
     void Update()
@@ -102,6 +103,13 @@ public class SelectionService : MonoBehaviour
             (placementController != null && !string.IsNullOrEmpty(placementController.CurrentTypeId)))
         {
             CancelRegion();
+            bodyDrag?.Cancel();
+            return;
+        }
+        bodyDrag ??= new SelectionBodyDrag(this);
+        if (bodyDrag.Active)
+        {
+            bodyDrag.Update(cam, mousePosition);
             return;
         }
         if (regionPending)
@@ -151,7 +159,8 @@ public class SelectionService : MonoBehaviour
                 pickMask,
                 out var picked,
                 out var hitSomething,
-                out var usedMaskFallback);
+                out var usedMaskFallback,
+                out var pickedPoint);
             if (usedMaskFallback && !warnedPickMaskExclusion)
             {
                 warnedPickMaskExclusion = true;
@@ -164,7 +173,7 @@ public class SelectionService : MonoBehaviour
                 {
                     LogDebug($"Picked placed object: id={picked.Id}, name={picked.name}, mouse={mousePosition}");
                 }
-                SelectPicked(picked, AdditiveSelection);
+                BeginPick(picked, pickedPoint, mousePosition);
             }
             else
             {
@@ -187,6 +196,17 @@ public class SelectionService : MonoBehaviour
         if (Current == null) return;
         if (!shortcutsBlocked && (Input.GetKeyDown(KeyCode.Delete) || Input.GetKeyDown(KeyCode.Backspace))) { DeleteSelected(); return; }
         if (modifier && Input.GetKeyDown(KeyCode.D)) DuplicateSelected();
+    }
+
+    // A press selects as before; holding and dragging the body then moves the selection along the floor.
+    // Pressing something already selected defers the select so the drag moves the whole selection.
+    void BeginPick(PlacedObject picked, Vector3 point, Vector2 pointer)
+    {
+        bool additive = AdditiveSelection;
+        if (additive || EditWorkspace.AreTransformShortcutsBlocked()) { SelectPicked(picked, additive); return; }
+        bool inSelection = selected.Any(item => picked == item || picked.transform.IsChildOf(item.transform));
+        if (!inSelection) SelectPicked(picked, false);
+        bodyDrag.Begin(picked, point, pointer, inSelection);
     }
 
     void UpdateRegion(Vector2 pointer)
