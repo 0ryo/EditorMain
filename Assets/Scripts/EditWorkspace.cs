@@ -25,6 +25,8 @@ public static class EditWorkspace
         if (modal != null) return modal;
         modal = EditorProjectPanel.GetOpenModalRoot(within);
         if (modal != null) return modal;
+        var menu = SkillSyncContextMenu.OpenRoot;
+        if (menu != null && (within == null || menu == within || menu.IsChildOf(within))) return menu;
         modal = CatalogUI.GetOpenModalRoot();
         return modal != null && (within == null || modal == within || modal.IsChildOf(within)) ? modal : null;
     }
@@ -155,9 +157,14 @@ public static class EditWorkspace
     }
 
     // Camera navigation stays available during ghost placement / target picking, unlike keyboard shortcuts.
+    // A text field that still has the caret does not stop the mouse (wheel, drag) over the 3D screen; see IsTextFieldFocused for keys.
     public static bool IsCameraInputBlocked()
     {
-        if (!Application.isFocused || HasOpenModal || ObjectScreenPicker.Capturing) return true;
+        return !Application.isFocused || HasOpenModal || ObjectScreenPicker.Capturing;
+    }
+
+    public static bool IsTextFieldFocused()
+    {
         var selected = EventSystem.current != null ? EventSystem.current.currentSelectedGameObject : null;
         if (selected == null) return false;
         var tmpInput = selected.GetComponent<TMP_InputField>() ?? selected.GetComponentInParent<TMP_InputField>();

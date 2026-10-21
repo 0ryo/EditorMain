@@ -1,6 +1,15 @@
 using UnityEngine;
 
-public class PlaceObjectCommand : IEditorCommand, IDiscardableEditorCommand {
+/// <summary>元に戻す／やり直しの通知に出す部品名（一覧と同じ表示名）。</summary>
+public static class CommandSubjectNames {
+    public static string Of(GameObject target, string fallback = null){
+        if (target == null) return fallback;
+        var placed = target.GetComponent<PlacedObject>();
+        return placed != null ? placed.GetDisplayName() : target.name;
+    }
+}
+
+public class PlaceObjectCommand : IEditorCommand, IDescribedEditorCommand, ICommandSubject, IDiscardableEditorCommand {
     string typeId; Vector3 pos; Quaternion rot;
     GameObject instance;
     Vector3 resolvedPosition;
@@ -9,6 +18,9 @@ public class PlaceObjectCommand : IEditorCommand, IDiscardableEditorCommand {
     readonly float? supportingSurfaceY;
     System.Func<string, GameObject> factory; // typeId→Instantiateする関数
     public string Label => "Place " + typeId;
+    public object SubjectKey => this;
+    public string SubjectName => CommandSubjectNames.Of(instance, PlacedObject.DefaultNameFor(typeId));
+    public string Description => CommandDescriptions.ForParts(Label, new[] { SubjectName });
 
     public PlaceObjectCommand(string typeId, Vector3 pos, Quaternion rot, System.Func<string,GameObject> factory, bool groundToPlane = true, float? supportingSurfaceY = null){
         this.typeId=typeId; this.pos=pos; this.rot=rot; this.factory=factory;
@@ -57,20 +69,25 @@ public class PlaceObjectCommand : IEditorCommand, IDiscardableEditorCommand {
     public void Discard(){ if (instance!=null && !instance.activeSelf) GameObject.Destroy(instance); }
 }
 
-public class DuplicateObjectCommand : IEditorCommand, IDiscardableEditorCommand {
+public class DuplicateObjectCommand : IEditorCommand, IDescribedEditorCommand, ICommandSubject, IDiscardableEditorCommand {
     readonly GameObject source;
     readonly Vector3 pos;
     readonly Quaternion rot;
     readonly string sourceName;
+    readonly string sourceDisplayName;
     GameObject instance;
     PlacedObject placed;
 
     public string Label => "Duplicate " + sourceName;
+    public object SubjectKey => this;
+    public string SubjectName => sourceDisplayName;
+    public string Description => CommandDescriptions.ForParts(Label, new[] { sourceDisplayName });
     public PlacedObject Result => placed;
 
     public DuplicateObjectCommand(GameObject source, Vector3 offset){
         this.source=source;
         sourceName=source!=null ? source.name : "obj";
+        sourceDisplayName=CommandSubjectNames.Of(source, sourceName);
         if (source!=null){
             pos=source.transform.position+offset;
             rot=source.transform.rotation;
@@ -95,6 +112,7 @@ public class DuplicateObjectCommand : IEditorCommand, IDiscardableEditorCommand 
 
             if (sourcePlaced != null) ImportedModelParts.ReidentifyDuplicate(placed, sourcePlaced);
             else placed.ForceNewId();
+            placed.displayName=PlacedObject.MakeUniqueDisplayName(placed.GetDisplayName(), placed);
             instance.transform.localScale = source.transform.lossyScale;
             var editState=instance.GetComponent<PlacedObjectEditState>();
             if (editState!=null){
@@ -114,7 +132,7 @@ public class DuplicateObjectCommand : IEditorCommand, IDiscardableEditorCommand 
     public void Discard(){ if (instance!=null && !instance.activeSelf) GameObject.Destroy(instance); }
 }
 
-public class DeleteObjectCommand : IEditorCommand, IDiscardableEditorCommand {
+public class DeleteObjectCommand : IEditorCommand, IDescribedEditorCommand, ICommandSubject, IDiscardableEditorCommand {
     GameObject target;
     Transform parent;
     int siblingIndex;
@@ -127,9 +145,14 @@ public class DeleteObjectCommand : IEditorCommand, IDiscardableEditorCommand {
     System.Func<string, GameObject> factory;
     readonly string targetName;
     public string Label => "Delete " + targetName;
+    readonly string targetDisplayName;
+    public object SubjectKey => this;
+    public string SubjectName => targetDisplayName;
+    public string Description => CommandDescriptions.ForParts(Label, new[] { targetDisplayName });
     public DeleteObjectCommand(GameObject target, string typeId, System.Func<string,GameObject> factory){
         this.target=target; this.typeId=typeId; this.factory=factory;
         targetName = target != null ? target.name : "obj";
+        targetDisplayName = CommandSubjectNames.Of(target, targetName);
         if (target!=null){
             parent=target.transform.parent;
             siblingIndex=target.transform.GetSiblingIndex();

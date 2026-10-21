@@ -40,7 +40,7 @@ public static class PlacedObjectMetadataService
     }
 }
 
-sealed class EditPlacedObjectMetadataCommand : IEditorCommand
+sealed class EditPlacedObjectMetadataCommand : IEditorCommand, IDescribedEditorCommand
 {
     readonly PlacedObject target;
     readonly string beforeDisplayName;
@@ -51,6 +51,7 @@ sealed class EditPlacedObjectMetadataCommand : IEditorCommand
     readonly bool afterHasDescriptionOverride;
 
     public string Label => "Edit object details";
+    public string Description => CommandDescriptions.ForParts(Label, new[] { target != null ? target.GetDisplayName() : null });
 
     public EditPlacedObjectMetadataCommand(
         PlacedObject target,

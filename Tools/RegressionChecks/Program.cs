@@ -168,6 +168,12 @@ static class Program
             Check(stack.Redo() && value.value == 3, "Redo");
             Check(!stack.ExecuteTransaction("rollback", new Change(value, 5), new Change(value, 9, true)) && value.value == 3, "Transaction failure rolls back");
             Check(stack.Undo() && value.value == 0, "Failed transaction preserves history");
+            string applied = null; bool appliedRedo = false;
+            stack.HistoryApplied += (redo, text) => { appliedRedo = redo; applied = text; };
+            Check(stack.Redo() && appliedRedo && applied == "編集", "Redo reports a Japanese description");
+            Check(stack.Undo() && !appliedRedo && applied == "編集", "Undo reports a Japanese description");
+            Check(CommandDescriptions.ForParts("Delete selection", new[] { "ジャッキ" }) == "部品「ジャッキ」の削除", "One part description");
+            Check(CommandDescriptions.ForParts("Move selection", new[] { "a", "b", "c" }) == "3個の部品の移動", "Many parts description");
         }
         finally
         {

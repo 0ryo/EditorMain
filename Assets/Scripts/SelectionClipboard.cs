@@ -63,7 +63,7 @@ internal sealed class SelectionClipboard
     }
 }
 
-internal sealed class PasteSelectionCommand : IEditorCommand, IDiscardableEditorCommand
+internal sealed class PasteSelectionCommand : IEditorCommand, IDescribedEditorCommand, IDiscardableEditorCommand
 {
     readonly List<string> snapshots;
     readonly PlacementController placement;
@@ -71,6 +71,7 @@ internal sealed class PasteSelectionCommand : IEditorCommand, IDiscardableEditor
     readonly Vector3 offset;
     readonly List<PlacedObject> results = new();
     public string Label => "Paste selection";
+    public string Description => CommandDescriptions.ForParts(Label, results.Count == 1 ? new[] { results[0] != null ? results[0].GetDisplayName() : null } : new string[snapshots.Count]);
     public IReadOnlyList<PlacedObject> Results => results;
 
     public PasteSelectionCommand(IEnumerable<string> snapshots, PlacementController placement, PrefabRegistry registry, Vector3 offset)
@@ -118,6 +119,7 @@ internal sealed class PasteSelectionCommand : IEditorCommand, IDiscardableEditor
                 placed.sourceNodePath = data.sourceNodePath;
                 placed.sourceSignature = data.sourceSignature;
                 placed.displayName = data.displayName;
+                placed.displayName = PlacedObject.MakeUniqueDisplayName(placed.GetDisplayName(), placed);
                 placed.description = data.description;
                 placed.hasDescriptionOverride = data.hasDescriptionOverride;
                 placed.ForceNewId();

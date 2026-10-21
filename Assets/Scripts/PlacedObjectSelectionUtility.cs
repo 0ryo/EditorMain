@@ -10,6 +10,18 @@ public static class PlacedObjectPicker
         out bool hitSomething,
         out bool usedMaskFallback)
     {
+        return TryPick(ray, pickMask, out picked, out hitSomething, out usedMaskFallback, out _);
+    }
+
+    public static bool TryPick(
+        Ray ray,
+        LayerMask pickMask,
+        out PlacedObject picked,
+        out bool hitSomething,
+        out bool usedMaskFallback,
+        out Vector3 hitPoint)
+    {
+        hitPoint = default;
         picked = null;
         hitSomething = false;
         usedMaskFallback = false;
@@ -21,6 +33,7 @@ public static class PlacedObjectPicker
         Array.Sort(hits, (left, right) => left.distance.CompareTo(right.distance));
 
         PlacedObject fallback = null;
+        Vector3 fallbackPoint = default;
         foreach (var hit in hits)
         {
             Collider collider = hit.collider;
@@ -30,12 +43,13 @@ public static class PlacedObjectPicker
             if (placed == null) continue;
             if (!SelectionService.CanEdit(placed)) continue;
 
-            if (fallback == null) fallback = placed;
+            if (fallback == null) { fallback = placed; fallbackPoint = hit.point; }
 
             if (IsLayerIncluded(collider.gameObject.layer, pickMask) ||
                 IsLayerIncluded(placed.gameObject.layer, pickMask))
             {
                 picked = placed;
+                hitPoint = hit.point;
                 return true;
             }
         }
@@ -43,6 +57,7 @@ public static class PlacedObjectPicker
         if (fallback == null) return false;
 
         picked = fallback;
+        hitPoint = fallbackPoint;
         usedMaskFallback = true;
         return true;
     }

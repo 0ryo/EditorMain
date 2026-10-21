@@ -25,6 +25,21 @@ internal static class EditorCameraNavigationMath
         radius = Mathf.Max(0.5f, hasBounds ? bounds.extents.magnitude : 0.5f);
     }
 
+    // The horizontal world axis (+-X or +-Z) closest to a screen direction, so "up" always means "away from the viewer".
+    public static Vector3 ScreenDirectionToGroundAxis(Camera camera, Vector2 screenDirection)
+    {
+        if (camera == null) return new Vector3(screenDirection.x, 0f, screenDirection.y);
+        var transform = camera.transform;
+        var forward = Vector3.ProjectOnPlane(transform.forward, Vector3.up);
+        if (forward.sqrMagnitude < 0.05f) forward = Vector3.ProjectOnPlane(transform.up, Vector3.up);
+        forward.Normalize();
+        var right = Vector3.Cross(Vector3.up, forward);
+        var wanted = forward * screenDirection.y + right * screenDirection.x;
+        return Mathf.Abs(wanted.x) >= Mathf.Abs(wanted.z)
+            ? new Vector3(Mathf.Sign(wanted.x), 0f, 0f)
+            : new Vector3(0f, 0f, Mathf.Sign(wanted.z));
+    }
+
     public static void CalculateOrbit(
         float currentYaw,
         float currentPitch,

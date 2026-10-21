@@ -8,7 +8,8 @@ using UnityEngine.Rendering.Universal;
 public sealed class SkillSyncModelThumbnails : IDisposable
 {
     readonly Dictionary<int,RenderTexture> cache=new();
-    public RenderTexture Get(GameObject model)
+    // tint: the built-in placeholder parts are all the same grey cube, so their cards get a colour to tell them apart.
+    public RenderTexture Get(GameObject model,Color? tint=null)
     {
         if(model==null) return null;
         int key=model.GetInstanceID();if(cache.TryGetValue(key,out var existing)) return existing;
@@ -20,6 +21,11 @@ public sealed class SkillSyncModelThumbnails : IDisposable
             preview=new SkillSyncPlacementGhost(new PrefabEntry {typeId="thumbnail",prefab=model},false);
             preview.Transform.position=new Vector3(10000,10000,10000);
             foreach(var t in preview.Transform.GetComponentsInChildren<Transform>()) t.gameObject.layer=31;
+            if(tint.HasValue) foreach(var r in preview.Transform.GetComponentsInChildren<Renderer>())
+            {
+                var block=new MaterialPropertyBlock();r.GetPropertyBlock(block);
+                block.SetColor("_BaseColor",tint.Value);block.SetColor("_Color",tint.Value);r.SetPropertyBlock(block);
+            }
             if(!PlacedObjectGrounding.TryGetRendererBounds(preview.Transform,out var bounds)) {UnityEngine.Object.Destroy(texture);return null;}
             var camera=cameraObject.GetComponent<Camera>();camera.enabled=false;camera.cullingMask=1<<31;
             var pipeline=GraphicsSettings.currentRenderPipeline as UniversalRenderPipelineAsset;

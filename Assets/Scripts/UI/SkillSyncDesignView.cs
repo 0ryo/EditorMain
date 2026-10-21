@@ -47,6 +47,7 @@ public sealed class SkillSyncDesignView : MonoBehaviour
     public TMP_Dropdown conditionTypeDropdown;
     public TMP_Text partALabel, partBLabel;
     public bool wideLayout;
+    public bool compactSelectionTitle;
     public int pdfRevision;
     public TMP_Text inspectorTitle,inspectorSelection;
     public SkillSyncOrientationGizmo orientation;
@@ -587,8 +588,11 @@ public sealed class SkillSyncDesignView : MonoBehaviour
         var title=visuals.FirstOrDefault(v=>v.role=="selectionTitle" && (v.mask & (1<<State))!=0)?.label;
         var status=visuals.FirstOrDefault(v=>v.role=="inspectorLabel" && (v.mask & (1<<State))!=0)?.label;
         if(title==null || status==null) return;
-        float width=Mathf.Min(320,title.GetPreferredValues(title.text).x);
+        // A group or multi-selection summary is longer than a part name, so it gets a smaller heading and the whole row.
+        title.fontSize=compactSelectionTitle?19:25;
+        float width=Mathf.Min(compactSelectionTitle?392:320,title.GetPreferredValues(title.text).x);
         title.rectTransform.sizeDelta=new Vector2(width,40);title.overflowMode=TextOverflowModes.Ellipsis;
+        if(status.gameObject.activeSelf==compactSelectionTitle) status.gameObject.SetActive(!compactSelectionTitle);
         var position=status.rectTransform.anchoredPosition;
         status.rectTransform.anchoredPosition=new Vector2(title.rectTransform.anchoredPosition.x+width+7,position.y);
     }

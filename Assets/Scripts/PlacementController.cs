@@ -364,15 +364,18 @@ public class PlacedObject : MonoBehaviour
         return string.IsNullOrWhiteSpace(name) ? "オブジェクト" : name.Trim();
     }
 
-    /// <summary>既存の表示名と重複しない名前を返す（baseName, baseName (2), (3) ...）。</summary>
-    public static string MakeUniqueDisplayName(string baseName)
+    /// <summary>既存の表示名と重複しない名前を返す（baseName, baseName (2), (3) ...）。baseNameが既に「名前 (n)」なら番号を付け直す。excludeは比較対象から外す（複製直後の自分自身）。</summary>
+    public static string MakeUniqueDisplayName(string baseName, PlacedObject exclude = null)
     {
         var used = new System.Collections.Generic.HashSet<string>();
-        foreach (var other in FindObjectsByType<PlacedObject>(FindObjectsInactive.Include, FindObjectsSortMode.None)) used.Add(other.GetDisplayName());
+        foreach (var other in FindObjectsByType<PlacedObject>(FindObjectsInactive.Include, FindObjectsSortMode.None)) if (other != exclude) used.Add(other.GetDisplayName());
         if (!used.Contains(baseName)) return baseName;
+        string stem = baseName;
+        int open = baseName.LastIndexOf(" (", System.StringComparison.Ordinal);
+        if (open > 0 && baseName.EndsWith(")", System.StringComparison.Ordinal) && int.TryParse(baseName.Substring(open + 2, baseName.Length - open - 3), out _)) stem = baseName.Substring(0, open);
         for (int n = 2; ; n++)
         {
-            string candidate = baseName + " (" + n + ")";
+            string candidate = stem + " (" + n + ")";
             if (!used.Contains(candidate)) return candidate;
         }
     }

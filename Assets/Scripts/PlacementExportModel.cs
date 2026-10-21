@@ -19,6 +19,7 @@ public class PlacementExportObject
     public List<ModelPartState> parts = new List<ModelPartState>();
     public string id;
     public string typeId;
+    public string displayName;
 
     // World（絶対）
     public Vector3 position;

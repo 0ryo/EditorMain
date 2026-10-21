@@ -20,6 +20,15 @@ public static class SelectionGroups
         }
         return root;
     }
+    // Floors and walls come from the library's 環境 category.
+    public static bool IsEnvironment(PlacedObject item) =>
+        item != null && !string.IsNullOrEmpty(item.typeId) && item.typeId.StartsWith("Env/", StringComparison.Ordinal);
+
+    // The name shown for a flat group: its first member (by ID, so it does not change as the selection changes).
+    public static PlacedObject Leader(IEnumerable<PlacedObject> members) =>
+        members.Where(item => item != null).OrderBy(item => item.Id ?? "", StringComparer.Ordinal)
+            .ThenBy(item => item.GetInstanceID()).FirstOrDefault();
+
     public static IEnumerable<PlacedObject> Expand(IEnumerable<PlacedObject> source)
     {
         var items = source.Where(item => item != null).ToList();
@@ -42,12 +51,13 @@ public static class SelectionGroups
     }
 }
 
-internal sealed class SelectionGroupCommand : IEditorCommand
+internal sealed class SelectionGroupCommand : IEditorCommand, IDescribedEditorCommand
 {
     readonly List<PlacedObject> items;
     readonly List<string> before;
     readonly string after;
     public string Label => string.IsNullOrEmpty(after) ? "Ungroup objects" : "Group objects";
+    public string Description => CommandDescriptions.ForParts(Label, items.Select(item => item != null ? item.GetDisplayName() : null).ToList());
     public SelectionGroupCommand(IEnumerable<PlacedObject> items, string group)
     { this.items = items.ToList(); before = this.items.Select(item => item.editorGroupId).ToList(); after = group; }
     public bool Do() => Apply(false);

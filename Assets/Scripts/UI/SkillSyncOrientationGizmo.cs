@@ -1,10 +1,13 @@
 using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
 
 [RequireComponent(typeof(CanvasRenderer))]
-public sealed class SkillSyncOrientationGizmo : UnityEngine.UI.MaskableGraphic
+public sealed class SkillSyncOrientationGizmo : UnityEngine.UI.MaskableGraphic, IPointerClickHandler
 {
     public Camera sourceCamera;
+    /// <summary>クリックした軸の向き（ワールド座標。+Y なら上の軸）。その側から見る視点にするために使う。</summary>
+    public System.Action<Vector3> axisClicked;
     Quaternion lastRotation;
     readonly Vector3[] axes={Vector3.right,Vector3.up,Vector3.forward,-Vector3.right,-Vector3.up,-Vector3.forward};
     readonly Color32[] colors={new Color32(159,29,23,255),new Color32(25,97,47,255),new Color32(29,78,216,255)};
@@ -26,6 +29,20 @@ public sealed class SkillSyncOrientationGizmo : UnityEngine.UI.MaskableGraphic
             labels[i]=child.GetComponent<TMP_Text>();
         }
         UpdateLabels();
+    }
+    public void OnPointerClick(PointerEventData eventData) {
+        if(sourceCamera==null || axisClicked==null) return;
+        if(!RectTransformUtility.ScreenPointToLocalPointInRectangle(rectTransform,eventData.position,eventData.pressEventCamera,out var local)) return;
+        var rotation=Quaternion.Inverse(sourceCamera.transform.rotation);
+        var center=rectTransform.rect.center;
+        int best=-1;float bestDepth=float.MaxValue;
+        for(int i=0;i<axes.Length;i++) {
+            var direction=rotation*axes[i];
+            bool hit=Vector2.Distance(local,center+(Vector2)direction*26)<=13f || (i<3 && Vector2.Distance(local,center+(Vector2)direction*36)<=10f);
+            // Among overlapping tips the one nearest the viewer (smallest depth) wins.
+            if(hit && direction.z<bestDepth) {bestDepth=direction.z;best=i;}
+        }
+        if(best>=0) axisClicked(axes[best]);
     }
     void UpdateLabels() {
         if(sourceCamera==null) return;
