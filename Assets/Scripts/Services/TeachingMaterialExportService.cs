@@ -8,11 +8,12 @@ using UnityEditor;
 
 public static class TeachingMaterialExportService
 {
-    public static string Export(ScenarioExport export, PlacementController placement)
+    // outputRoot: the folder the user chose (null: the default Exports folder). The new folder is named after materialName.
+    public static string Export(ScenarioExport export, PlacementController placement, string outputRoot = null, string materialName = null)
     {
         if (export == null) throw new ArgumentNullException(nameof(export));
         string directory = RuntimeExportPathUtility.CreateTeachingMaterialDirectory(
-            RuntimeExportPathUtility.ExportsDirectory, DateTime.Now);
+            string.IsNullOrWhiteSpace(outputRoot) ? RuntimeExportPathUtility.ExportsDirectory : outputRoot, DateTime.Now, materialName);
         string name = Path.GetFileName(directory);
         string jsonPath = Path.Combine(directory, name + ".json");
         ScenarioModelBundle.Prepare(export, jsonPath);
@@ -31,12 +32,12 @@ public static class TeachingMaterialExportService
     {
         var prefabs = export.models.Where(model => model.requiresPreinstalledPrefab).ToList();
         if (prefabs.Count == 0) return;
-        if (placement == null) throw new InvalidOperationException("書き出すオブジェクトの一覧が見つかりません。");
+        if (placement == null) throw new InvalidOperationException("書き出す部品の一覧が見つかりません。");
 
         foreach (var model in prefabs)
         {
             if (!placement.TryGetPrefab(model.typeId, out var prefab) || prefab == null)
-                throw new InvalidOperationException("書き出すオブジェクトが見つかりません: " + model.typeId);
+                throw new InvalidOperationException("書き出す部品が見つかりません: " + model.typeId);
             model.prefabAssetPath = AssetDatabase.GetAssetPath(prefab);
             if (string.IsNullOrWhiteSpace(model.prefabAssetPath) ||
                 !(model.prefabAssetPath.StartsWith("Assets/", StringComparison.Ordinal) ||
@@ -61,7 +62,7 @@ public static class TeachingMaterialExportService
         {
             AssetDatabase.ExportPackage(assets, tempPath, ExportPackageOptions.Default);
             if (!File.Exists(tempPath) || new FileInfo(tempPath).Length == 0)
-                throw new IOException("オブジェクトのパッケージを作成できませんでした。");
+                throw new IOException("部品のパッケージを作成できませんでした。");
             File.Move(tempPath, packagePath);
             export.prefabPackage = packageName;
         }
