@@ -18,6 +18,18 @@ public static class EditInput
         return false;
 #endif
     }
+    public static bool NewProjectShortcutPressedThisFrame()
+    {
+#if ENABLE_LEGACY_INPUT_MANAGER
+        bool modifier=Input.GetKey(KeyCode.LeftControl)||Input.GetKey(KeyCode.RightControl)||Input.GetKey(KeyCode.LeftCommand)||Input.GetKey(KeyCode.RightCommand);
+        return modifier && Input.GetKeyDown(KeyCode.N);
+#elif ENABLE_INPUT_SYSTEM
+        var keyboard=Keyboard.current;
+        return keyboard!=null && (keyboard.ctrlKey.isPressed||keyboard.metaKey.isPressed) && keyboard.nKey.wasPressedThisFrame;
+#else
+        return false;
+#endif
+    }
     public static bool CancelPressedThisFrame()
     {
 #if ENABLE_LEGACY_INPUT_MANAGER

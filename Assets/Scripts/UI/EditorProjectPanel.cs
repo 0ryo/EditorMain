@@ -44,9 +44,7 @@ public sealed class EditorProjectPanel : MonoBehaviour
     int libraryMode;
     readonly Button[] libraryTabs = new Button[3];
     bool recoveryWarningShown;
-#if !UNITY_EDITOR
     bool allowQuit;
-#endif
 
     public static EditorProjectPanel Ensure(Transform parent)
     {
@@ -181,7 +179,7 @@ public sealed class EditorProjectPanel : MonoBehaviour
 
         var nameLabel = CreateText("Label_ProjectName", dialog, "教材名", DesignTokens.FontSizeCaption, DesignTokens.TextSecondary);
         SetRect(nameLabel.rectTransform, new Vector2(24f, -72f), new Vector2(160f, 24f));
-        projectNameInput = CreateInput("Input_ProjectName", dialog, "VRCourseEditor");
+        projectNameInput = CreateInput("Input_ProjectName", dialog, EditorProjectStore.UntitledProjectName);
         SetRect(projectNameInput.transform as RectTransform, new Vector2(24f, -98f), new Vector2(672f, 40f));
         projectNameInput.onValueChanged.AddListener(_ => RefreshSaveButtonLabel());
 
@@ -297,7 +295,7 @@ public sealed class EditorProjectPanel : MonoBehaviour
         string name = graph != null && graph.curriculum != null
             ? graph.curriculum.projectName
             : projectService.CurrentProjectName;
-        projectNameInput.SetTextWithoutNotify(string.IsNullOrWhiteSpace(name) ? "VRCourseEditor" : name);
+        projectNameInput.SetTextWithoutNotify(string.IsNullOrWhiteSpace(name) ? EditorProjectStore.UntitledProjectName : name);
     }
 
     public void OpenForDesignUi()
@@ -330,7 +328,7 @@ public sealed class EditorProjectPanel : MonoBehaviour
             SaveProjectNow(name);
             return;
         }
-        string safeName = ExportFileNameUtility.SanitizeProjectName(name, "VRCourseEditor");
+        string safeName = ExportFileNameUtility.SanitizeProjectName(name, EditorProjectStore.UntitledProjectName);
         EditorProjectFileInfo existing = null;
         foreach (var info in EditorProjectStore.ListProjects())
         {
@@ -344,9 +342,9 @@ public sealed class EditorProjectPanel : MonoBehaviour
             string.Equals(existing.Path, projectService.CurrentProjectPath, StringComparison.OrdinalIgnoreCase);
         if (existing != null && !isCurrentFile)
         {
-            Ask($"「{existing.DisplayName}」を上書きしますか？",
-                "同じ名前の教材がすでに保存されています。上書きすると、保存済みの内容は新しい内容に置き換わります。",
-                "上書き保存", () => SaveProjectNow(name), destructive: true);
+            Ask($"「{existing.DisplayName}」を置き換えますか？",
+                "同じ名前の教材がすでに保存されています。置き換えると、保存済みの内容は今の内容に変わります。",
+                "置き換える", () => SaveProjectNow(name), destructive: true);
             return;
         }
 
@@ -375,9 +373,9 @@ public sealed class EditorProjectPanel : MonoBehaviour
         statusText.color = succeeded ? DesignTokens.Success : DesignTokens.Error;
     }
 
-    void RequestNewProject()
+    // Ctrl/Cmd+N and the header 新規 button. Asks only when there are unsaved changes.
+    public void RequestNewProject()
     {
-        // Nothing to lose when there are no unsaved changes, so do not ask.
         if (!projectService.IsDirty)
         {
             NewProjectNow();
@@ -387,87 +385,56 @@ public sealed class EditorProjectPanel : MonoBehaviour
         Ask("現在の教材を保存しますか？",
             $"「{projectService.CurrentProjectName}」に未保存の変更があります。新しい教材を作る前に保存しますか？",
             "保存して新規作成",
-            () =>
-            {
-                if (TrySaveCurrent()) NewProjectNow();
-            },
+            () => EditorProjectSaveFlow.Run(projectService, saved => { if (saved) NewProjectNow(); }),
             secondaryLabel: "保存せず新規作成", onSecondary: NewProjectNow);
     }
 
     void NewProjectNow()
     {
-        projectService.NewProject(GetProjectName(), out var message);
-        statusText.text = message;
+        projectService.NewProject(null, out var message);
+        if (statusText != null) statusText.text = message;
+        if (projectNameInput != null) SyncNameInput();
         RefreshSaveButtonLabel();
+        Close();
+        TopCenterNotification.Ensure(uiRoot, null)?.Show(message, false, 3f);
     }
 
-    void RequestLoad(EditorProjectFileInfo info)
+    // Opens a saved lesson, asking about unsaved changes first. done(true) once the lesson is open.
+    public void RequestOpen(EditorProjectFileInfo info, Action<bool> done = null)
     {
-        // Nothing to lose when there are no unsaved changes, so do not ask.
         if (projectService.IsDirty)
         {
             Ask("現在の教材を保存しますか？",
                 $"「{projectService.CurrentProjectName}」に未保存の変更があります。「{info.DisplayName}」を開く前に保存しますか？",
                 "保存して開く",
-                () => SaveCurrentThenLoad(info),
-                secondaryLabel: "保存せず開く", onSecondary: () => LoadProjectNow(info));
+                () => EditorProjectSaveFlow.Run(projectService, saved => { if (saved) OpenNow(info, done); else done?.Invoke(false); }),
+                secondaryLabel: "保存せず開く", onSecondary: () => OpenNow(info, done));
             return;
         }
 
-        LoadProjectNow(info);
+        OpenNow(info, done);
     }
 
-    void SaveCurrentThenLoad(EditorProjectFileInfo info)
+    void OpenNow(EditorProjectFileInfo info, Action<bool> done)
     {
-        if (TrySaveCurrent()) LoadProjectNow(info);
+        bool loaded = LoadProjectNow(info);
+        done?.Invoke(loaded);
     }
 
-    bool TrySaveCurrent()
-    {
-        string currentName = GetProjectName();
-        string safeCurrentName = ExportFileNameUtility.SanitizeProjectName(currentName, "VRCourseEditor");
-        EditorProjectFileInfo nameCollision = null;
-        foreach (var savedProject in EditorProjectStore.ListProjects())
-        {
-            if (!string.Equals(savedProject.DisplayName, safeCurrentName, StringComparison.OrdinalIgnoreCase)) continue;
-            nameCollision = savedProject;
-            break;
-        }
+    void RequestLoad(EditorProjectFileInfo info) => RequestOpen(info);
 
-        bool collisionIsCurrentFile = nameCollision != null &&
-            !string.IsNullOrWhiteSpace(projectService.CurrentProjectPath) &&
-            string.Equals(projectService.CurrentProjectPath, nameCollision.Path, StringComparison.OrdinalIgnoreCase);
-        bool savingCurrent = !string.IsNullOrEmpty(projectService.CurrentProjectPath) &&
-            string.Equals(currentName, projectService.CurrentProjectName, StringComparison.Ordinal);
-        if (nameCollision != null && !collisionIsCurrentFile && !savingCurrent)
-        {
-            // The user has to edit the name, so make sure the name field is on screen.
-            if (modal != null && !modal.gameObject.activeInHierarchy) Open();
-            statusText.text = $"「{nameCollision.DisplayName}」は既に保存されています。現在の内容を保存する場合は別の教材名を入力してください。";
-            statusText.color = DesignTokens.Warning;
-            return false;
-        }
-
-        if (!projectService.Save(currentName, out var saveMessage))
-        {
-            statusText.text = saveMessage;
-            return false;
-        }
-
-        return true;
-    }
-
-    void LoadProjectNow(EditorProjectFileInfo info)
+    bool LoadProjectNow(EditorProjectFileInfo info)
     {
         bool loaded = projectService.Load(info.Path, out var message);
-        statusText.text = message;
+        if (statusText != null) statusText.text = message;
         if (loaded)
         {
-            projectNameInput.SetTextWithoutNotify(projectService.CurrentProjectName);
+            if (projectNameInput != null) projectNameInput.SetTextWithoutNotify(projectService.CurrentProjectName);
             RefreshSaveButtonLabel();
             RefreshProjectList();
             RefreshDirtyVisual();
         }
+        return loaded;
     }
 
     void RequestRecoveryLoad(EditorProjectFileInfo info)
@@ -532,7 +499,7 @@ public sealed class EditorProjectPanel : MonoBehaviour
 
         if (projects.Count == 0 && rowIndex == 0)
         {
-            var empty = CreateText("Text_Empty", listContent, "この一覧にはまだ教材がありません", DesignTokens.FontSizeBody, DesignTokens.TextSecondary);
+            var empty = CreateText("Text_Empty", listContent, libraryMode == 1 ? "テンプレートはまだありません。保存済みの教材の［テンプレート化］で追加できます" : "この一覧にはまだ教材がありません", DesignTokens.FontSizeBody, DesignTokens.TextSecondary);
             empty.alignment = TextAlignmentOptions.Center;
             SetListItemRect(empty.rectTransform, 0, 52f, warningOffset);
             SetListContentHeight(68f + warningOffset);
@@ -560,7 +527,7 @@ public sealed class EditorProjectPanel : MonoBehaviour
             }
             else
             {
-                if (libraryMode == 0) AddLibraryAction(row, "読込", 0, () => RequestLoad(info));
+                if (libraryMode == 0) AddLibraryAction(row, "開く", 0, () => RequestLoad(info));
                 AddLibraryAction(row, libraryMode == 1 ? "教材を作成" : "複製", 1, () => DuplicateSaved(info, false));
                 if (libraryMode == 0) AddLibraryAction(row, "テンプレート化", 2, () => DuplicateSaved(info, true));
                 var delete = AddLibraryAction(row, "削除", 3, () => Ask(
@@ -661,8 +628,8 @@ public sealed class EditorProjectPanel : MonoBehaviour
 
         bool hasCurrentFile = !string.IsNullOrWhiteSpace(projectService.CurrentProjectPath);
         bool sameProjectName = string.Equals(
-            ExportFileNameUtility.SanitizeProjectName(GetProjectName(), "VRCourseEditor"),
-            ExportFileNameUtility.SanitizeProjectName(projectService.CurrentProjectName, "VRCourseEditor"),
+            ExportFileNameUtility.SanitizeProjectName(GetProjectName(), EditorProjectStore.UntitledProjectName),
+            ExportFileNameUtility.SanitizeProjectName(projectService.CurrentProjectName, EditorProjectStore.UntitledProjectName),
             StringComparison.OrdinalIgnoreCase);
         SetButtonLabel(saveProjectButton, hasCurrentFile && sameProjectName ? "上書き保存" : "名前を付けて保存");
     }
@@ -745,21 +712,25 @@ public sealed class EditorProjectPanel : MonoBehaviour
         }
     }
 
-#if !UNITY_EDITOR
+    // Hooked to Application.wantsToQuit in players only (stopping Play Mode in the Editor never asks).
     bool HandleWantsToQuit()
     {
         if (allowQuit || projectService == null || !projectService.IsDirty) return true;
+        AskBeforeQuit();
+        return false;
+    }
 
-        SyncNameInput();
+    void AskBeforeQuit()
+    {
         Ask("終了する前に保存しますか？",
             $"「{projectService.CurrentProjectName}」に未保存の変更があります。保存せずに終了すると、変更は失われます。",
             "保存して終了",
-            () =>
+            () => EditorProjectSaveFlow.Run(projectService, saved =>
             {
-                if (!TrySaveCurrent()) return;
+                if (!saved) return;
                 allowQuit = true;
                 Application.Quit();
-            },
+            }),
             secondaryLabel: "保存せず終了",
             onSecondary: () =>
             {
@@ -767,14 +738,12 @@ public sealed class EditorProjectPanel : MonoBehaviour
                 allowQuit = true;
                 Application.Quit();
             });
-        return false;
     }
-#endif
 
     string GetProjectName()
     {
         return string.IsNullOrWhiteSpace(projectNameInput.text)
-            ? "VRCourseEditor"
+            ? EditorProjectStore.UntitledProjectName
             : projectNameInput.text.Trim();
     }
 

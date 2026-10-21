@@ -14,6 +14,8 @@ public static class EditorProjectStore
     static readonly ProfilerMarker ListDirectoryMarker = new("EditorProjectStore.ListDirectory");
 
     public const string FileSuffix = ".skillsync.json";
+    // Name of a lesson that has never been saved or named by the user.
+    public const string UntitledProjectName = "無題の教材";
     const string RecoveryDirectoryName = "Recovery";
     const string RecoveryFileName = "autosave" + FileSuffix;
 
@@ -88,7 +90,7 @@ public static class EditorProjectStore
     static string MoveToAvailableName(string source, string directory, string name, Action<string> prepare = null)
     {
         Directory.CreateDirectory(directory);
-        string safeName = ExportFileNameUtility.SanitizeProjectName(name, "VRCourseEditor");
+        string safeName = ExportFileNameUtility.SanitizeProjectName(name, UntitledProjectName);
         for (int number = 1; number < 10000; number++)
         {
             string candidate = Path.Combine(directory, safeName + (number == 1 ? "" : " (" + number + ")") + FileSuffix);
@@ -104,11 +106,68 @@ public static class EditorProjectStore
         ListDirectory(DeletedProjectsDirectory).Concat(ListDirectory(DeletedTemplatesDirectory))
             .OrderByDescending(info => info.LastWriteTimeUtc).ToList();
 
+    // Path of the saved lesson whose file name matches (case-insensitive), or null. Reads names only, never file contents.
+    public static string FindProjectPathByName(string projectName)
+    {
+        try
+        {
+            if (!Directory.Exists(ProjectsDirectory)) return null;
+            string safe = ExportFileNameUtility.SanitizeProjectName(projectName, UntitledProjectName);
+            foreach (string path in Directory.GetFiles(ProjectsDirectory, "*" + FileSuffix, SearchOption.TopDirectoryOnly))
+                if (string.Equals(RemoveSuffix(Path.GetFileName(path)), safe, StringComparison.OrdinalIgnoreCase)) return path;
+        }
+        catch (Exception ex) { Debug.LogWarning("[EditorProjectStore] 教材名を確認できません: " + ex.Message); }
+        return null;
+    }
+
+    // "name", then "name 2", "name 3" ... until no saved lesson uses it.
+    public static string UniqueProjectName(string baseName)
+    {
+        string name = string.IsNullOrWhiteSpace(baseName) ? UntitledProjectName : baseName.Trim();
+        string candidate = name;
+        for (int number = 2; FindProjectPathByName(candidate) != null && number < 10000; number++) candidate = name + " " + number;
+        return candidate;
+    }
+
+    // Renames the saved lesson file in place (same lesson, new name). Never overwrites another lesson.
+    public static string Rename(string existingPath, string newName)
+    {
+        string source = RequireLibraryPath(existingPath, false);
+        string name = newName?.Trim();
+        if (string.IsNullOrEmpty(name)) throw new ArgumentException("教材名を入力してください。", nameof(newName));
+        if (!TryLoad(source, out var project, out var error)) throw new InvalidOperationException(error);
+        string target = Path.Combine(Path.GetDirectoryName(source),
+            ExportFileNameUtility.SanitizeProjectName(name, UntitledProjectName) + FileSuffix);
+        bool sameFile = string.Equals(source, target, StringComparison.OrdinalIgnoreCase);
+        if (!sameFile && File.Exists(target)) throw new IOException("同じ名前の教材があります。");
+        if (!string.Equals(source, target, StringComparison.Ordinal)) File.Move(source, target);
+        try { WriteProject(project, name, target, false); }
+        catch
+        {
+            if (!string.Equals(source, target, StringComparison.Ordinal) && File.Exists(target) && !File.Exists(source)) File.Move(target, source);
+            throw;
+        }
+        return target;
+    }
+
+    public static bool TryGetFileInfo(string path, out EditorProjectFileInfo info)
+    {
+        info = null;
+        try
+        {
+            if (string.IsNullOrEmpty(path) || !File.Exists(path)) return false;
+            var file = new FileInfo(path);
+            info = new EditorProjectFileInfo(file.FullName, RemoveSuffix(file.Name), file.LastWriteTimeUtc);
+            return true;
+        }
+        catch { return false; }
+    }
+
     public static string Save(EditorProjectFile project, string projectName)
     {
         if (project == null) throw new ArgumentNullException(nameof(project));
 
-        string safeName = ExportFileNameUtility.SanitizeProjectName(projectName, "VRCourseEditor");
+        string safeName = ExportFileNameUtility.SanitizeProjectName(projectName, UntitledProjectName);
         string path = Path.Combine(ProjectsDirectory, safeName + FileSuffix);
         return WriteProject(project, projectName, path, false);
     }
@@ -131,7 +190,7 @@ public static class EditorProjectStore
     {
         project.schemaVersion = EditorProjectFile.CurrentSchemaVersion;
         project.projectName = string.IsNullOrWhiteSpace(projectName)
-            ? ExportFileNameUtility.SanitizeProjectName(projectName, "VRCourseEditor")
+            ? ExportFileNameUtility.SanitizeProjectName(projectName, UntitledProjectName)
             : projectName.Trim();
         project.savedAtUtc = DateTime.UtcNow.ToString("O");
         project.lastSaveWasAutomatic = automatic;

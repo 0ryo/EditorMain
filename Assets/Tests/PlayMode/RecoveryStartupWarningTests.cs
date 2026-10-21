@@ -110,6 +110,8 @@ public sealed class RecoveryStartupWarningTests
         var previous = Activator.CreateInstance(RuntimeType("EditorProjectFile"));
         storeType.GetMethod("SaveRecovery").Invoke(null, new[] { previous });
         string repairedBytes = File.ReadAllText(RecoveryPath);
+        // An empty new lesson is no longer "changed"; mark it changed again so autosave has something to write.
+        service.GetType().GetProperty("IsDirty").SetValue(service, true);
         Assert.That(InvokeOperation(service, "SaveRecoveryNow"), Is.True);
         Assert.That(Warning(service), Is.Null, "Automatic retry also resolves the startup warning.");
         Assert.That(File.ReadAllText(Path.Combine(sandbox, "VRCourseEditor 復旧.skillsync.json")), Is.EqualTo(repairedBytes));

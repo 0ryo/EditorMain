@@ -112,6 +112,137 @@ public sealed class SkillSyncDesignView : MonoBehaviour
             helpRect.parent, new Visual { label = fontSource }, help.mask, sourceX => sourceX, -helpRect.anchoredPosition.y - 2f);
     }
 
+    public static string ShortcutModifierName => Application.platform == RuntimePlatform.OSXPlayer || Application.platform == RuntimePlatform.OSXEditor ? "Cmd" : "Ctrl";
+    Color savedBaseTextColor, savedBaseBorderColor;
+    bool savedColorsCaptured;
+
+    // Header file buttons, right to left: 教材を開く, ヘルプ, 通知履歴, 保存, 新規. The saved pill becomes display-only;
+    // 保存 is the explicit button (with its shortcut) and 新規 starts a new lesson. Built at runtime, so no Prefab change is needed.
+    public void EnsureProjectFileControls()
+    {
+        EnsureProjectLoadControl();
+        EnsureNotificationHistoryControl();
+        if (controls == null) return;
+        var help = controls.FirstOrDefault(c => c.action == "ヘルプ");
+        var export = controls.FirstOrDefault(c => c.action == "↑ 教材を書き出す");
+        var open = controls.FirstOrDefault(c => c.action == "教材を読み込む");
+        var history = controls.FirstOrDefault(c => c.action == "通知履歴");
+        if (help?.button == null || export?.button == null || open?.button == null || history?.button == null) return;
+
+        var oldSave = controls.FirstOrDefault(c => c.action == "Save");
+        if (oldSave?.button != null) { oldSave.mask = 0; oldSave.button.gameObject.SetActive(false); }
+
+        var save = EnsureHeaderButton("保存", "保存  " + ShortcutModifierName + "+S", help);
+        var create = EnsureHeaderButton("新規", "新規", help);
+        SetCaption(open.button, "教材を開く");
+        SetCaption(history.button, "通知履歴");
+
+        const float gap = 12f;
+        var exportRect = (RectTransform)export.button.transform;
+        float cursor = exportRect.anchoredPosition.x - gap;
+        foreach (var item in new[] { open, help, history, save, create })
+        {
+            var rect = (RectTransform)item.button.transform;
+            float width = item == help ? rect.sizeDelta.x : Mathf.Max(item == create ? 64f : 92f, CaptionWidth(item.button) + 32f);
+            MoveHeaderButton(item, cursor - width, width);
+            cursor -= width + gap;
+        }
+        foreach (var item in new[] { save, create })
+            if (item.button != null) UiAccessibilityMetrics.EnsureButtonTarget(item.button);
+    }
+
+    Control EnsureHeaderButton(string action, string caption, Control reference)
+    {
+        var control = controls.FirstOrDefault(c => c.action == action);
+        if (control?.button == null)
+        {
+            var helpRect = (RectTransform)reference.button.transform;
+            var go = new GameObject("Button_" + action, typeof(RectTransform), typeof(UnityEngine.UI.Image), typeof(UnityEngine.UI.Button));
+            var rect = (RectTransform)go.transform;
+            rect.SetParent(helpRect.parent, false);
+            rect.anchorMin = helpRect.anchorMin; rect.anchorMax = helpRect.anchorMax; rect.pivot = helpRect.pivot;
+            rect.anchoredPosition = helpRect.anchoredPosition; rect.sizeDelta = helpRect.sizeDelta;
+            var label = new GameObject("Label", typeof(RectTransform), typeof(TextMeshProUGUI)).GetComponent<TextMeshProUGUI>();
+            label.transform.SetParent(rect, false);
+            label.rectTransform.anchorMin = Vector2.zero; label.rectTransform.anchorMax = Vector2.one;
+            label.rectTransform.offsetMin = label.rectTransform.offsetMax = Vector2.zero;
+            ApplyProjectLoadStyle(go.GetComponent<UnityEngine.UI.Button>(), reference.button);
+            control = new Control { button = go.GetComponent<UnityEngine.UI.Button>(), action = action, mask = reference.mask };
+            controls = controls.Concat(new[] { control }).ToArray();
+        }
+        SetCaption(control.button, caption);
+        return control;
+    }
+
+    static void SetCaption(UnityEngine.UI.Button button, string caption)
+    {
+        var label = button.GetComponentInChildren<TMP_Text>(true);
+        if (label != null) { label.text = caption; label.textWrappingMode = TextWrappingModes.NoWrap; }
+    }
+
+    static float CaptionWidth(UnityEngine.UI.Button button)
+    {
+        var label = button.GetComponentInChildren<TMP_Text>(true);
+        return label != null ? label.GetPreferredValues(label.text, Mathf.Infinity, Mathf.Infinity).x : 0f;
+    }
+
+    // Moves a header button; Figma-made buttons have a separate background visual at the same place that must follow.
+    void MoveHeaderButton(Control control, float x, float width)
+    {
+        var rect = (RectTransform)control.button.transform;
+        var oldPosition = rect.anchoredPosition; var oldSize = rect.sizeDelta;
+        var newPosition = new Vector2(x, oldPosition.y); var newSize = new Vector2(width, oldSize.y);
+        if (visuals != null)
+            foreach (var visual in visuals)
+            {
+                if (visual.label != null || visual.target == null || visual.target == control.button.gameObject) continue;
+                var background = visual.target.transform as RectTransform;
+                if (background != null && background.parent == rect.parent && Vector2.Distance(background.anchoredPosition, oldPosition) < .1f &&
+                    Vector2.Distance(background.sizeDelta, oldSize) < .1f)
+                {
+                    background.anchoredPosition = newPosition; background.sizeDelta = newSize;
+                }
+            }
+        rect.anchoredPosition = newPosition; rect.sizeDelta = newSize;
+    }
+
+    // Emphasis for a header button: filled accent colour while there is something to do (unsaved work), plain otherwise.
+    public void SetHeaderEmphasis(string action, bool emphasized)
+    {
+        var control = controls?.FirstOrDefault(c => c.action == action);
+        if (control?.button == null) return;
+        var surface = control.button.transform.Find("Surface")?.GetComponent<SkillSyncRoundedGraphic>();
+        var label = control.button.GetComponentInChildren<TMP_Text>(true);
+        if (surface == null || label == null) return;
+        surface.color = emphasized ? DesignTokens.Accent : Color.white;
+        surface.borderColor = emphasized ? DesignTokens.Accent : new Color32(205, 213, 224, 255);
+        surface.SetVerticesDirty();
+        var normalLabel = controls.FirstOrDefault(c => c.action == "ヘルプ")?.button?.GetComponentInChildren<TMP_Text>(true);
+        label.color = emphasized ? DesignTokens.ButtonTextLight : normalLabel != null ? normalLabel.color : new Color32(23, 34, 54, 255);
+    }
+
+    // Text and tone of the saved-state pill. Tone: 0 = saved (original colours), 1 = needs attention, 2 = error.
+    public void SetSavedState(string text, int tone)
+    {
+        if (visuals == null) return;
+        var pill = visuals.FirstOrDefault(v => v.role == "savedPill" && v.target != null)?.target.GetComponent<SkillSyncRoundedGraphic>();
+        var labels = visuals.Where(v => v.role == "saved" && v.label != null).Select(v => v.label).ToList();
+        if (labels.Count == 0) return;
+        if (!savedColorsCaptured)
+        {
+            savedColorsCaptured = true;
+            savedBaseTextColor = labels[0].color;
+            savedBaseBorderColor = pill != null ? pill.borderColor : new Color32(205, 213, 224, 255);
+        }
+        Color accent = tone == 2 ? DesignTokens.Error : DesignTokens.Warning;
+        foreach (var label in labels)
+        {
+            label.text = text ?? "";
+            label.color = tone == 0 ? savedBaseTextColor : accent;
+        }
+        if (pill != null) { pill.borderColor = tone == 0 ? savedBaseBorderColor : accent; pill.SetVerticesDirty(); }
+    }
+
     // Kept in the Prefab update path and as a compatibility path for older UIRoot assets.
     public void EnsureViewportLabels()
     {

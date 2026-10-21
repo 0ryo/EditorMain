@@ -25,6 +25,9 @@ public sealed class SkillSyncEditorController : MonoBehaviour
     Color previousCameraColor;
     string stepId, conditionId, search = "", category = "すべて", pickTarget;
     string status = "", librarySignature = "", transformTab = "移動";
+    string nameHint;
+    int nameHintTone;
+    float nameHintUntil;
     int mode;
     int validationErrorCount;
     bool validating;
@@ -83,10 +86,9 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         graph = FindFirstObjectByType<CurriculumGraphService>();
         if (graph == null) graph = placement.gameObject.AddComponent<CurriculumGraphService>();
         project = EditorProjectService.Ensure(placement.transform);
-        view.EnsureProjectLoadControl();
+        view.EnsureProjectFileControls();
         view.EnsureConditionControls();
         view.EnsureStepControls();
-        view.EnsureNotificationHistoryControl();
         SkillSyncConditionEditorView.Ensure(view);
         view.EnsureViewportLabels();
         TopCenterNotification.Ensure(transform, view.inspectorTitle);
@@ -113,6 +115,12 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         {
             var role=field.role;
             field.input.onEndEdit.AddListener(value=>Edit(role,value));
+            if(role=="project")
+            {
+                var projectInput=field.input;
+                projectInput.onSelect.AddListener(_=>ShowNameHint(projectInput.text));
+                projectInput.onValueChanged.AddListener(ShowNameHint);
+            }
             if(role=="search") field.input.onValueChanged.AddListener(value=>{search=value;RebuildLibrary();});
         }
         graph.GraphChanged += GraphChanged;
@@ -178,9 +186,14 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         {
             if(EditInput.ProjectShortcutPressedThisFrame(true))
             {
-                // Commit a focused input first (fires onEndEdit) so the typed value is saved in the same frame.
+                // Commit a focused input first (fires onEndEdit) so the typed value is applied in the same frame.
                 if(TextInputFocused) UnityEngine.EventSystems.EventSystem.current.SetSelectedGameObject(null);
-                SaveProject(project.CurrentProjectName);
+                RequestSave();
+            }
+            else if(EditInput.NewProjectShortcutPressedThisFrame())
+            {
+                if(TextInputFocused) UnityEngine.EventSystems.EventSystem.current.SetSelectedGameObject(null);
+                RequestNew();
             }
             if(!TextInputFocused && EditInput.ProjectShortcutPressedThisFrame(false)) EditorProjectPanel.Ensure(transform.root)?.OpenForDesignUi();
         }
@@ -296,8 +309,9 @@ public sealed class SkillSyncEditorController : MonoBehaviour
             case "詳細設定": catalog?.ShowDesignSettings();return;
             case "通知履歴": TopCenterNotification.Ensure(transform,view.inspectorTitle)?.ToggleHistory();return;
             case "ヘルプ": case "Guide": HintPanelController.Ensure(transform.root)?.Show();return;
-            case "Save": if(trial!=null || ghost!=null) break; SaveProject(project.CurrentProjectName);break;
-            case "教材を読み込む":
+            case "保存": case "Save": RequestSave();break;
+            case "新規": RequestNew();break;
+            case "教材を読み込む": // The caption is "教材を開く"; the action key is kept for the existing control wiring.
                 if (!BlocksEditingShortcuts) EditorProjectPanel.Ensure(transform.root)?.OpenForDesignUi();
                 return;
             case "↑ 教材を書き出す": Export();return;
@@ -317,12 +331,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
     {
         if(trial!=null || Modal) return;
         if(role=="search") return;
-        if(role=="project")
-        {
-            if(string.IsNullOrWhiteSpace(value)) {}
-            else if(ProjectNameCollides(value.Trim())) {Notify("同じ名前の教材があります。別の名前にするか、教材一覧から上書きしてください",true);view.Value("project",project.CurrentProjectName);return;}
-            else SaveProject(value.Trim());
-        }
+        if(role=="project") CommitProjectName(value);
         else if(role=="name")
         {
             if(ghost!=null) ghost.DisplayName=value;
@@ -511,10 +520,76 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         status=message;
         if(!string.IsNullOrEmpty(message)) TopCenterNotification.Ensure(transform,view!=null?view.inspectorTitle:null)?.Show(message,error,error?8f:3f);
     }
-    void SaveProject(string projectName)
+    // Cmd+S / the 保存 button. A never-saved lesson asks for a name first; the result is announced with a way to find the file.
+    void RequestSave()
     {
-        if(!project.Save(projectName,out var message)) Notify(message,true);
-        else status=message;
+        if(trial!=null || ghost!=null || Modal || EditWorkspace.HasOpenModal) return;
+        EditorProjectSaveFlow.Run(project,saved=>{if(saved) AnnounceSaved();RefreshValues();});
+    }
+    void AnnounceSaved()
+    {
+        string path=project.CurrentProjectPath;
+        status="保存しました: "+project.CurrentProjectName;
+        TopCenterNotification.Ensure(transform,view.inspectorTitle)?.Show("「"+project.CurrentProjectName+"」を保存しました",false,6f,ProjectFileLocation.RevealLabel,()=>ProjectFileLocation.Reveal(path));
+    }
+    void RequestNew()
+    {
+        if(trial!=null || ghost!=null || Modal || EditWorkspace.HasOpenModal) return;
+        EditorProjectPanel.Ensure(transform.root)?.RequestNewProject();
+    }
+    // Name field: Enter or leaving the field renames the same lesson (a saved lesson keeps its file); Esc restores the old name.
+    // Nothing here saves the lesson's content.
+    void CommitProjectName(string value)
+    {
+        string name=(value??"").Trim();
+        nameHint=null;
+        if(EditInput.CancelPressedThisFrame() || name.Length==0 || name==project.CurrentProjectName) {view.Value("project",project.CurrentProjectName);return;}
+        if(project.Rename(name,out var message)) {Notify(message,false);return;}
+        if(project.NameInUse(name))
+        {
+            bool enter=EditInput.ConfirmPressedThisFrame();
+            nameHint="同じ名前があります";nameHintTone=2;nameHintUntil=Time.unscaledTime+(enter?float.MaxValue/2:4f);
+            if(enter) StartCoroutine(RefocusProjectName(name));
+            else view.Value("project",project.CurrentProjectName);
+            return;
+        }
+        view.Value("project",project.CurrentProjectName);
+        Notify(message,true);
+    }
+    IEnumerator RefocusProjectName(string typed)
+    {
+        yield return null;
+        var field=view.fields.FirstOrDefault(f=>f.role=="project");
+        if(field==null || !field.input.gameObject.activeInHierarchy) yield break;
+        field.input.SetTextWithoutNotify(typed);
+        field.input.Select();field.input.ActivateInputField();
+        ShowNameHint(typed);
+    }
+    // The pill under the lesson name says "未保存" (never saved), "未保存の変更あり" or "✓ 保存済み"; while the name is edited it shows a one-line hint instead.
+    void RefreshSavedPill()
+    {
+        var saveState=project.SaveState;
+        bool nameFocused=view.fields.Any(f=>f.role=="project" && f.input.isFocused);
+        if(nameHint!=null && !nameFocused && Time.unscaledTime>=nameHintUntil) nameHint=null;
+        if(nameHint!=null) view.SetSavedState(nameHint,nameHintTone);
+        else
+        {
+            bool neverSaved=saveState==EditorProjectService.SaveStatus.NeverSaved;
+            view.SetSavedState(neverSaved?"未保存":saveState==EditorProjectService.SaveStatus.Unsaved?"未保存の変更あり":"✓ 保存済み",
+                saveState==EditorProjectService.SaveStatus.Saved || neverSaved && !project.IsDirty?0:1);
+        }
+        // Only unsaved work makes the save button stand out (an untouched new lesson has nothing to save).
+        view.SetHeaderEmphasis("保存",project.IsDirty);
+    }
+    // One short line while the name is edited, shown in the saved-state pill right below the field.
+    void ShowNameHint(string typed)
+    {
+        string name=(typed??"").Trim();
+        if(name.Length==0) {nameHint="名前を入力";nameHintTone=2;}
+        else if(name!=project.CurrentProjectName && project.NameInUse(name)) {nameHint="同じ名前があります";nameHintTone=2;}
+        else {nameHint="Enterで確定";nameHintTone=1;}
+        nameHintUntil=float.MaxValue/2;
+        RefreshSavedPill();
     }
     // Cheap enough for change events only; never call per frame.
     void Revalidate()
@@ -603,18 +678,6 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         if(m==EditMode.Scale) transformTab="大きさ";
         else if(m==EditMode.Transform && transformTab=="大きさ") transformTab="移動";
         RefreshValues();
-    }
-    bool ProjectNameCollides(string name)
-    {
-        string safe=ExportFileNameUtility.SanitizeProjectName(name,"VRCourseEditor");
-        var current=project.CurrentProjectPath;
-        foreach(var info in EditorProjectStore.ListProjects())
-        {
-            if(!string.Equals(info.DisplayName,safe,StringComparison.OrdinalIgnoreCase)) continue;
-            if(!string.IsNullOrEmpty(current) && string.Equals(info.Path,current,StringComparison.OrdinalIgnoreCase)) continue;
-            return true;
-        }
-        return false;
     }
     static string JapaneseLabel(string label)
     {
@@ -736,9 +799,10 @@ public sealed class SkillSyncEditorController : MonoBehaviour
             picker.SetPicking(pickTarget);
         }
         view.Value("project",project.CurrentProjectName);
-        view.Text("saved",project.IsDirty?"未保存の変更":"✓ 保存済み");
+        RefreshSavedPill();
+        var saveState=project.SaveState;
         string footerStatus = status;
-        view.Text("footer",trial!=null?"試行中の操作は教材の初期配置に保存されません":(string.IsNullOrEmpty(footerStatus)?project.IsDirty?"未保存の変更があります":"✓ すべての変更を保存しました":footerStatus)+" ｜ "+ValidationSummary());
+        view.Text("footer",trial!=null?"試行中の操作は教材の初期配置に保存されません":(string.IsNullOrEmpty(footerStatus)?saveState==EditorProjectService.SaveStatus.Saved?"✓ すべての変更を保存しました":"未保存の変更があります":footerStatus)+" ｜ "+ValidationSummary());
         view.Text("objectCount",Placed.Length+"件"+(ghost!=null?" ＋ 仮配置1件":""));
         view.Text("stepCount",graph.GetDisplayOrderedSteps().Count+"つの手順 ｜ "+ValidationSummary());
         var current=selection.Current;
@@ -790,7 +854,8 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         view.Enable("↑ 上へ",index>1);view.Enable("↓ 下へ",index>0 && index<graph.GetDisplayOrderedSteps().Count);
         view.Enable("↶ 元に戻す",trial==null && CommandService.I?.Stack.CanUndo==true);view.Enable("↷",trial==null && CommandService.I?.Stack.CanRedo==true);
         view.Enable("↑ 教材を書き出す",trial==null && ghost==null);
-        view.Enable("Save",trial==null && ghost==null);
+        view.Enable("保存",trial==null && ghost==null);
+        view.Enable("新規",!BlocksEditingShortcuts);
         view.Enable("教材を読み込む",!BlocksEditingShortcuts);
         view.Text("workspaceHint",trial!=null?"部品を選び、ギズモで操作 / 中・右ドラッグで視点移動":mode==1?$"手順{index}で使う部品を表示":"部品を選んで、作業面に配置します");
         view.Text("status",pickTarget!=null?status:ghost!=null?"＋ 仮配置中：クリックで確定 / Escで中止":trial!=null?trial.Complete?"✓ 条件が成立しました":"▶ 試行中：ギズモで部品を動かして条件を確かめます":current!=null?"● 選択中："+current.GetDisplayName()+" | Escで選択解除":"部品を選択してください");
@@ -974,6 +1039,8 @@ public sealed class SkillSyncEditorController : MonoBehaviour
     void Export()
     {
         if(trial!=null || ghost!=null) return;
+        // The export saves the lesson first, so a never-saved lesson is named (and a name clash confirmed) before anything is written.
+        if(!project.HasSavedFile) {EditorProjectSaveFlow.Run(project,saved=>{if(saved) Export();});return;}
         var result=TeachingMaterialExportWorkflow.Run(
             (out string message)=>project.Save(project.CurrentProjectName,out message),
             ()=>{validation=graph.ValidateGraph();return validation.CanExport;},

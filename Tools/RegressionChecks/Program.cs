@@ -72,6 +72,7 @@ static class Program
             groupsPassed &= RunGroup("Export workflow", () => ExportWorkflowChecks.Run(root), keepGoing);
             CheckRecoveryOwnership();
             groupsPassed &= RunGroup("Recovery protection", RecoveryProtectionChecks.Run, keepGoing);
+            groupsPassed &= RunGroup("Project naming", ProjectNamingChecks.Run, keepGoing);
             CheckProjectReadValidation();
             CheckReplacementRollback();
             var project = new EditorProjectFile { projectName = "Regression" };

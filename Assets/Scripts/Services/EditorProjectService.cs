@@ -23,8 +23,12 @@ public sealed class EditorProjectService : MonoBehaviour
     public event Action RecoveryProtectionChanged;
 
     public string CurrentProjectPath { get; private set; }
-    public string CurrentProjectName { get; private set; } = "VRCourseEditor";
+    public string CurrentProjectName { get; private set; } = EditorProjectStore.UntitledProjectName;
     public bool IsDirty { get; private set; }
+    // The lesson has a file of its own (it was saved or opened). False for new, copied and recovered lessons until the first save.
+    public bool HasSavedFile => !string.IsNullOrEmpty(CurrentProjectPath);
+    public enum SaveStatus { NeverSaved, Unsaved, Saved }
+    public SaveStatus SaveState => !HasSavedFile ? SaveStatus.NeverSaved : IsDirty ? SaveStatus.Unsaved : SaveStatus.Saved;
     public float AutoSaveIntervalSeconds => autoSaveInterval;
     public string RecoveryProtectionWarning => recoveryProtection.WarningMessage;
 
@@ -88,6 +92,7 @@ public sealed class EditorProjectService : MonoBehaviour
     void Start()
     {
         ResolveReferences();
+        AdoptUntitledName();
         EstablishCleanBaseline();
         nextAutoSaveAt = Time.unscaledTime + autoSaveInterval;
     }
@@ -127,7 +132,7 @@ public sealed class EditorProjectService : MonoBehaviour
             suppressTracking = true;
             var project = EditorProjectSnapshotBuilder.Capture(graph, projectName);
             bool sameName = string.Equals(project.projectName, CurrentProjectName, StringComparison.Ordinal);
-            CurrentProjectPath = sameName && !string.IsNullOrEmpty(CurrentProjectPath)
+            CurrentProjectPath = sameName && !string.IsNullOrEmpty(CurrentProjectPath) && System.IO.File.Exists(CurrentProjectPath)
                 ? EditorProjectStore.SaveExisting(project, CurrentProjectPath)
                 : EditorProjectStore.Save(project, project.projectName);
             CurrentProjectName = project.projectName;
@@ -137,6 +142,7 @@ public sealed class EditorProjectService : MonoBehaviour
             }
             recoverySession.DeleteOwned(out _);
             EstablishCleanBaseline();
+            EditorProjectRecents.Add(CurrentProjectPath);
             message = $"保存しました: {CurrentProjectName}";
             NotifyStatus(message, true);
             return true;
@@ -206,8 +212,7 @@ public sealed class EditorProjectService : MonoBehaviour
         var catalog = FindFirstObjectByType<CatalogUI>();
         if (catalog != null && catalog.IsRestoringModels)
         {
-            message = "保存済みモデルを復元中です。完了後にプロジェクトを開いてください。";
-            return false;
+            return Fail("追加済みの3Dモデルを準備しています。少し待ってからもう一度開いてください。", out message);
         }
 
         ResolveReferences();
@@ -252,13 +257,14 @@ public sealed class EditorProjectService : MonoBehaviour
             if (isRecovery)
             {
                 EstablishDirtyBaseline(true);
-                message = $"自動保存から復元しました: {CurrentProjectName}";
+                message = $"復旧データを開きました: {CurrentProjectName}";
             }
             else
             {
                 recoverySession.DeleteOwned(out _);
                 EstablishCleanBaseline();
-                message = $"読み込みました: {CurrentProjectName}";
+                EditorProjectRecents.Add(CurrentProjectPath);
+                message = $"教材を開きました: {CurrentProjectName}";
             }
             NotifyStatus(message, true);
             return true;
@@ -284,7 +290,7 @@ public sealed class EditorProjectService : MonoBehaviour
             return Fail("シナリオデータが見つからないため新規作成できません。", out message);
         }
 
-        string name = string.IsNullOrWhiteSpace(projectName) ? "VRCourseEditor" : projectName.Trim();
+        string name = string.IsNullOrWhiteSpace(projectName) ? EditorProjectStore.UniqueProjectName(null) : projectName.Trim();
         var project = new EditorProjectFile
         {
             projectName = name,
@@ -299,8 +305,9 @@ public sealed class EditorProjectService : MonoBehaviour
             CurrentProjectPath = null;
             CurrentProjectName = name;
             recoverySession.DeleteOwned(out _);
-            EstablishDirtyBaseline(false);
-            message = $"新規プロジェクトを作成しました: {name}";
+            // An empty new lesson has nothing to lose, so it is not "changed" until the user edits it.
+            EstablishCleanBaseline();
+            message = $"新しい教材「{name}」を作りました。";
             NotifyStatus(message, true);
             return true;
         }
@@ -313,6 +320,60 @@ public sealed class EditorProjectService : MonoBehaviour
         {
             suppressTracking = false;
         }
+    }
+
+    // True when another saved lesson already uses this name (the current lesson's own file does not count).
+    public bool NameInUse(string projectName)
+    {
+        string existing = EditorProjectStore.FindProjectPathByName(projectName);
+        return existing != null && !(HasSavedFile &&
+            string.Equals(System.IO.Path.GetFullPath(existing), System.IO.Path.GetFullPath(CurrentProjectPath), StringComparison.OrdinalIgnoreCase));
+    }
+
+    // Changes the lesson's name. A saved lesson keeps its file (renamed in place, content untouched); a new lesson only changes its name.
+    // Fails without notification so the caller can show the reason next to the name field.
+    public bool Rename(string newName, out string message)
+    {
+        ResolveReferences();
+        string name = newName?.Trim();
+        if (string.IsNullOrEmpty(name)) { message = "教材名を入力してください。"; return false; }
+        if (graph == null) { message = "教材を取得できないため、名前を変更できません。"; return false; }
+        if (string.Equals(name, CurrentProjectName, StringComparison.Ordinal)) { message = null; return true; }
+        if (NameInUse(name)) { message = "同じ名前の教材があります。別の名前にしてください。"; return false; }
+        try
+        {
+            suppressTracking = true;
+            bool wasDirty = IsDirty;
+            if (HasSavedFile)
+            {
+                CurrentProjectPath = EditorProjectStore.Rename(CurrentProjectPath, name);
+                EditorProjectRecents.Add(CurrentProjectPath);
+            }
+            graph.curriculum.projectName = name;
+            CurrentProjectName = name;
+            // Only the name changed, so a lesson without other changes stays "saved".
+            if (!wasDirty) EstablishCleanBaseline();
+            message = $"教材名を「{name}」に変更しました。";
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Debug.LogWarning("[EditorProject] 名前を変更できません: " + ex.Message);
+            message = "名前を変更できません: " + ex.Message;
+            return false;
+        }
+        finally { suppressTracking = false; }
+    }
+
+    // A fresh session starts with an empty "無題の教材" (not the internal default name).
+    void AdoptUntitledName()
+    {
+        if (graph == null || graph.curriculum == null || HasSavedFile) return;
+        string current = graph.curriculum.projectName;
+        if (!string.IsNullOrWhiteSpace(current) && !string.Equals(current, "VRCourseEditor", StringComparison.Ordinal)) { CurrentProjectName = current; return; }
+        string name = EditorProjectStore.UniqueProjectName(null);
+        graph.curriculum.projectName = name;
+        CurrentProjectName = name;
     }
 
     PlacedObject CreateStagedObject(EditorProjectObject item, Transform stagingRoot)
