@@ -29,6 +29,7 @@ public class PlacementExportService : MonoBehaviour
                 sourceSignature = po.sourceSignature,
                 parts = ImportedModelParts.Capture(po),
                 typeId = po.typeId,
+                displayName = po.GetDisplayName(),
                 position = po.transform.position,
                 rotation = po.transform.rotation,
                 scale = po.transform.localScale

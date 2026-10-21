@@ -31,6 +31,8 @@ public class PlacedObject
     public string id, typeId = "box", sourceNodePath, sourceSignature;
     public PlacedObject modelRoot;
     public Transform transform = new();
+    public string displayName;
+    public string GetDisplayName() => string.IsNullOrWhiteSpace(displayName) ? typeId : displayName;
     public void EnsureHasId() { if (string.IsNullOrEmpty(id)) id = Guid.NewGuid().ToString(); }
 }
 
