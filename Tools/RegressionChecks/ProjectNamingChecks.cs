@@ -2,7 +2,7 @@ using System;
 using System.IO;
 using UnityEngine;
 
-// Untitled-name generation and in-place rename (first-use UX: new, save, rename).
+// Untitled-name generation, in-place rename and startup recovery notice data (first-use UX: start screen, save, rename).
 static class ProjectNamingChecks
 {
     static int checks;
@@ -57,9 +57,26 @@ static class ProjectNamingChecks
         try { EditorProjectStore.Rename(after, "  "); } catch (ArgumentException) { refused = true; }
         Check(refused, "Blank names are rejected");
 
+        foreach (string file in Directory.GetFiles(EditorProjectStore.ProjectsDirectory, "*" + EditorProjectStore.FileSuffix))
+            File.SetLastWriteTimeUtc(file, new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+        File.SetLastWriteTimeUtc(after, new DateTime(2026, 1, 3, 0, 0, 0, DateTimeKind.Utc));
+        File.SetLastWriteTimeUtc(taken0(), new DateTime(2026, 1, 2, 0, 0, 0, DateTimeKind.Utc));
+        File.SetLastWriteTimeUtc(firstPath, new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+        var recent = EditorProjectStore.ListRecentlyWritten(2);
+        Check(recent.Count == 2 && recent[0].Path == after && recent[1].DisplayName == "Taken", "Recent lessons are the newest files, found without opening them");
+
+        var recovery = new EditorProjectFile { projectName = "Unsaved lesson" };
+        EditorProjectStore.SaveRecovery(recovery);
+        Check(EditorProjectStore.TryPreserveRecoveryAtStartup(out bool preserved, out _, out string preservedPath, out string originalName) &&
+            preserved && originalName == "Unsaved lesson" && File.Exists(preservedPath) &&
+            Path.GetFileName(preservedPath) == "Unsaved lesson 復旧" + EditorProjectStore.FileSuffix, "Startup preservation reports the protected file and original name");
+        Check(EditorProjectStore.TryPreserveRecoveryAtStartup(out preserved, out _, out preservedPath, out originalName) &&
+            !preserved && preservedPath == null && originalName == null, "No recovery means no notice data");
         Check(EditorProjectStore.TryGetFileInfo(after, out var info) && info.DisplayName == "After" && !EditorProjectStore.TryGetFileInfo(before, out _),
             "File info is read from the file name without opening it");
     }
+
+    static string taken0() => EditorProjectStore.FindProjectPathByName("Taken");
 
     static void Check(bool value, string label)
     {

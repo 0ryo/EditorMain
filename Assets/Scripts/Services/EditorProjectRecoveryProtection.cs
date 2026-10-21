@@ -6,6 +6,9 @@ public sealed class EditorProjectRecoveryProtection
 {
     public event Action Changed;
     public string Error { get; private set; }
+    // Set when a recovery slot was moved to a protected lesson ("name 復旧") by the latest successful TryPreserve.
+    public string PreservedPath { get; private set; }
+    public string PreservedOriginalName { get; private set; }
     public bool HasFailure => !string.IsNullOrEmpty(Error);
     public string WarningMessage => HasFailure
         ? "起動時の自動保存データを別教材として保護できません。\n" +
@@ -15,7 +18,9 @@ public sealed class EditorProjectRecoveryProtection
 
     public bool TryPreserve(out string message)
     {
-        bool succeeded = EditorProjectStore.TryPreserveRecoveryAtStartup(out bool preserved, out string error);
+        bool succeeded = EditorProjectStore.TryPreserveRecoveryAtStartup(out bool preserved, out string error, out string preservedPath, out string originalName);
+        PreservedPath = preserved ? preservedPath : null;
+        PreservedOriginalName = preserved ? originalName : null;
         SetError(succeeded ? null : string.IsNullOrWhiteSpace(error) ? "復旧データを保護できません。" : error);
         message = succeeded
             ? preserved ? "以前の自動保存データを別教材として保護しました。" : "保護が必要な自動保存データはありません。"

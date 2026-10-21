@@ -21,6 +21,8 @@ public static class EditWorkspace
         if (modal != null) return modal;
         modal = SkillSyncSaveAsDialog.GetOpenModalRoot(within);
         if (modal != null) return modal;
+        modal = SkillSyncStartScreen.GetOpenModalRoot(within);
+        if (modal != null) return modal;
         modal = EditorProjectPanel.GetOpenModalRoot(within);
         if (modal != null) return modal;
         modal = CatalogUI.GetOpenModalRoot();

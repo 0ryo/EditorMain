@@ -4,6 +4,13 @@ using System.Linq;
 using UnityEngine;
 using Unity.Profiling;
 
+public sealed class StartupRecoveryNotice
+{
+    public string path;
+    public string originalName;
+    public DateTime savedAtUtc;
+}
+
 public sealed class EditorProjectService : MonoBehaviour
 {
     static readonly ProfilerMarker BuildCurrentFingerprintMarker = new("EditorProjectService.BuildCurrentFingerprint");
@@ -29,6 +36,8 @@ public sealed class EditorProjectService : MonoBehaviour
     public bool HasSavedFile => !string.IsNullOrEmpty(CurrentProjectPath);
     public enum SaveStatus { NeverSaved, Unsaved, Saved }
     public SaveStatus SaveState => !HasSavedFile ? SaveStatus.NeverSaved : IsDirty ? SaveStatus.Unsaved : SaveStatus.Saved;
+    // Set once at startup when the previous session ended without saving; the start screen offers to open or discard it.
+    public StartupRecoveryNotice StartupRecovery { get; private set; }
     public float AutoSaveIntervalSeconds => autoSaveInterval;
     public string RecoveryProtectionWarning => recoveryProtection.WarningMessage;
 
@@ -68,6 +77,15 @@ public sealed class EditorProjectService : MonoBehaviour
             DefaultAutoSaveIntervalSeconds));
         recoveryProtection.Changed += OnRecoveryProtectionChanged;
         recoveryProtection.TryPreserve(out _);
+        if (!string.IsNullOrEmpty(recoveryProtection.PreservedPath))
+        {
+            StartupRecovery = new StartupRecoveryNotice
+            {
+                path = recoveryProtection.PreservedPath,
+                originalName = recoveryProtection.PreservedOriginalName,
+                savedAtUtc = System.IO.File.GetLastWriteTimeUtc(recoveryProtection.PreservedPath)
+            };
+        }
         ResolveReferences();
         PlacedObject.OnDisplayNameChanged += OnPlacedObjectMetadataChanged;
         PlacedObjectEditState.StateChanged += OnPlacedObjectStateChanged;
@@ -207,7 +225,13 @@ public sealed class EditorProjectService : MonoBehaviour
         return LoadInternal(EditorProjectStore.RecoveryPath, true, out message);
     }
 
-    bool LoadInternal(string path, bool isRecovery, out string message)
+    // Opens a lesson file as a new, never-saved lesson (templates and bundled samples): the source file is never written.
+    public bool OpenCopy(string sourcePath, string baseName, out string message)
+    {
+        return LoadInternal(sourcePath, false, out message, EditorProjectStore.UniqueProjectName(baseName));
+    }
+
+    bool LoadInternal(string path, bool isRecovery, out string message, string copyName = null)
     {
         var catalog = FindFirstObjectByType<CatalogUI>();
         if (catalog != null && catalog.IsRestoringModels)
@@ -224,6 +248,12 @@ public sealed class EditorProjectService : MonoBehaviour
         if (!EditorProjectStore.TryLoad(path, out var project, out var readError))
         {
             return Fail(readError, out message);
+        }
+
+        if (copyName != null)
+        {
+            project.projectName = copyName;
+            if (project.curriculum != null) project.curriculum.projectName = copyName;
         }
 
         int repairedObjectIdCount = EditorProjectLoadPreparation.RepairObjectIds(project);
@@ -252,12 +282,19 @@ public sealed class EditorProjectService : MonoBehaviour
 
             ReplaceCurrentProject(project, staged);
             committed = true;
-            CurrentProjectPath = isRecovery ? null : System.IO.Path.GetFullPath(path);
+            CurrentProjectPath = isRecovery || copyName != null ? null : System.IO.Path.GetFullPath(path);
             CurrentProjectName = project.projectName;
             if (isRecovery)
             {
                 EstablishDirtyBaseline(true);
                 message = $"復旧データを開きました: {CurrentProjectName}";
+            }
+            else if (copyName != null)
+            {
+                // Content exists but has no file yet, so it counts as unsaved work.
+                recoverySession.DeleteOwned(out _);
+                EstablishDirtyBaseline(false);
+                message = $"「{CurrentProjectName}」を開きました。保存するとあなたの教材になります。";
             }
             else
             {
@@ -364,6 +401,21 @@ public sealed class EditorProjectService : MonoBehaviour
         }
         finally { suppressTracking = false; }
     }
+
+    // Moves the protected copy of the previous session's unsaved lesson to the trash (recoverable there).
+    public bool DiscardPreservedRecovery(string path, out string message)
+    {
+        try
+        {
+            EditorProjectStore.Archive(path);
+            StartupRecovery = null;
+            message = "復旧データを破棄しました。必要ならゴミ箱から戻せます。";
+            return true;
+        }
+        catch (Exception ex) { return Fail("復旧データを破棄できません: " + ex.Message, out message); }
+    }
+
+    public void DismissStartupRecovery() => StartupRecovery = null;
 
     // A fresh session starts with an empty "無題の教材" (not the internal default name).
     void AdoptUntitledName()

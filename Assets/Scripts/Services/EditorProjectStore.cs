@@ -150,6 +150,21 @@ public static class EditorProjectStore
         return target;
     }
 
+    // Newest saved lessons by file time, without opening any file.
+    public static IReadOnlyList<EditorProjectFileInfo> ListRecentlyWritten(int count)
+    {
+        var result = new List<EditorProjectFileInfo>();
+        try
+        {
+            if (!Directory.Exists(ProjectsDirectory)) return result;
+            foreach (var file in Directory.GetFiles(ProjectsDirectory, "*" + FileSuffix, SearchOption.TopDirectoryOnly)
+                         .Select(path => new FileInfo(path)).OrderByDescending(file => file.LastWriteTimeUtc).Take(count))
+                result.Add(new EditorProjectFileInfo(file.FullName, RemoveSuffix(file.Name), file.LastWriteTimeUtc));
+        }
+        catch (Exception ex) { Debug.LogWarning("[EditorProjectStore] 最近の教材を取得できません: " + ex.Message); }
+        return result;
+    }
+
     public static bool TryGetFileInfo(string path, out EditorProjectFileInfo info)
     {
         info = null;
@@ -281,9 +296,15 @@ public static class EditorProjectStore
     }
 
     public static bool TryPreserveRecoveryAtStartup(out bool preserved, out string error)
+        => TryPreserveRecoveryAtStartup(out preserved, out error, out _, out _);
+
+    // preservedPath / originalName identify the protected copy ("name 復旧") and the lesson name it was recorded under.
+    public static bool TryPreserveRecoveryAtStartup(out bool preserved, out string error, out string preservedPath, out string originalName)
     {
         preserved = false;
         error = null;
+        preservedPath = null;
+        originalName = null;
 
         try
         {
@@ -293,7 +314,8 @@ public static class EditorProjectStore
             // A name (or timestamp) cannot identify the original project. Preserve
             // the exact recovery bytes as a separate lesson before any new session
             // can replace/delete the shared recovery slot. Move never overwrites.
-            MoveToAvailableName(RecoveryPath, ProjectsDirectory, recovery.projectName + " 復旧");
+            preservedPath = MoveToAvailableName(RecoveryPath, ProjectsDirectory, recovery.projectName + " 復旧");
+            originalName = recovery.projectName;
             preserved = true;
             return true;
         }

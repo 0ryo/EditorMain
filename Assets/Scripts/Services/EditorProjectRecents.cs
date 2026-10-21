@@ -10,6 +10,7 @@ public static class EditorProjectRecents
     const string PrefsKey = "SkillSync.Editor.RecentProjects";
     const int MaxStored = 12;
 
+    // Recently used lessons first; if fewer than count were used on this computer, the most recently saved ones fill the rest.
     public static IReadOnlyList<EditorProjectFileInfo> Get(int count)
     {
         var result = new List<EditorProjectFileInfo>();
@@ -18,6 +19,12 @@ public static class EditorProjectRecents
             if (result.Count >= count) break;
             if (EditorProjectStore.TryGetFileInfo(path, out var info)) result.Add(info);
         }
+        if (result.Count < count)
+            foreach (var info in EditorProjectStore.ListRecentlyWritten(count + result.Count))
+            {
+                if (result.Count >= count) break;
+                if (!result.Any(item => string.Equals(item.Path, info.Path, StringComparison.OrdinalIgnoreCase))) result.Add(info);
+            }
         return result;
     }
 

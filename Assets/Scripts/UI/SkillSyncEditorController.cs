@@ -134,6 +134,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         GraphChanged();RebuildLibrary();Refresh();GetComponent<CanvasGroup>().alpha=1;
         if (!string.IsNullOrEmpty(project.RecoveryProtectionWarning))
             EditorProjectPanel.Ensure(transform.root)?.ShowRecoveryProtectionWarning();
+        else SkillSyncStartScreen.ShowAtLaunch(this, project);
     }
     void OnDisable()
     {

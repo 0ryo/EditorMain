@@ -10,7 +10,8 @@ using UnityEngine;
 using UnityEngine.TestTools;
 using UnityEngine.UI;
 
-// First-use flows: untitled lessons, never-saved state, in-place rename, save-as with replace confirmation.
+// First-use flows: untitled lessons, never-saved state, in-place rename, save-as with replace confirmation,
+// templates/samples opened as copies, the startup recovery notice and the modal screens' layout.
 public sealed class FirstUseFlowTests
 {
     readonly List<GameObject> roots = new List<GameObject>();
@@ -80,6 +81,48 @@ public sealed class FirstUseFlowTests
     }
 
     [UnityTest]
+    public IEnumerator TemplateOpensAsUnsavedCopyAndLeavesTheTemplateAlone()
+    {
+        var service = CreateService(withPlacement: true);
+        yield return null;
+        var project = Activator.CreateInstance(RuntimeType("EditorProjectFile"));
+        project.GetType().GetField("projectName").SetValue(project, "Template lesson");
+        string templatePath = (string)Store("Save").Invoke(null, new[] { project, "Template lesson" });
+        string bytes = File.ReadAllText(templatePath);
+        Call(service, "Save", "Template lesson 2", null); // the name "Template lesson" is now taken by the template file itself
+
+        var args = new object[] { templatePath, "Template lesson", null };
+        Assert.That(Call(service, "OpenCopy", args), Is.True, (string)args[2]);
+        Assert.That(Prop(service, "HasSavedFile"), Is.False, "A copy has no file until the first save.");
+        Assert.That(Prop(service, "IsDirty"), Is.True, "Quitting must offer to save the copy.");
+        Assert.That(Prop(service, "CurrentProjectName"), Is.EqualTo("Template lesson 3"), "The copy gets a free name next to the existing ones.");
+        Assert.That(File.ReadAllText(templatePath), Is.EqualTo(bytes));
+    }
+
+    [UnityTest]
+    public IEnumerator PreviousSessionsUnsavedLessonIsReportedForTheStartScreen()
+    {
+        var crashed = Activator.CreateInstance(RuntimeType("EditorProjectFile"));
+        crashed.GetType().GetField("projectName").SetValue(crashed, "Crashed lesson");
+        Store("SaveRecovery").Invoke(null, new[] { crashed });
+        var service = CreateService(withPlacement: false);
+        yield return null;
+
+        var notice = Prop(service, "StartupRecovery");
+        Assert.That(notice, Is.Not.Null);
+        Assert.That(notice.GetType().GetField("originalName").GetValue(notice), Is.EqualTo("Crashed lesson"));
+        string preserved = (string)notice.GetType().GetField("path").GetValue(notice);
+        Assert.That(Path.GetFileName(preserved), Is.EqualTo("Crashed lesson 復旧.skillsync.json"));
+        Assert.That(File.Exists(preserved), Is.True, "The data is already protected in the lesson list.");
+
+        var args = new object[] { preserved, null };
+        Assert.That(Call(service, "DiscardPreservedRecovery", args), Is.True);
+        Assert.That(File.Exists(preserved), Is.False);
+        Assert.That(Directory.GetFiles(Path.Combine(sandbox, "Trash", "Projects"), "*.skillsync.json").Length, Is.EqualTo(1), "Discarded data goes to the trash, not away.");
+        Assert.That(Prop(service, "StartupRecovery"), Is.Null);
+    }
+
+    [UnityTest]
     public IEnumerator SavingANeverSavedLessonAsksForANameAndConfirmsReplacement()
     {
         var service = CreateService(withPlacement: false);
@@ -124,6 +167,65 @@ public sealed class FirstUseFlowTests
         RuntimeType("EditorProjectSaveFlow").GetMethod("Run").Invoke(null, new object[] { service, (Action<bool>)(saved => finished = saved) });
         Assert.That(finished, Is.True);
         Assert.That(HasOpenModal(), Is.False);
+    }
+
+    [UnityTest]
+    public IEnumerator StartScreenIsAModalThatFitsTheScreen()
+    {
+        var service = CreateService(withPlacement: false);
+        var canvas = CreateCanvas();
+        yield return null;
+        var saved = Activator.CreateInstance(RuntimeType("EditorProjectFile"));
+        Store("Save").Invoke(null, new[] { saved, "Recent lesson" });
+        RuntimeType("SkillSyncStartScreen").GetMethod("Show").Invoke(null, new object[] { canvas.transform, service });
+        yield return null;
+        Canvas.ForceUpdateCanvases();
+        Assert.That((bool)RuntimeType("SkillSyncStartScreen").GetProperty("IsOpen").GetValue(null), Is.True);
+        Assert.That(HasOpenModal(), Is.True, "The start screen blocks editing behind it.");
+
+        var screen = canvas.transform.Find("SkillSyncStartScreen");
+        var panel = (RectTransform)screen.Find("Panel");
+        float scale = panel.localScale.x;
+        var canvasRect = (RectTransform)canvas.transform;
+        Assert.That(panel.rect.height * scale, Is.LessThan(canvasRect.rect.height), "The start screen must fit a 1440-high canvas.");
+        Assert.That(panel.rect.width * scale, Is.LessThan(canvasRect.rect.width));
+        Assert.That(panel.Find("Cards").childCount, Is.GreaterThanOrEqualTo(2));
+        Assert.That(panel.GetComponentsInChildren(RuntimeType("TMPro.TMP_Text")).Any(text => (string)Prop(text, "text") == "最近使った教材"), Is.True);
+    }
+
+    [UnityTest]
+    public IEnumerator BundledSampleOpensAsACopyWhenItsModelsAreAvailable()
+    {
+        var sampleType = RuntimeType("SkillSyncSamples");
+        var sample = sampleType.GetMethod("TireChange").Invoke(null, null);
+        Assert.That(sample, Is.Not.Null, "The sample ships in StreamingAssets/Samples/TireChange.");
+        string lessonPath = (string)sample.GetType().GetField("projectPath").GetValue(sample);
+        string lessonBytes = File.ReadAllText(lessonPath);
+        var service = CreateService(withPlacement: true);
+        var placement = UnityEngine.Object.FindFirstObjectByType(RuntimeType("PlacementController"));
+        yield return null;
+
+        // Register the sample's models the way the app does (loaded from the bundled files).
+        var models = (System.Collections.IEnumerable)sample.GetType().GetField("models").GetValue(sample);
+        var loader = RuntimeType("RuntimeModelLoader").GetMethod("LoadModelAsync");
+        foreach (var model in models)
+        {
+            string typeId = (string)model.GetType().GetField("Item1").GetValue(model);
+            string path = (string)model.GetType().GetField("Item4").GetValue(model);
+            var task = (System.Threading.Tasks.Task)loader.Invoke(null, new object[] { path, default(System.Threading.CancellationToken), null });
+            while (!task.IsCompleted) yield return null;
+            Assert.That(task.IsFaulted, Is.False, task.Exception?.ToString());
+            var prefab = (GameObject)task.GetType().GetProperty("Result").GetValue(task);
+            roots.Add(prefab);
+            Assert.That((bool)placement.GetType().GetMethod("RegisterRuntimePrefab").Invoke(placement, new object[] { typeId, prefab }), Is.True);
+        }
+
+        var args = new object[] { lessonPath, "タイヤ交換（見本）", null };
+        Assert.That(Call(service, "OpenCopy", args), Is.True, (string)args[2]);
+        Assert.That(Prop(service, "CurrentProjectName"), Is.EqualTo("タイヤ交換（見本）"));
+        Assert.That(Prop(service, "HasSavedFile"), Is.False);
+        Assert.That(UnityEngine.Object.FindObjectsByType(RuntimeType("PlacedObject"), FindObjectsInactive.Exclude, FindObjectsSortMode.None).Length, Is.GreaterThanOrEqualTo(6));
+        Assert.That(File.ReadAllText(lessonPath), Is.EqualTo(lessonBytes), "The shipped sample is never written.");
     }
 
     // ---- helpers -------------------------------------------------------------------------------------------

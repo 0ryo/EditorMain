@@ -204,6 +204,40 @@ public class CatalogUI : MonoBehaviour
         finally { IsRestoringModels = false; }
     }
 
+    // Makes a 3D model that ships with the app (for the sample lesson) available under a fixed type ID, importing it once.
+    // True when the model is usable. A model the user already added under the same ID is reused.
+    public async System.Threading.Tasks.Task<bool> EnsureBundledModelAsync(string typeId, string displayName, string description, string sourcePath)
+    {
+        while (IsRestoringModels) await System.Threading.Tasks.Task.Yield();
+        if (this == null || placementController == null) return false;
+        if (placementController.TryGetPrefab(typeId, out var existing) && existing != null) return true;
+        ImportedModelRecord saved = null;
+        bool registered = false;
+        try
+        {
+            saved = ImportedModelStore.Save(sourcePath, typeId, displayName, description, sourcePath);
+            var prefab = await RuntimeModelLoader.LoadModelAsync(ImportedModelStore.ResolveModelPath(saved));
+            if (this == null) { if (prefab != null) Destroy(prefab); return false; }
+            if (prefab == null || !placementController.RegisterRuntimePrefab(typeId, prefab)) return false;
+            saved.prefab = prefab;
+            importedModels.Add(saved);
+            registered = true;
+            RebuildCards();
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Debug.LogWarning("[Sample model] " + displayName + "\n" + ex);
+            return false;
+        }
+        finally
+        {
+            // A model that could not be loaded must not stay in the library as a broken entry.
+            if (!registered && saved != null)
+                try { System.IO.Directory.Delete(System.IO.Path.GetDirectoryName(saved.recordPath), true); } catch (Exception) { }
+        }
+    }
+
     void OnDestroy()
     {
         if (activeCatalog == this) activeCatalog = null;

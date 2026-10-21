@@ -298,11 +298,14 @@ public sealed class EditorProjectPanel : MonoBehaviour
         projectNameInput.SetTextWithoutNotify(string.IsNullOrWhiteSpace(name) ? EditorProjectStore.UntitledProjectName : name);
     }
 
-    public void OpenForDesignUi()
+    public void OpenForDesignUi() => OpenLibraryTab(0);
+
+    // tab: 0 saved lessons, 1 templates, 2 trash. Always starts on the requested tab, not on a previous one.
+    public void OpenLibraryTab(int tab)
     {
         gameObject.SetActive(true);
         if (projectService == null) Build();
-        libraryMode = 0; // Always begin with saved lessons, not a previous Trash/Templates tab.
+        libraryMode = Mathf.Clamp(tab, 0, 2);
         Open();
     }
 
@@ -413,6 +416,42 @@ public sealed class EditorProjectPanel : MonoBehaviour
         }
 
         OpenNow(info, done);
+    }
+
+    // Opens a template (or bundled sample) as a new, unsaved lesson; the source stays untouched. done(true) once it is open.
+    public void RequestCreateFrom(string sourcePath, string baseName, Action<bool> done = null)
+    {
+        if (projectService.IsDirty)
+        {
+            Ask("現在の教材を保存しますか？",
+                $"「{projectService.CurrentProjectName}」に未保存の変更があります。「{baseName}」から新しい教材を作る前に保存しますか？",
+                "保存して作成",
+                () => EditorProjectSaveFlow.Run(projectService, saved => { if (saved) CreateNow(sourcePath, baseName, done); else done?.Invoke(false); }),
+                secondaryLabel: "保存せず作成", onSecondary: () => CreateNow(sourcePath, baseName, done));
+            return;
+        }
+
+        CreateNow(sourcePath, baseName, done);
+    }
+
+    void CreateNow(string sourcePath, string baseName, Action<bool> done)
+    {
+        bool created = projectService.OpenCopy(sourcePath, baseName, out var message);
+        if (created)
+        {
+            Close();
+            if (projectNameInput != null) SyncNameInput();
+            RefreshSaveButtonLabel();
+            TopCenterNotification.Ensure(uiRoot, null)?.Show(message, false, 5f);
+        }
+        done?.Invoke(created);
+    }
+
+    public static string TemplateBaseName(string displayName)
+    {
+        const string suffix = " テンプレート";
+        return displayName.EndsWith(suffix, StringComparison.Ordinal) && displayName.Length > suffix.Length
+            ? displayName.Substring(0, displayName.Length - suffix.Length) : displayName;
     }
 
     void OpenNow(EditorProjectFileInfo info, Action<bool> done)
@@ -528,7 +567,8 @@ public sealed class EditorProjectPanel : MonoBehaviour
             else
             {
                 if (libraryMode == 0) AddLibraryAction(row, "開く", 0, () => RequestLoad(info));
-                AddLibraryAction(row, libraryMode == 1 ? "教材を作成" : "複製", 1, () => DuplicateSaved(info, false));
+                if (libraryMode == 1) AddLibraryAction(row, "教材を作成", 1, () => RequestCreateFrom(info.Path, TemplateBaseName(info.DisplayName)));
+                else AddLibraryAction(row, "複製", 1, () => DuplicateSaved(info, false));
                 if (libraryMode == 0) AddLibraryAction(row, "テンプレート化", 2, () => DuplicateSaved(info, true));
                 var delete = AddLibraryAction(row, "削除", 3, () => Ask(
                     "教材をゴミ箱へ移しますか？",
