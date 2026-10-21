@@ -128,9 +128,8 @@ public static class SkillSyncConditionEditorView
                 visual.target.SetActive(inspector && condition != null && (visual.mask & (1 << view.State)) != 0);
             if (visual.role == "objectB" || visual.role?.StartsWith("conditionTargetB", StringComparison.Ordinal) == true)
                 visual.target.SetActive(inspector && condition != null && requiresB && (visual.mask & (1 << view.State)) != 0);
-            if (visual.role == "conditionTargetALabel") visual.label.text = requiresB ? "動かすもの" : "対象";
-            if (visual.role == "conditionTargetBLabel") visual.label.text = condition?.type == ConditionTypeCatalog.RotationMatch ? "向きの基準" :
-                condition?.type == ConditionTypeCatalog.Separation ? "離す基準" : "近づける先";
+            if (visual.role == "conditionTargetALabel") visual.label.text = SkillSyncConditionEditing.TargetLabelA(condition?.type);
+            if (visual.role == "conditionTargetBLabel") visual.label.text = SkillSyncConditionEditing.TargetLabelB(condition?.type);
             for (int slot = 0; slot < 2; slot++)
             {
                 if (visual.role?.StartsWith("conditionParameter" + slot, StringComparison.Ordinal) != true) continue;

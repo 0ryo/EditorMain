@@ -51,6 +51,11 @@ public sealed class SkillSyncEditorController : MonoBehaviour
     Transform labelTargetA, labelTargetB;
     readonly Vector3[] corners = new Vector3[4];
     GraphValidationResult validation;
+    // The errors as the user reads them, in step order; the last one jumped to is remembered for "next problem".
+    List<ValidationEntry> issues=new();
+    readonly Dictionary<string,List<ValidationEntry>> issuesByStep=new();
+    readonly Dictionary<string,ValidationEntry> issueByCondition=new();
+    string lastIssueKey;int lastIssueOrder=-1;
     // Distance conditions whose limit is smaller than the two parts' sizes allow (condition node id -> message).
     readonly Dictionary<string,string> distanceWarnings = new();
     readonly HashSet<string> stepsWithWarning = new();
@@ -97,6 +102,9 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         view.EnsureConditionControls();
         view.EnsureStepControls();
         view.EnsureWalkthroughControl();
+        view.EnsureIssueControls();
+        view.SetCaption("該当箇所を修正","最初の問題へ移動");
+        if(view.issueList!=null) view.issueList.Selected=SelectIssue;
         SkillSyncConditionEditorView.Ensure(view);
         if(view.conditionList!=null) view.conditionList.Selected=SelectCondition;
         if(view.trialList!=null) view.trialList.ActionClicked=ManualSucceed;
@@ -336,7 +344,8 @@ public sealed class SkillSyncEditorController : MonoBehaviour
                 return;
             case "↑ 教材を書き出す": Export();return;
             case "編集を続ける": mode=1;view.Show(1);break;
-            case "該当箇所を修正": FocusIssue();return;
+            case "該当箇所を修正": if(issues.Count>0) JumpToIssue(issues[0]);return;
+            case "IssueChip": NextIssue();return;
             case "編集に戻る": EndTrial();mode=1;break;
             case "Ⅱ 一時停止": if(trial!=null) {trial.Paused=!trial.Paused;UpdateTrialGizmo();Notify(trial.Paused?"一時停止中です。「再開」で続けます":"再開しました",false);}break;
             case "初期配置に戻す": case "もう一度試す": ResetTrial();logs.Clear();trialTime=0;break;
@@ -597,18 +606,18 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         try
         {
             validation=graph.ValidateGraph();
-            validationErrorCount=validation.errors.Count;
-            stepsWithIssue.Clear();
-            foreach(var issue in validation.errors)
+            issues=ScenarioValidationText.BuildEntries(graph,validation,PlacedLookup().ContainsKey);
+            validationErrorCount=issues.Count;
+            stepsWithIssue.Clear();issuesByStep.Clear();issueByCondition.Clear();
+            foreach(var issue in issues)
             {
-                var node=graph.FindNode(issue.nodeId);
-                if(node==null) continue;
-                if(node.nodeType==ScenarioNodeType.Step) stepsWithIssue.Add(node.nodeId);
-                else if(node.nodeType==ScenarioNodeType.Condition)
+                if(!string.IsNullOrEmpty(issue.stepId))
                 {
-                    string owner=graph.GetConditionBoundStepNodeId(node.nodeId);
-                    if(!string.IsNullOrEmpty(owner)) stepsWithIssue.Add(owner);
+                    stepsWithIssue.Add(issue.stepId);
+                    if(!issuesByStep.TryGetValue(issue.stepId,out var list)) issuesByStep[issue.stepId]=list=new List<ValidationEntry>();
+                    list.Add(issue);
                 }
+                if(!string.IsNullOrEmpty(issue.conditionId) && !issueByCondition.ContainsKey(issue.conditionId)) issueByCondition[issue.conditionId]=issue;
             }
         }
         finally {validating=false;}
@@ -662,7 +671,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         string after=validationErrorCount+"|"+string.Join(",",stepsWithIssue.OrderBy(i=>i,StringComparer.Ordinal))+"|"+warningSignature;
         if(before!=after) RebuildSteps();
     }
-    string ValidationSummary() => validationErrorCount>0?"エラー"+validationErrorCount+"件":distanceWarnings.Count>0?"注意"+distanceWarnings.Count+"件":"問題なし";
+    string ValidationSummary() => validationErrorCount>0?"要修正"+validationErrorCount+"件":distanceWarnings.Count>0?"注意"+distanceWarnings.Count+"件":"問題なし";
     // Two-step confirm: the first press arms a 4 s window and the second press inside it proceeds.
     bool ConfirmTwice(string key,string message)
     {
@@ -792,6 +801,9 @@ public sealed class SkillSyncEditorController : MonoBehaviour
             bool hasIssue=stepsWithIssue.Contains(step.nodeId),hasWarning=!hasIssue && stepsWithWarning.Contains(step.nodeId);
             int conditionCount=graph.GetConditionCountForStep(step.nodeId);
             string summary=(conditionCount==0?"条件なし":"条件"+conditionCount+"件")+(string.IsNullOrWhiteSpace(step.step.body)?"":" ｜ "+step.step.body);
+            // The reason comes first, so a flagged step says what to fix without opening it.
+            string reason=hasIssue?StepIssueReason(step.nodeId):hasWarning?"距離が小さすぎて、成立しない可能性があります":null;
+            if(reason!=null) summary="⚠ "+reason+"\n"+summary;
             row.Set(hasIssue?"⚠ "+title+"（要修正）":hasWarning?"⚠ "+title+"（要確認）":title,summary,(i+1).ToString(),step.nodeId==stepId,!hasIssue && !hasWarning);
             row.button.onClick.AddListener(()=>{EndTrial();pickTarget=null;GetComponent<SkillSyncObjectPicker>()?.Close();stepId=step.nodeId;conditionId=null;mode=1;GraphChanged();});
         }
@@ -801,6 +813,11 @@ public sealed class SkillSyncEditorController : MonoBehaviour
             int at=steps.FindIndex(s=>s.nodeId==stepId);
             if(at>=0 && at<stepRows.Count) ScrollIntoView(view.stepsContent,(RectTransform)stepRows[at].transform);
         }
+    }
+    string StepIssueReason(string stepId)
+    {
+        if(!issuesByStep.TryGetValue(stepId,out var list) || list.Count==0) return "修正が必要です";
+        return list[0].Reason+(list.Count>1?"（ほか"+(list.Count-1)+"件）":"");
     }
     // A blank title shows the step's position, which is also what the export names it.
     static string StepTitle(ScenarioNode step,int index) => string.IsNullOrWhiteSpace(step.step.title)?"手順 "+(index+1):step.step.title;
@@ -910,8 +927,10 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         view.Enable("DeleteStep",Step!=null && trial==null && ghost==null);
         if(view.conditionList!=null) view.conditionList.SetItems(conditions.Select((c,i)=>ConditionItem(c,i,lookup)).ToList());
         view.Text("conditionSummary",Step==null?"先に手順を追加してください":Condition==null?"完了条件がありません。下の＋で追加してください":
-            SkillSyncConditionEditing.Summary(Condition.condition)+(valid?"":"\n\n⚠ 対象が未設定です"));
+            SkillSyncConditionEditing.Summary(Condition.condition)+(valid?"":"\n\n⚠ "+(issueByCondition.TryGetValue(Condition.nodeId,out var conditionIssue)?conditionIssue.what+"。"+conditionIssue.action:"対象が未設定です")));
         SkillSyncConditionEditorView.Refresh(view,Condition?.condition,canTrial,Condition!=null && distanceWarnings.TryGetValue(Condition.nodeId,out var warning)?warning:null);
+        view.SetVisible("IssueChip",issues.Count>0 && !Modal);
+        if(issues.Count>0) view.SetCaption("IssueChip","⚠ 要修正 "+issues.Count+"件｜"+(issues.Count==1?"場所へ移動":"次の問題へ"));
         view.Enable("▶ この条件を試す",true);
         view.Enable("動作を確認",true);
         view.Enable("↑ 上へ",index>1);view.Enable("↓ 下へ",index>0 && index<graph.GetDisplayOrderedSteps().Count);
@@ -950,7 +969,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         string targets=a==null?"対象が未設定":ConditionTypeCatalog.RequiresObjectB(c.type)?a+" → "+(b??"未設定"):a;
         bool valid=SkillSyncConditionEditing.TargetsValid(c,lookup.ContainsKey),warn=true;
         string detail;
-        if(!valid) detail="⚠ 対象が未設定です";
+        if(!valid) detail="⚠ "+(issueByCondition.TryGetValue(node.nodeId,out var issue)?issue.what:"対象が未設定です");
         else if(distanceWarnings.ContainsKey(node.nodeId)) detail="⚠ 距離が小さすぎて成立しない可能性があります";
         else {warn=false;detail=SkillSyncConditionEditing.SupportsPcTrial(c)?SkillSyncConditionEditing.Detail(c):SkillSyncConditionEditing.PcUnsupportedText;}
         bool selected=node.nodeId==conditionId;
@@ -1224,34 +1243,43 @@ public sealed class SkillSyncEditorController : MonoBehaviour
     {
         if(trial!=null || ghost!=null) return;
         string caution=DistanceCaution();
+        // Only a lesson that can be exported asks where to put it; problems are reported right away.
+        string root=null;
+        if(graph.ValidateGraph().CanExport)
+        {
+            root=ExportDestinationPicker.Choose(out bool cancelled);
+            if(cancelled) {Notify("書き出しを中止しました。もう一度「教材を書き出す」を押して、書き出し先を選んでください",false);return;}
+        }
+        string materialName=project.CurrentProjectName;
         var result=TeachingMaterialExportWorkflow.Run(
             (out string message)=>project.Save(project.CurrentProjectName,out message),
             ()=>{validation=graph.ValidateGraph();return validation.CanExport;},
-            ()=>TeachingMaterialExportService.Export(graph.BuildScenarioExport(),placement));
+            ()=>TeachingMaterialExportService.Export(graph.BuildScenarioExport(),placement,root,materialName));
         status=result.message;
         if(result.outcome==TeachingMaterialExportWorkflow.Outcome.InvalidGraph)
         {
-            TopCenterNotification.Ensure(transform, view.inspectorTitle)?.Show("教材を書き出せません: " + ScenarioValidationText.GetFriendlyMessage(validation.errors[0]), true);
-            view.Show(5);RefreshValues();
-            var issue=validation.errors[0];
-            int shown=Math.Min(5,validation.errors.Count);
-            view.Text("errorCount","要修正 "+validation.errors.Count+"件"+(validation.errors.Count>shown?"（ほか "+(validation.errors.Count-shown)+"件）":""));
-            view.Text("errorSummary",ScenarioValidationText.GetFriendlyMessage(issue));
-            foreach(var v in view.visuals) if((v.role=="errorTitle"||v.role=="errorSummary") && v.label!=null) {v.label.textWrappingMode=TextWrappingModes.Normal;v.label.overflowMode=TextOverflowModes.Ellipsis;}
-            view.Text("draftStatus","再編集用の下書きは保存されています。修正後に「教材を書き出す」を再試行してください。");
-            view.Text("errorTitle",ScenarioValidationText.GetFriendlyMessage(issue));
-            view.Text("errorDetail",string.Join("\n",validation.errors.Take(shown).Select(e=>ErrorLine(e))));
+            Revalidate();
+            var first=issues.FirstOrDefault();
+            TopCenterNotification.Ensure(transform, view.inspectorTitle)?.Show("教材を書き出せません: "+(first!=null?first.Message:"手順と完了条件を確認してください")+(issues.Count>1?"（ほか"+(issues.Count-1)+"件）":""), true);
+            view.Show(5);RefreshValues();RebuildSteps();
+            view.Text("errorCount","要修正 "+issues.Count+"件");
+            view.Text("errorSummary","教材は保存済みです。直す場所の行を押すと、そこへ移動します");
+            foreach(var v in view.visuals) if(v.role=="errorSummary" && v.label!=null) {v.label.textWrappingMode=TextWrappingModes.Normal;v.label.overflowMode=TextOverflowModes.Ellipsis;}
+            view.issueList?.SetItems(issues.Select((e,i)=>new SkillSyncItemList.Item{id=i.ToString(),number=e.stepNumber,badge=e.stepNumber>0?null:"!",title=e.Line,detail=e.action,warn=true}).ToList());
             var fix=view.controls.FirstOrDefault(c=>c.action=="該当箇所を修正");
             if(fix!=null) UnityEngine.EventSystems.EventSystem.current?.SetSelectedGameObject(fix.button.gameObject);
             return;
         }
         if(result.outcome==TeachingMaterialExportWorkflow.Outcome.Exported)
         {
+            string zip=TeachingMaterialArchive.GetPath(result.exportPath);
+            string message="教材を書き出しました。XRアプリには「"+System.IO.Path.GetFileName(zip)+"」を渡してください"+caution;
             string dir=System.IO.Path.GetDirectoryName(result.exportPath);
+            float seconds=caution.Length>0?24f:16f;
             if(string.IsNullOrEmpty(dir) || !System.IO.Path.IsPathRooted(dir))
-                TopCenterNotification.Ensure(transform, view.inspectorTitle)?.Show("再編集用データを保存し、教材を書き出しました"+caution, false, caution.Length>0?14f:8f);
+                TopCenterNotification.Ensure(transform, view.inspectorTitle)?.Show(message, false, 8f);
             else
-                TopCenterNotification.Ensure(transform, view.inspectorTitle)?.Show("再編集用データを保存し、教材を書き出しました"+caution+": "+dir, false, caution.Length>0?14f:8f, "フォルダを開く", ()=>Application.OpenURL(new System.Uri(dir).AbsoluteUri));
+                TopCenterNotification.Ensure(transform, view.inspectorTitle)?.Show(message, false, seconds, ExportDestinationPicker.RevealLabel, ()=>ExportDestinationPicker.Reveal(zip));
         }
         else
         {
@@ -1260,26 +1288,40 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         }
         RefreshValues();
     }
-    string ErrorLine(GraphValidationIssue e)
+    void SelectIssue(string id)
     {
-        string text=ScenarioValidationText.GetFriendlyMessage(e),owner=graph.FindNode(e.nodeId)?.nodeType==ScenarioNodeType.Condition?graph.GetConditionBoundStepNodeId(e.nodeId):e.nodeId;
-        int n=graph.GetDisplayOrderedSteps().FindIndex(x=>x.nodeId==owner);
-        return n>=0?"手順"+(n+1)+"："+text:text;
+        if(int.TryParse(id,out int index) && index>=0 && index<issues.Count) JumpToIssue(issues[index]);
     }
-    void FocusIssue()
+    // Moves on from the problem last shown (or the first one), wrapping around; fixing one does not skip the next.
+    void NextIssue()
     {
-        var issue=validation?.errors.FirstOrDefault();var node=graph.FindNode(issue?.nodeId);
-        if(node?.nodeType==ScenarioNodeType.Condition) {conditionId=node.nodeId;stepId=graph.GetConditionBoundStepNodeId(node.nodeId);}
-        else if(node?.nodeType==ScenarioNodeType.Step) {stepId=node.nodeId;conditionId=null;}
-        view.Show(1);mode=1;GraphChanged();
-        switch(issue?.code)
+        if(issues.Count==0) return;
+        int at=lastIssueKey==null?-1:issues.FindIndex(e=>IssueKey(e)==lastIssueKey);
+        if(at>=0) at=(at+1)%issues.Count;
+        else {at=lastIssueOrder<0?0:issues.FindIndex(e=>e.order>=lastIssueOrder);if(at<0) at=0;}
+        JumpToIssue(issues[at]);
+    }
+    static string IssueKey(ValidationEntry e) => e.stepId+"|"+e.conditionId+"|"+e.Reason;
+    // Opens the step (and condition) a problem belongs to in the step screen and says what to do there.
+    void JumpToIssue(ValidationEntry issue)
+    {
+        EndTrial();CancelGhost();pickTarget=null;GetComponent<SkillSyncObjectPicker>()?.Close();
+        lastIssueKey=IssueKey(issue);lastIssueOrder=issue.order;
+        if(!string.IsNullOrEmpty(issue.stepId) && graph.FindNode(issue.stepId)!=null) {stepId=issue.stepId;conditionId=issue.conditionId;}
+        mode=1;view.Show(1);
+        GraphChanged();
+        int position=issues.FindIndex(e=>IssueKey(e)==lastIssueKey)+1;
+        string count=issues.Count>1 && position>0?"（"+position+"/"+issues.Count+"）":"";
+        string next=issues.Count>1?"。直したら、上の「要修正」で次の問題へ移動できます":"";
+        if((issue.field=="A" || issue.field=="B") && Condition!=null && Condition.nodeId==issue.conditionId)
         {
-            case "E-08": case "E-10":
-                if(Condition!=null) {BeginPick(string.IsNullOrEmpty(Condition.condition.objectAId)?"A":"B");Notify("対象を3D画面または配置した部品の一覧から選んでください",false);RefreshValues();return;}
-                break;
+            BeginPick(issue.field);
+            Notify(count+issue.Line+"。3D画面または「配置した部品」の一覧から選んでください"+next,true);
         }
-        if(Condition!=null) {Notify(ScenarioValidationText.GetFriendlyMessage(issue),true);}
-        else {Notify(issue!=null?ScenarioValidationText.GetFriendlyMessage(issue):"手順を確認してください",true);view.Focus("stepTitle");}
+        else
+        {
+            Notify(count+issue.Message+next,true);
+        }
         RefreshValues();
     }
 }

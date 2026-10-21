@@ -80,7 +80,8 @@ internal static class CurriculumGraphValidator
         var stepFlowEdges = curriculum.edges.Where(e => e != null && e.edgeType == ScenarioEdgeType.StepFlow).ToList();
         var conditionBindEdges = curriculum.edges.Where(e => e != null && e.edgeType == ScenarioEdgeType.ConditionBind).ToList();
 
-        if (startNodes.Count == 1)
+        // With no steps the only thing to tell the user is that there are none; Start/End links are internal.
+        if (startNodes.Count == 1 && stepNodes.Count > 0)
         {
             int outCount = stepFlowEdges.Count(e => e.fromNodeId == startNodes[0].nodeId);
             if (outCount != 1)
@@ -89,7 +90,7 @@ internal static class CurriculumGraphValidator
             }
         }
 
-        if (endNodes.Count == 1)
+        if (endNodes.Count == 1 && stepNodes.Count > 0)
         {
             int inCount = stepFlowEdges.Count(e => e.toNodeId == endNodes[0].nodeId);
             if (inCount < 1)
@@ -183,7 +184,9 @@ internal static class CurriculumGraphValidator
                 result.AddWarning("W-01", $"このステップの条件数が設定上限（{maxConditions}件）に達しています。", step.nodeId);
             }
 
+            // Conditions without targets are reported as unassigned; two empty ones are not "duplicates".
             var duplicateKeys = conditions
+                .Where(c => graph.IsConditionConfigured(c))
                 .Select(c => $"{c.condition.type}|{c.condition.objectAId}|{(ConditionTypeCatalog.RequiresObjectB(c.condition.type) ? c.condition.objectBId : string.Empty)}|{ConditionTypeCatalog.BuildParameterSignature(c.condition)}")
                 .GroupBy(k => k)
                 .Where(g => g.Count() > 1)

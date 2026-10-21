@@ -9,7 +9,7 @@ public sealed class SkillSyncItemList : MonoBehaviour
 {
     public struct Item
     {
-        public string id, title, detail, tag, actionLabel;
+        public string id, title, detail, tag, actionLabel, badge;
         public int number;
         public bool selected, warn, done;
     }
@@ -70,7 +70,7 @@ public sealed class SkillSyncItemList : MonoBehaviour
     public void SetItems(IReadOnlyList<Item> items)
     {
         string next = width.ToString("0") + "|" + string.Join("¦", Array.ConvertAll(ToArray(items),
-            i => string.Join("¤", i.id, i.title, i.detail, i.tag, i.actionLabel, i.number, i.selected, i.warn, i.done)));
+            i => string.Join("¤", i.id, i.title, i.detail, i.tag, i.actionLabel, i.badge, i.number, i.selected, i.warn, i.done)));
         Count = items.Count;
         current = new List<Item>(items);
         content.sizeDelta = new Vector2(0, ContentHeight);
@@ -138,7 +138,7 @@ public sealed class SkillSyncItemList : MonoBehaviour
         badgeGraphic.radius = 12; badgeGraphic.borderWidth = 0; badgeGraphic.raycastTarget = false;
         badgeGraphic.color = item.done ? Ok : item.selected ? Blue : Badge;
         var number = Label(badge.transform, "Text", 0, 0, 24, 24, 13, (item.done || item.selected) ? Color.white : Ink, TextAlignmentOptions.Midline, FontWeight.Bold);
-        number.text = item.done ? "✓" : item.number.ToString();
+        number.text = item.done ? "✓" : item.badge ?? item.number.ToString();
 
         bool action = !string.IsNullOrEmpty(item.actionLabel);
         float right = action ? 134 : string.IsNullOrEmpty(item.tag) ? 10 : 72;

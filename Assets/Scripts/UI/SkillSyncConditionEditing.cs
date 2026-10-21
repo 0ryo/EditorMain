@@ -87,6 +87,11 @@ public static class SkillSyncConditionEditing
             (!string.IsNullOrEmpty(condition.objectBId) && condition.objectAId != condition.objectBId && exists(condition.objectBId));
     }
 
+    // The captions of the two target fields in the condition editor, also used when a problem names a field.
+    public static string TargetLabelA(string type) => type != null && ConditionTypeCatalog.RequiresObjectB(type) ? "動かすもの" : "対象";
+    public static string TargetLabelB(string type) => type == ConditionTypeCatalog.RotationMatch ? "向きの基準" :
+        type == ConditionTypeCatalog.Separation ? "離す基準" : "近づける先";
+
     public static bool SupportsPcTrial(ConditionNodeData condition) =>
         condition != null && (condition.type == ConditionTypeCatalog.Proximity || condition.type == ConditionTypeCatalog.SnapHold);
 
