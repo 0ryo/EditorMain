@@ -251,7 +251,7 @@ public sealed class SkillSyncInspectorExtras
         ApplyModeText(tab);
         ApplySnap();
         bool relative = visible && info.multiple;
-        heightLabel.text = relative ? "高さ（動かす量）" : "高さ";
+        heightLabel.text = relative ? "高さ（動かす量）" : "床からの高さ";
         angleLabel.text = relative ? "向き（回す角度）" : "向き";
         if (visible) nameField.interactable = !info.multiple;
         SetActive(container, visible);

@@ -100,6 +100,9 @@ public class CatalogUI : MonoBehaviour
     const string CardCategoryVisualLabelName = "LabelCategoryVisual";
     readonly System.Collections.Generic.List<ImportedModelRecord> importedModels = new();
     public bool IsRestoringModels { get; private set; }
+    // True from the moment a 3D model starts loading until it has loaded, failed or been cancelled.
+    public bool IsLoadingModel => modelImportCancellation != null;
+    public void CancelModelImport() => modelImportCancellation?.Cancel();
     GameObject pendingImportedPrefab;
     string pendingImportedAssetPath;
     string pendingOriginalSourcePath;

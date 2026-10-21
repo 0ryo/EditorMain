@@ -55,11 +55,25 @@ public sealed class SkillSyncPlacementGhost : IDisposable
         if (hasPointer && (pointer-lastPointer).sqrMagnitude < .01f) return;
         lastPointer=pointer;hasPointer=true;
         if(!EditWorkspace.TryScreenToGround(camera,pointer,out var ground,out _)) return;
-        Transform.position=EditWorkspace.SnapPlacementPoint(ground,EditSnapSettings.GridSize,0);
-        PlacedObjectGrounding.AlignRendererBoundsToGround(Transform.gameObject,EditWorkspace.GroundY,out _);
-        if(fixedHeight.HasValue) Transform.position=new Vector3(Transform.position.x,fixedHeight.Value,Transform.position.z);
+        // Over the top face of a placed part the ghost stands on it; anywhere else it stands on the floor.
+        float baseY=EditWorkspace.GroundY;
+        var spot=EditWorkspace.SnapPlacementPoint(ground,EditSnapSettings.GridSize,0);
+        if(camera!=null && SkillSyncSurfaceProbe.TryFindTop(camera.ScreenPointToRay(pointer),out var top))
+        {
+            baseY=top.y;
+            spot=EditWorkspace.SnapPlacementPoint(top,EditSnapSettings.GridSize,0);
+            // A snapped point past the edge of the part would float; keep the exact point instead.
+            if(!SkillSyncSurfaceProbe.HasTopAt(spot.x,spot.z,baseY)) spot=new Vector3(top.x,0,top.z);
+        }
+        Transform.position=spot;
+        PlacedObjectGrounding.AlignRendererBoundsToGround(Transform.gameObject,fixedHeight??baseY,out _);
     }
-    public void SetHeight(float value) {fixedHeight=value;Transform.position=new Vector3(Transform.position.x,value,Transform.position.z);}
+    // The height field means "bottom of the part above the floor": the ghost's lowest point is put at this height.
+    public void SetHeight(float value)
+    {
+        fixedHeight=value;
+        PlacedObjectGrounding.AlignRendererBoundsToGround(Transform.gameObject,value,out _);
+    }
     public void Dispose()
     {
         if(Transform!=null) {Transform.gameObject.SetActive(false);UnityEngine.Object.Destroy(Transform.gameObject);}

@@ -238,18 +238,20 @@ public class MoveTool : MonoBehaviour
             Input.GetKey(KeyCode.LeftAlt) ||
             Input.GetKey(KeyCode.RightAlt);
 
+        // Keys follow the screen: up is away from the viewer, whatever way the camera has been turned.
+        var camera = EditWorkspace.ResolveCamera();
         if (!modifierPressed)
         {
-            if (Input.GetKeyDown(KeyCode.W)) nudge += new Vector3(0, 0, gridSize);
-            if (Input.GetKeyDown(KeyCode.S)) nudge += new Vector3(0, 0, -gridSize);
-            if (Input.GetKeyDown(KeyCode.A)) nudge += new Vector3(-gridSize, 0, 0);
-            if (Input.GetKeyDown(KeyCode.D)) nudge += new Vector3(gridSize, 0, 0);
+            if (Input.GetKeyDown(KeyCode.W)) nudge += EditorCameraNavigationMath.ScreenDirectionToGroundAxis(camera, Vector2.up) * gridSize;
+            if (Input.GetKeyDown(KeyCode.S)) nudge += EditorCameraNavigationMath.ScreenDirectionToGroundAxis(camera, Vector2.down) * gridSize;
+            if (Input.GetKeyDown(KeyCode.A)) nudge += EditorCameraNavigationMath.ScreenDirectionToGroundAxis(camera, Vector2.left) * gridSize;
+            if (Input.GetKeyDown(KeyCode.D)) nudge += EditorCameraNavigationMath.ScreenDirectionToGroundAxis(camera, Vector2.right) * gridSize;
         }
 
-        if (Input.GetKeyDown(KeyCode.UpArrow)) nudge += new Vector3(0, 0, gridSize);
-        if (Input.GetKeyDown(KeyCode.DownArrow)) nudge += new Vector3(0, 0, -gridSize);
-        if (Input.GetKeyDown(KeyCode.LeftArrow)) nudge += new Vector3(-gridSize, 0, 0);
-        if (Input.GetKeyDown(KeyCode.RightArrow)) nudge += new Vector3(gridSize, 0, 0);
+        if (Input.GetKeyDown(KeyCode.UpArrow)) nudge += EditorCameraNavigationMath.ScreenDirectionToGroundAxis(camera, Vector2.up) * gridSize;
+        if (Input.GetKeyDown(KeyCode.DownArrow)) nudge += EditorCameraNavigationMath.ScreenDirectionToGroundAxis(camera, Vector2.down) * gridSize;
+        if (Input.GetKeyDown(KeyCode.LeftArrow)) nudge += EditorCameraNavigationMath.ScreenDirectionToGroundAxis(camera, Vector2.left) * gridSize;
+        if (Input.GetKeyDown(KeyCode.RightArrow)) nudge += EditorCameraNavigationMath.ScreenDirectionToGroundAxis(camera, Vector2.right) * gridSize;
 
         if (nudge != Vector3.zero)
         {

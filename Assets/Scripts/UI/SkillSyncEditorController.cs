@@ -53,6 +53,13 @@ public sealed class SkillSyncEditorController : MonoBehaviour
     readonly Dictionary<string, GameObject> thumbnailSources = new();
     readonly List<Renderer> labelRenderers = new();
     SkillSyncDesignRow ghostRow;
+    SkillSyncViewportGuide guide;
+    PrefabEntry dragEntry;
+    bool dragAborted, importWatch, objectsDirty;
+    HashSet<string> knownLibraryTypes;
+    string highlightType, libraryEmptyText = "";
+    float highlightUntil, lockedNoticeAt;
+    readonly Dictionary<string, List<PlacedObject>> groupMembers = new();
     string armedKey, scrolledStepId;
     float armedUntil;
     bool scrollObjectsPending;
@@ -96,6 +103,9 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         view.EnsureConditionControls();
         view.EnsureStepControls();
         SkillSyncConditionEditorView.Ensure(view);
+        guide = new SkillSyncViewportGuide(view, view.objectTemplate.title.font) { cancelLoading = () => catalog?.CancelModelImport() };
+        // The eye and padlock sit at the right end of a list row, so the status text moves left to make room.
+        if (view.objectTemplate.status != null) view.objectTemplate.status.rectTransform.anchoredPosition += Vector2.left * SkillSyncRowToggles.Reserved;
         view.EnsureViewportLabels();
         TopCenterNotification.Ensure(transform, view.inspectorTitle);
         extras = new SkillSyncInspectorExtras(view) { scaleEntered = ApplyScale, group = () => GroupSelection(false), ungroup = () => GroupSelection(true) };
@@ -133,6 +143,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         selection.OperationMessage += SelectionMessage;
         selection.DeleteGuard = ConfirmDeleteObjects;
         placement.ObjectPlaced += ObjectPlaced;
+        PlacedObjectEditState.StateChanged += EditStateChanged;
         project.StatusChanged += ProjectStatus;
         if(CommandService.I != null) CommandService.I.Stack.HistoryChanged += HistoryChanged;
         if(EditModeService.I != null) {subscribedModes=EditModeService.I;subscribedModes.ModeChanged += EditModeChanged;}
@@ -150,6 +161,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         if(selection!=null) {selection.OnSelectionChanged-=SelectionChanged;selection.OperationMessage-=SelectionMessage;selection.DeleteGuard=null;}
         SkillSyncContextMenu.Close();
         if(placement!=null) placement.ObjectPlaced-=ObjectPlaced;
+        PlacedObjectEditState.StateChanged-=EditStateChanged;
         if(project!=null) project.StatusChanged-=ProjectStatus;
         if(catalog!=null) catalog.StatusChanged-=CatalogStatus;
         if(CommandService.I!=null) CommandService.I.Stack.HistoryChanged-=HistoryChanged;
@@ -206,7 +218,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
             if(GetComponent<SkillSyncObjectPicker>()?.IsOpen==true) GetComponent<SkillSyncObjectPicker>().Close();
             else if(Modal) {mode=1;view.Show(1);}
             else if(pickTarget!=null) pickTarget=null;
-            else if(ghost!=null) CancelGhost();
+            else if(ghost!=null) {if(dragEntry!=null) dragAborted=true;CancelGhost();}
             else if(trial!=null)
             {
                 if(!trial.Paused) {trial.Paused=true;UpdateTrialGizmo();Notify("一時停止中：もう一度Escで編集に戻ります",false);}
@@ -229,6 +241,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
                 if(candidate!=null && EditInput.LeftPressedThisFrame()) Pick(candidate.Id);
             }
             else if(trial!=null) SelectTrialObject();
+            else if(mode==0 && EditInput.LeftPressedThisFrame()) NoticeLockedClick();
         }
         else if(pickTarget!=null) GetComponent<SkillSyncObjectPicker>()?.ClearPreview();
         if(mode==0 && trial==null && rightClick.Tick(!Modal && !TextInputFocused && !BlocksWorkspace(EditInput.MousePosition),out var menuPoint)) OpenViewportMenu(menuPoint);
@@ -245,6 +258,9 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         if(Time.unscaledTime>=nextRefresh)
         {
             nextRefresh=Time.unscaledTime+.25f;
+            if(dragEntry!=null && !Input.GetMouseButton(0)) {dragEntry=null;dragAborted=false;}
+            if(highlightType!=null && Time.unscaledTime>highlightUntil) {highlightType=null;RefreshLibrarySelection();}
+            if(objectsDirty) {objectsDirty=false;RebuildObjects();}
             RefreshValues();
             var signature=string.Join("|",Entries().Select(e=>e.typeId));
             if(signature!=librarySignature) RebuildLibrary();
@@ -290,15 +306,15 @@ public sealed class SkillSyncEditorController : MonoBehaviour
             case "移動": transformTab=action;TransformToolSettings.SetTool(TransformTool.Move);EditModeService.I?.SetMode(EditMode.Transform);break;
             case "回転": transformTab=action;TransformToolSettings.SetTool(TransformTool.Rotate);EditModeService.I?.SetMode(EditMode.Transform);break;
             case "大きさ": transformTab=action;EditModeService.I?.SetMode(EditMode.Scale);break;
-            case "←": Nudge(Vector3.left);break;
-            case "→": Nudge(Vector3.right);break;
-            case "↑": Nudge(Vector3.forward);break;
-            case "↓": Nudge(Vector3.back);break;
+            case "←": Nudge(Vector2.left);break;
+            case "→": Nudge(Vector2.right);break;
+            case "↑": Nudge(Vector2.up);break;
+            case "↓": Nudge(Vector2.down);break;
             case "複製": selection.DuplicateSelected();break;
             case "削除": selection.DeleteSelected();break;
             case "キャンセル": CancelGhost();break;
             case "ここに配置": ConfirmGhost();break;
-            case "＋ 3Dモデルを読み込む": catalog?.ImportForDesignUi();return;
+            case "＋ 3Dモデルを読み込む": importWatch=true;catalog?.ImportForDesignUi();return;
             case "＋ 手順を追加": AddStep();break;
             case "↑ 上へ": Reorder(-1);break;
             case "↓ 下へ": Reorder(1);break;
@@ -367,7 +383,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
                 {
                     if(item==null || !SelectionService.CanEdit(item)) continue;
                     var t=item.transform;
-                    if(role=="height") t.position=new Vector3(t.position.x,n/100f,t.position.z);
+                    if(role=="height") t.position+=Vector3.up*(EditWorkspace.GroundY+n/100f-BottomY(t));
                     else {var e=t.eulerAngles;t.rotation=Quaternion.Euler(e.x,n,e.z);}
                 }
                 session?.Commit("Change object transform");
@@ -409,6 +425,14 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         }
         session.Commit(role=="height"?"Move selection":"Rotate selection");
         Notify(role=="height"?"選んだ部品をまとめて"+(amount>0?"上へ ":"下へ ")+Mathf.Abs(amount).ToString("0.##")+" cm動かしました":"選んだ部品をまとめて"+amount.ToString("0.##")+"°回しました",false);
+    }
+    // The height field is the part's lowest point above the floor, so a part resting on the floor reads 0 cm.
+    static float BottomY(Transform t) => PlacedObjectGrounding.TryGetRendererBounds(t,out var bounds)?bounds.min.y:t.position.y;
+    static string HeightText(Transform t)
+    {
+        float cm=Mathf.Round((BottomY(t)-EditWorkspace.GroundY)*10000f)/100f;
+        if(cm==0f) cm=0f;
+        return cm.ToString("0.##");
     }
     float BaseScale(PlacedObject part)
     {
@@ -467,13 +491,20 @@ public sealed class SkillSyncEditorController : MonoBehaviour
     void OpenViewportMenu(Vector2 point)
     {
         if(cameraView==null || selection==null) return;
-        if(!PlacedObjectPicker.TryPick(cameraView.ScreenPointToRay(point),selection.pickMask,out var picked,out _,out _)) return;
+        var ray=cameraView.ScreenPointToRay(point);
+        if(!PlacedObjectPicker.TryPick(ray,selection.pickMask,out var picked,out _,out _))
+        {
+            if(SkillSyncSurfaceProbe.TryFindLocked(ray,out var lockedPart,out _)) ShowBlockedMenu(point,new List<PlacedObject>{lockedPart});
+            return;
+        }
         if(!selection.Selected.Any(item=>item==picked || picked.transform.IsChildOf(item.transform))) selection.SelectPicked(picked);
         ShowSelectionMenu(point,()=>view.Focus("name"));
     }
     void OpenRowMenu(SkillSyncDesignRow row,SkillSyncPartsTree.Row data,Vector2 point)
     {
         if(trial!=null || ghost!=null || pickTarget!=null || Modal || data.part==null) return;
+        var rowTargets=RowTargets(data);
+        if(rowTargets.Any(item=>PartState(item,false) || PartState(item,true))) {ShowBlockedMenu(point,rowTargets);return;}
         bool selected=data.IsGroup?selection.Selected.Count(item=>item.editorGroupId==data.groupId)>=2:selection.Contains(data.part);
         if(!selected) selection.SelectFromList(data.part,false,false,OrderedPlaced());
         var part=data.part;
@@ -489,6 +520,9 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         if(info.canGroup) items.Add(new SkillSyncContextMenu.Item{label="グループにする",action=()=>GroupSelection(false)});
         if(info.canUngroup) items.Add(new SkillSyncContextMenu.Item{label="グループを解除",action=()=>GroupSelection(true)});
         items.Add(new SkillSyncContextMenu.Item{label="選択部分を表示",action=()=>Act("選択を表示")});
+        var chosen=selection.Selected.ToList();
+        items.Add(new SkillSyncContextMenu.Item{label="隠す",action=()=>SetPartState(chosen,false,true)});
+        items.Add(new SkillSyncContextMenu.Item{label="ロック",action=()=>SetPartState(chosen,true,true)});
         items.Add(new SkillSyncContextMenu.Item{label="削除",action=()=>Act("削除"),danger=true});
         SkillSyncContextMenu.Show(transform,view.objectTemplate.title.font,point,items);
     }
@@ -503,8 +537,9 @@ public sealed class SkillSyncEditorController : MonoBehaviour
             Refresh();
         });
     }
-    void Nudge(Vector3 direction)
+    void Nudge(Vector2 screenDirection)
     {
+        var direction=EditorCameraNavigationMath.ScreenDirectionToGroundAxis(cameraView,screenDirection);
         if(ghost!=null) {ghost.Transform.position+=direction*.1f;return;}
         if(selection.Current==null || !SelectionService.CanEdit(selection.Current)) return;
         var session=new SelectionTransformSession(selection);selection.Current.transform.position+=direction*.1f;session.Commit("Move 10 cm");
@@ -727,7 +762,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
     void RefreshLibrarySelection()
     {
         string type = ghost != null ? ghost.TypeId : null;
-        foreach (var pair in libraryTypes) pair.Key.SetSelected(type != null && pair.Value == type);
+        foreach (var pair in libraryTypes) pair.Key.SetSelected(pair.Value == type || pair.Value == highlightType);
     }
     void ObjectPlaced(PlacedObject _,string __) {RevalidateAndSync();RebuildObjects();RefreshValues();}
     void HistoryChanged() {RevalidateAndSync();RebuildObjects();RefreshValues();}
@@ -781,6 +816,12 @@ public sealed class SkillSyncEditorController : MonoBehaviour
     {
         if(view==null) return;
         Clear(libraryRows);libraryTypes.Clear();thumbnailSources.Clear();var entries=Entries();librarySignature=string.Join("|",entries.Select(e=>e.typeId));
+        // A card that appeared after "3Dモデルを追加" is shown whatever the search or category, and pointed out below.
+        var ids=entries.Where(e=>e.prefab!=null).Select(e=>e.typeId).ToList();
+        string added=knownLibraryTypes!=null && importWatch && (catalog==null || !catalog.IsRestoringModels)?ids.FirstOrDefault(id=>!knownLibraryTypes.Contains(id)):null;
+        knownLibraryTypes=new HashSet<string>(ids);
+        if(added!=null) {importWatch=false;search="";category="すべて";view.Value("search","");}
+        SkillSyncDesignRow addedRow=null;string addedTitle=null;
         foreach(var entry in entries)
         {
             if(entry.prefab==null) continue;
@@ -794,12 +835,23 @@ public sealed class SkillSyncEditorController : MonoBehaviour
             if(row.thumbnail!=null) row.thumbnail.texture=thumbnails.Get(entry.prefab);
             libraryTypes[row]=entry.typeId;
             var chosen=entry;row.button.onClick.AddListener(()=>BeginGhost(chosen));
+            var drag=row.gameObject.AddComponent<SkillSyncCardDrag>();
+            drag.begin=()=>CardDragBegin(chosen);drag.moved=point=>CardDragMove(chosen,point);drag.ended=point=>CardDragEnd(chosen,point);
+            if(entry.typeId==added) {addedRow=row;addedTitle=title;}
             var remove=row.GetComponent<SkillSyncLibraryRemove>();
             if(remove!=null) remove.remove.onClick.AddListener(()=>{
                 if(!ConfirmTwice("lib:"+chosen.typeId,"もう一度押すとライブラリから外します（配置済みの部品は残ります）")) return;
                 if(ghost!=null && ghost.TypeId==chosen.typeId)CancelGhost();
                 catalog?.RemoveDesignLibraryEntry(chosen.typeId);RebuildLibrary();Refresh();
             });
+        }
+        libraryEmptyText=libraryRows.Count>0?"":!string.IsNullOrEmpty(search)?"「"+search+"」に一致する部品はありません":category!="すべて"?"このカテゴリには部品がありません":"部品がありません。下のボタンから3Dモデルを追加してください";
+        guide?.SelectChip(category);
+        if(addedRow!=null)
+        {
+            highlightType=added;highlightUntil=Time.unscaledTime+12f;RefreshLibrarySelection();
+            ScrollIntoView(view.libraryContent,(RectTransform)addedRow.transform);
+            Notify("「"+addedTitle+"」を追加しました。カードをクリックまたは3D画面へドラッグして置けます",false);
         }
     }
     void RebuildSteps()
@@ -825,7 +877,15 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         if(view==null) return;
         // Placement roots are listed first; parts inside a model are nested and collapsed until opened.
         // Only visible rows exist, so large models do not instantiate hundreds of rows.
-        var rowsData=SkillSyncPartsTree.Build(Placed,expandedParts,collapsedGroups,partsFilter,out int rootCount,out int matchCount);
+        var allPlaced=Placed;
+        var rowsData=SkillSyncPartsTree.Build(allPlaced,expandedParts,collapsedGroups,partsFilter,out int rootCount,out int matchCount);
+        groupMembers.Clear();
+        foreach(var part in allPlaced)
+        {
+            if(part==null || string.IsNullOrEmpty(part.editorGroupId) || SkillSyncPartsTree.ParentOf(part)!=null) continue;
+            if(!groupMembers.TryGetValue(part.editorGroupId,out var members)) groupMembers[part.editorGroupId]=members=new List<PlacedObject>();
+            members.Add(part);
+        }
         objectCountText=string.IsNullOrWhiteSpace(partsFilter)?rootCount+"件":matchCount+"件が一致";
         var visible=new HashSet<object>(rowsData.Select(r=>r.Key));
         foreach (var removed in placedRows.Keys.Where(p => p == null || (p is PlacedObject placedKey && placedKey == null) || !visible.Contains(p)).ToArray())
@@ -863,7 +923,10 @@ public sealed class SkillSyncEditorController : MonoBehaviour
                     else row.thumbnail.enabled=false;
                 }
                 var created=row;var rowData=data;
-                row.button.onClick.AddListener(()=>{if(pickTarget!=null) {if(!rowData.IsGroup) Pick(p.Id);} else selection.SelectFromList(p,EditInput.ShiftPressed(),CmdOrCtrl(),OrderedPlaced());});
+                row.button.onClick.AddListener(()=>{if(pickTarget!=null) {if(!rowData.IsGroup) Pick(p.Id);} else {NoticeBlockedRow(rowData);selection.SelectFromList(p,EditInput.ShiftPressed(),CmdOrCtrl(),OrderedPlaced());}});
+                var toggles=SkillSyncRowToggles.Add(row,view.objectTemplate.title.font);
+                toggles.toggleHidden=()=>ToggleRowState(rowData,false);
+                toggles.toggleLocked=()=>ToggleRowState(rowData,true);
                 var events=row.button.gameObject.AddComponent<SkillSyncRowEvents>();
                 events.doubleClicked=()=>{if(!rowData.IsGroup) BeginRename(created,p);};
                 events.rightClicked=point=>OpenRowMenu(created,rowData,point);
@@ -877,7 +940,11 @@ public sealed class SkillSyncEditorController : MonoBehaviour
             }
             if(row.transform.GetSiblingIndex()!=i+offset) row.transform.SetSiblingIndex(i+offset);
             bool rowSelected=data.IsGroup?selection.Selected.Count(item=>item.editorGroupId==data.groupId)>=2:selection.Contains(p);
-            row.Set(data.title,data.detail,"",rowSelected);
+            var rowTargets=RowTargets(data);
+            bool rowHidden=rowTargets.Any(item=>PartState(item,false)),rowLocked=rowTargets.Any(item=>PartState(item,true));
+            row.GetComponent<SkillSyncRowToggles>()?.Apply(rowHidden,rowLocked);
+            string stateTag=rowHidden?"非表示":rowLocked?"ロック中":"";
+            row.Set(data.title,string.IsNullOrEmpty(stateTag)?data.detail:string.IsNullOrEmpty(data.detail)?stateTag:data.detail+" ・ "+stateTag,"",rowSelected);
         }
         expanderBound.RemoveWhere(row=>row==null);
         if(scrollObjectsPending)
@@ -886,6 +953,73 @@ public sealed class SkillSyncEditorController : MonoBehaviour
             if(selection.Current!=null && placedRows.TryGetValue(selection.Current,out var currentRow)) ScrollIntoView(view.objectsContent,(RectTransform)currentRow.transform);
         }
         ShowVisiblePartThumbnails();
+    }
+    void EditStateChanged(PlacedObjectEditState _) {SkillSyncSurfaceProbe.Invalidate();objectsDirty=true;}
+    List<PlacedObject> RowTargets(SkillSyncPartsTree.Row data) =>
+        data.IsGroup && groupMembers.TryGetValue(data.groupId,out var members)?members:new List<PlacedObject>{data.part};
+    // Hidden / locked as it takes effect on the part, including what it inherits from the model around it.
+    static bool PartState(PlacedObject part,bool locked)
+    {
+        for(var node=part!=null?part.transform:null;node!=null;node=node.parent)
+        {
+            var state=node.GetComponent<PlacedObjectEditState>();
+            if(state!=null && (locked?state.Locked:state.Hidden)) return true;
+        }
+        return false;
+    }
+    void NoticeBlockedRow(SkillSyncPartsTree.Row data)
+    {
+        var targets=RowTargets(data);
+        if(targets.Any(item=>PartState(item,false))) Notify(HiddenNotice,false);
+        else if(targets.Any(item=>PartState(item,true))) Notify(LockedNotice,false);
+    }
+    void ToggleRowState(SkillSyncPartsTree.Row data,bool locked)
+    {
+        var targets=RowTargets(data);
+        SetPartState(targets,locked,!targets.Any(item=>PartState(item,locked)));
+    }
+    // 隠す / 表示する and ロック / ロック解除, for the parts of a list row or of the current selection.
+    void SetPartState(IList<PlacedObject> targets,bool locked,bool on)
+    {
+        if(trial!=null || pickTarget!=null || Modal) return;
+        var list=targets.Where(item=>item!=null).ToList();
+        if(list.Count==0) return;
+        if(!on)
+        {
+            // Turning it off only works on the part that carries the state, not on a part inside a hidden / locked model.
+            foreach(var item in list)
+            {
+                var own=item.GetComponent<PlacedObjectEditState>();
+                if(own!=null && (locked?own.Locked:own.Hidden)) continue;
+                for(var node=item.transform.parent;node!=null;node=node.parent)
+                {
+                    var outer=node.GetComponent<PlacedObjectEditState>();
+                    if(outer==null || !(locked?outer.Locked:outer.Hidden)) continue;
+                    var holder=outer.GetComponent<PlacedObject>();
+                    Notify("「"+(holder!=null?holder.GetDisplayName():"外側の部品")+"」全体が"+(locked?"ロック":"非表示")+"されています。その行の"+(locked?"鍵":"目のアイコン")+"を操作してください",true);
+                    return;
+                }
+            }
+        }
+        if(on && selection!=null && list.Any(item=>selection.Contains(item) || selection.Selected.Any(sel=>sel.transform.IsChildOf(item.transform)))) selection.Select(null);
+        foreach(var item in list)
+        {
+            var state=item.GetComponent<PlacedObjectEditState>();
+            if(state==null) state=item.gameObject.AddComponent<PlacedObjectEditState>();
+            if(locked) state.SetLocked(on);else state.SetVisible(!on);
+        }
+        SkillSyncSurfaceProbe.Invalidate();
+        string name=list.Count==1?"「"+list[0].GetDisplayName()+"」":list.Count+"個の部品";
+        Notify(locked?on?name+"をロックしました。一覧の鍵を外すと編集できます":name+"のロックを解除しました":on?name+"を隠しました。一覧の目のアイコンで表示に戻せます":name+"を表示しました",false);
+        RebuildObjects();
+    }
+    void ShowBlockedMenu(Vector2 point,IList<PlacedObject> targets)
+    {
+        var items=new List<SkillSyncContextMenu.Item>();
+        var list=targets.ToList();
+        if(list.Any(item=>PartState(item,false))) items.Add(new SkillSyncContextMenu.Item{label="表示する",action=()=>SetPartState(list,false,false)});
+        if(list.Any(item=>PartState(item,true))) items.Add(new SkillSyncContextMenu.Item{label="ロック解除",action=()=>SetPartState(list,true,false)});
+        if(items.Count>0) SkillSyncContextMenu.Show(transform,view.objectTemplate.title.font,point,items);
     }
     void ToggleGroup(string id)
     {
@@ -957,7 +1091,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         view.compactSelectionTitle=ghost==null && current!=null && selectionInfo.compactTitle;
         view.Text("selectionTitle",ghost!=null?"置く場所を選ぶ":current!=null?selectionInfo.title:"部品を選択");
         view.Value("name",ghost!=null?ghost.DisplayName:current!=null?(relative?selectionInfo.title:current.GetDisplayName()):"");
-        view.Value("height",relative?"0":target!=null?(target.position.y*100).ToString("0.##"):"");
+        view.Value("height",relative?"0":target!=null?HeightText(target):"");
         view.Value("angle",relative?"0":target!=null?target.eulerAngles.y.ToString("0.##"):"");
         int index=graph.GetDisplayOrderedSteps().FindIndex(s=>s.nodeId==stepId)+1;
         view.Text("inspectorLabel",mode==1?Step!=null?"選択中の手順："+index:"手順を選択してください":ghost!=null?"仮配置":current!=null?"選択中":"未選択");
@@ -1005,7 +1139,10 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         view.Enable("Save",trial==null && ghost==null);
         view.Enable("教材を読み込む",!BlocksEditingShortcuts);
         view.Text("workspaceHint",trial!=null?"部品を選び、ギズモで操作 / 中・右ドラッグで視点移動":mode==1?$"手順{index}で使う部品を表示":"部品を選んで、作業面に配置します");
-        view.Text("status",pickTarget!=null?status:ghost!=null?"＋ 仮配置中：クリックで確定 / Escで中止":trial!=null?trial.Complete?"✓ 条件が成立しました":"▶ 試行中：ギズモで部品を動かして条件を確かめます":current!=null?(selectionInfo.multiple && selectionInfo.title.EndsWith("選択中",StringComparison.Ordinal)?"● "+selectionInfo.title:"● 選択中："+selectionInfo.title)+" | Escで選択解除":"部品を選択してください");
+        guide?.SetPlacement(ghost!=null?dragEntry!=null?"3D画面でマウスのボタンを離すと置きます ・ Escでやめる":"クリックで置く ・ Shift+クリックで続けて置く ・ Escでやめる":null);
+        guide?.SetLoading(catalog!=null && catalog.IsLoadingModel);
+        guide?.Refresh(view.State==0 || view.State==3,libraryEmptyText);
+        view.Text("status",pickTarget!=null?status:ghost!=null?"＋ 仮配置中：クリックで置く / Shift+クリックで続けて置く / Escでやめる":trial!=null?trial.Complete?"✓ 条件が成立しました":"▶ 試行中：ギズモで部品を動かして条件を確かめます":current!=null?(selectionInfo.multiple && selectionInfo.title.EndsWith("選択中",StringComparison.Ordinal)?"● "+selectionInfo.title:"● 選択中："+selectionInfo.title)+" | Escで選択解除":"部品を選択してください");
         if(trial==null) view.viewportDistance.text=valid && distanceCondition?$"現在の距離 {Vector3.Distance(SkillSyncTrialSession.Center(a.transform),SkillSyncTrialSession.Center(b.transform))*100:0} cm":"";
         view.viewportDistance.transform.parent.gameObject.SetActive(valid && distanceCondition && (view.State==1 || trial!=null));
         view.viewportGrid.text=$"グリッド {EditSnapSettings.GridSize*100:0.##} cm";
@@ -1168,9 +1305,10 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         if(catalog!=null) catalog.TryGetTypeInfo(entry.typeId,out title,out _);
         return string.IsNullOrWhiteSpace(title) || title==entry.typeId ? entry.prefab.name : title.Trim();
     }
-    void BeginGhost(PrefabEntry entry)
+    void BeginGhost(PrefabEntry entry,bool toggle=true)
     {
-        if(ghost!=null && ghost.TypeId==entry.typeId) {CancelGhost();Refresh();return;}
+        if(ghost!=null && ghost.TypeId==entry.typeId) {if(toggle) {CancelGhost();Refresh();}return;}
+        highlightType=null;
         EndTrial();CancelGhost();placement.CancelPlacement();
         try {ghost=new SkillSyncPlacementGhost(entry);ghostEntry=entry;ghost.DisplayName=LibraryTitle(entry);}
         catch(Exception e) {Notify("仮配置を開始できません: "+e.Message,true);Debug.LogException(e);Refresh();return;}
@@ -1178,6 +1316,43 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         ghost.Follow(cameraView,new Vector2(cameraView.pixelRect.center.x,cameraView.pixelRect.center.y));
         RefreshLibrarySelection();Refresh();
     }
+    // Dragging a library card: the ghost follows the pointer over the 3D screen, and letting go there places the part.
+    void CardDragBegin(PrefabEntry entry)
+    {
+        if(trial!=null || Modal || pickTarget!=null || !initialized) return;
+        dragEntry=entry;dragAborted=false;
+    }
+    bool CardDragMove(PrefabEntry entry,Vector2 point)
+    {
+        if(dragEntry==null || dragAborted) return false;
+        if(RectTransformUtility.RectangleContainsScreenPoint(view.viewport,point))
+        {
+            if(ghost==null || ghost.TypeId!=entry.typeId) BeginGhost(entry,false);
+            return ghost!=null;
+        }
+        if(ghost!=null) {CancelGhost();Refresh();}
+        return false;
+    }
+    void CardDragEnd(PrefabEntry entry,Vector2 point)
+    {
+        if(dragEntry==null) return;
+        bool aborted=dragAborted;
+        dragEntry=null;dragAborted=false;
+        if(aborted || ghost==null) {Refresh();return;}
+        if(ghost.TypeId==entry.typeId && RectTransformUtility.RectangleContainsScreenPoint(view.viewport,point)) ConfirmGhost(EditInput.ShiftPressed());
+        else {CancelGhost();Refresh();}
+    }
+    // A locked part has no collider, so clicking it selects nothing; say why instead of staying silent.
+    void NoticeLockedClick()
+    {
+        if(cameraView==null || selection==null || Time.unscaledTime<lockedNoticeAt || PlacementController.IsScreenPositionOverBlockingUi(EditInput.MousePosition)) return;
+        var ray=cameraView.ScreenPointToRay(EditInput.MousePosition);
+        if(!SkillSyncSurfaceProbe.TryFindLocked(ray,out _,out float distance)) return;
+        if(PlacedObjectPicker.TryPick(ray,selection.pickMask,out _,out _,out _,out var hitPoint) && Vector3.Distance(ray.origin,hitPoint)<distance) return;
+        lockedNoticeAt=Time.unscaledTime+2f;
+        Notify(LockedNotice,false);
+    }
+    const string LockedNotice="ロック中の部品です。一覧の鍵を外すと編集できます", HiddenNotice="隠している部品です。一覧の目のアイコンで表示すると編集できます";
     void CancelGhost() {ghost?.Dispose();ghost=null;if(selection!=null) RefreshLibrarySelection();}
     void ConfirmGhost(bool continuePlacing=false)
     {
