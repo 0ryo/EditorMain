@@ -91,7 +91,7 @@ public sealed class SkillSyncDesignView : MonoBehaviour
         button.targetGraphic = surface;
         var label = new GameObject("Label", typeof(RectTransform), typeof(TextMeshProUGUI)).GetComponent<TextMeshProUGUI>();
         label.transform.SetParent(loadRect, false);
-        label.text = "教材を読み込む";
+        label.text = "教材を開く";
         label.rectTransform.anchorMin = Vector2.zero; label.rectTransform.anchorMax = Vector2.one;
         label.rectTransform.offsetMin = label.rectTransform.offsetMax = Vector2.zero;
         ApplyProjectLoadStyle(button, help.button);
@@ -116,11 +116,19 @@ public sealed class SkillSyncDesignView : MonoBehaviour
     Color savedBaseTextColor, savedBaseBorderColor;
     bool savedColorsCaptured;
 
+    // Design placeholder "作業台 / 上面を表示" is baked into the Prefab but never follows the camera, so it would mislead. Hidden at runtime.
+    void HideStaleViewportCaption()
+    {
+        foreach (var text in GetComponentsInChildren<TMP_Text>(true))
+            if (text != null && text.text == "作業台 / 上面を表示") text.gameObject.SetActive(false);
+    }
+
     // Header file buttons, right to left: 教材を開く, ヘルプ, 通知履歴, 保存, 新規. The saved pill becomes display-only;
     // 保存 is the explicit button (with its shortcut) and 新規 starts a new lesson. Built at runtime, so no Prefab change is needed.
     public void EnsureProjectFileControls()
     {
         EnsureProjectLoadControl();
+        HideStaleViewportCaption();
         EnsureNotificationHistoryControl();
         if (controls == null) return;
         var help = controls.FirstOrDefault(c => c.action == "ヘルプ");

@@ -24,7 +24,7 @@ static class RecoveryProtectionChecks
         protection.Changed += () => notifications++;
         Check(protection.WarningMessage == startupMessage && !string.IsNullOrEmpty(protection.Error),
             "Late UI can read the warning with recovery actions and failure details");
-        Check(startupMessage.Contains("通常保存") && startupMessage.Contains("復元") && startupMessage.Contains("破棄"),
+        Check(startupMessage.Contains("保存できます") && startupMessage.Contains("復旧して開く") && startupMessage.Contains("破棄"),
             "Warning explains available next actions");
         Check(!protection.TryPreserve(out _) && notifications == 0,
             "Unchanged retry failure does not generate duplicate notifications");

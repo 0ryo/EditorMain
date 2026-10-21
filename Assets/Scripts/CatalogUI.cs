@@ -1537,7 +1537,9 @@ public class CatalogUI : MonoBehaviour
         settingsUiScaleValueText = FindOrCreateSettingsText(uiScaleRow, "Text_UiScaleValue", "100%");
         ConfigureSettingsValueText(settingsUiScaleValueText);
 
-        var autoSaveTitle = FindOrCreateSettingsText(contentRt, "Text_AutoSaveIntervalTitle", "編集後の自動保存");
+        // Autosave only records recovery data for a crash; the lesson file itself changes when the user saves.
+        var autoSaveTitle = FindOrCreateSettingsText(contentRt, "Text_AutoSaveIntervalTitle", "復旧データの記録間隔");
+        autoSaveTitle.text = "異常終了に備えた復旧データの記録間隔（教材の保存は " + SkillSyncDesignView.ShortcutModifierName + "+S）";
         autoSaveTitle.fontSize = 16;
         autoSaveTitle.alignment = TextAlignmentOptions.MidlineLeft;
         autoSaveTitle.color = DesignTokens.TextPrimary;

@@ -142,7 +142,7 @@ public sealed class EditorProjectService : MonoBehaviour
         ResolveReferences();
         if (graph == null)
         {
-            return Fail("シナリオデータが見つからないため保存できません。", out message);
+            return Fail("教材が見つからないため保存できません。", out message);
         }
 
         try
@@ -186,11 +186,11 @@ public sealed class EditorProjectService : MonoBehaviour
         try
         {
             string created = EditorProjectStore.Duplicate(path, asTemplate);
-            message = (asTemplate ? "保存済み内容をテンプレート化しました: " : "保存済み内容を複製しました: ") + System.IO.Path.GetFileName(created);
+            message = (asTemplate ? "テンプレートにしました: " : "複製しました: ") + EditorProjectStore.DisplayNameOf(created);
             NotifyStatus(message, true);
             return true;
         }
-        catch (Exception ex) { return Fail("複製できません: " + ex.Message, out message); }
+        catch (Exception ex) { return Fail((asTemplate ? "テンプレートにできません: " : "複製できません: ") + ex.Message, out message); }
     }
 
     public bool ArchiveSaved(string path, out string message)
@@ -199,13 +199,13 @@ public sealed class EditorProjectService : MonoBehaviour
         {
             if (!string.IsNullOrEmpty(CurrentProjectPath) && string.Equals(System.IO.Path.GetFullPath(path),
                 System.IO.Path.GetFullPath(CurrentProjectPath), StringComparison.OrdinalIgnoreCase))
-                return Fail("編集中の教材は削除できません。別の教材を開いてから削除してください。", out message);
+                return Fail("編集中の教材はゴミ箱へ移せません。別の教材を開いてから、もう一度試してください。", out message);
             EditorProjectStore.Archive(path);
-            message = "削除済みへ移しました。削除済み一覧から復元できます。";
+            message = "ゴミ箱へ移しました。「ゴミ箱」タブから元に戻せます。";
             NotifyStatus(message, true);
             return true;
         }
-        catch (Exception ex) { return Fail("削除できません: " + ex.Message, out message); }
+        catch (Exception ex) { return Fail("ゴミ箱へ移せません: " + ex.Message, out message); }
     }
 
     public bool RestoreSaved(string path, out string message)
@@ -213,11 +213,11 @@ public sealed class EditorProjectService : MonoBehaviour
         try
         {
             EditorProjectStore.RestoreArchived(path);
-            message = "復元しました。同名の教材がある場合は番号付きで復元します。";
+            message = "ゴミ箱から戻しました。同じ名前の教材がある場合は、番号を付けて戻します。";
             NotifyStatus(message, true);
             return true;
         }
-        catch (Exception ex) { return Fail("復元できません: " + ex.Message, out message); }
+        catch (Exception ex) { return Fail("ゴミ箱から戻せません: " + ex.Message, out message); }
     }
 
     public bool LoadRecovery(out string message)
@@ -242,7 +242,7 @@ public sealed class EditorProjectService : MonoBehaviour
         ResolveReferences();
         if (graph == null || placementController == null)
         {
-            return Fail("編集サービスが見つからないため読み込めません。", out message);
+            return Fail("編集機能の準備ができていないため、教材を開けません。", out message);
         }
 
         if (!EditorProjectStore.TryLoad(path, out var project, out var readError))
@@ -310,7 +310,7 @@ public sealed class EditorProjectService : MonoBehaviour
         {
             if (!committed) DestroyStaged(staged);
             Debug.LogException(ex);
-            return Fail("読み込めません: " + ex.Message, out message);
+            return Fail("教材を開けません: " + ex.Message, out message);
         }
         finally
         {
@@ -324,7 +324,7 @@ public sealed class EditorProjectService : MonoBehaviour
         ResolveReferences();
         if (graph == null)
         {
-            return Fail("シナリオデータが見つからないため新規作成できません。", out message);
+            return Fail("教材が見つからないため、新しい教材を作れません。", out message);
         }
 
         string name = string.IsNullOrWhiteSpace(projectName) ? EditorProjectStore.UniqueProjectName(null) : projectName.Trim();
@@ -498,7 +498,7 @@ public sealed class EditorProjectService : MonoBehaviour
                     placed.gameObject.SetActive(true);
                 }
                 if (!graph.RestoreCommandSnapshot(nextGraph))
-                    throw new InvalidOperationException("シナリオデータを復元できませんでした。");
+                    throw new InvalidOperationException("手順のデータを切り替えられませんでした。");
                 graphUi?.RebuildFromExternalChange();
             },
             () =>
@@ -715,27 +715,27 @@ public sealed class EditorProjectService : MonoBehaviour
         message = null;
         if (!trackingInitialized || !IsDirty || graph == null)
         {
-            message = "自動保存する未保存の変更はありません。";
+            message = "復旧データに記録する変更はありません。";
             return false;
         }
 
         try
         {
             string fingerprint = BuildCurrentFingerprint();
-            // Autosave only ever writes the recovery slot; the project file changes on explicit save.
+            // Autosave only ever writes the recovery slot (a 復旧データ file), for saved and unsaved lessons alike; the lesson's own file changes on explicit save.
             // Retry startup preservation before the shared slot can be written.
             // Keep this failure separate from ordinary later autosave failures.
             if (recoveryProtection.HasFailure && !recoveryProtection.TryPreserve(out message)) return false;
             recoverySession.Save(EditorProjectSnapshotBuilder.Capture(graph, graph.curriculum.projectName));
             lastRecoveryFingerprint = fingerprint;
-            message = "復旧用の自動保存を更新しました。";
+            message = "復旧データを更新しました。";
             Notify(() => RecoveryChanged?.Invoke());
             Debug.Log("[EditorProject] " + message);
             return true;
         }
         catch (Exception ex)
         {
-            message = "自動保存できません: " + ex.Message;
+            message = "復旧データを記録できません: " + ex.Message;
             NotifyStatus(message, false);
             Debug.LogWarning("[EditorProject] " + message);
             return false;
@@ -755,12 +755,12 @@ public sealed class EditorProjectService : MonoBehaviour
         if (!EditorProjectStore.DeleteRecovery(out var error))
         {
             recoveryProtection.RefreshResolution();
-            return Fail("自動保存データを破棄できません: " + error, out message);
+            return Fail("復旧データを破棄できません: " + error, out message);
         }
 
         recoveryProtection.RefreshResolution();
         lastRecoveryFingerprint = null;
-        message = "自動保存データを破棄しました。";
+        message = "復旧データを破棄しました。";
         Notify(() => RecoveryChanged?.Invoke());
         NotifyStatus(message, true);
         return true;

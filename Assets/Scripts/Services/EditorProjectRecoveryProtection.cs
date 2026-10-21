@@ -11,9 +11,9 @@ public sealed class EditorProjectRecoveryProtection
     public string PreservedOriginalName { get; private set; }
     public bool HasFailure => !string.IsNullOrEmpty(Error);
     public string WarningMessage => HasFailure
-        ? "起動時の自動保存データを別教材として保護できません。\n" +
-          "以前のデータを保持しています。現在の編集内容は通常保存できます。\n" +
-          "保護の再試行、または保存済みタブの「復元」「破棄」を選べます。\n詳細: " + Error
+        ? "前回終了時の復旧データを、別の教材として残せませんでした。\n" +
+          "以前の復旧データはそのまま保持しています。今の教材は保存できます。\n" +
+          "「再試行」するか、一覧上部の「復旧して開く」「破棄」を選べます。\n詳細: " + Error
         : null;
 
     public bool TryPreserve(out string message)
@@ -23,7 +23,7 @@ public sealed class EditorProjectRecoveryProtection
         PreservedOriginalName = preserved ? originalName : null;
         SetError(succeeded ? null : string.IsNullOrWhiteSpace(error) ? "復旧データを保護できません。" : error);
         message = succeeded
-            ? preserved ? "以前の自動保存データを別教材として保護しました。" : "保護が必要な自動保存データはありません。"
+            ? preserved ? "前回の復旧データを別の教材として残しました。" : "残す必要のある復旧データはありません。"
             : WarningMessage;
         return succeeded;
     }

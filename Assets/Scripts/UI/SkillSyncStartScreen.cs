@@ -197,10 +197,10 @@ public sealed class SkillSyncStartScreen : MonoBehaviour
         var templates = EditorProjectStore.ListTemplates();
         if (templates.Count == 0)
         {
-            AddText("Empty", "テンプレートはまだありません。「教材を開く」の一覧で、保存済みの教材の［テンプレート化］を押すと、ここに追加されます。", 20, DesignTokens.TextPrimary);
+            AddText("Empty", "テンプレートはまだありません。「教材を開く」の一覧で、保存済みの教材を選んで［テンプレートにする］を押すと、ここに追加されます。", 20, DesignTokens.TextPrimary);
             Spacer(14f);
             var open = SkillSyncModalKit.NewButton("Button_OpenLibrary", panel, font);
-            SkillSyncModalKit.Style(open, "教材の一覧を開く", SkillSyncModalKit.ButtonKind.Secondary);
+            SkillSyncModalKit.Style(open, "教材を開く", SkillSyncModalKit.ButtonKind.Secondary);
             open.button.onClick.AddListener(() => { Close(); EditorProjectPanel.Ensure(uiRoot)?.OpenForDesignUi(); });
         }
         int shown = 0;
@@ -228,25 +228,12 @@ public sealed class SkillSyncStartScreen : MonoBehaviour
 
     void OpenRecovery(StartupRecoveryNotice notice)
     {
-        if (!EditorProjectStore.TryGetFileInfo(notice.path, out var info)) { project.DismissStartupRecovery(); Rebuild(); return; }
-        EditorProjectPanel.Ensure(uiRoot)?.RequestOpen(info, opened =>
-        {
-            if (!opened) return;
-            project.DismissStartupRecovery();
-            Close();
-        });
+        EditorProjectPanel.Ensure(uiRoot)?.RequestOpenStartupRecovery(opened => { if (opened) Close(); else Rebuild(); });
     }
 
     void DiscardRecovery(StartupRecoveryNotice notice, string name)
     {
-        SkillSyncConfirmDialog.Show("復旧データを破棄しますか？",
-            "「" + name + "」の、保存されなかった変更を破棄します。復旧データはゴミ箱へ移すので、必要なら「教材を開く」の一覧から戻せます。",
-            "破棄", () =>
-            {
-                project.DiscardPreservedRecovery(notice.path, out var message);
-                Notify(message);
-                Rebuild();
-            }, destructive: true);
+        EditorProjectPanel.Ensure(uiRoot)?.RequestDiscardStartupRecovery(Rebuild);
     }
 
     async void OpenSample(SkillSyncSamples.Sample sample)

@@ -10,6 +10,8 @@ public sealed class EditorProjectPanel : MonoBehaviour
     const string ControllerName = "EditorProjectPanelController";
     const string ModalName = "Panel_ProjectFiles";
     const float RecoveryWarningHeight = 148f;
+    const string DialogTitle = "教材を開く";
+    const string DefaultHint = "教材をクリックして選び、ダブルクリックか「開く」で開きます。";
     static readonly ProfilerMarker RefreshProjectListMarker = new("EditorProjectPanel.RefreshProjectList");
     static readonly HashSet<EditorProjectPanel> Panels = new();
 
@@ -34,15 +36,16 @@ public sealed class EditorProjectPanel : MonoBehaviour
     Transform uiRoot;
     EditorProjectService projectService;
     Button openButton;
-    Button saveProjectButton;
     RectTransform modal;
     TMP_Text dialogTitleText;
-    TMP_Text dirtyBadgeText;
-    TMP_InputField projectNameInput;
+    TMP_InputField searchInput;
     TMP_Text statusText;
     RectTransform listContent;
     int libraryMode;
     readonly Button[] libraryTabs = new Button[3];
+    string selectedPath;
+    string lastClickedPath;
+    float lastClickTime;
     bool recoveryWarningShown;
     bool allowQuit;
 
@@ -132,7 +135,7 @@ public sealed class EditorProjectPanel : MonoBehaviour
         openButton = existing != null ? existing.GetComponent<Button>() : null;
         if (openButton == null)
         {
-            openButton = CreateButton("Button_ProjectFiles", topBar, "教材一覧", 112f);
+            openButton = CreateButton("Button_ProjectFiles", topBar, DialogTitle, 112f);
             var saveButton = topBar.Find("Button_SaveCurriculum");
             if (saveButton != null) openButton.transform.SetSiblingIndex(saveButton.GetSiblingIndex());
         }
@@ -167,55 +170,36 @@ public sealed class EditorProjectPanel : MonoBehaviour
         var dialogImage = dialog.gameObject.AddComponent<Image>();
         dialogImage.color = DesignTokens.Surface;
 
-        dialogTitleText = CreateText("Title", dialog, "教材一覧", DesignTokens.FontSizeHeading, DesignTokens.TextPrimary);
+        // "教材を開く": search, three tabs, the list and a quiet footer. Saving and creating live in the header and the start screen.
+        dialogTitleText = CreateText("Title", dialog, DialogTitle, DesignTokens.FontSizeHeading, DesignTokens.TextPrimary);
         SetRect(dialogTitleText.rectTransform, new Vector2(24f, -20f), new Vector2(360f, 36f));
-        dirtyBadgeText = CreateText("Badge_Dirty", dialog, "未保存の変更", DesignTokens.FontSizeCaption, DesignTokens.Warning);
-        SetTopRight(dirtyBadgeText.rectTransform, new Vector2(-112f, -24f), new Vector2(200f, 28f));
-        dirtyBadgeText.alignment = TextAlignmentOptions.MidlineRight;
 
         var close = CreateButton("Button_Close", dialog, "閉じる", 80f);
         SetTopRight(close.transform as RectTransform, new Vector2(-20f, -18f), new Vector2(80f, 36f));
         close.onClick.AddListener(Close);
 
-        var nameLabel = CreateText("Label_ProjectName", dialog, "教材名", DesignTokens.FontSizeCaption, DesignTokens.TextSecondary);
-        SetRect(nameLabel.rectTransform, new Vector2(24f, -72f), new Vector2(160f, 24f));
-        projectNameInput = CreateInput("Input_ProjectName", dialog, EditorProjectStore.UntitledProjectName);
-        SetRect(projectNameInput.transform as RectTransform, new Vector2(24f, -98f), new Vector2(672f, 40f));
-        projectNameInput.onValueChanged.AddListener(_ => RefreshSaveButtonLabel());
+        searchInput = CreateInput("Input_Search", dialog, "教材の名前で探す");
+        SetRect(searchInput.transform as RectTransform, new Vector2(24f, -68f), new Vector2(672f, 40f));
+        searchInput.onValueChanged.AddListener(_ => RefreshProjectList());
 
-        saveProjectButton = CreateButton("Button_SaveProject", dialog, "名前を付けて保存", 168f, true);
-        SetRect(saveProjectButton.transform as RectTransform, new Vector2(24f, -154f), new Vector2(168f, 40f));
-        saveProjectButton.onClick.AddListener(SaveProject);
-
-        var newButton = CreateButton("Button_NewProject", dialog, "新規", 96f);
-        SetRect(newButton.transform as RectTransform, new Vector2(204f, -154f), new Vector2(96f, 40f));
-        newButton.onClick.AddListener(RequestNewProject);
-
-        var placementExportButton = CreateButton("Button_ExportPlacement", dialog, "配置JSONエクスポート", 180f);
-        SetTopRight(placementExportButton.transform as RectTransform, new Vector2(-24f, -154f), new Vector2(180f, 40f));
-        placementExportButton.onClick.AddListener(ExportPlacement);
-
-        var folderText = CreateText(
-            "Text_SaveLocation",
-            dialog,
-            "保存先: アプリの永続データ / Projects",
-            DesignTokens.FontSizeCaption,
-            DesignTokens.TextSecondary);
-        SetRect(folderText.rectTransform, new Vector2(24f, -202f), new Vector2(672f, 24f));
-
-        statusText = CreateText("Text_Status", dialog, string.Empty, DesignTokens.FontSizeBody, DesignTokens.TextSecondary);
-        SetRect(statusText.rectTransform, new Vector2(24f, -228f), new Vector2(672f, 32f));
-
-        string[] tabNames = { "保存済み", "テンプレート", "削除済み" };
+        string[] tabNames = { "教材", "テンプレート", "ゴミ箱" };
         for (int i = 0; i < tabNames.Length; i++)
         {
             int mode = i;
             libraryTabs[i] = CreateButton("Button_Library" + i, dialog, tabNames[i], 216f);
-            SetRect(libraryTabs[i].transform as RectTransform, new Vector2(24f + i * 228f, -264f), new Vector2(216f, 36f));
-            libraryTabs[i].onClick.AddListener(() => { libraryMode = mode; RefreshProjectList(); });
+            SetRect(libraryTabs[i].transform as RectTransform, new Vector2(24f + i * 228f, -120f), new Vector2(216f, 36f));
+            libraryTabs[i].onClick.AddListener(() => { libraryMode = mode; selectedPath = null; RefreshProjectList(); });
         }
 
         BuildProjectList(dialog);
+
+        var reveal = CreateButton("Button_RevealFolder", dialog, RevealFolderLabel, 244f);
+        SetRect(reveal.transform as RectTransform, new Vector2(24f, -566f), new Vector2(244f, 40f));
+        reveal.onClick.AddListener(RevealStorageFolder);
+        statusText = CreateText("Text_Status", dialog, string.Empty, DesignTokens.FontSizeCaption, DesignTokens.TextSecondary);
+        SetRect(statusText.rectTransform, new Vector2(284f, -566f), new Vector2(412f, 40f));
+        statusText.textWrappingMode = TextWrappingModes.Normal;
+
         UiRoundedTheme.ApplyToHierarchy(dialog, DesignTokens.CornerRadius);
         UiAccessibilityMetrics.EnsureButtonTargets(dialog);
         RefreshDirtyVisual();
@@ -225,7 +209,7 @@ public sealed class EditorProjectPanel : MonoBehaviour
     void BuildProjectList(RectTransform dialog)
     {
         var scrollRoot = CreateRect("Scroll_Projects", dialog);
-        SetRect(scrollRoot, new Vector2(24f, -304f), new Vector2(672f, 282f));
+        SetRect(scrollRoot, new Vector2(24f, -164f), new Vector2(672f, 390f));
         var scrollImage = scrollRoot.gameObject.AddComponent<Image>();
         scrollImage.color = DesignTokens.BgPrimary;
         var scroll = scrollRoot.gameObject.AddComponent<ScrollRect>();
@@ -272,35 +256,28 @@ public sealed class EditorProjectPanel : MonoBehaviour
         scroll.verticalScrollbarSpacing = 2f;
     }
 
+    static string RevealFolderLabel => ProjectFileLocation.RevealLabel == "フォルダを開く"
+        ? "保存場所のフォルダを開く" : "保存場所を" + ProjectFileLocation.RevealLabel;
+
     void Open()
     {
         if (modal == null) BuildModal();
         if (modal == null) return;
         projectService.RefreshRecoveryProtection();
 
-        SyncNameInput();
-        RefreshSaveButtonLabel();
+        selectedPath = null;
+        lastClickedPath = null;
+        searchInput.SetTextWithoutNotify(string.Empty);
+        SetStatus(string.Empty, true);
         RefreshDirtyVisual();
-        statusText.text = projectService.IsDirty ? "未保存の変更があります" : string.Empty;
-        statusText.color = projectService.IsDirty ? DesignTokens.Warning : DesignTokens.TextSecondary;
         RefreshProjectList();
         modal.gameObject.SetActive(true);
         modal.SetAsLastSibling();
     }
 
-    // The name field is the source of the save name, so it must match the current lesson even while the panel is closed.
-    void SyncNameInput()
-    {
-        var graph = FindFirstObjectByType<CurriculumGraphService>();
-        string name = graph != null && graph.curriculum != null
-            ? graph.curriculum.projectName
-            : projectService.CurrentProjectName;
-        projectNameInput.SetTextWithoutNotify(string.IsNullOrWhiteSpace(name) ? EditorProjectStore.UntitledProjectName : name);
-    }
-
     public void OpenForDesignUi() => OpenLibraryTab(0);
 
-    // tab: 0 saved lessons, 1 templates, 2 trash. Always starts on the requested tab, not on a previous one.
+    // tab: 0 lessons, 1 templates, 2 trash. Always starts on the requested tab, not on a previous one.
     public void OpenLibraryTab(int tab)
     {
         gameObject.SetActive(true);
@@ -322,58 +299,33 @@ public sealed class EditorProjectPanel : MonoBehaviour
         if (modal != null) modal.gameObject.SetActive(false);
     }
 
-    void SaveProject()
+    void SetStatus(string message, bool succeeded)
     {
-        string name = GetProjectName();
-        if (!string.IsNullOrEmpty(projectService.CurrentProjectPath) &&
-            string.Equals(name, projectService.CurrentProjectName, StringComparison.Ordinal))
-        {
-            SaveProjectNow(name);
-            return;
-        }
-        string safeName = ExportFileNameUtility.SanitizeProjectName(name, EditorProjectStore.UntitledProjectName);
-        EditorProjectFileInfo existing = null;
-        foreach (var info in EditorProjectStore.ListProjects())
-        {
-            if (!string.Equals(info.DisplayName, safeName, StringComparison.OrdinalIgnoreCase)) continue;
-            existing = info;
-            break;
-        }
-
-        bool isCurrentFile = existing != null &&
-            !string.IsNullOrWhiteSpace(projectService.CurrentProjectPath) &&
-            string.Equals(existing.Path, projectService.CurrentProjectPath, StringComparison.OrdinalIgnoreCase);
-        if (existing != null && !isCurrentFile)
-        {
-            Ask($"「{existing.DisplayName}」を置き換えますか？",
-                "同じ名前の教材がすでに保存されています。置き換えると、保存済みの内容は今の内容に変わります。",
-                "置き換える", () => SaveProjectNow(name), destructive: true);
-            return;
-        }
-
-        SaveProjectNow(name);
+        if (statusText == null) return;
+        bool empty = string.IsNullOrEmpty(message);
+        statusText.text = empty ? DefaultHint : message;
+        statusText.color = empty ? DesignTokens.TextTertiary : succeeded ? DesignTokens.Success : DesignTokens.Error;
     }
 
-    void SaveProjectNow(string name)
+    // Shows the selected lesson in the file manager, or else the newest lesson, so the folder stays findable without internal paths in the UI.
+    void RevealStorageFolder()
     {
-        projectService.Save(name, out var message);
-        statusText.text = message;
-        RefreshSaveButtonLabel();
-        RefreshProjectList();
+        string path = selectedPath;
+        if (string.IsNullOrEmpty(path))
+        {
+            var recent = EditorProjectStore.ListRecentlyWritten(1);
+            path = recent.Count > 0 ? recent[0].Path : EditorProjectStore.ProjectsDirectory;
+        }
+        ProjectFileLocation.Reveal(path);
     }
 
-    void ExportPlacement()
+    // Developer-only placement data export. No longer offered in the lesson dialog; kept callable for a future developer entry point.
+    public bool ExportPlacementData(out string path, out string error)
     {
         var exportService = FindFirstObjectByType<PlacementExportService>();
-        if (exportService == null)
-        {
-            exportService = projectService.gameObject.AddComponent<PlacementExportService>();
-        }
-
-        exportService.projectName = GetProjectName();
-        bool succeeded = exportService.TryExportPlacementJson(out var path, out var error);
-        statusText.text = succeeded ? "配置JSONを出力しました: " + path : "配置JSONを出力できません: " + error;
-        statusText.color = succeeded ? DesignTokens.Success : DesignTokens.Error;
+        if (exportService == null) exportService = projectService.gameObject.AddComponent<PlacementExportService>();
+        exportService.projectName = projectService.CurrentProjectName;
+        return exportService.TryExportPlacementJson(out path, out error);
     }
 
     // Ctrl/Cmd+N and the header 新規 button. Asks only when there are unsaved changes.
@@ -395,9 +347,7 @@ public sealed class EditorProjectPanel : MonoBehaviour
     void NewProjectNow()
     {
         projectService.NewProject(null, out var message);
-        if (statusText != null) statusText.text = message;
-        if (projectNameInput != null) SyncNameInput();
-        RefreshSaveButtonLabel();
+        SetStatus(message, true);
         Close();
         TopCenterNotification.Ensure(uiRoot, null)?.Show(message, false, 3f);
     }
@@ -440,8 +390,6 @@ public sealed class EditorProjectPanel : MonoBehaviour
         if (created)
         {
             Close();
-            if (projectNameInput != null) SyncNameInput();
-            RefreshSaveButtonLabel();
             TopCenterNotification.Ensure(uiRoot, null)?.Show(message, false, 5f);
         }
         done?.Invoke(created);
@@ -456,39 +404,65 @@ public sealed class EditorProjectPanel : MonoBehaviour
 
     void OpenNow(EditorProjectFileInfo info, Action<bool> done)
     {
-        bool loaded = LoadProjectNow(info);
+        bool loaded = projectService.Load(info.Path, out var message);
+        if (loaded)
+        {
+            RefreshProjectList();
+            RefreshDirtyVisual();
+            TopCenterNotification.Ensure(uiRoot, null)?.Show(message, false, 3f);
+        }
         done?.Invoke(loaded);
     }
 
-    void RequestLoad(EditorProjectFileInfo info) => RequestOpen(info);
-
-    bool LoadProjectNow(EditorProjectFileInfo info)
+    // The previous session ended with unsaved changes; its protected copy is offered here and on the start screen.
+    public void RequestOpenStartupRecovery(Action<bool> done = null)
     {
-        bool loaded = projectService.Load(info.Path, out var message);
-        if (statusText != null) statusText.text = message;
-        if (loaded)
+        var notice = projectService.StartupRecovery;
+        if (notice == null || !EditorProjectStore.TryGetFileInfo(notice.path, out var info))
         {
-            if (projectNameInput != null) projectNameInput.SetTextWithoutNotify(projectService.CurrentProjectName);
-            RefreshSaveButtonLabel();
+            projectService.DismissStartupRecovery();
             RefreshProjectList();
-            RefreshDirtyVisual();
+            done?.Invoke(false);
+            return;
         }
-        return loaded;
+        RequestOpen(info, opened =>
+        {
+            if (opened) projectService.DismissStartupRecovery();
+            RefreshProjectList();
+            done?.Invoke(opened);
+        });
     }
 
+    public void RequestDiscardStartupRecovery(Action done = null)
+    {
+        var notice = projectService.StartupRecovery;
+        if (notice == null) return;
+        string name = string.IsNullOrWhiteSpace(notice.originalName) ? EditorProjectStore.UntitledProjectName : notice.originalName;
+        Ask("復旧データを破棄しますか？",
+            $"「{name}」の、保存されなかった変更を破棄します。復旧データはゴミ箱へ移すので、必要なら「ゴミ箱」タブから戻せます。",
+            "破棄", () =>
+        {
+            projectService.DiscardPreservedRecovery(notice.path, out var message);
+            TopCenterNotification.Ensure(uiRoot, null)?.Show(message, false, 4f);
+            RefreshProjectList();
+            done?.Invoke();
+        }, destructive: true);
+    }
+
+    // Recovery data that could not be set aside at startup (see RecoveryProtectionWarning): open or discard the shared slot itself.
     void RequestRecoveryLoad(EditorProjectFileInfo info)
     {
         Ask("復旧データを開きますか？",
-            $"現在の編集内容を閉じて、「{info.DisplayName}」の復旧データを開きます。保存していない変更は失われます。",
-            "復旧データを開く", () =>
+            $"今の編集内容を閉じて、「{info.DisplayName}」の復旧データを開きます。保存していない変更は失われます。",
+            "復旧して開く", () =>
         {
             bool loaded = projectService.LoadRecovery(out var message);
-            statusText.text = message;
+            SetStatus(message, loaded);
             if (loaded)
             {
-                projectNameInput.SetTextWithoutNotify(projectService.CurrentProjectName);
-                RefreshSaveButtonLabel();
                 RefreshDirtyVisual();
+                Close();
+                TopCenterNotification.Ensure(uiRoot, null)?.Show(message, false, 4f);
             }
         }, destructive: true);
     }
@@ -500,7 +474,7 @@ public sealed class EditorProjectPanel : MonoBehaviour
             "破棄", () =>
         {
             projectService.DeleteRecovery(out var message);
-            statusText.text = message;
+            SetStatus(message, true);
         }, destructive: true);
     }
 
@@ -522,161 +496,195 @@ public sealed class EditorProjectPanel : MonoBehaviour
 
         for (int i = 0; i < libraryTabs.Length; i++)
             if (libraryTabs[i] != null) libraryTabs[i].interactable = i != libraryMode;
-        var projects = libraryMode == 1 ? EditorProjectStore.ListTemplates() :
+        var all = libraryMode == 1 ? EditorProjectStore.ListTemplates() :
             libraryMode == 2 ? EditorProjectStore.ListArchived() : EditorProjectStore.ListProjects();
-        float warningOffset = 0f;
+        string query = searchInput != null ? searchInput.text.Trim() : string.Empty;
+        var projects = new List<EditorProjectFileInfo>();
+        foreach (var info in all)
+            if (query.Length == 0 || info.DisplayName.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0) projects.Add(info);
+
+        float cursor = 0f;
         if (!string.IsNullOrEmpty(projectService.RecoveryProtectionWarning))
         {
-            CreateRecoveryProtectionWarning();
-            warningOffset = RecoveryWarningHeight + DesignTokens.SpaceSm;
+            CreateRecoveryProtectionWarning(ref cursor);
+            if (libraryMode == 0 && EditorProjectStore.TryGetRecovery(out var slot))
+                CreateRecoveryBand(ref cursor, "前回保存されなかった教材「" + slot.DisplayName + "」の復旧データがあります",
+                    slot.LastWriteTimeUtc.ToLocalTime().ToString("M月d日 HH:mm") + "までの内容です。",
+                    () => RequestRecoveryLoad(slot), () => RequestRecoveryDelete(slot));
         }
-        int rowIndex = 0;
-        if (libraryMode == 0 && EditorProjectStore.TryGetRecovery(out var recovery))
+        var notice = projectService.StartupRecovery;
+        if (libraryMode == 0 && notice != null && EditorProjectStore.TryGetFileInfo(notice.path, out _))
         {
-            CreateRecoveryRow(recovery, rowIndex++, warningOffset);
+            string name = string.IsNullOrWhiteSpace(notice.originalName) ? EditorProjectStore.UntitledProjectName : notice.originalName;
+            CreateRecoveryBand(ref cursor, "前回保存されずに終了した教材「" + name + "」の復旧データがあります",
+                notice.savedAtUtc.ToLocalTime().ToString("M月d日 HH:mm") + "までの内容です。",
+                () => RequestOpenStartupRecovery(opened => { if (opened) Close(); }), () => RequestDiscardStartupRecovery());
         }
 
-        if (projects.Count == 0 && rowIndex == 0)
+        if (projects.Count == 0)
         {
-            var empty = CreateText("Text_Empty", listContent, libraryMode == 1 ? "テンプレートはまだありません。保存済みの教材の［テンプレート化］で追加できます" : "この一覧にはまだ教材がありません", DesignTokens.FontSizeBody, DesignTokens.TextSecondary);
+            string emptyText = query.Length > 0 ? "「" + query + "」に合う教材はありません。"
+                : libraryMode == 1 ? "テンプレートはまだありません。「教材」タブで教材を選び、「テンプレートにする」を押すと追加できます。"
+                : libraryMode == 2 ? "ゴミ箱は空です。"
+                : "まだ保存した教材はありません。";
+            var empty = CreateText("Text_Empty", listContent, emptyText, DesignTokens.FontSizeBody, DesignTokens.TextSecondary);
             empty.alignment = TextAlignmentOptions.Center;
-            SetListItemRect(empty.rectTransform, 0, 52f, warningOffset);
-            SetListContentHeight(68f + warningOffset);
+            empty.textWrappingMode = TextWrappingModes.Normal;
+            PlaceItem(empty.rectTransform, cursor, 64f);
+            SetListContentHeight(cursor + 72f);
             return;
         }
 
-        foreach (var info in projects)
-        {
-            var row = CreateRect("Project_" + info.DisplayName, listContent);
-            SetListItemRect(row, rowIndex++, 92f, warningOffset);
-            row.gameObject.AddComponent<Image>().color = DesignTokens.Surface;
-            var label = CreateText("Label", row, info.DisplayName, DesignTokens.FontSizeBody, DesignTokens.TextPrimary);
-            SetRect(label.rectTransform, new Vector2(12f, -6f), new Vector2(390f, 28f));
-            string dateLabel = (info.LastSaveWasAutomatic ? "自動保存 " : "") + info.LastWriteTimeUtc.ToLocalTime().ToString("MM/dd HH:mm");
-            var date = CreateText("Date", row, dateLabel, DesignTokens.FontSizeCaption, DesignTokens.TextSecondary);
-            SetTopRight(date.rectTransform, new Vector2(-12f, -6f), new Vector2(220f, 28f));
-            date.alignment = TextAlignmentOptions.MidlineRight;
-            if (libraryMode == 2)
-            {
-                AddLibraryAction(row, "復元", 0, () =>
-                {
-                    projectService.RestoreSaved(info.Path, out _);
-                    RefreshProjectList();
-                });
-            }
-            else
-            {
-                if (libraryMode == 0) AddLibraryAction(row, "開く", 0, () => RequestLoad(info));
-                if (libraryMode == 1) AddLibraryAction(row, "教材を作成", 1, () => RequestCreateFrom(info.Path, TemplateBaseName(info.DisplayName)));
-                else AddLibraryAction(row, "複製", 1, () => DuplicateSaved(info, false));
-                if (libraryMode == 0) AddLibraryAction(row, "テンプレート化", 2, () => DuplicateSaved(info, true));
-                var delete = AddLibraryAction(row, "削除", 3, () => Ask(
-                    "教材をゴミ箱へ移しますか？",
-                    $"「{info.DisplayName}」をゴミ箱へ移します。ゴミ箱から戻すこともできます。",
-                    "ゴミ箱へ移す", () =>
-                    {
-                        projectService.ArchiveSaved(info.Path, out _);
-                        RefreshProjectList();
-                    }));
-                delete.interactable = !string.Equals(info.Path, projectService.CurrentProjectPath, StringComparison.OrdinalIgnoreCase);
-                if (!delete.interactable) SetButtonLabel(delete, "編集中");
-            }
-            UiRoundedTheme.ApplyToHierarchy(row, DesignTokens.CornerRadius);
-            UiAccessibilityMetrics.EnsureButtonTargets(row);
-        }
-        SetListContentHeight(warningOffset + 16f + DesignTokens.SpaceMd + rowIndex * 92f + Mathf.Max(0, rowIndex - 1) * DesignTokens.SpaceSm);
+        foreach (var info in projects) CreateLibraryRow(info, ref cursor);
+        SetListContentHeight(cursor + 8f);
     }
 
-    void CreateRecoveryProtectionWarning()
+    void CreateLibraryRow(EditorProjectFileInfo info, ref float cursor)
     {
-        var row = CreateRect("Project_RecoveryProtectionWarning", listContent);
-        SetListItemRect(row, 0, RecoveryWarningHeight);
-        row.gameObject.AddComponent<UnityEngine.UI.Image>().color = DesignTokens.BadgeBg(DesignTokens.Warning);
-        var warning = CreateText("Text_Warning", row, projectService.RecoveryProtectionWarning,
-            DesignTokens.FontSizeCaption, DesignTokens.TextPrimary);
-        SetRect(warning.rectTransform, new Vector2(12f, -8f), new Vector2(636f, 88f));
-        var retry = CreateButton("Button_RetryRecoveryProtection", row, "保護を再試行", 168f);
-        SetRect(retry.transform as RectTransform, new Vector2(12f, -100f), new Vector2(168f, 40f));
-        retry.onClick.AddListener(() =>
-        {
-            if (!projectService.RetryRecoveryProtection(out _))
-                OnServiceStatusChanged("復旧データを保護できません。警告の詳細を確認して再試行してください。", false);
-        });
+        bool selected = string.Equals(info.Path, selectedPath, StringComparison.OrdinalIgnoreCase);
+        float height = selected ? 112f : 60f;
+        var row = CreateRect("Project_" + info.DisplayName, listContent);
+        PlaceItem(row, cursor, height);
+        cursor += height + DesignTokens.SpaceSm;
+        var image = row.gameObject.AddComponent<Image>();
+        image.color = selected ? DesignTokens.BadgeBg(DesignTokens.Accent) : DesignTokens.Surface;
+        var rowButton = row.gameObject.AddComponent<Button>();
+        rowButton.targetGraphic = image;
+        rowButton.onClick.AddListener(() => OnRowClicked(info));
+
+        var label = CreateText("Label", row, info.DisplayName, DesignTokens.FontSizeBody, DesignTokens.TextPrimary);
+        SetRect(label.rectTransform, new Vector2(12f, -16f), new Vector2(430f, 28f));
+        string dateLabel = (info.LastSaveWasAutomatic ? "復旧データ  " : "") + info.LastWriteTimeUtc.ToLocalTime().ToString("yyyy/MM/dd HH:mm");
+        var date = CreateText("Date", row, dateLabel, DesignTokens.FontSizeCaption, DesignTokens.TextSecondary);
+        SetTopRight(date.rectTransform, new Vector2(-12f, -16f), new Vector2(220f, 28f));
+        date.alignment = TextAlignmentOptions.MidlineRight;
+        if (selected) AddSelectedActions(row, info);
         UiRoundedTheme.ApplyToHierarchy(row, DesignTokens.CornerRadius);
         UiAccessibilityMetrics.EnsureButtonTargets(row);
     }
 
-    Button AddLibraryAction(RectTransform row, string label, int index, UnityEngine.Events.UnityAction action)
+    // First click selects; a second click on the same row within 0.4s opens it (templates: creates a lesson from it).
+    void OnRowClicked(EditorProjectFileInfo info)
     {
-        var button = CreateButton("Button_Action" + index, row, label, 148f);
-        SetRect(button.transform as RectTransform, new Vector2(12f + index * 158f, -42f), new Vector2(148f, 40f));
-        button.onClick.AddListener(action);
-        return button;
+        bool doubleClick = string.Equals(lastClickedPath, info.Path, StringComparison.OrdinalIgnoreCase) &&
+            Time.unscaledTime - lastClickTime < 0.4f;
+        lastClickedPath = info.Path;
+        lastClickTime = Time.unscaledTime;
+        if (doubleClick && libraryMode != 2) { RunPrimaryAction(info); return; }
+        if (string.Equals(selectedPath, info.Path, StringComparison.OrdinalIgnoreCase)) return;
+        selectedPath = info.Path;
+        RefreshProjectList();
+    }
+
+    void RunPrimaryAction(EditorProjectFileInfo info)
+    {
+        if (libraryMode == 0) RequestOpen(info, opened => { if (opened) Close(); });
+        else if (libraryMode == 1) RequestCreateFrom(info.Path, TemplateBaseName(info.DisplayName));
+        else RestoreFromTrash(info);
+    }
+
+    void AddSelectedActions(RectTransform row, EditorProjectFileInfo info)
+    {
+        float x = 12f;
+        Button Add(string label, float width, UnityEngine.Events.UnityAction action, bool primary = false)
+        {
+            var button = CreateButton("Button_Action" + label, row, label, width, primary);
+            SetRect(button.transform as RectTransform, new Vector2(x, -60f), new Vector2(width, 40f));
+            button.onClick.AddListener(action);
+            x += width + 10f;
+            return button;
+        }
+
+        if (libraryMode == 2)
+        {
+            Add("元に戻す", 140f, () => RestoreFromTrash(info), true);
+            return;
+        }
+        if (libraryMode == 0)
+        {
+            Add("開く", 100f, () => RunPrimaryAction(info), true);
+            Add("複製", 100f, () => DuplicateSaved(info, false));
+            Add("テンプレートにする", 180f, () => DuplicateSaved(info, true));
+        }
+        else Add("この教材から作成", 180f, () => RunPrimaryAction(info), true);
+
+        var trash = Add("ゴミ箱へ移す", 140f, () => Ask(
+            libraryMode == 1 ? "テンプレートをゴミ箱へ移しますか？" : "教材をゴミ箱へ移しますか？",
+            $"「{info.DisplayName}」をゴミ箱へ移します。「ゴミ箱」タブから元に戻せます。",
+            "ゴミ箱へ移す", () =>
+            {
+                projectService.ArchiveSaved(info.Path, out _);
+                selectedPath = null;
+                RefreshProjectList();
+            }));
+        // The open lesson cannot be moved away from under the editor.
+        if (string.Equals(info.Path, projectService.CurrentProjectPath, StringComparison.OrdinalIgnoreCase))
+            trash.interactable = false;
+    }
+
+    void RestoreFromTrash(EditorProjectFileInfo info)
+    {
+        projectService.RestoreSaved(info.Path, out _);
+        selectedPath = null;
+        RefreshProjectList();
     }
 
     void DuplicateSaved(EditorProjectFileInfo info, bool asTemplate)
     {
         if (!projectService.DuplicateSaved(info.Path, asTemplate, out _)) return;
         libraryMode = asTemplate ? 1 : 0;
+        selectedPath = null;
         RefreshProjectList();
     }
-    void CreateRecoveryRow(EditorProjectFileInfo info, int index, float topOffset = 0f)
+
+    void CreateRecoveryProtectionWarning(ref float cursor)
     {
+        var row = CreateRect("Project_RecoveryProtectionWarning", listContent);
+        PlaceItem(row, cursor, RecoveryWarningHeight);
+        cursor += RecoveryWarningHeight + DesignTokens.SpaceSm;
+        row.gameObject.AddComponent<UnityEngine.UI.Image>().color = DesignTokens.BadgeBg(DesignTokens.Warning);
+        var warning = CreateText("Text_Warning", row, projectService.RecoveryProtectionWarning,
+            DesignTokens.FontSizeCaption, DesignTokens.TextPrimary);
+        SetRect(warning.rectTransform, new Vector2(12f, -8f), new Vector2(636f, 88f));
+        var retry = CreateButton("Button_RetryRecoveryProtection", row, "再試行", 168f);
+        SetRect(retry.transform as RectTransform, new Vector2(12f, -100f), new Vector2(168f, 40f));
+        retry.onClick.AddListener(() =>
+        {
+            if (!projectService.RetryRecoveryProtection(out _))
+                OnServiceStatusChanged("復旧データを別の教材として残せませんでした。詳細を確認して、もう一度試してください。", false);
+        });
+        UiRoundedTheme.ApplyToHierarchy(row, DesignTokens.CornerRadius);
+        UiAccessibilityMetrics.EnsureButtonTargets(row);
+    }
+
+    // A notice band above the list: unsaved work from the previous session, with 復旧して開く / 破棄.
+    void CreateRecoveryBand(ref float cursor, string message, string detail, Action open, Action discard)
+    {
+        const float height = 132f;
         var row = CreateRect("Project_Recovery", listContent);
-        SetListItemRect(row, index, 92f, topOffset);
-        var rowImage = row.gameObject.AddComponent<Image>();
-        rowImage.color = DesignTokens.BadgeBg(DesignTokens.Warning);
+        PlaceItem(row, cursor, height);
+        cursor += height + DesignTokens.SpaceSm;
+        row.gameObject.AddComponent<Image>().color = DesignTokens.BadgeBg(DesignTokens.Warning);
 
-        var label = CreateText("Label", row, "自動保存: " + info.DisplayName, DesignTokens.FontSizeBody, DesignTokens.TextPrimary);
-        label.rectTransform.anchorMin = new Vector2(0f, 0f);
-        label.rectTransform.anchorMax = new Vector2(1f, 1f);
-        label.rectTransform.offsetMin = new Vector2(12f, 0f);
-        label.rectTransform.offsetMax = new Vector2(-312f, 0f);
-        label.alignment = TextAlignmentOptions.MidlineLeft;
+        var text = CreateText("Label", row, message, DesignTokens.FontSizeBody, DesignTokens.TextPrimary);
+        text.textWrappingMode = TextWrappingModes.Normal;
+        SetRect(text.rectTransform, new Vector2(12f, -8f), new Vector2(636f, 52f));
+        var sub = CreateText("Date", row, detail, DesignTokens.FontSizeCaption, DesignTokens.TextSecondary);
+        SetRect(sub.rectTransform, new Vector2(12f, -62f), new Vector2(636f, 22f));
 
-        var date = CreateText("Date", row, info.LastWriteTimeUtc.ToLocalTime().ToString("yyyy/MM/dd HH:mm"), DesignTokens.FontSizeCaption, DesignTokens.TextSecondary);
-        date.rectTransform.anchorMin = new Vector2(1f, 0f);
-        date.rectTransform.anchorMax = new Vector2(1f, 1f);
-        date.rectTransform.pivot = new Vector2(1f, 0.5f);
-        date.rectTransform.anchoredPosition = new Vector2(-168f, 0f);
-        date.rectTransform.sizeDelta = new Vector2(136f, 52f);
-        date.alignment = TextAlignmentOptions.MidlineRight;
-
-        var discard = CreateButton("Button_DiscardRecovery", row, "破棄", 64f);
-        var discardRect = discard.transform as RectTransform;
-        discardRect.anchorMin = discardRect.anchorMax = new Vector2(1f, 0.5f);
-        discardRect.pivot = new Vector2(1f, 0.5f);
-        discardRect.anchoredPosition = new Vector2(-88f, 0f);
-        discardRect.sizeDelta = new Vector2(64f, 36f);
-        discard.onClick.AddListener(() => RequestRecoveryDelete(info));
-
-        var restore = CreateButton("Button_RestoreRecovery", row, "復元", 72f);
-        var restoreRect = restore.transform as RectTransform;
-        restoreRect.anchorMin = restoreRect.anchorMax = new Vector2(1f, 0.5f);
-        restoreRect.pivot = new Vector2(1f, 0.5f);
-        restoreRect.anchoredPosition = new Vector2(-8f, 0f);
-        restoreRect.sizeDelta = new Vector2(72f, 36f);
-        restore.onClick.AddListener(() => RequestRecoveryLoad(info));
-        UiAccessibilityMetrics.EnsureButtonTarget(discard);
-        UiAccessibilityMetrics.EnsureButtonTarget(restore);
+        var openBtn = CreateButton("Button_RestoreRecovery", row, "復旧して開く", 160f, true);
+        SetRect(openBtn.transform as RectTransform, new Vector2(12f, -88f), new Vector2(160f, 36f));
+        openBtn.onClick.AddListener(() => open());
+        var discardButton = CreateButton("Button_DiscardRecovery", row, "破棄", 96f);
+        SetRect(discardButton.transform as RectTransform, new Vector2(182f, -88f), new Vector2(96f, 36f));
+        discardButton.onClick.AddListener(() => discard());
+        UiAccessibilityMetrics.EnsureButtonTargets(row);
         UiRoundedTheme.ApplyToHierarchy(row, DesignTokens.CornerRadius);
     }
 
-    void RefreshSaveButtonLabel()
+    static void PlaceItem(RectTransform rect, float top, float height)
     {
-        if (saveProjectButton == null || projectService == null) return;
-
-        bool hasCurrentFile = !string.IsNullOrWhiteSpace(projectService.CurrentProjectPath);
-        bool sameProjectName = string.Equals(
-            ExportFileNameUtility.SanitizeProjectName(GetProjectName(), EditorProjectStore.UntitledProjectName),
-            ExportFileNameUtility.SanitizeProjectName(projectService.CurrentProjectName, EditorProjectStore.UntitledProjectName),
-            StringComparison.OrdinalIgnoreCase);
-        SetButtonLabel(saveProjectButton, hasCurrentFile && sameProjectName ? "上書き保存" : "名前を付けて保存");
-    }
-
-    static void SetListItemRect(RectTransform rect, int index, float height, float topOffset = 0f)
-    {
-        float top = topOffset + 8f + index * (height + DesignTokens.SpaceSm);
+        top += 8f;
         rect.anchorMin = new Vector2(0f, 1f);
         rect.anchorMax = new Vector2(1f, 1f);
         rect.pivot = new Vector2(0.5f, 1f);
@@ -697,27 +705,10 @@ public sealed class EditorProjectPanel : MonoBehaviour
 
     void OnServiceStatusChanged(string message, bool succeeded)
     {
-        if (statusText == null) return;
-        statusText.text = message;
-        statusText.color = succeeded ? DesignTokens.Success : DesignTokens.Error;
+        SetStatus(message, succeeded);
     }
 
-    void OnDirtyChanged(bool dirty)
-    {
-        RefreshDirtyVisual();
-        if (statusText == null || modal == null || !modal.gameObject.activeInHierarchy) return;
-
-        if (dirty)
-        {
-            statusText.text = "未保存の変更があります";
-            statusText.color = DesignTokens.Warning;
-        }
-        else if (string.Equals(statusText.text, "未保存の変更があります", StringComparison.Ordinal))
-        {
-            statusText.text = string.Empty;
-            statusText.color = DesignTokens.TextSecondary;
-        }
-    }
+    void OnDirtyChanged(bool dirty) => RefreshDirtyVisual();
 
     void OnRecoveryChanged()
     {
@@ -733,21 +724,19 @@ public sealed class EditorProjectPanel : MonoBehaviour
 
     void RefreshDirtyVisual()
     {
-        bool dirty = projectService != null && projectService.IsDirty;
         if (dialogTitleText != null)
         {
-            dialogTitleText.text = "教材一覧";
+            dialogTitleText.text = DialogTitle;
             dialogTitleText.color = DesignTokens.TextPrimary;
         }
-        if (dirtyBadgeText != null) dirtyBadgeText.gameObject.SetActive(dirty);
 
         if (openButton != null)
         {
             var label = openButton.GetComponentInChildren<TMP_Text>(true);
             if (label != null)
             {
-                label.text = dirty ? "教材一覧  •" : "教材一覧";
-                label.color = dirty ? DesignTokens.Warning : DesignTokens.TextPrimary;
+                label.text = DialogTitle;
+                label.color = DesignTokens.TextPrimary;
             }
         }
     }
@@ -778,13 +767,6 @@ public sealed class EditorProjectPanel : MonoBehaviour
                 allowQuit = true;
                 Application.Quit();
             });
-    }
-
-    string GetProjectName()
-    {
-        return string.IsNullOrWhiteSpace(projectNameInput.text)
-            ? EditorProjectStore.UntitledProjectName
-            : projectNameInput.text.Trim();
     }
 
     static RectTransform CreateRect(string objectName, Transform parent)

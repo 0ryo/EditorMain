@@ -34,6 +34,8 @@ public static class EditorProjectStore
     static string DeletedProjectsDirectory => Path.Combine(ProjectsDirectory, "Trash", "Projects");
     static string DeletedTemplatesDirectory => Path.Combine(ProjectsDirectory, "Trash", "Templates");
 
+    public static string DisplayNameOf(string path) => RemoveSuffix(Path.GetFileName(path));
+
     public static string Duplicate(string sourcePath, bool asTemplate)
     {
         string source = RequireLibraryPath(sourcePath, false);
@@ -79,8 +81,8 @@ public static class EditorProjectStore
             ? SameDirectory(full, DeletedProjectsDirectory) || SameDirectory(full, DeletedTemplatesDirectory)
             : SameDirectory(full, ProjectsDirectory) || SameDirectory(full, TemplatesDirectory);
         if (!allowed || !full.EndsWith(FileSuffix, StringComparison.OrdinalIgnoreCase))
-            throw new InvalidOperationException("プロジェクト一覧のファイルを指定してください。");
-        if (!File.Exists(full)) throw new FileNotFoundException("プロジェクトファイルが見つかりません。", full);
+            throw new InvalidOperationException("教材の一覧にあるファイルを指定してください。");
+        if (!File.Exists(full)) throw new FileNotFoundException("教材のファイルが見つかりません。", full);
         return full;
     }
 
@@ -227,7 +229,7 @@ public static class EditorProjectStore
             string resolvedPath = Path.GetFullPath(path);
             if (!File.Exists(resolvedPath))
             {
-                error = "プロジェクトファイルが見つかりません。";
+                error = "教材のファイルが見つかりません。";
                 return false;
             }
 
@@ -240,7 +242,7 @@ public static class EditorProjectStore
         }
         catch (Exception ex)
         {
-            error = "プロジェクトを読み込めません: " + ex.Message;
+            error = "教材を開けません: " + ex.Message;
             return false;
         }
     }
@@ -259,7 +261,7 @@ public static class EditorProjectStore
             if (!File.Exists(RecoveryPath)) return false;
 
             var file = new FileInfo(RecoveryPath);
-            string displayName = "自動保存データ";
+            string displayName = "復旧データ";
             if (TryLoad(file.FullName, out var project, out _) && project != null &&
                 !string.IsNullOrWhiteSpace(project.projectName))
             {
@@ -386,7 +388,7 @@ public sealed class EditorProjectRecoverySession
         if (File.Exists(path) && !Owns(path))
         {
             if (!EditorProjectStore.TryPreserveRecoveryAtStartup(out _, out var error))
-                throw new IOException("以前の復旧データを保護できないため、自動保存を中止しました。プロジェクトを通常保存してください。 " + error);
+                throw new IOException("以前の復旧データを残せないため、復旧データの記録を中止しました。教材を保存してください。 " + error);
         }
 
         EditorProjectStore.SaveRecovery(project);
