@@ -111,6 +111,13 @@ public sealed class SkillSyncTrialSession : IDisposable, IScenarioObjectStateSou
     }
     public void MarkSucceeded(string nodeId) { if (!string.IsNullOrEmpty(nodeId)) manual.Add(nodeId); }
     public bool IsSucceeded(string nodeId) => manual.Contains(nodeId) || (evaluators.TryGetValue(nodeId, out var e) && e.Succeeded);
+    // Starts the next step from where the parts now are: Reset() returns to this state, not to the lesson's first layout.
+    public void BeginNextStep()
+    {
+        foreach (var key in new List<Transform>(initial.Keys)) if (key != null) initial[key] = TransformObjectCommand.State.Capture(key);
+        Reset(false);
+    }
+
     public void Reset(bool restorePositions = true)
     {
         if (restorePositions) foreach (var p in initial) if (p.Key != null)

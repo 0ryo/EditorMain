@@ -18,7 +18,7 @@ public interface IScenarioObjectStateSource
 
 // Optional adapter contract for deliberate operations, not inferred proximity.
 // Counters increase once per push/pull. Rotation is signed, continuous, unwrapped
-// degrees around the object's operation axis, excluding motion of its parent.
+// degrees around the object's operation axis (positive = clockwise seen by the operator), excluding motion of its parent.
 public struct ScenarioInteractionState
 {
     public long pushCount;
@@ -73,7 +73,7 @@ public sealed class ScenarioConditionEvaluator
                 { interactionStart = operation; interactionStarted = true; return false; }
                 matches = condition.type == ConditionTypeCatalog.Push ? operation.pushCount > interactionStart.pushCount :
                     condition.type == ConditionTypeCatalog.Pull ? operation.pullCount > interactionStart.pullCount :
-                    Math.Abs(operation.rotationDegrees - interactionStart.rotationDegrees) >= Number(condition, ConditionTypeCatalog.AngleKey, 90f);
+                    Turned(condition, operation.rotationDegrees - interactionStart.rotationDegrees);
                 break;
             case ConditionTypeCatalog.Grabbed:
                 matches = a.held;
@@ -102,6 +102,18 @@ public sealed class ScenarioConditionEvaluator
         if (!float.IsNaN(deltaSeconds) && !float.IsInfinity(deltaSeconds)) heldSeconds += Mathf.Max(0f, deltaSeconds);
         Succeeded = heldSeconds >= hold;
         return Succeeded;
+    }
+
+    // Direction is judged on the adapter's signed angle (positive = clockwise seen by the operator); a missing parameter accepts both.
+    static bool Turned(ConditionExport condition, double change)
+    {
+        double angle = Number(condition, ConditionTypeCatalog.AngleKey, 90f);
+        switch ((int)Number(condition, ConditionTypeCatalog.TurnDirectionKey, ConditionTypeCatalog.TurnEither))
+        {
+            case ConditionTypeCatalog.TurnClockwise: return change >= angle;
+            case ConditionTypeCatalog.TurnCounterclockwise: return -change >= angle;
+            default: return Math.Abs(change) >= angle;
+        }
     }
 
     static float Number(ConditionExport condition, string key, float fallback)

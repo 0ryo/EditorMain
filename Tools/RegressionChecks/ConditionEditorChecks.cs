@@ -38,7 +38,7 @@ static class ConditionEditorChecks
             graph.UpdateConditionData(id, "Set distance", data => SkillSyncConditionEditing.TrySetValue(data, 0, "25"));
             graph.UpdateConditionData(id, "Set hold", data => SkillSyncConditionEditing.TrySetValue(data, 1, "3"));
 
-            Check(ConditionTypeCatalog.Definitions.Select(d => d.id).SequenceEqual(new[] { "Proximity", "SnapHold", "Push", "Pull", "Grabbed", "Turn" }), "Exactly six new choices in the requested order");
+            Check(ConditionTypeCatalog.Definitions.Select(d => d.id).SequenceEqual(new[] { "Proximity", "SnapHold", "Push", "Pull", "Grabbed", "Released", "Turn" }), "Exactly seven new choices in the requested order");
             foreach (var definition in ConditionTypeCatalog.Definitions)
             {
                 graph.UpdateConditionData(id, "Set type", data => SkillSyncConditionEditing.ChangeType(data, definition.id, graph.curriculum.rules));
@@ -86,6 +86,10 @@ static class ConditionEditorChecks
             graph.UpdateConditionData(id, "In-range angle", data => SkillSyncConditionEditing.TrySetValue(data, 0, "270.5", out isClamped));
             Check(!isClamped && ConditionTypeCatalog.GetNumber(Current(), ConditionTypeCatalog.AngleKey) == 270.5f, "In-range angle is not flagged as clamped");
             Check(SkillSyncConditionEditing.RangeHint(Current(), 0) == "0.1〜36000 度" && SkillSyncConditionEditing.RangeHint(Current(), 5) == "", "Range hint for angle and unused slot");
+            Check(SkillSyncConditionEditing.Choice(Current()) == 0 && SkillSyncConditionEditing.ChoiceLabel(Current()) == "どちらでも", "Turn direction defaults to either");
+            graph.UpdateConditionData(id, "Turn clockwise", data => SkillSyncConditionEditing.SetChoice(data, ConditionTypeCatalog.TurnClockwise));
+            Check(graph.BuildScenarioExport().requiredActions.Single().conditions.Single().parameters.Any(p => p.key == ConditionTypeCatalog.TurnDirectionKey && p.numberValue == 1), "Turn direction is exported");
+            Check(SkillSyncConditionEditing.Parameter(Current(), 1) == null, "Direction has no numeric field");
             graph.UpdateConditionData(id, "Back to hold", data => SkillSyncConditionEditing.ChangeType(data, "SnapHold", graph.curriculum.rules));
             Check(Current().objectBId == "missing" && SkillSyncConditionEditing.Value(Current(), 0) == "25" && SkillSyncConditionEditing.Value(Current(), 1) == "3", "Switching restores retained B, distance and hold");
             Check(!SkillSyncConditionEditing.TargetsValid(Current(), value => value == "a" || value == "b") && !graph.ValidateGraph().CanExport, "Two-target condition still rejects missing B");

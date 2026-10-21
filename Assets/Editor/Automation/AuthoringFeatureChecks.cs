@@ -47,10 +47,10 @@ public static class AuthoringFeatureChecks
         // A distance far below what the two parts' sizes allow is warned about; reachable distances are not.
         float apart = SkillSyncConditionEditing.MinimumCenterDistance(.9f, .75f, 2.2f, .25f, .2f, .15f);
         Check(System.Math.Abs(apart - .95f) < .0001f, "Nearest centre distance uses the smallest axis-wise sum of half sizes");
-        Check(SkillSyncConditionEditing.DistanceWarning(.1f, apart, null) != null, "A 10 cm limit between a car and a jack is warned");
-        Check(SkillSyncConditionEditing.DistanceWarning(.1f, apart, null).Contains("目印"), "The warning points to a marker part");
-        Check(SkillSyncConditionEditing.DistanceWarning(.6f, apart, null) == null, "A distance within reach of the sizes is not warned");
-        Check(SkillSyncConditionEditing.DistanceWarning(.1f, 0f, null) == null, "Unknown sizes are never warned");
+        Check(SkillSyncConditionEditing.DistanceWarning(.1f, apart) != null, "A 10 cm limit between a car and a jack is warned");
+        Check(SkillSyncConditionEditing.DistanceWarning(.1f, apart).Contains("目印"), "The warning points to a marker part");
+        Check(SkillSyncConditionEditing.DistanceWarning(.6f, apart) == null, "A distance within reach of the sizes is not warned");
+        Check(SkillSyncConditionEditing.DistanceWarning(.1f, 0f) == null, "Unknown sizes are never warned");
         var source = new States();
         source.values["a"] = new ScenarioObjectState { rotation = Quaternion.identity };
         source.values["b"] = new ScenarioObjectState { position = new Vector3(0.05f, 0f, 0f), rotation = Quaternion.identity };
@@ -88,8 +88,8 @@ public static class AuthoringFeatureChecks
     static void CheckOperations()
     {
         var types = ConditionTypeCatalog.Definitions;
-        Check(types.Count == 6 && types[2].id == ConditionTypeCatalog.Push && types[3].id == ConditionTypeCatalog.Pull &&
-            types[4].label == "もつ" && types[5].id == ConditionTypeCatalog.Turn, "Six authoring choices");
+        Check(types.Count == 7 && types[2].id == ConditionTypeCatalog.Push && types[3].id == ConditionTypeCatalog.Pull &&
+            types[4].label == "もつ" && types[5].id == ConditionTypeCatalog.Released && types[6].id == ConditionTypeCatalog.Turn, "Seven authoring choices");
         Check(ConditionTypeCatalog.Find(ConditionTypeCatalog.Released) != null, "Legacy conditions remain readable");
         var data = new ConditionNodeData { type = ConditionTypeCatalog.Turn };
         ConditionTypeCatalog.Normalize(data);
@@ -126,6 +126,17 @@ public static class AuthoringFeatureChecks
         source.available = true;
         source.state.rotationDegrees = 180;
         Check(!turn.Tick(condition, source, 0), "Recovered object gets a fresh baseline");
+        foreach (var (direction, positive, negative) in new[] { (ConditionTypeCatalog.TurnClockwise, true, false), (ConditionTypeCatalog.TurnCounterclockwise, false, true), (ConditionTypeCatalog.TurnEither, true, true) })
+        foreach (bool sign in new[] { true, false })
+        {
+            var directed = Condition(ConditionTypeCatalog.Turn);
+            directed.parameters.Add(new ConditionParameterExport { key = ConditionTypeCatalog.TurnDirectionKey, numberValue = direction });
+            source.state.rotationDegrees = 0;
+            var judge = new ScenarioConditionEvaluator();
+            judge.Begin(directed, source);
+            source.state.rotationDegrees = sign ? 120 : -120;
+            Check(judge.Tick(directed, source, 0) == (sign ? positive : negative), "Turn direction " + direction + (sign ? " positive" : " negative"));
+        }
         var export = new ScenarioExport { startActionId = "first" };
         export.requiredActions.Add(new RequiredActionExport { id = "first", nextActionIds = new List<string> { "second" },
             conditions = new List<ConditionExport> { Condition(ConditionTypeCatalog.Push) } });

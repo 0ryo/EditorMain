@@ -142,7 +142,7 @@ public static class ConditionEditorLayoutChecks
         Canvas.ForceUpdateCanvases();
         var definition = ConditionTypeCatalog.Find(type);
         bool requiresB = ConditionTypeCatalog.RequiresObjectB(type);
-        int parameters = definition?.parameters.Count ?? 0;
+        int parameters = definition?.parameters.Count(p => p.choices == null) ?? 0;
         var dropdown = view.conditionTypeDropdown;
         var card = Rect(view, "conditionEditorCard");
         var note = Rect(view, "conditionEditorNote");
@@ -161,7 +161,26 @@ public static class ConditionEditorLayoutChecks
         var typeRect = (RectTransform)dropdown.transform;
         var lastRow = Rect(view, requiresB ? "conditionTargetBBox" : "conditionTargetABox");
         Require(Top(Rect(view, "conditionTargetALabel")) >= Bottom(typeRect) + 8, type + " type and target rows do not overlap");
-        if (parameters > 0) lastRow = Rect(view, "conditionParameter0Box");
+        if (parameters > 0 && SkillSyncConditionEditing.Parameter(Condition(type), 0) != null) lastRow = Rect(view, "conditionParameter0Box");
+        if (SkillSyncConditionEditing.ChoiceParameter(Condition(type)) != null)
+        {
+            var directions = view.controls.Where(c => c.action.StartsWith(SkillSyncConditionEditorView.DirectionActionPrefix, StringComparison.Ordinal)).ToArray();
+            Require(directions.Length == 3 && directions.All(c => c.button.gameObject.activeInHierarchy), type + " shows the three turn directions");
+            lastRow = (RectTransform)directions[0].button.transform;
+            foreach (var direction in directions) CheckText(direction.button.GetComponentInChildren<TMP_Text>(), (RectTransform)direction.button.transform, type + ": direction");
+            Require(Active(view, "conditionChoiceLabel"), type + " labels the direction row");
+        }
+        else Require(view.controls.Where(c => c.action.StartsWith(SkillSyncConditionEditorView.DirectionActionPrefix, StringComparison.Ordinal)).All(c => !c.button.gameObject.activeInHierarchy), type + " hides the turn directions");
+        CheckRuleFits(Visual(view, "conditionRule").label, type + " rule");
+        Require(Active(view, "conditionRule") && Bottom(Rect(view, "conditionRule")) <= Top(typeRect) - 4, type + " states the all-conditions rule above the card");
+        for (int slot = 0; slot < 2; slot++)
+            if (SkillSyncConditionEditing.Parameter(Condition(type), slot) != null)
+            {
+                var hint = Visual(view, "conditionParameter" + slot + "Hint").label;
+                var labelRect = Rect(view, "conditionParameter" + slot + "Label");
+                Require(hint.text.Contains("〜"), type + " shows the allowed range for parameter " + slot);
+                Require(Right((RectTransform)hint.transform) <= Right(labelRect) + 1 && hint.GetPreferredValues(hint.text).x <= hint.rectTransform.rect.width + 1, type + " range hint fits beside its label");
+            }
         Require(Top(note) >= Bottom(lastRow) + 8 && Top(note) - Bottom(lastRow) <= 24, type + " note follows the last visible input without an empty row");
         Require(Bottom(card) - Bottom(note) >= 12 && Bottom(card) - Bottom(note) <= 24, type + " card ends with normal padding");
         Require(Top(summaryBox) >= Bottom(card) + 12 && Top(summaryBox) - Bottom(card) <= 24, type + " summary follows the resized card");
@@ -169,7 +188,7 @@ public static class ConditionEditorLayoutChecks
         var add = (RectTransform)view.controls.First(c => c.action == "＋ 完了条件を追加").button.transform;
         var trial = (RectTransform)view.controls.First(c => c.action == "▶ この条件を試す").button.transform;
         // "Add" and "trial" share one row below the summary / condition list.
-        Require(Top(add) >= Bottom(summaryBox) + 12 && Mathf.Abs(Top(trial) - Top(add)) < 1 && Bottom(trial) < 1000 && Bottom(add) < 1000, type + " actions do not overlap or leave the inspector");
+        Require(Top(add) >= Bottom(summaryBox) + 12 && Mathf.Abs(Top(trial) - Top(add)) < 1 && Bottom(trial) <= 985 && Bottom(add) <= 985, type + " actions do not overlap or leave the inspector");
         Require(trial.anchoredPosition.x >= add.anchoredPosition.x + add.rect.width + 8 && trial.anchoredPosition.x + trial.rect.width <= add.anchoredPosition.x + 392 + 1, type + " add and trial buttons sit side by side");
         foreach (string role in new[] { "conditionSummary", "objectA", "objectB", "conditionAddLabel", "conditionTestLabel" })
             foreach (var visual in view.visuals.Where(v => v.role == role && v.label != null && v.target.activeInHierarchy))
@@ -203,7 +222,7 @@ public static class ConditionEditorLayoutChecks
             }).ToList();
             list.SetItems(items);
             SkillSyncConditionEditorView.Refresh(view, Condition(type), true,
-                warning ? SkillSyncConditionEditing.DistanceWarning(.1f, 1.2f, "ライブラリの「壁」などの部品") : null);
+                warning ? SkillSyncConditionEditing.DistanceWarning(.1f, 1.2f) : null);
             Check(view, type);
             Canvas.ForceUpdateCanvases();
             string name = $"list of {count} ({type}, warning={warning})";
@@ -213,10 +232,11 @@ public static class ConditionEditorLayoutChecks
             var add = (RectTransform)view.controls.First(c => c.action == "＋ 完了条件を追加").button.transform;
             Require(list.gameObject.activeInHierarchy && !Active(view, "conditionSummary"), name + " replaces the single summary");
             Require(Top(listRect) >= Top(box) + 7 && Bottom(listRect) <= Bottom(box) - 7 && Top(box) >= Bottom(card) + 12, name + " sits inside its box below the card");
-            Require(Top(add) >= Bottom(box) + 12 && Bottom(add) < 1000, name + " leaves room for the action row");
+            Require(Top(add) >= Bottom(box) + 12 && Bottom(add) <= 985, name + " leaves room for the action row");
             float visible = Mathf.Min(list.ContentHeight, listRect.rect.height);
             Require(listRect.rect.height >= Mathf.Min(list.ContentHeight, SkillSyncItemList.RowHeight) - .5f, name + " shows at least one row");
-            if (count <= 2) Require(listRect.rect.height >= list.ContentHeight - .5f, name + " shows every condition without scrolling");
+            // A tall editor (two targets plus two values) leaves room for one row and a peek of the next, which invites scrolling.
+            if (count <= 2) Require(listRect.rect.height >= Mathf.Min(list.ContentHeight, SkillSyncItemList.RowHeight * 1.5f) - .5f, name + " shows the first condition and hints at the next");
             var row = listRect.Find("Viewport/Content/Row_0");
             Require(row != null && row.Find("Tag") != null, name + " marks the condition being edited");
             foreach (string part in new[] { "Title", "Detail" })
@@ -249,7 +269,7 @@ public static class ConditionEditorLayoutChecks
                 detail = i == 0 && warning ? "⚠ 距離が小さすぎて成立しない可能性があります" : i % 2 == 1 ? SkillSyncConditionEditing.PcUnsupportedText : "10 cm以内に1秒とどまると完了"
             }).ToList());
             SkillSyncConditionEditorView.Refresh(view, Condition(type), true,
-                warning ? SkillSyncConditionEditing.DistanceWarning(.1f, 1.2f, "ライブラリの「壁」などの部品") : null);
+                warning ? SkillSyncConditionEditing.DistanceWarning(.1f, 1.2f) : null);
             Canvas.ForceUpdateCanvases();
             captures.Add(Render(root, view));
         }
@@ -307,7 +327,28 @@ public static class ConditionEditorLayoutChecks
         Require(Right((RectTransform)first.Find("Title")) <= action.anchoredPosition.x, "trial row title does not run under the action button");
         CheckText(title, (RectTransform)title.transform, "trial row title");
         list.SetItems(new List<SkillSyncItemList.Item>());
+        view.Text("trialRule", SkillSyncConditionEditorView.RuleLine + "\n編集中の配置から始まります。次の手順へは位置を引き継ぎます");
+        var rule = Visual(view, "trialRule").label;
+        CheckRuleFits(rule, "trial rule");
         view.Show(1);
+        // A finished step keeps its number inside the badge.
+        foreach (string index in new[] { "3", "14" })
+        {
+            var row = UnityEngine.Object.Instantiate(view.stepTemplate, view.stepsContent);
+            row.gameObject.SetActive(true);
+            row.Set("手順 " + index, "条件1件", index, false, true);
+            Require(row.number.text == "✓" + index, "Finished step row keeps its number: " + index);
+            row.number.ForceMeshUpdate(true, true);
+            Require(row.number.textBounds.size.x <= row.number.rectTransform.rect.width + 1, "Finished step number " + index + " fits its badge");
+            UnityEngine.Object.DestroyImmediate(row.gameObject);
+        }
+    }
+
+    // Two caption lines must fit their box without wrapping into a third line.
+    static void CheckRuleFits(TMP_Text text, string message)
+    {
+        text.ForceMeshUpdate(true, true);
+        Require(text.textInfo.lineCount <= 2 && text.textBounds.size.y <= text.rectTransform.rect.height + 1, message + " fits two lines");
     }
 
     static void CheckText(TMP_Text text, RectTransform box, string message)

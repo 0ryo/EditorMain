@@ -14,13 +14,20 @@ public sealed class SkillSyncDesignRow : MonoBehaviour
     public TMP_FontAsset regularFont,boldFont;
     string headingValue, detailValue, indexValue;
     bool hasValue, selectedValue, completeValue;
+    float numberSize;
     public void SetSelected(bool selected) => Set(headingValue, detailValue, indexValue, selected, completeValue);
     public void Set(string heading, string detail, string index, bool selected, bool complete = false)
     {
         if (hasValue && headingValue == heading && detailValue == detail && indexValue == index && selectedValue == selected && completeValue == complete) return;
         hasValue = true; headingValue = heading; detailValue = detail; indexValue = index; selectedValue = selected; completeValue = complete;
         title.text = heading ?? ""; description.text = detail ?? "";
-        number.text = complete ? "✓" : index;
+        // A finished step keeps its number ("✓3"), shrunk to fit the badge.
+        if (numberSize == 0) numberSize = number.fontSize;
+        number.text = complete && !string.IsNullOrEmpty(index) ? "✓" + index : complete ? "✓" : index;
+        number.textWrappingMode = TextWrappingModes.NoWrap;
+        number.enableAutoSizing = complete;
+        number.fontSizeMin = 9; number.fontSizeMax = numberSize;
+        if (!complete) number.fontSize = numberSize;
         var background = GetComponent<SkillSyncRoundedGraphic>();
         background.color = Parse(complete ? "#EAF7F0" : selected ? "#EAF2FF" : "#FFFFFF");
         background.borderColor = Parse(selected ? "#0866E8" : "#CDD5E0");

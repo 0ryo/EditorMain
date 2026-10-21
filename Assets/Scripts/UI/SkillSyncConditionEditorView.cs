@@ -6,12 +6,16 @@ using UnityEngine;
 // Shared by the Prefab generator/updater and the existing Prefab compatibility path.
 public static class SkillSyncConditionEditorView
 {
-    const float CardTop = 394, CardWidth = 392, ContentWidth = 360;
-    const float Padding = 16, RowGap = 12, LabelHeight = 20, LabelGap = 8, ListPadding = 8, BottomLimit = 996;
+    const float CardTop = 424, CardWidth = 392, ContentWidth = 360;
+    const float Padding = 16, RowGap = 12, LabelHeight = 20, LabelGap = 8, ListPadding = 8, BottomLimit = 984;
     // One glyph, size and weight for every dropdown/picker arrow.
     const string ArrowGlyph = "v";
     const float ArrowSize = 14;
     static readonly Color32 ArrowColor = new Color32(88, 103, 124, 255);
+    public const string RuleLine = "すべての条件がそろうと次の手順へ進みます（順不同）";
+    public const string RuleText = RuleLine + "\n順番が必要なときは、手順を分けてください";
+    public const string DirectionActionPrefix = "TurnDirection:";
+    static readonly Color32 Blue = new Color32(8, 102, 232, 255), LineColor = new Color32(205, 213, 224, 255);
 
     public static void Ensure(SkillSyncDesignView view)
     {
@@ -37,6 +41,12 @@ public static class SkillSyncConditionEditorView
         }
         EnsureConditionList(view, parent, heading.label);
         EnsureTrialList(view, parent, heading.label);
+        EnsureLabel(view, parent, heading.label, "conditionRule", 12, TextAlignmentOptions.TopLeft, 2 | 32, true).text = RuleText;
+        Bounds(EnsureLabel(view, parent, heading.label, "trialRule", 12, TextAlignmentOptions.TopLeft, 4 | 16, true).rectTransform, X(1184), 276, CardWidth, 30);
+        for (int slot = 0; slot < 2; slot++)
+            EnsureLabel(view, parent, heading.label, "conditionParameter" + slot + "Hint", 11, TextAlignmentOptions.MidlineRight, 2 | 32, false);
+        EnsureLabel(view, parent, heading.label, "conditionChoiceLabel", 14, TextAlignmentOptions.MidlineLeft, 2 | 32, false);
+        EnsureDirectionButtons(view, parent, heading.label);
 
         // Source IDs are resolved once. Layout thereafter uses roles and the active definition.
         foreach (var visual in view.visuals)
@@ -143,6 +153,24 @@ public static class SkillSyncConditionEditorView
             field.input.interactable = editing && condition != null;
             if (field.input.placeholder is TMP_Text hint) hint.text = SkillSyncConditionEditing.RangeHint(condition, field.role == "distance" ? 0 : 1);
         }
+        foreach (var visual in view.visuals)
+        {
+            if (visual.role == "conditionRule") visual.target.SetActive(inspector && condition != null && (visual.mask & (1 << view.State)) != 0);
+            for (int slot = 0; slot < 2; slot++)
+            {
+                if (visual.role != "conditionParameter" + slot + "Hint") continue;
+                var parameter = SkillSyncConditionEditing.Parameter(condition, slot);
+                visual.target.SetActive(inspector && parameter != null && (visual.mask & (1 << view.State)) != 0);
+                if (parameter != null) visual.label.text = SkillSyncConditionEditing.RangeHint(condition, slot).Replace(" ", "");
+            }
+            if (visual.role == "conditionChoiceLabel")
+            {
+                var choice = SkillSyncConditionEditing.ChoiceParameter(condition);
+                visual.target.SetActive(inspector && choice != null && (visual.mask & (1 << view.State)) != 0);
+                if (choice != null) visual.label.text = choice.label;
+            }
+        }
+        RefreshDirectionButtons(view, condition, editing);
         view.SetVisible("▶ この条件を試す", !hideEmpty);
         view.SetVisible("PickA", condition != null);
         view.SetVisible("PickB", condition != null && requiresB);
@@ -161,12 +189,81 @@ public static class SkillSyncConditionEditorView
     {
         if (condition == null) return "種類を選び、対象を設定してください";
         if (definition == null) return "未対応の条件です。種類を確認してください";
-        // The warning already names the centre-to-centre measure, so it replaces the plain explanation.
+        // The warning is the more urgent explanation, so it replaces the plain one.
         if (!string.IsNullOrEmpty(warning)) return "<color=#B45309>⚠ " + warning + "</color>";
-        if (SkillSyncConditionEditing.UsesCenterDistance(condition))
-            return "距離は、2つの部品の中心どうしで測ります（3D画面の球が判定範囲です）";
-        return SkillSyncConditionEditing.SupportsPcTrial(condition) ? "" :
-            SkillSyncConditionEditing.PcUnsupportedText + "。動作の確認では「成立として次へ」で流れを確認できます";
+        return SkillSyncConditionEditing.Criteria(condition);
+    }
+
+    // A caption-style TMP visual owned by the code (no Prefab change), shown by mask like the generated lists.
+    static TMP_Text EnsureLabel(SkillSyncDesignView view, Transform parent, TMP_Text font, string role, float size, TextAlignmentOptions alignment, int mask, bool wrap)
+    {
+        var visual = view.visuals.FirstOrDefault(v => v.role == role);
+        if (visual == null || visual.label == null)
+        {
+            var existing = parent.Find("Label_" + role);
+            var text = existing != null ? existing.GetComponent<TextMeshProUGUI>() : AddText("Label_" + role, parent, font, size, alignment);
+            text.color = new Color32(88, 103, 124, 255);
+            text.richText = false;
+            text.textWrappingMode = wrap ? TextWrappingModes.Normal : TextWrappingModes.NoWrap;
+            text.overflowMode = TextOverflowModes.Ellipsis;
+            text.lineSpacing = 0;
+            Bounds(text.rectTransform, 0, 0, 100, 20);
+            if (visual == null)
+            {
+                visual = new SkillSyncDesignView.Visual { role = role };
+                view.visuals = view.visuals.Concat(new[] { visual }).ToArray();
+            }
+            visual.target = text.gameObject;
+            visual.label = text;
+        }
+        visual.mask = mask;
+        visual.orders = Enumerable.Repeat(1001, 6).ToArray();
+        return visual.label;
+    }
+
+    // Segmented control for the turn direction; the labels come from the parameter definition.
+    static void EnsureDirectionButtons(SkillSyncDesignView view, Transform parent, TMP_Text font)
+    {
+        var choices = ConditionTypeCatalog.Find(ConditionTypeCatalog.Turn).parameters.First(p => p.choices != null).choices;
+        for (int i = 0; i < choices.Length; i++)
+        {
+            string action = DirectionActionPrefix + i;
+            var control = view.controls.FirstOrDefault(c => c.action == action);
+            if (control == null)
+            {
+                var go = new GameObject("Button_" + action, typeof(RectTransform), typeof(SkillSyncRoundedGraphic), typeof(UnityEngine.UI.Button), typeof(EditorUiInputBlocker));
+                go.transform.SetParent(parent, false);
+                var graphic = go.GetComponent<SkillSyncRoundedGraphic>();
+                graphic.radius = 8; graphic.borderWidth = 1;
+                go.GetComponent<UnityEngine.UI.Button>().targetGraphic = graphic;
+                var caption = AddText("Label", go.transform, font, 14, TextAlignmentOptions.Midline);
+                Stretch(caption.rectTransform, 0, 0, 0, 0);
+                caption.fontWeight = FontWeight.Medium;
+                caption.text = choices[i];
+                control = new SkillSyncDesignView.Control { button = go.GetComponent<UnityEngine.UI.Button>(), action = action };
+                view.controls = view.controls.Concat(new[] { control }).ToArray();
+            }
+            control.mask = 2 | 32;
+        }
+    }
+
+    static void RefreshDirectionButtons(SkillSyncDesignView view, ConditionNodeData condition, bool editing)
+    {
+        var choice = SkillSyncConditionEditing.ChoiceParameter(condition);
+        for (int i = 0; ; i++)
+        {
+            var control = view.controls.FirstOrDefault(c => c.action == DirectionActionPrefix + i);
+            if (control == null) break;
+            view.SetVisible(control.action, choice != null && (view.State == 1 || view.State == 5));
+            control.button.interactable = editing && choice != null;
+            bool selected = choice != null && SkillSyncConditionEditing.Choice(condition) == i;
+            var graphic = control.button.GetComponent<SkillSyncRoundedGraphic>();
+            graphic.color = selected ? Blue : Color.white;
+            graphic.borderColor = selected ? Blue : LineColor;
+            graphic.SetAllDirty();
+            var caption = control.button.GetComponentInChildren<TMP_Text>(true);
+            if (caption != null) caption.color = selected ? Color.white : new Color32(23, 34, 54, 255);
+        }
     }
 
     static void EnsureConditionList(SkillSyncDesignView view, Transform parent, TMP_Text fontSource)
@@ -442,6 +539,7 @@ public static class SkillSyncConditionEditorView
             foreach (var control in view.controls.Where(c => c.action == action))
                 Bounds((RectTransform)control.button.transform, X(x), y, width, height);
         }
+        PlaceRole("conditionRule", 1184, CardTop - 38, CardWidth, 30);
         float cursor = CardTop + Padding;
         Bounds((RectTransform)view.conditionTypeDropdown.transform, X(1200), cursor, ContentWidth, 44);
         cursor += 44;
@@ -485,10 +583,23 @@ public static class SkillSyncConditionEditorView
                 PlaceRole("conditionParameter" + slot + "Label", x, cursor, 170, LabelHeight);
                 PlaceRole("conditionParameter" + slot + "Box", x, cursor + LabelHeight + LabelGap, 170, 46);
                 PlaceRole("conditionParameter" + slot + "Unit", x + 128, cursor + LabelHeight + LabelGap, 30, 46);
+                var labelVisual = view.visuals.FirstOrDefault(v => v.role == "conditionParameter" + slot + "Label" && v.label != null);
+                float labelWidth = labelVisual != null ? Mathf.Ceil(labelVisual.label.GetPreferredValues(labelVisual.label.text).x) + 8 : 40;
+                PlaceRole("conditionParameter" + slot + "Hint", x + labelWidth, cursor, 170 - labelWidth, LabelHeight);
                 foreach (var visual in view.visuals.Where(v => v.role == "conditionParameter" + slot + "Label" || v.role == "conditionParameter" + slot + "Unit"))
                     CenterText(visual.label, TextAlignmentOptions.MidlineLeft, false);
             }
             cursor += LabelHeight + LabelGap + 46;
+        }
+        if (SkillSyncConditionEditing.ChoiceParameter(condition) != null)
+        {
+            cursor += RowGap;
+            PlaceRole("conditionChoiceLabel", 1200, cursor, ContentWidth, LabelHeight);
+            cursor += LabelHeight + LabelGap;
+            float choiceWidth = (ContentWidth - 2 * 8) / 3;
+            for (int i = 0; i < 3; i++)
+                PlaceControl(DirectionActionPrefix + i, 1200 + i * (choiceWidth + 8), cursor, choiceWidth, 44);
+            cursor += 44;
         }
         float PreferredHeight(string role, float minimum) => view.visuals.Where(v => v.role == role && v.label != null)
             .Select(v => Mathf.Ceil(v.label.GetPreferredValues(v.label.text, ContentWidth, Mathf.Infinity).y)).DefaultIfEmpty(minimum).Max();
@@ -506,7 +617,7 @@ public static class SkillSyncConditionEditorView
         {
             // The list is the summary: one card per condition, shortened to the space the inspector has left.
             float available = BottomLimit - (44 + Padding) - cursor - 2 * ListPadding;
-            float visible = Mathf.Clamp(list.ContentHeight, SkillSyncItemList.RowHeight, Mathf.Max(SkillSyncItemList.RowHeight, available));
+            float visible = Mathf.Min(list.ContentHeight, Mathf.Max(0, available));
             float boxHeight = visible + 2 * ListPadding;
             PlaceRole("conditionSummaryBox", 1184, cursor, CardWidth, boxHeight);
             list.SetBounds(X(1184) + ListPadding, cursor + ListPadding, CardWidth - 2 * ListPadding, visible);
@@ -522,6 +633,8 @@ public static class SkillSyncConditionEditorView
         // Add and trial share one row; without a condition only "add" is shown, full width.
         float half = (CardWidth - RowGap) / 2;
         float addWidth = condition != null ? half : CardWidth;
+        // The action row never leaves the inspector, whatever the editor above it needs.
+        cursor = Mathf.Min(cursor, BottomLimit - 44);
         PlaceControl("＋ 完了条件を追加", 1184, cursor, addWidth, 44);
         PlaceRole("conditionAddBox", 1184, cursor, addWidth, 44);
         PlaceRole("conditionAddLabel", 1184, cursor, addWidth, 44);
