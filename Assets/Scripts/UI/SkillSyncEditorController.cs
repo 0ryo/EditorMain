@@ -41,6 +41,10 @@ public sealed class SkillSyncEditorController : MonoBehaviour
     readonly List<SkillSyncDesignRow> libraryRows = new(), stepRows = new(), objectRows = new();
     readonly Dictionary<Behaviour,bool> pausedTools = new();
     readonly Dictionary<PlacedObject, SkillSyncDesignRow> placedRows = new();
+    readonly HashSet<PlacedObject> expandedParts = new();
+    readonly HashSet<SkillSyncDesignRow> expanderBound = new();
+    readonly HashSet<PlacedObject> thumbnailTried = new();
+    string partsFilter = "", objectCountText = "";
     readonly Dictionary<SkillSyncDesignRow, string> libraryTypes = new();
     readonly Dictionary<string, GameObject> thumbnailSources = new();
     readonly List<Renderer> labelRenderers = new();
@@ -115,6 +119,9 @@ public sealed class SkillSyncEditorController : MonoBehaviour
             field.input.onEndEdit.AddListener(value=>Edit(role,value));
             if(role=="search") field.input.onValueChanged.AddListener(value=>{search=value;RebuildLibrary();});
         }
+        var partsSearch=SkillSyncPartsSearch.Ensure(view.objectsContent.parent.parent as RectTransform,view.objectTemplate.title.font);
+        if(partsSearch!=null) partsSearch.onValueChanged.AddListener(value=>{partsFilter=value??"";RebuildObjects();});
+        view.objectsContent.GetComponentInParent<ScrollRect>()?.onValueChanged.AddListener(_=>ShowVisiblePartThumbnails());
         graph.GraphChanged += GraphChanged;
         selection.OnSelectionChanged += SelectionChanged;
         selection.DeleteGuard = ConfirmDeleteObjects;
@@ -123,6 +130,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         if(CommandService.I != null) CommandService.I.Stack.HistoryChanged += HistoryChanged;
         if(EditModeService.I != null) {subscribedModes=EditModeService.I;subscribedModes.ModeChanged += EditModeChanged;}
         initialized=true;
+        if(EditModeService.I!=null && EditModeService.I.Mode==EditMode.Browse) EditModeService.I.SetMode(EditMode.Transform);
         GraphChanged();RebuildLibrary();Refresh();GetComponent<CanvasGroup>().alpha=1;
         if (!string.IsNullOrEmpty(project.RecoveryProtectionWarning))
             EditorProjectPanel.Ensure(transform.root)?.ShowRecoveryProtectionWarning();
@@ -262,7 +270,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         }
         switch(action)
         {
-            case "配置を編集": EndTrial();CancelGhost();mode=0;pickTarget=null;break;
+            case "配置を編集": EndTrial();CancelGhost();mode=0;pickTarget=null;EnsureToolForSelection();break;
             case "手順を編集": EndTrial();CancelGhost();mode=1;pickTarget=null;break;
             case "動作を確認": case "▶ この条件を試す": BeginTrial();return;
             case "↶ 元に戻す": if(trial==null) {var stack=CommandService.I?.Stack;string label=stack!=null?stack.UndoLabel:"";if(stack!=null && stack.CanUndo) {stack.Undo();Notify("元に戻しました："+JapaneseLabel(label),false);}}break;
@@ -584,7 +592,14 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         float target=Mathf.Clamp(top-(viewport.rect.height-(bottom-top))*.5f,0f,scrollable);
         scroll.verticalNormalizedPosition=Mathf.Clamp01(1f-target/scrollable);
     }
-    void SelectionChanged(PlacedObject _) {scrollObjectsPending=true;RefreshLibrarySelection();RebuildObjects();RefreshValues();}
+    void SelectionChanged(PlacedObject current) {EnsureToolForSelection();ExpandAncestors(current);scrollObjectsPending=true;RefreshLibrarySelection();RebuildObjects();RefreshValues();}
+    // The right panel shows a tool tab as pressed, so selecting must always arm that tool (gizmo and key nudges).
+    void EnsureToolForSelection()
+    {
+        var modes=EditModeService.I;
+        if(modes==null || selection==null || selection.Current==null || mode!=0 || ghost!=null || trial!=null || modes.Mode==EditMode.Place) return;
+        modes.SetMode(transformTab=="大きさ"?EditMode.Scale:EditMode.Transform);
+    }
     void RefreshLibrarySelection()
     {
         string type = ghost != null ? ghost.TypeId : null;
@@ -684,40 +699,94 @@ public sealed class SkillSyncEditorController : MonoBehaviour
     void RebuildObjects()
     {
         if(view==null) return;
-        // Selection changes update the existing rows. Only additions/removals
-        // instantiate or destroy UI and render a new thumbnail.
-        foreach (var removed in placedRows.Keys.Where(p => p == null || !p.gameObject.activeInHierarchy).ToArray())
+        // Placement roots are listed first; parts inside a model are nested and collapsed until opened.
+        // Only visible rows exist, so large models do not instantiate hundreds of rows.
+        var rowsData=SkillSyncPartsTree.Build(Placed,expandedParts,partsFilter,out int rootCount,out int matchCount);
+        objectCountText=string.IsNullOrWhiteSpace(partsFilter)?rootCount+"件":matchCount+"件が一致";
+        var visible=new HashSet<PlacedObject>(rowsData.Select(r=>r.part));
+        foreach (var removed in placedRows.Keys.Where(p => p == null || !visible.Contains(p)).ToArray())
         {
             var row = placedRows[removed];
             objectRows.Remove(row); row.gameObject.SetActive(false); Destroy(row.gameObject);
             placedRows.Remove(removed);
+            if(removed!=null) thumbnailTried.Remove(removed);
         }
         if (ghost == null && ghostRow != null)
         {
             objectRows.Remove(ghostRow); ghostRow.gameObject.SetActive(false); Destroy(ghostRow.gameObject); ghostRow = null;
         }
+        int offset=0;
         if(ghost!=null)
         {
             if (ghostRow == null) ghostRow=Row(view.objectTemplate,view.objectsContent,objectRows);
             ghostRow.transform.SetAsFirstSibling();
+            ghostRow.SetTree(0,false,false);
             ghostRow.Set(ghost.DisplayName+"（仮配置）","","",true);
             ghostRow.status.text="未確定";
             ghostRow.thumbnail.texture=thumbnails.Get(ghost.Transform.gameObject);
+            offset=1;
         }
-        foreach(var p in Placed)
+        for(int i=0;i<rowsData.Count;i++)
         {
+            var data=rowsData[i];var p=data.part;
             if (!placedRows.TryGetValue(p, out var row))
             {
                 row=Row(view.objectTemplate,view.objectsContent,objectRows); placedRows.Add(p,row);
-                if(row.thumbnail!=null) row.thumbnail.texture=ObjectThumbnail(p);
+                if(row.thumbnail!=null)
+                {
+                    // Roots share their library thumbnail; parts are drawn only once scrolled into view.
+                    if(p.modelRoot==null) row.thumbnail.texture=ObjectThumbnail(p);
+                    else row.thumbnail.enabled=false;
+                }
                 row.button.onClick.AddListener(()=>{if(pickTarget!=null) Pick(p.Id);else selection.SelectFromList(p,EditInput.ShiftPressed(),CmdOrCtrl(),OrderedPlaced());});
             }
-            row.Set(p.GetDisplayName(),p.GetDescription(),"",selection.Contains(p));
+            row.SetTree(Mathf.Min(data.depth,SkillSyncPartsTree.MaxIndentLevels),data.hasChildren,data.expanded);
+            if(row.Expander!=null && !expanderBound.Contains(row))
+            {
+                expanderBound.Add(row);
+                row.Expander.onClick.AddListener(()=>TogglePart(p));
+            }
+            if(row.transform.GetSiblingIndex()!=i+offset) row.transform.SetSiblingIndex(i+offset);
+            row.Set(data.title,data.detail,"",selection.Contains(p));
         }
+        expanderBound.RemoveWhere(row=>row==null);
         if(scrollObjectsPending)
         {
             scrollObjectsPending=false;
             if(selection.Current!=null && placedRows.TryGetValue(selection.Current,out var currentRow)) ScrollIntoView(view.objectsContent,(RectTransform)currentRow.transform);
+        }
+        ShowVisiblePartThumbnails();
+    }
+    void TogglePart(PlacedObject part)
+    {
+        if(part==null) return;
+        if(!expandedParts.Remove(part)) expandedParts.Add(part);
+        RebuildObjects();
+    }
+    void ExpandAncestors(PlacedObject part)
+    {
+        bool changed=false;
+        for(var parent=SkillSyncPartsTree.ParentOf(part);parent!=null;parent=SkillSyncPartsTree.ParentOf(parent)) changed|=expandedParts.Add(parent);
+        if(changed && view!=null) scrollObjectsPending=true;
+    }
+    // Draws part thumbnails only for rows near the scrolled window (the panel shows about two rows).
+    void ShowVisiblePartThumbnails()
+    {
+        if(view==null || view.objectsContent==null) return;
+        var scroll=view.objectsContent.GetComponentInParent<ScrollRect>();
+        if(scroll==null || scroll.viewport==null) return;
+        var content=view.objectsContent;
+        float rowHeight=view.objectTemplate.GetComponent<RectTransform>().sizeDelta.y,spacing=content.GetComponent<VerticalLayoutGroup>()?.spacing??0;
+        float step=Mathf.Max(1f,rowHeight+spacing),top=content.anchoredPosition.y,bottom=top+scroll.viewport.rect.height;
+        foreach(var pair in placedRows)
+        {
+            var row=pair.Value;
+            if(row==null || row.thumbnail==null || row.thumbnail.enabled || thumbnailTried.Contains(pair.Key)) continue;
+            float rowTop=row.transform.GetSiblingIndex()*step;
+            if(rowTop+step<top-step*2 || rowTop>bottom+step*2) continue;
+            thumbnailTried.Add(pair.Key);
+            row.thumbnail.texture=ObjectThumbnail(pair.Key);
+            row.thumbnail.enabled=row.thumbnail.texture!=null;
         }
     }
     // Row order on screen, so Shift range selection follows the list the user sees.
@@ -740,7 +809,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         view.Text("saved",project.IsDirty?"未保存の変更":"✓ 保存済み");
         string footerStatus = status;
         view.Text("footer",trial!=null?"試行中の操作は教材の初期配置に保存されません":(string.IsNullOrEmpty(footerStatus)?project.IsDirty?"未保存の変更があります":"✓ すべての変更を保存しました":footerStatus)+" ｜ "+ValidationSummary());
-        view.Text("objectCount",Placed.Length+"件"+(ghost!=null?" ＋ 仮配置1件":""));
+        view.Text("objectCount",objectCountText+(ghost!=null?" ＋ 仮配置1件":""));
         view.Text("stepCount",graph.GetDisplayOrderedSteps().Count+"つの手順 ｜ "+ValidationSummary());
         var current=selection.Current;
         Transform target=ghost!=null?ghost.Transform:current!=null?current.transform:null;
@@ -949,11 +1018,18 @@ public sealed class SkillSyncEditorController : MonoBehaviour
             stepRows[i].Set(steps[i].step.title,steps[i].nodeId==stepId?trial.Complete?"完了":"実行中 · 条件を確認":"待機中",(i+1).ToString(),
                 trial.Complete?i==index:steps[i].nodeId==stepId,trial.Complete && steps[i].nodeId==stepId);
     }
+    // Name shown on the library card; placed parts use it so card and list agree.
+    string LibraryTitle(PrefabEntry entry)
+    {
+        string title=null;
+        if(catalog!=null) catalog.TryGetTypeInfo(entry.typeId,out title,out _);
+        return string.IsNullOrWhiteSpace(title) || title==entry.typeId ? entry.prefab.name : title.Trim();
+    }
     void BeginGhost(PrefabEntry entry)
     {
         if(ghost!=null && ghost.TypeId==entry.typeId) {CancelGhost();Refresh();return;}
         EndTrial();CancelGhost();placement.CancelPlacement();
-        try {ghost=new SkillSyncPlacementGhost(entry);ghostEntry=entry;}
+        try {ghost=new SkillSyncPlacementGhost(entry);ghostEntry=entry;ghost.DisplayName=LibraryTitle(entry);}
         catch(Exception e) {Notify("仮配置を開始できません: "+e.Message,true);Debug.LogException(e);Refresh();return;}
         mode=0;
         ghost.Follow(cameraView,new Vector2(cameraView.pixelRect.center.x,cameraView.pixelRect.center.y));
