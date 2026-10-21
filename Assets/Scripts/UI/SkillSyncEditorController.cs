@@ -51,6 +51,8 @@ public sealed class SkillSyncEditorController : MonoBehaviour
     string partsFilter = "", objectCountText = "";
     readonly Dictionary<SkillSyncDesignRow, string> libraryTypes = new();
     readonly Dictionary<string, GameObject> thumbnailSources = new();
+    readonly Dictionary<GameObject, Color> proxyTints = new();
+    static readonly Color[] ProxyPalette = { new Color32(59,130,246,255), new Color32(234,120,60,255), new Color32(34,150,110,255), new Color32(150,100,200,255), new Color32(210,160,40,255), new Color32(90,100,115,255) };
     readonly List<Renderer> labelRenderers = new();
     SkillSyncDesignRow ghostRow;
     SkillSyncViewportGuide guide;
@@ -822,6 +824,10 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         knownLibraryTypes=new HashSet<string>(ids);
         if(added!=null) {importWatch=false;search="";category="すべて";view.Value("search","");}
         SkillSyncDesignRow addedRow=null;string addedTitle=null;
+        // Placeholder parts are plain built-in cubes; give each card its own colour so the library is not a row of identical boxes.
+        proxyTints.Clear();int proxyIndex=0;
+        foreach(var entry in entries)
+            if(entry.prefab!=null && !proxyTints.ContainsKey(entry.prefab) && IsPlaceholderCube(entry.prefab)) proxyTints[entry.prefab]=ProxyPalette[proxyIndex++%ProxyPalette.Length];
         foreach(var entry in entries)
         {
             if(entry.prefab==null) continue;
@@ -832,7 +838,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
             bool env=entry.typeId.StartsWith("Env/",StringComparison.Ordinal);
             if(category=="環境" && !env || category=="部品" && env) continue;
             var row=Row(view.libraryTemplate,view.libraryContent,libraryRows);row.Set(title,detail,"",ghost!=null && ghost.TypeId==entry.typeId);
-            if(row.thumbnail!=null) row.thumbnail.texture=thumbnails.Get(entry.prefab);
+            if(row.thumbnail!=null) row.thumbnail.texture=thumbnails.Get(entry.prefab,proxyTints.TryGetValue(entry.prefab,out var tint)?tint:(Color?)null);
             libraryTypes[row]=entry.typeId;
             var chosen=entry;row.button.onClick.AddListener(()=>BeginGhost(chosen));
             var drag=row.gameObject.AddComponent<SkillSyncCardDrag>();
@@ -1172,7 +1178,13 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         // their own geometry preview instead of showing the entire model.
         var source = placed.gameObject;
         if (placed.modelRoot == null && thumbnailSources.TryGetValue(placed.TypeId, out var prefab) && prefab != null) source = prefab;
-        return thumbnails.Get(source);
+        return thumbnails.Get(source,proxyTints.TryGetValue(source,out var tint)?tint:(Color?)null);
+    }
+    static bool IsPlaceholderCube(GameObject prefab)
+    {
+        if(prefab.GetComponent<RuntimeModelResources>()!=null) return false;
+        var filters=prefab.GetComponentsInChildren<MeshFilter>(true);
+        return filters.Length==1 && filters[0].sharedMesh!=null && filters[0].sharedMesh.name=="Cube";
     }
     void PositionLabel(TMP_Text label,Transform target,string caption)
     {
