@@ -51,12 +51,13 @@ public static class SelectionGroups
     }
 }
 
-internal sealed class SelectionGroupCommand : IEditorCommand
+internal sealed class SelectionGroupCommand : IEditorCommand, IDescribedEditorCommand
 {
     readonly List<PlacedObject> items;
     readonly List<string> before;
     readonly string after;
     public string Label => string.IsNullOrEmpty(after) ? "Ungroup objects" : "Group objects";
+    public string Description => CommandDescriptions.ForParts(Label, items.Select(item => item != null ? item.GetDisplayName() : null).ToList());
     public SelectionGroupCommand(IEnumerable<PlacedObject> items, string group)
     { this.items = items.ToList(); before = this.items.Select(item => item.editorGroupId).ToList(); after = group; }
     public bool Do() => Apply(false);

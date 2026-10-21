@@ -84,6 +84,7 @@ static class StepDeletionChecks
         }) && reason == null, "Delete selected step");
         Check(selectedStep == nextStep && selectedCondition == nextCondition, "Choose neighbor after deletion");
         Check(stack.UndoCount == 1 && stack.UndoLabel == "Delete step", "Deletion is one history entry");
+        Check(stack.UndoDescription.StartsWith("手順") && stack.UndoDescription.EndsWith("の削除"), "Undo description is Japanese: " + stack.UndoDescription);
         Check(graph.FindNode(deletedId) == null && ownedIds.All(id => graph.FindNode(id) == null), "Remove step and its conditions");
         Check(!graph.curriculum.edges.Any(edge => edge != null &&
             (edge.fromNodeId == deletedId || edge.toNodeId == deletedId || ownedIds.Contains(edge.fromNodeId) || ownedIds.Contains(edge.toNodeId))),

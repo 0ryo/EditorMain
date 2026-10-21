@@ -147,7 +147,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         placement.ObjectPlaced += ObjectPlaced;
         PlacedObjectEditState.StateChanged += EditStateChanged;
         project.StatusChanged += ProjectStatus;
-        if(CommandService.I != null) CommandService.I.Stack.HistoryChanged += HistoryChanged;
+        if(CommandService.I != null) {CommandService.I.Stack.HistoryChanged += HistoryChanged;CommandService.I.Stack.HistoryApplied += HistoryApplied;}
         if(EditModeService.I != null) {subscribedModes=EditModeService.I;subscribedModes.ModeChanged += EditModeChanged;}
         initialized=true;
         if(EditModeService.I!=null && EditModeService.I.Mode==EditMode.Browse) EditModeService.I.SetMode(EditMode.Transform);
@@ -166,7 +166,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         PlacedObjectEditState.StateChanged-=EditStateChanged;
         if(project!=null) project.StatusChanged-=ProjectStatus;
         if(catalog!=null) catalog.StatusChanged-=CatalogStatus;
-        if(CommandService.I!=null) CommandService.I.Stack.HistoryChanged-=HistoryChanged;
+        if(CommandService.I!=null) {CommandService.I.Stack.HistoryChanged-=HistoryChanged;CommandService.I.Stack.HistoryApplied-=HistoryApplied;}
         if(subscribedModes!=null) subscribedModes.ModeChanged-=EditModeChanged;
         if(cameraView!=null) {cameraView.rect=previousCameraRect;cameraView.backgroundColor=previousCameraColor;}
         if(Active==this) Active=null;
@@ -300,8 +300,8 @@ public sealed class SkillSyncEditorController : MonoBehaviour
             case "配置を編集": EndTrial();CancelGhost();mode=0;pickTarget=null;EnsureToolForSelection();break;
             case "手順を編集": EndTrial();CancelGhost();mode=1;pickTarget=null;break;
             case "動作を確認": case "▶ この条件を試す": BeginTrial();return;
-            case "↶ 元に戻す": if(trial==null) {var stack=CommandService.I?.Stack;string label=stack!=null?stack.UndoLabel:"";if(stack!=null && stack.CanUndo) {stack.Undo();Notify("元に戻しました："+JapaneseLabel(label),false);}}break;
-            case "↷": if(trial==null) {var stack=CommandService.I?.Stack;string label=stack!=null?stack.RedoLabel:"";if(stack!=null && stack.CanRedo) {stack.Redo();Notify("やり直しました："+JapaneseLabel(label),false);}}break;
+            case "↶ 元に戻す": if(trial==null) CommandService.I?.Stack.Undo();break;
+            case "↷": if(trial==null) CommandService.I?.Stack.Redo();break;
             case "全体を見る": cameraController?.ResetToDefaultView();break;
             case "上から見る": cameraController?.SetViewPreset(EditorCameraController.ViewPreset.Top);break;
             case "選択を表示": cameraController?.FocusSelected();break;
@@ -768,6 +768,8 @@ public sealed class SkillSyncEditorController : MonoBehaviour
     }
     void ObjectPlaced(PlacedObject _,string __) {RevalidateAndSync();RebuildObjects();RefreshValues();}
     void HistoryChanged() {RevalidateAndSync();RebuildObjects();RefreshValues();}
+    // Button and Cmd/Ctrl+Z both land here, so the key path says what was undone too.
+    void HistoryApplied(bool redone,string description) => Notify((redone?"やり直しました：":"元に戻しました：")+description,false);
     void ProjectStatus(string message,bool success) {if(!success && !string.IsNullOrEmpty(message)) Notify(message,true);else status=message;RefreshValues();}
     void CatalogStatus(string message)
     {
@@ -793,21 +795,6 @@ public sealed class SkillSyncEditorController : MonoBehaviour
             return true;
         }
         return false;
-    }
-    static string JapaneseLabel(string label)
-    {
-        if(string.IsNullOrEmpty(label)) return "操作";
-        if(label.StartsWith("Move ")) return "移動";
-        switch(label)
-        {
-            case "Edit step": return "手順の編集";
-            case "Add step": return "手順の追加";
-            case "Delete step": return "手順の削除";
-            case "Edit condition": return "完了条件の編集";
-            case "Set condition type": return "完了条件の種類の変更";
-            case "Change object transform": return "部品の位置・向きの変更";
-        }
-        return "操作";
     }
     List<PrefabEntry> Entries() => catalog!=null?catalog.GetDesignLibraryEntries():placement.registry?.entries??new List<PrefabEntry>();
     static void Clear(List<SkillSyncDesignRow> rows)
