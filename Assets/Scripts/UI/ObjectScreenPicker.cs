@@ -47,7 +47,7 @@ public sealed class ObjectScreenPicker : MonoBehaviour, IPointerClickHandler
     {
         if (!owner || !owner.isActiveAndEnabled || EditInput.CancelPressedThisFrame()) { Close(); return; }
         var candidate = Pick(EditInput.MousePosition);
-        preview.Show(candidate, candidate ? ImportedModelParts.Label(candidate) : "画面上のオブジェクトを選択（Esc / 右クリックでキャンセル）", font);
+        preview.Show(candidate, candidate ? ImportedModelParts.Label(candidate) : "3D画面の部品を選択（Esc / 右クリックでキャンセル）", font);
     }
 
     PlacedObject Pick(Vector2 point)

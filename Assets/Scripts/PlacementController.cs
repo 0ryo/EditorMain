@@ -361,7 +361,7 @@ public class PlacedObject : MonoBehaviour
         string name = string.IsNullOrWhiteSpace(typeId) ? null : typeId.Substring(typeId.LastIndexOf('/') + 1);
         if (string.IsNullOrWhiteSpace(name)) name = fallback;
         if (!string.IsNullOrWhiteSpace(name) && name.EndsWith("(Clone)", System.StringComparison.Ordinal)) name = name.Substring(0, name.Length - 7);
-        return string.IsNullOrWhiteSpace(name) ? "オブジェクト" : name.Trim();
+        return string.IsNullOrWhiteSpace(name) ? "部品" : name.Trim();
     }
 
     /// <summary>既存の表示名と重複しない名前を返す（baseName, baseName (2), (3) ...）。baseNameが既に「名前 (n)」なら番号を付け直す。excludeは比較対象から外す（複製直後の自分自身）。</summary>

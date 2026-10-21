@@ -80,7 +80,7 @@ public class CatalogUI : MonoBehaviour
     [SerializeField] float statusAutoClearSeconds = 2f;
     [SerializeField] float cornerRadius = DesignTokens.CornerRadius;
     [SerializeField] string importedCardLabel = "New Object";
-    const string AddObjectButtonLabel = "オブジェクトを追加";
+    const string AddObjectButtonLabel = "部品を追加";
     const string SettingsButtonLabel = "設定";
     const string EditorSupportedModelExtensionsLabel = ".fbx, .glb, or .gltf";
 
@@ -1453,7 +1453,7 @@ public class CatalogUI : MonoBehaviour
         valueRt.offsetMin = new Vector2(-84f, 0f);
         valueRt.offsetMax = new Vector2(0f, 0f);
 
-        var snapTitle = FindOrCreateSettingsText(contentRt, "Text_SnapTitle", "位置・角度の吸着（スナップ）");
+        var snapTitle = FindOrCreateSettingsText(contentRt, "Text_SnapTitle", "位置・角度の吸着");
         snapTitle.fontSize = 16;
         snapTitle.alignment = TextAlignmentOptions.MidlineLeft;
         snapTitle.color = DesignTokens.TextPrimary;
@@ -1470,7 +1470,7 @@ public class CatalogUI : MonoBehaviour
         snapToggleRow.offsetMax = new Vector2(-24f, -176f);
         settingsSnapEnabledToggle = EnsureSettingsToggle(snapToggleRow, settingsSnapEnabledToggle, "Toggle_SnapEnabled");
 
-        var snapToggleLabel = FindOrCreateSettingsText(snapToggleRow, "Text_SnapEnabled", "一定間隔に自動で揃える（Altキーで一時解除）");
+        var snapToggleLabel = FindOrCreateSettingsText(snapToggleRow, "Text_SnapEnabled", "一定間隔に自動で揃える（" + (SkillSyncDesignView.ShortcutModifierName == "Cmd" ? "Option" : "Alt") + "キーを押している間は一時解除）");
         snapToggleLabel.fontSize = 14;
         snapToggleLabel.alignment = TextAlignmentOptions.MidlineLeft;
         snapToggleLabel.color = DesignTokens.TextPrimary;
@@ -1480,7 +1480,7 @@ public class CatalogUI : MonoBehaviour
         snapToggleLabelRt.offsetMin = new Vector2(48f, 0f);
         snapToggleLabelRt.offsetMax = Vector2.zero;
 
-        var gridLabel = FindOrCreateSettingsText(contentRt, "Text_GridSnapLabel", "グリッド幅");
+        var gridLabel = FindOrCreateSettingsText(contentRt, "Text_GridSnapLabel", "吸着の間隔");
         gridLabel.fontSize = 14;
         gridLabel.alignment = TextAlignmentOptions.MidlineLeft;
         gridLabel.color = DesignTokens.TextSecondary;
@@ -3376,7 +3376,7 @@ public class CatalogUI : MonoBehaviour
             newObjectSettingsPanel.SetAsLastSibling(); // Canvas 内の最前面へ
         }
 
-        SetImportResult("3Dモデルを読み込みました", false);
+        SetImportResult("3Dモデルを追加しました", false);
     }
 
     void OnClickApplyNewObjectSettings()
@@ -3414,7 +3414,7 @@ public class CatalogUI : MonoBehaviour
         catch (Exception ex) { SetImportResult("3Dモデルを保存できません: " + ex.Message, true); return; }
         if (!placementController.RegisterRuntimePrefab(typeId, pendingImportedPrefab))
         {
-            SetImportResult("3Dモデルを追加できません: 読み込んだ3Dモデルを登録できません。", true);
+            SetImportResult("3Dモデルを追加できません: 取り込んだ3Dモデルを登録できません。", true);
             return;
         }
 

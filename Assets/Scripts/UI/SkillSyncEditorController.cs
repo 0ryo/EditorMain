@@ -123,6 +123,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         view.EnsureWalkthroughControl();
         view.EnsureIssueControls();
         view.SetCaption("該当箇所を修正","最初の問題へ移動");
+        SkillSyncTerms.Apply(view);
         if(view.issueList!=null) view.issueList.Selected=SelectIssue;
         SkillSyncConditionEditorView.Ensure(view);
         if(view.conditionList!=null) view.conditionList.Selected=SelectCondition;
@@ -144,6 +145,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
             var action=control.action;
             control.button.onClick.AddListener(()=>Act(action));
         }
+        SkillSyncButtonTips.Apply(view,view.objectTemplate.title.font);
         reorder=gameObject.AddComponent<SkillSyncStepReorder>();
         reorder.Setup(view.stepsContent,()=>trial==null && !Modal && ghost==null,MoveStep,()=>{if(stepRebuildPending) {stepRebuildPending=false;RebuildSteps();}});
         pauseLabel=view.controls.FirstOrDefault(c=>c.action=="Ⅱ 一時停止")?.button.GetComponentInChildren<TMP_Text>(true);
@@ -620,7 +622,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         steps=graph.GetDisplayOrderedSteps();
         if(steps.Count==0) return true;
         if(graph.TryBuildLinearStepSequence(out steps,out var reason)) return true;
-        Notify("既存の分岐を保持するため、この並べ替えは利用できません: "+reason,true);return false;
+        Notify("手順が1本につながっていないため、並べ替えできません: "+reason,true);return false;
     }
     void Reorder(int offset)
     {
@@ -1027,6 +1029,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
             drag.begin=()=>CardDragBegin(chosen);drag.moved=point=>CardDragMove(chosen,point);drag.ended=point=>CardDragEnd(chosen,point);
             if(entry.typeId==added) {addedRow=row;addedTitle=title;}
             var remove=row.GetComponent<SkillSyncLibraryRemove>();
+            if(remove!=null) SkillSyncButtonTips.Attach(remove.remove.gameObject,"ライブラリの一覧から外します（置いた部品は残ります）",view.objectTemplate.title.font);
             if(remove!=null) remove.remove.onClick.AddListener(()=>SkillSyncConfirmDialog.Show("ライブラリから外しますか？",
                 "「"+title+"」をライブラリから外します。すでに配置した部品はそのまま残ります。",
                 "外す",()=>{
@@ -1040,7 +1043,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         {
             highlightType=added;highlightUntil=Time.unscaledTime+12f;RefreshLibrarySelection();
             ScrollIntoView(view.libraryContent,(RectTransform)addedRow.transform);
-            Notify("「"+addedTitle+"」を追加しました。カードをクリックまたは3D画面へドラッグして置けます",false);
+            Notify("「"+addedTitle+"」を追加しました。一覧の部品をクリックするか、3D画面へドラッグして置けます",false);
         }
     }
     void RebuildSteps()
@@ -1287,7 +1290,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         RefreshSavedPill();
         var saveState=project.SaveState;
         string footerStatus = status;
-        view.Text("footer",trial!=null?"試行中の操作は教材の初期配置に保存されません":(string.IsNullOrEmpty(footerStatus)?saveState==EditorProjectService.SaveStatus.Saved?"✓ すべての変更を保存しました":"未保存の変更があります":footerStatus)+" ｜ "+ValidationSummary());
+        view.Text("footer",trial!=null?"動作確認中の操作は教材の初期配置に保存されません":(string.IsNullOrEmpty(footerStatus)?saveState==EditorProjectService.SaveStatus.Saved?"✓ すべての変更を保存しました":"未保存の変更があります":footerStatus)+" ｜ "+ValidationSummary());
         view.Text("objectCount",objectCountText+(ghost!=null?" ＋ 仮配置1件":""));
         view.Text("stepCount","手順 "+graph.GetDisplayOrderedSteps().Count+"件 ｜ "+ValidationSummary());
         var current=selection.Current;
@@ -1355,12 +1358,12 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         guide?.SetPlacement(ghost!=null?dragEntry!=null?"3D画面でマウスのボタンを離すと置きます ・ Escでやめる":"クリックで置く ・ Shift+クリックで続けて置く ・ Escでやめる":null);
         guide?.SetLoading(catalog!=null && catalog.IsLoadingModel);
         guide?.Refresh(view.State==0 || view.State==3,libraryEmptyText);
-        view.Text("status",pickTarget!=null?status:ghost!=null?"＋ 仮配置中：クリックで置く / Shift+クリックで続けて置く / Escでやめる":trial!=null?trial.Complete?"✓ 条件が成立しました":"▶ 試行中：ギズモで部品を動かして条件を確かめます":current!=null?(selectionInfo.multiple && selectionInfo.title.EndsWith("選択中",StringComparison.Ordinal)?"● "+selectionInfo.title:"● 選択中："+selectionInfo.title)+" | Escで選択解除":"部品を選択してください");
+        view.Text("status",pickTarget!=null?status:ghost!=null?"＋ 仮配置中：クリックで置く / Shift+クリックで続けて置く / Escでやめる":trial!=null?trial.Complete?"✓ 条件が成立しました":"▶ 動作確認中：矢印や輪で部品を動かして条件を確かめます":current!=null?(selectionInfo.multiple && selectionInfo.title.EndsWith("選択中",StringComparison.Ordinal)?"● "+selectionInfo.title:"● 選択中："+selectionInfo.title)+" | Escで選択解除":"部品を選択してください");
         if(trial==null) view.viewportDistance.text=valid && distanceCondition?$"現在の距離 {Vector3.Distance(SkillSyncTrialSession.Center(a.transform),SkillSyncTrialSession.Center(b.transform))*100:0} cm":"";
         view.viewportDistance.transform.parent.gameObject.SetActive(valid && distanceCondition && (view.State==1 || trial!=null));
-        view.viewportGrid.text=$"グリッド {EditSnapSettings.GridSize*100:0.##} cm";
+        view.viewportGrid.text=EditSnapSettings.Enabled?$"吸着の間隔 {EditSnapSettings.GridSize*100:0.##} cm":"吸着：オフ";
         view.viewportGrid.color=new Color32(88,103,124,255);
-        view.Text("viewportMode",mode==1||trial!=null?valid?distanceCondition?"判定範囲（球）を表示中":"操作条件（PCでは自動判定できません）":"対象を選択してください":EditSnapSettings.ShouldSnap?"作業面に吸着：ON":"作業面に吸着：OFF");
+        view.Text("viewportMode",mode==1||trial!=null?valid?distanceCondition?"判定範囲（球）を表示中":"この完了条件はPCでは自動判定できません":"対象を選択してください":EditSnapSettings.ShouldSnap?"作業面に吸着：ON":"作業面に吸着：OFF");
         extras?.Refresh(transformTab,selectionInfo,view.State==0 && ghost==null && trial==null && current!=null,ScaleText(current));
         if(valid && distanceCondition && cameraView!=null)
         {
@@ -1447,7 +1450,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
     void BeginTrial()
     {
         CancelGhost();
-        if(catalog!=null && catalog.IsRestoringModels) {Notify("モデルの復元完了を待ってから試行してください",true);Refresh();return;}
+        if(catalog!=null && catalog.IsRestoringModels) {Notify("モデルの準備が終わってから動作確認してください",true);Refresh();return;}
         if(!SkillSyncConditionEditing.TargetsValid(Condition?.condition,id=>FindPlaced(id)!=null))
         {Notify("試す条件の対象を設定してください",true);Refresh();return;}
         var conditions=graph.GetConditionNodesForStep(stepId);

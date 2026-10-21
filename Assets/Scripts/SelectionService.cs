@@ -431,7 +431,7 @@ public class SelectionService : MonoBehaviour
 
     public void PasteSelected(bool inPlace = false)
     {
-        if (!clipboard.HasContent) { OperationMessage?.Invoke("先に部品をコピーしてください（Ctrl/Cmd+C）"); return; }
+        if (!clipboard.HasContent) { OperationMessage?.Invoke("先に部品をコピーしてください（" + SkillSyncDesignView.ShortcutModifierName + "+C）"); return; }
         var command = clipboard.CreateCommand(placementController, registry, inPlace);
         try
         {

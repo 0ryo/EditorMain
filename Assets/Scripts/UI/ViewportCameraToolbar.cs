@@ -95,13 +95,13 @@ public sealed class ViewportCameraToolbar : MonoBehaviour
         var editModeRow = parent.Find("EditModeRow") ?? parent.Find("EditModeRow_Runtime");
         AttachGuide(
             editModeRow?.Find("Button_ModeBrowse")?.GetComponent<Button>(),
-            "閲覧モード：オブジェクトを選択して内容を確認します");
+            "閲覧モード：部品を選択して内容を確認します");
         AttachGuide(
             editModeRow?.Find("Button_ModeTransform")?.GetComponent<Button>(),
             "移動モード：ギズモまたはW/A/S/D・矢印キーで位置を調整します");
         AttachGuide(
             editModeRow?.Find("Button_ModeScale")?.GetComponent<Button>(),
-            "スケールモード：選択したオブジェクトの大きさを調整します");
+            "スケールモード：選択した部品の大きさを調整します");
 
         var settings = parent.Find("Button_Settings") ?? parent.Find("Button_Settings_Runtime");
         AttachGuide(
@@ -109,7 +109,7 @@ public sealed class ViewportCameraToolbar : MonoBehaviour
             "設定：視点感度や位置・角度の吸着間隔を変更します");
         AttachGuide(
             parent.Find("Button_Hints")?.GetComponent<Button>(),
-            "ヒント：操作方法の一覧を3Dビュー中央に表示します");
+            "ヘルプ：操作方法を表示します");
         AttachGuide(openButton, "カメラ操作を開閉します");
     }
 
@@ -307,7 +307,7 @@ public sealed class ViewportCameraToolbar : MonoBehaviour
         toolbar.toolbarRect = rect;
         toolbar.toolbarCanvasGroup = root.GetComponent<CanvasGroup>();
         toolbar.openButton = CreateOpenButton(parent, toolbar);
-        toolbar.focusButton = CreateButton(rect, "Button_FocusSelected", "選択へ  F", 88f, "選択中のオブジェクト全体を画面中央に表示します（F）", toolbar);
+        toolbar.focusButton = CreateButton(rect, "Button_FocusSelected", "選択へ  F", 88f, "選択中の部品全体を画面中央に表示します（F）", toolbar);
         toolbar.frontButton = CreateButton(rect, "Button_ViewFront", "Z  前", 64f, "正面ビューへ切り替えます（1）", toolbar);
         toolbar.rightButton = CreateButton(rect, "Button_ViewRight", "X  右", 64f, "右ビューへ切り替えます（3）", toolbar);
         toolbar.topButton = CreateButton(rect, "Button_ViewTop", "Y  上", 64f, "上面ビューへ切り替えます（7）", toolbar);

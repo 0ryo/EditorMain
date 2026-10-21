@@ -22,7 +22,7 @@ public partial class CurriculumGraphService
             nodes.Count(node => node.nodeType == ScenarioNodeType.End) != 1 ||
             curriculum.edges.Count(edge => edge != null && edge.edgeType == ScenarioEdgeType.StepFlow) != steps.Count + 1)
         {
-            reason = "一本道以外の接続、または不正なノードIDがあります。";
+            reason = "手順が1本につながっていないか、手順のIDが正しくありません。";
             return false;
         }
 

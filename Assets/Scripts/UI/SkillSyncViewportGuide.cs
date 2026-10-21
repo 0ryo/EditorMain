@@ -119,7 +119,7 @@ public sealed class SkillSyncViewportGuide
         if (loadingPill == null) return;
         if (loading && !loadingPill.gameObject.activeSelf)
         {
-            loadingLabel.text = "3Dモデルを読み込んでいます…（大きなモデルは時間がかかります）";
+            loadingLabel.text = "3Dモデルを追加しています…（大きなモデルは時間がかかります）";
             Fit(loadingPill, loadingLabel, 76);
         }
         if (loadingPill.gameObject.activeSelf != loading) loadingPill.gameObject.SetActive(loading);

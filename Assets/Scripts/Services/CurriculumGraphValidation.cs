@@ -181,7 +181,7 @@ internal static class CurriculumGraphValidator
 
             if (conditions.Count == maxConditions)
             {
-                result.AddWarning("W-01", $"このステップの条件数が設定上限（{maxConditions}件）に達しています。", step.nodeId);
+                result.AddWarning("W-01", $"この手順の完了条件数が上限（{maxConditions}件）に達しています。", step.nodeId);
             }
 
             // Conditions without targets are reported as unassigned; two empty ones are not "duplicates".

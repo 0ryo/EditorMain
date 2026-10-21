@@ -45,18 +45,18 @@ public static class RuntimeModelLoader
         bool retained = false;
         try
         {
-            progress?.Invoke($"モデルを読み込み中… 入力素材 {ToMiB(inputBytes)} MB（追加ボタンで中止）");
+            progress?.Invoke($"モデルを取り込み中… 入力素材 {ToMiB(inputBytes)} MB（追加ボタンで中止）");
             if (!await gltf.Load(new Uri(file.FullName), cancellationToken: cancellationToken))
-                throw ImportFailure("モデルを読み込めません。", logger);
+                throw ImportFailure("モデルを取り込めません。", logger);
             // glTFast can complete geometry loading despite failed textures/materials.
             // Do not publish such a model as a successful import.
             if (logger.Items != null)
                 foreach (var item in logger.Items)
                     if (item.Type == LogType.Error)
-                        throw ImportFailure("モデルの素材を完全に読み込めません。", logger);
+                        throw ImportFailure("モデルの素材を完全に取り込めません。", logger);
             cancellationToken.ThrowIfCancellationRequested();
             long loadedResourceBytes = EstimateLoadedResourceBytes(gltf);
-            progress?.Invoke($"形状・材質を構築中… 読込資産のメモリ目安 {ToMiB(loadedResourceBytes)} MB（mesh・texture、追加ボタンで中止）");
+            progress?.Invoke($"形状・材質を構築中… 取り込んだ素材のメモリ目安 {ToMiB(loadedResourceBytes)} MB（mesh・texture、追加ボタンで中止）");
             go = new GameObject(Path.GetFileNameWithoutExtension(absolutePath));
             var resources = go.AddComponent<RuntimeModelResources>();
             go.SetActive(false);
@@ -148,7 +148,7 @@ public static class RuntimeModelLoader
         // already allocated here, so this is a diagnostic rather than an input limit.
         if (textureBytes > TextureMemoryWarningBytes)
             Debug.LogWarning($"[Model import] {model.name}: 展開後のテクスチャメモリ目安 {ToMiB(textureBytes)} MB。" +
-                "読み込みを継続します。動作が重い場合はテクスチャの解像度を下げてください。");
+                "取り込みを続けます。動作が重い場合はテクスチャの解像度を下げてください。");
     }
 
 #if UNITY_STANDALONE_WIN

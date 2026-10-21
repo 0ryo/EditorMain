@@ -48,7 +48,7 @@ public static class EditorProjectReplacement
                 try { restore(); }
                 catch (Exception error) { errors.Add(error); }
             }
-            if (errors.Count > 1) throw new AggregateException("教材の切替と復元処理でエラーが発生しました。", errors);
+            if (errors.Count > 1) throw new AggregateException("教材の切り替え中にエラーが発生しました。", errors);
             throw;
         }
         commit();
@@ -80,7 +80,7 @@ public static class EditorProjectMigration
 
         if (string.IsNullOrWhiteSpace(json))
         {
-            error = "プロジェクトファイルが空です。";
+            error = "教材ファイルが空です。";
             return false;
         }
 
@@ -92,7 +92,7 @@ public static class EditorProjectMigration
                 (envelope.objects == null || envelope.curriculum == null ||
                  envelope.curriculum.nodes == null || envelope.curriculum.edges == null))
             {
-                error = "教材の配置またはシナリオデータが欠損しています。現在の編集内容は変更しません。";
+                error = "教材の配置または手順のデータが欠けています。現在の編集内容は変更しません。";
                 return false;
             }
             project = JsonUtility.FromJson<EditorProjectFile>(json);
@@ -110,7 +110,7 @@ public static class EditorProjectMigration
 
         if (project == null)
         {
-            error = "プロジェクトデータを読み取れません。";
+            error = "教材のデータを読み取れません。";
             return false;
         }
 
@@ -118,7 +118,7 @@ public static class EditorProjectMigration
         if (project.schemaVersion <= 0) project.schemaVersion = 1;
         if (project.schemaVersion > EditorProjectFile.CurrentSchemaVersion)
         {
-            error = $"このプロジェクトは新しい形式です (v{project.schemaVersion})。";
+            error = $"この教材は新しいバージョンで作られています (v{project.schemaVersion})。";
             project = null;
             return false;
         }
@@ -186,7 +186,7 @@ public static class EditorProjectMigration
         {
             if (node == null || !Enum.IsDefined(typeof(ScenarioNodeType), node.nodeType))
             {
-                error = "シナリオノードが欠損しているか、未対応の種類です。";
+                error = "手順または完了条件のデータが欠けているか、未対応の種類です。";
                 return false;
             }
             foreach (var parameter in node.condition?.parameters ?? new List<ConditionParameterData>())
@@ -202,7 +202,7 @@ public static class EditorProjectMigration
         {
             if (edge == null || !Enum.IsDefined(typeof(ScenarioEdgeType), edge.edgeType))
             {
-                error = "シナリオ接続が欠損しているか、未対応の種類です。";
+                error = "手順のつながりのデータが欠けているか、未対応の種類です。";
                 return false;
             }
         }
@@ -227,7 +227,7 @@ public static class EditorProjectMigration
         {
             if (string.IsNullOrWhiteSpace(node.nodeId) || !nodeIds.Add(node.nodeId))
             {
-                error = "シナリオノードIDが欠損または重複しています。";
+                error = "手順のデータのIDが欠けているか、重複しています。";
                 return false;
             }
         }
@@ -248,7 +248,7 @@ public static class EditorProjectMigration
             if (IsAmbiguousReference(node.condition.objectAId, objectIdCounts) ||
                 IsAmbiguousReference(node.condition.objectBId, objectIdCounts))
             {
-                error = "条件が重複した配置IDを参照しているため読み込めません。重複IDを解消してから再試行してください。";
+                error = "完了条件が重複した配置IDを参照しているため、教材を開けません。重複を解消してから、もう一度お試しください。";
                 return false;
             }
         }

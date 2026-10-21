@@ -18,7 +18,7 @@ public static class ScenarioFlow
         reason = null;
         var nodes = curriculum.nodes.Where(n => n != null && n.nodeType != ScenarioNodeType.Condition).ToList();
         if (nodes.Any(n => string.IsNullOrWhiteSpace(n.nodeId)) || nodes.Select(n => n.nodeId).Distinct().Count() != nodes.Count)
-        { reason = "ノードIDが空または重複しています。"; return false; }
+        { reason = "手順のIDが空か、重複しています。"; return false; }
         var starts = nodes.Where(n => n.nodeType == ScenarioNodeType.Start).ToList();
         var ends = nodes.Where(n => n.nodeType == ScenarioNodeType.End).ToList();
         if (starts.Count != 1 || ends.Count != 1) { reason = "開始と終了を一つずつ配置してください。"; return false; }
@@ -39,9 +39,9 @@ public static class ScenarioFlow
         foreach (var node in nodes)
         {
             if (node.nodeType != ScenarioNodeType.Start && incoming[node.nodeId] == 0)
-            { reason = "開始から到達できないノードがあります: " + node.nodeId; return false; }
+            { reason = "最初の手順からたどれない手順があります。"; return false; }
             if (node.nodeType != ScenarioNodeType.End && outgoing[node.nodeId].Count == 0)
-            { reason = "終了につながらないノードがあります: " + node.nodeId; return false; }
+            { reason = "最後までつながらない手順があります。"; return false; }
         }
         var queue = new Queue<string>();
         queue.Enqueue(starts[0].nodeId);

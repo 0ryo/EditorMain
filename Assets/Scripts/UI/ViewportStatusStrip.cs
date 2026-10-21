@@ -394,7 +394,7 @@ public class ViewportStatusStrip : MonoBehaviour
         if (isPlacementPending)
         {
             modeText.text = "+ 配置中";
-            targetText.text = $"配置対象: {BuildTypeLabel(lastPlacementTypeId)} / 3D空間をクリック";
+            targetText.text = $"配置対象: {BuildTypeLabel(lastPlacementTypeId)} / 3D画面をクリック";
             return;
         }
 

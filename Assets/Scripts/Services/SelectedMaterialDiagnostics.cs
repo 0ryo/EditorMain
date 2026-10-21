@@ -18,7 +18,7 @@ public static class SelectedMaterialDiagnostics
 
     public static Snapshot Capture(PlacedObject selected)
     {
-        if (selected == null) throw new InvalidOperationException("オブジェクトを選択してください。");
+        if (selected == null) throw new InvalidOperationException("部品を選択してください。");
         var snapshot = new Snapshot { label = selected.GetDisplayName(), searchDirectory = Application.dataPath };
         var text = new StringBuilder();
         int missing = 0, shaderIssues = 0, rendererCount = 0;

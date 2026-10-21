@@ -238,7 +238,7 @@ public sealed class ObjectDropdownBrowser : MonoBehaviour, IPointerEnterHandler,
         viewport.SetParent(searchObject.transform, false);
         Stretch(viewport, 8, 4);
         var text = MakeText("Text", viewport, font, string.Empty);
-        var placeholder = MakeText("Placeholder", viewport, font, "オブジェクト名を検索…");
+        var placeholder = MakeText("Placeholder", viewport, font, "部品名を検索…");
         placeholder.color = new Color(0.5f, 0.5f, 0.5f);
         input.textViewport = viewport;
         input.textComponent = text;
@@ -250,7 +250,7 @@ public sealed class ObjectDropdownBrowser : MonoBehaviour, IPointerEnterHandler,
         ((RectTransform)buttonObject.transform).sizeDelta = new Vector2(260, DesignTokens.MinTouchTarget);
         MakeText("Label", buttonObject.transform, font, "画面上から選択");
         StylePickButton(buttonObject.GetComponent<Button>());
-        var empty = MakeText("NoMatches", template, font, "一致するオブジェクトがありません");
+        var empty = MakeText("NoMatches", template, font, "一致する部品がありません");
         empty.rectTransform.offsetMax = new Vector2(-8, -48);
         empty.gameObject.SetActive(false);
     }

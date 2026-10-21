@@ -524,7 +524,7 @@ public class EditorCameraController : MonoBehaviour
             if (trackpadScrollFrames >= 4)
             {
                 EditorCameraInputSettings.MarkTrackpadDetected();
-                Notice?.Invoke("トラックパッドの操作にしました：2本指で回転、Shift＋2本指でパン、Cmd＋2本指でズーム（3D画面右上のボタンで切替）");
+                Notice?.Invoke("トラックパッドの操作にしました：2本指で回転、Shift＋2本指で平行移動、" + SkillSyncDesignView.ShortcutModifierName + "＋2本指でズーム（3D画面右上のボタンで切替）");
             }
         }
 

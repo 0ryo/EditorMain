@@ -25,7 +25,7 @@ public static class FbxMaterialRepair
         MaterialFileSearch.Result search)
     {
 #if UNITY_EDITOR
-        if (selected == null) throw new InvalidOperationException("選択したオブジェクトがありません。");
+        if (selected == null) throw new InvalidOperationException("選択した部品がありません。");
         // A viewport click selects a part. Repair the owning imported model, not only that renderer.
         if (selected.modelRoot != null) selected = selected.modelRoot;
         string modelPath = ModelAssetPath.FromFile(sourcePath, Application.dataPath);
@@ -271,7 +271,7 @@ public static class FbxMaterialRepair
                 PlacedObjectPickability.EnsurePickable(placed);
             }
             Physics.SyncTransforms();
-            log.AppendLine("同じモデルの配置済みオブジェクトにも復元を反映しました。");
+            log.AppendLine("同じモデルの配置済みの部品にも復元を反映しました。");
         }
         string summary = $"画像・材質設定の復元: {restored}件 / 接続済み: {already}件 / 未復元: {missing}件\n";
         if (restored == 0) summary += "見た目を変更できたテクスチャはありません。下の理由と検索フォルダーを確認してください。\n";

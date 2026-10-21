@@ -132,7 +132,7 @@ public sealed class SkillSyncViewportTools : MonoBehaviour
         string caption = trackpad ? "操作：トラックパッド" : "操作：マウス";
         if (modeLabel.text != caption) modeLabel.text = caption;
         modeTip.text = trackpad
-            ? "クリックでマウスに切替｜2本指＝回転、Shift＋2本指＝移動、Cmd＋2本指＝ズーム"
+            ? "クリックでマウスに切替｜2本指＝回転、Shift＋2本指＝移動、" + SkillSyncDesignView.ShortcutModifierName + "＋2本指＝ズーム"
             : "クリックでトラックパッドに切替｜ホイール＝ズーム、右ドラッグ＝回転";
     }
 

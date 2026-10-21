@@ -126,7 +126,7 @@ public static class EditorProjectLoadPreparation
         {
             if (item == null || string.IsNullOrWhiteSpace(item.id) || string.IsNullOrWhiteSpace(item.typeId))
             {
-                error = "IDまたは種類がない配置オブジェクトを含んでいます。";
+                error = "IDまたは種類がない配置した部品を含んでいます。";
                 return false;
             }
 

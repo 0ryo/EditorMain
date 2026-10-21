@@ -373,7 +373,7 @@ public sealed class ViewportOutliner : MonoBehaviour
 
         if (matchCount == 0)
         {
-            var empty = CreateText("Text_Empty", listRoot, "該当するオブジェクトはありません", DesignTokens.FontSizeCaption, DesignTokens.TextSecondary);
+            var empty = CreateText("Text_Empty", listRoot, "該当する部品はありません", DesignTokens.FontSizeCaption, DesignTokens.TextSecondary);
             empty.alignment = TextAlignmentOptions.Center;
             var element = empty.gameObject.AddComponent<LayoutElement>();
             element.minHeight = 48f;
