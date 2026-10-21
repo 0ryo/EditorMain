@@ -41,6 +41,16 @@ public sealed class KeyboardAccessibilityController : MonoBehaviour
         MoveFocus(eventSystem, EditInput.ShiftPressed());
     }
 
+    // A button clicked with the mouse would otherwise stay selected, and the arrow keys used in the 3D view
+    // (or Enter) would then walk the UI selection into a text field and open it.
+    void LateUpdate()
+    {
+        if (!EditInput.LeftPressedThisFrame()) return;
+        var eventSystem = EventSystem.current;
+        var selected = eventSystem != null ? eventSystem.currentSelectedGameObject : null;
+        if (selected != null && selected.GetComponent<Button>() != null) eventSystem.SetSelectedGameObject(null);
+    }
+
     void OnDisable()
     {
         if (focusRing != null) focusRing.gameObject.SetActive(false);

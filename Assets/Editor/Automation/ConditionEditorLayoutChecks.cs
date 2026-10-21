@@ -111,7 +111,7 @@ public static class ConditionEditorLayoutChecks
     {
         var condition = Condition(type);
         view.Show(1);
-        view.Text("inspectorLabel", "選択中の手順：2");
+        view.Text("inspectorLabel", "手順2の題名");
         view.Value("stepTitle", "ボルトを取り外す");
         view.Value("body", "対象の部品を選び、手順に沿って作業してください。");
         view.Value("distance", SkillSyncConditionEditing.Value(condition, 0));
@@ -201,7 +201,7 @@ public static class ConditionEditorLayoutChecks
             CheckText(Visual(view, "conditionParameter" + slot + "Unit").label, (RectTransform)input.transform, type + ": unit " + slot);
         }
         CheckText(dropdown.captionText, typeRect, type + ": type caption");
-        Require(view.visuals.Any(v => v.role == "inspectorLabel" && v.target.activeInHierarchy && v.label.text == "選択中の手順：2" && v.label.rectTransform.rect.width >= 300), type + " selected step is visible and has room");
+        Require(view.visuals.Any(v => v.role == "inspectorLabel" && v.target.activeInHierarchy && v.label.text == "手順2の題名" && v.label.rectTransform.rect.width >= 300), type + " selected step is visible and has room");
     }
 
     // Every condition of a step is listed under the editor card: shortened to the space left, never overlapping.

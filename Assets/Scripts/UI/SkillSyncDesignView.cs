@@ -708,7 +708,12 @@ public sealed class SkillSyncDesignView : MonoBehaviour
     }
     public void Value(string role, string value)
     {
-        foreach (var f in fields) if (f.role == role && !f.input.isFocused) f.input.SetTextWithoutNotify(value ?? "");
+        foreach (var f in fields) if (f.role == role && !f.input.isFocused)
+        {
+            f.input.SetTextWithoutNotify(value ?? "");
+            // Show() decides the placeholder from the text at that moment; a later empty value (a new untitled step) must bring it back.
+            if (f.input.placeholder != null && f.input.gameObject.activeSelf) f.input.placeholder.gameObject.SetActive(string.IsNullOrEmpty(value));
+        }
     }
     public void Enable(string action, bool enabled)
     {
