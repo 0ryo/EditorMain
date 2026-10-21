@@ -7,7 +7,7 @@ using UnityEngine;
 public static class SkillSyncConditionEditorView
 {
     const float CardTop = 394, CardWidth = 392, ContentWidth = 360;
-    const float Padding = 16, RowGap = 12, LabelHeight = 20, LabelGap = 8;
+    const float Padding = 16, RowGap = 12, LabelHeight = 20, LabelGap = 8, ListPadding = 8, BottomLimit = 996;
     // One glyph, size and weight for every dropdown/picker arrow.
     const string ArrowGlyph = "v";
     const float ArrowSize = 14;
@@ -29,6 +29,14 @@ public static class SkillSyncConditionEditorView
             control.button.gameObject.SetActive(false);
         }
         EnsureTypeDropdown(view, parent, heading.label, X(1200));
+        // All conditions of a step are listed below the editor card; the old previous/next pager is retired.
+        foreach (var control in view.controls.Where(c => c.action == "PreviousCondition" || c.action == "NextCondition"))
+        {
+            control.mask = 0;
+            control.button.gameObject.SetActive(false);
+        }
+        EnsureConditionList(view, parent, heading.label);
+        EnsureTrialList(view, parent, heading.label);
 
         // Source IDs are resolved once. Layout thereafter uses roles and the active definition.
         foreach (var visual in view.visuals)
@@ -64,6 +72,7 @@ public static class SkillSyncConditionEditorView
             if (visual.role == "conditionEditorNote")
             {
                 visual.label.fontSize = 12;
+                visual.label.richText = true;
                 CenterText(visual.label, TextAlignmentOptions.MidlineLeft, true);
             }
             if (visual.role == "conditionSummary")
@@ -90,7 +99,7 @@ public static class SkillSyncConditionEditorView
         Layout(view, new ConditionNodeData { type = ConditionTypeCatalog.SnapHold });
     }
 
-    public static void Refresh(SkillSyncDesignView view, ConditionNodeData condition, bool canTrial)
+    public static void Refresh(SkillSyncDesignView view, ConditionNodeData condition, bool canTrial, string warning = null)
     {
         bool requiresB = condition != null && ConditionTypeCatalog.RequiresObjectB(condition.type);
         bool editing = view.State == 1, inspector = editing || view.State == 5;
@@ -142,10 +151,77 @@ public static class SkillSyncConditionEditorView
         if (view.objectBThumbnail != null) view.objectBThumbnail.gameObject.SetActive(inspector && condition != null && requiresB);
         view.holdProgress.gameObject.SetActive(holdTrial && (view.State == 2 || view.State == 4));
         var definition = ConditionTypeCatalog.Find(condition?.type);
-        string label = definition?.label ?? condition?.type;
-        view.Text("conditionEditorNote", condition == null ? "種類を選び、対象を設定してください" : definition == null ? "未対応の条件です。種類を確認してください" : !SkillSyncConditionEditing.SupportsPcTrial(condition) ?
-            label + "：保存・出力に対応（PC試行は未対応）" : !canTrial ? "PC試行には全条件の種類・対象を設定してください" : "PC試行：中心どうしの距離で判定します");
+        view.Text("conditionEditorNote", NoteText(condition, definition, warning));
+        if (view.conditionList != null)
+            view.conditionList.gameObject.SetActive((editing || view.State == 5) && condition != null && view.conditionList.Count > 0);
         if (inspector) Layout(view, condition);
+    }
+
+    static string NoteText(ConditionNodeData condition, ConditionTypeCatalog.Definition definition, string warning)
+    {
+        if (condition == null) return "種類を選び、対象を設定してください";
+        if (definition == null) return "未対応の条件です。種類を確認してください";
+        // The warning already names the centre-to-centre measure, so it replaces the plain explanation.
+        if (!string.IsNullOrEmpty(warning)) return "<color=#B45309>⚠ " + warning + "</color>";
+        if (SkillSyncConditionEditing.UsesCenterDistance(condition))
+            return "距離は、2つの部品の中心どうしで測ります（3D画面の球が判定範囲です）";
+        return SkillSyncConditionEditing.SupportsPcTrial(condition) ? "" :
+            SkillSyncConditionEditing.PcUnsupportedText + "。動作の確認では「成立として次へ」で流れを確認できます";
+    }
+
+    static void EnsureConditionList(SkillSyncDesignView view, Transform parent, TMP_Text fontSource)
+    {
+        if (view.conditionList == null)
+        {
+            var existing = parent.Find("ConditionList");
+            view.conditionList = existing != null ? existing.GetComponent<SkillSyncItemList>() : null;
+        }
+        if (view.conditionList == null) view.conditionList = SkillSyncItemList.Create(parent, "ConditionList", fontSource);
+        var visual = view.visuals.FirstOrDefault(v => v.role == "conditionList");
+        if (visual == null)
+        {
+            visual = new SkillSyncDesignView.Visual { target = view.conditionList.gameObject, role = "conditionList" };
+            view.visuals = view.visuals.Concat(new[] { visual }).ToArray();
+        }
+        visual.mask = 2 | 32;
+        // Above the source-owned summary surface in every Show() state.
+        visual.orders = Enumerable.Repeat(1001, 6).ToArray();
+    }
+
+    // Steps with nothing the PC can measure show no distance/hold gauges (instead of zeros).
+    public static void HideTrialGauges(SkillSyncDesignView view)
+    {
+        string[] roles = { "distanceStatus", "distanceValue", "distanceLimit", "conditionTrialHoldBox", "holdStatus", "holdValue", "holdLimit", "trialNote", "trialNote2" };
+        foreach (var visual in view.visuals)
+            if (Array.IndexOf(roles, visual.role) >= 0 || visual.sourceNodeIds?.Contains("26:596") == true) visual.target.SetActive(false);
+        view.holdProgress.gameObject.SetActive(false);
+    }
+
+    // A gauge plus unjudgeable conditions: the log block makes way for the condition list.
+    public static void HideTrialLog(SkillSyncDesignView view)
+    {
+        foreach (var visual in view.visuals)
+            if (visual.role == "log1" || visual.role == "log2" || visual.label?.text == "判定ログ" || visual.sourceNodeIds?.Contains("26:608") == true)
+                visual.target.SetActive(false);
+    }
+
+    // Trial-only list of the step's conditions (manual success for those the PC cannot judge).
+    static void EnsureTrialList(SkillSyncDesignView view, Transform parent, TMP_Text fontSource)
+    {
+        if (view.trialList == null)
+        {
+            var existing = parent.Find("TrialConditionList");
+            view.trialList = existing != null ? existing.GetComponent<SkillSyncItemList>() : null;
+        }
+        if (view.trialList == null) view.trialList = SkillSyncItemList.Create(parent, "TrialConditionList", fontSource);
+        var visual = view.visuals.FirstOrDefault(v => v.role == "trialConditionList");
+        if (visual == null)
+        {
+            visual = new SkillSyncDesignView.Visual { target = view.trialList.gameObject, role = "trialConditionList" };
+            view.visuals = view.visuals.Concat(new[] { visual }).ToArray();
+        }
+        visual.mask = 4 | 16;
+        visual.orders = Enumerable.Repeat(1001, 6).ToArray();
     }
 
     public static string TypeForDropdownIndex(TMP_Dropdown dropdown, int index)
@@ -259,7 +335,8 @@ public static class SkillSyncConditionEditorView
         if (template == null) return;
         var image = template.GetComponent<UnityEngine.UI.Image>();
         if (image != null) image.color = Color.clear;
-        var canvas = template.GetComponent<Canvas>() ?? template.gameObject.AddComponent<Canvas>();
+        var canvas = template.GetComponent<Canvas>();
+        if (!canvas) canvas = template.gameObject.AddComponent<Canvas>();
         canvas.overrideSorting = true;
         canvas.sortingOrder = 30000;
         if (template.GetComponent<UnityEngine.UI.GraphicRaycaster>() == null) template.gameObject.AddComponent<UnityEngine.UI.GraphicRaycaster>();
@@ -421,17 +498,37 @@ public static class SkillSyncConditionEditorView
         cursor += noteHeight + Padding;
         PlaceRole("conditionEditorCard", 1184, CardTop, CardWidth, cursor - CardTop);
         cursor += Padding;
-        float summaryHeight = Mathf.Max(54, PreferredHeight("conditionSummary", LabelHeight) + 24);
-        PlaceRole("conditionSummaryBox", 1184, cursor, CardWidth, summaryHeight);
-        PlaceRole("conditionSummary", 1200, cursor + 12, ContentWidth, summaryHeight - 24);
-        cursor += summaryHeight + Padding;
-        PlaceControl("＋ 完了条件を追加", 1184, cursor, CardWidth, 44);
-        PlaceRole("conditionAddBox", 1184, cursor, CardWidth, 44);
-        PlaceRole("conditionAddLabel", 1184, cursor, CardWidth, 44);
-        cursor += 44 + Padding;
-        PlaceControl("▶ この条件を試す", 1184, cursor, CardWidth, 44);
-        PlaceRole("conditionTestBox", 1184, cursor, CardWidth, 44);
-        PlaceRole("conditionTestLabel", 1184, cursor, CardWidth, 44);
+        var list = view.conditionList;
+        bool useList = condition != null && list != null && list.Count > 0;
+        foreach (var summary in view.visuals.Where(v => v.role == "conditionSummary"))
+            summary.target.SetActive(!useList && (summary.mask & (1 << view.State)) != 0);
+        if (useList)
+        {
+            // The list is the summary: one card per condition, shortened to the space the inspector has left.
+            float available = BottomLimit - (44 + Padding) - cursor - 2 * ListPadding;
+            float visible = Mathf.Clamp(list.ContentHeight, SkillSyncItemList.RowHeight, Mathf.Max(SkillSyncItemList.RowHeight, available));
+            float boxHeight = visible + 2 * ListPadding;
+            PlaceRole("conditionSummaryBox", 1184, cursor, CardWidth, boxHeight);
+            list.SetBounds(X(1184) + ListPadding, cursor + ListPadding, CardWidth - 2 * ListPadding, visible);
+            cursor += boxHeight + Padding;
+        }
+        else
+        {
+            float summaryHeight = Mathf.Max(54, PreferredHeight("conditionSummary", LabelHeight) + 24);
+            PlaceRole("conditionSummaryBox", 1184, cursor, CardWidth, summaryHeight);
+            PlaceRole("conditionSummary", 1200, cursor + 12, ContentWidth, summaryHeight - 24);
+            cursor += summaryHeight + Padding;
+        }
+        // Add and trial share one row; without a condition only "add" is shown, full width.
+        float half = (CardWidth - RowGap) / 2;
+        float addWidth = condition != null ? half : CardWidth;
+        PlaceControl("＋ 完了条件を追加", 1184, cursor, addWidth, 44);
+        PlaceRole("conditionAddBox", 1184, cursor, addWidth, 44);
+        PlaceRole("conditionAddLabel", 1184, cursor, addWidth, 44);
+        float trialX = 1184 + half + RowGap;
+        PlaceControl("▶ この条件を試す", trialX, cursor, half, 44);
+        PlaceRole("conditionTestBox", trialX, cursor, half, 44);
+        PlaceRole("conditionTestLabel", trialX, cursor, half, 44);
     }
 
     static void CenterText(TMP_Text text, TextAlignmentOptions alignment, bool wrap)

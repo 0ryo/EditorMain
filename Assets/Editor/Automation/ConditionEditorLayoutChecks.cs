@@ -76,7 +76,16 @@ public static class ConditionEditorLayoutChecks
             SkillSyncConditionEditorView.Refresh(view, null, false);
             Require(!Active(view, "objectA") && !Active(view, "objectB"), "No condition leaves no target rows");
             Require(!view.conditionTypeDropdown.interactable, "No condition disables type edits");
-            Require(Rect(view, "conditionEditorCard").rect.height < 160, "Empty condition is compact");
+            Require(!Active(view, "conditionEditorCard") && !Active(view, "conditionEditorNote"), "Empty condition hides the editor card and its note");
+            Require(Active(view, "conditionSummary"), "Empty condition explains what to do in the summary");
+            CheckConditionList(view);
+            CheckTrialList(view);
+            if (render)
+            {
+                var shots = RenderConditionLists(root, view);
+                SaveContactSheet(shots.Take(6).ToArray(), "condition-list");
+                SaveContactSheet(shots.Skip(6).ToArray(), "trial-list");
+            }
             if (render)
             {
                 SaveContactSheet(captures.Take(6).ToArray(), "configured");
@@ -124,6 +133,7 @@ public static class ConditionEditorLayoutChecks
     static bool Active(SkillSyncDesignView view, string role) => view.visuals.Any(v => v.role == role && v.target.activeInHierarchy);
     static SkillSyncDesignView.Visual Visual(SkillSyncDesignView view, string role) => view.visuals.First(v => v.role == role && v.target.activeInHierarchy);
     static RectTransform Rect(SkillSyncDesignView view, string role) => (RectTransform)Visual(view, role).target.transform;
+    static float Right(RectTransform rect) => rect.anchoredPosition.x + rect.rect.width;
     static float Top(RectTransform rect) => -rect.anchoredPosition.y;
     static float Bottom(RectTransform rect) => Top(rect) + rect.rect.height;
 
@@ -158,7 +168,9 @@ public static class ConditionEditorLayoutChecks
         if (!requiresB && parameters == 0) Require(card.rect.height < 220, type + " single-object card has no reserved B/parameter space");
         var add = (RectTransform)view.controls.First(c => c.action == "＋ 完了条件を追加").button.transform;
         var trial = (RectTransform)view.controls.First(c => c.action == "▶ この条件を試す").button.transform;
-        Require(Top(add) >= Bottom(summaryBox) + 12 && Top(trial) >= Bottom(add) + 12 && Bottom(trial) < 1000, type + " actions do not overlap or leave the inspector");
+        // "Add" and "trial" share one row below the summary / condition list.
+        Require(Top(add) >= Bottom(summaryBox) + 12 && Mathf.Abs(Top(trial) - Top(add)) < 1 && Bottom(trial) < 1000 && Bottom(add) < 1000, type + " actions do not overlap or leave the inspector");
+        Require(trial.anchoredPosition.x >= add.anchoredPosition.x + add.rect.width + 8 && trial.anchoredPosition.x + trial.rect.width <= add.anchoredPosition.x + 392 + 1, type + " add and trial buttons sit side by side");
         foreach (string role in new[] { "conditionSummary", "objectA", "objectB", "conditionAddLabel", "conditionTestLabel" })
             foreach (var visual in view.visuals.Where(v => v.role == role && v.label != null && v.target.activeInHierarchy))
                 CheckText(visual.label, role == "conditionSummary" ? summaryBox : role == "conditionAddLabel" ? add : role == "conditionTestLabel" ? trial :
@@ -171,6 +183,131 @@ public static class ConditionEditorLayoutChecks
         }
         CheckText(dropdown.captionText, typeRect, type + ": type caption");
         Require(view.visuals.Any(v => v.role == "inspectorLabel" && v.target.activeInHierarchy && v.label.text == "選択中の手順：2" && v.label.rectTransform.rect.width >= 300), type + " selected step is visible and has room");
+    }
+
+    // Every condition of a step is listed under the editor card: shortened to the space left, never overlapping.
+    static void CheckConditionList(SkillSyncDesignView view)
+    {
+        var list = view.conditionList;
+        Require(list != null, "Condition list exists");
+        foreach (int count in new[] { 1, 2, 3, 8 })
+        foreach (bool warning in new[] { false, true })
+        foreach (string type in new[] { ConditionTypeCatalog.SnapHold, ConditionTypeCatalog.Proximity, ConditionTypeCatalog.Turn })
+        {
+            Configure(view, type, true);
+            var items = Enumerable.Range(0, count).Select(i => new SkillSyncItemList.Item
+            {
+                id = "condition-" + i, number = i + 1, selected = i == 0, tag = i == 0 ? "編集中" : null, warn = i == 0 && warning,
+                title = "近づけて保持：長い名前の対象部品でも欄からはみ出さないことを確認する → ジャッキ",
+                detail = i == 0 && warning ? "⚠ 距離が小さすぎて成立しない可能性があります" : SkillSyncConditionEditing.PcUnsupportedText
+            }).ToList();
+            list.SetItems(items);
+            SkillSyncConditionEditorView.Refresh(view, Condition(type), true,
+                warning ? SkillSyncConditionEditing.DistanceWarning(.1f, 1.2f, "ライブラリの「壁」などの部品") : null);
+            Check(view, type);
+            Canvas.ForceUpdateCanvases();
+            string name = $"list of {count} ({type}, warning={warning})";
+            var box = Rect(view, "conditionSummaryBox");
+            var card = Rect(view, "conditionEditorCard");
+            var listRect = (RectTransform)list.transform;
+            var add = (RectTransform)view.controls.First(c => c.action == "＋ 完了条件を追加").button.transform;
+            Require(list.gameObject.activeInHierarchy && !Active(view, "conditionSummary"), name + " replaces the single summary");
+            Require(Top(listRect) >= Top(box) + 7 && Bottom(listRect) <= Bottom(box) - 7 && Top(box) >= Bottom(card) + 12, name + " sits inside its box below the card");
+            Require(Top(add) >= Bottom(box) + 12 && Bottom(add) < 1000, name + " leaves room for the action row");
+            float visible = Mathf.Min(list.ContentHeight, listRect.rect.height);
+            Require(listRect.rect.height >= Mathf.Min(list.ContentHeight, SkillSyncItemList.RowHeight) - .5f, name + " shows at least one row");
+            if (count <= 2) Require(listRect.rect.height >= list.ContentHeight - .5f, name + " shows every condition without scrolling");
+            var row = listRect.Find("Viewport/Content/Row_0");
+            Require(row != null && row.Find("Tag") != null, name + " marks the condition being edited");
+            foreach (string part in new[] { "Title", "Detail" })
+            {
+                var text = row.Find(part).GetComponent<TMP_Text>();
+                CheckText(text, (RectTransform)text.transform, name + " " + part);
+            }
+            Require(Right((RectTransform)row.Find("Title")) <= ((RectTransform)row.Find("Tag")).anchoredPosition.x, name + " title does not run under the edit tag");
+        }
+        list.SetItems(new List<SkillSyncItemList.Item>());
+        Configure(view, ConditionTypeCatalog.SnapHold, false);
+    }
+
+    // Contact sheet of the condition list in typical and worst cases (long names, warning, 8 conditions).
+    static Texture2D[] RenderConditionLists(GameObject root, SkillSyncDesignView view)
+    {
+        var captures = new List<Texture2D>();
+        foreach (var (count, type, warning) in new[]
+        {
+            (1, ConditionTypeCatalog.Turn, false), (2, ConditionTypeCatalog.SnapHold, false), (3, ConditionTypeCatalog.Proximity, true),
+            (2, ConditionTypeCatalog.SnapHold, true), (8, ConditionTypeCatalog.Proximity, false), (4, ConditionTypeCatalog.Turn, false)
+        })
+        {
+            Configure(view, type, true);
+            view.Text("conditionCounter", count + "件（最大8件）");
+            view.conditionList.SetItems(Enumerable.Range(0, count).Select(i => new SkillSyncItemList.Item
+            {
+                id = "condition-" + i, number = i + 1, selected = i == 0, tag = i == 0 ? "編集中" : null, warn = i == 0 && warning,
+                title = (i % 2 == 0 ? "近づけて保持" : "回す") + "：ジャッキ → 設置枠" + (i == 1 ? "（長い名前の対象部品でも欄からはみ出さない）" : ""),
+                detail = i == 0 && warning ? "⚠ 距離が小さすぎて成立しない可能性があります" : i % 2 == 1 ? SkillSyncConditionEditing.PcUnsupportedText : "10 cm以内に1秒とどまると完了"
+            }).ToList());
+            SkillSyncConditionEditorView.Refresh(view, Condition(type), true,
+                warning ? SkillSyncConditionEditing.DistanceWarning(.1f, 1.2f, "ライブラリの「壁」などの部品") : null);
+            Canvas.ForceUpdateCanvases();
+            captures.Add(Render(root, view));
+        }
+        view.conditionList.SetItems(new List<SkillSyncItemList.Item>());
+        // Trial: nothing measurable (gauges hidden, full-height list), and a gauge with one unjudgeable condition below it.
+        for (int variant = 0; variant < 2; variant++)
+        {
+            view.Show(2);
+            view.Text("trialStep", "手順3 実行中");
+            view.Text("trialBody", "反時計回りに緩め、引き抜く");
+            var list = view.trialList;
+            if (variant == 0)
+            {
+                SkillSyncConditionEditorView.HideTrialGauges(view);
+                list.SetBounds(SkillSyncDesignLayout.MapX(1184), 320, 392, 380);
+                list.SetItems(new List<SkillSyncItemList.Item>
+                {
+                    new SkillSyncItemList.Item { id = "a", number = 1, title = "回す：ナット1", detail = SkillSyncConditionEditing.PcUnsupportedText, actionLabel = "成立にする" },
+                    new SkillSyncItemList.Item { id = "b", number = 2, title = "引く：ナット1", detail = SkillSyncConditionEditing.PcUnsupportedText, actionLabel = "成立として次へ" }
+                });
+            }
+            else
+            {
+                SkillSyncConditionEditorView.HideTrialLog(view);
+                list.SetBounds(SkillSyncDesignLayout.MapX(1184), 728, 392, 48);
+                list.SetItems(new List<SkillSyncItemList.Item>
+                { new SkillSyncItemList.Item { id = "a", number = 2, done = true, title = "押す：ジャッキのハンドル", detail = "✓ 成立しました" } });
+            }
+            Canvas.ForceUpdateCanvases();
+            captures.Add(Render(root, view));
+        }
+        view.trialList.SetItems(new List<SkillSyncItemList.Item>());
+        view.Show(1);
+        return captures.ToArray();
+    }
+
+    // The trial lists the step's conditions; the ones the PC cannot judge get a manual-success button.
+    static void CheckTrialList(SkillSyncDesignView view)
+    {
+        var list = view.trialList;
+        Require(list != null, "Trial condition list exists");
+        view.Show(2);
+        list.SetBounds(view.wideLayout ? SkillSyncDesignLayout.MapX(1184) : 1184, 330, 392, 440);
+        list.SetItems(new List<SkillSyncItemList.Item>
+        {
+            new SkillSyncItemList.Item { id = "a", number = 1, title = "回す：ナット1", detail = SkillSyncConditionEditing.PcUnsupportedText, actionLabel = "成立として次へ" },
+            new SkillSyncItemList.Item { id = "b", number = 2, title = "引く：ナット1", detail = "✓ 成立しました", done = true }
+        });
+        Canvas.ForceUpdateCanvases();
+        var first = list.transform.Find("Viewport/Content/Row_0");
+        var action = (RectTransform)first.Find("Action");
+        Require(action != null && list.transform.Find("Viewport/Content/Row_1/Action") == null, "Only a pending, unjudgeable condition has the manual button");
+        CheckText(action.Find("Text").GetComponent<TMP_Text>(), action, "trial row action");
+        var title = first.Find("Title").GetComponent<TMP_Text>();
+        Require(Right((RectTransform)first.Find("Title")) <= action.anchoredPosition.x, "trial row title does not run under the action button");
+        CheckText(title, (RectTransform)title.transform, "trial row title");
+        list.SetItems(new List<SkillSyncItemList.Item>());
+        view.Show(1);
     }
 
     static void CheckText(TMP_Text text, RectTransform box, string message)

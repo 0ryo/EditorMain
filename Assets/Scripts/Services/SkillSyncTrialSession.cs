@@ -13,6 +13,8 @@ public sealed class SkillSyncTrialSession : IDisposable, IScenarioObjectStateSou
     readonly Dictionary<Transform, TransformObjectCommand.State> initial = new();
     readonly Dictionary<string, ScenarioConditionEvaluator> evaluators = new();
     readonly Dictionary<string, ConditionExport> conditionsById = new();
+    // Conditions the PC cannot judge (push/pull/grab/turn) are marked met by hand, only to walk through the flow.
+    readonly HashSet<string> manual = new();
     public float HeldSeconds { get; private set; }
     public float Distance { get; private set; }
     public bool Complete { get; private set; }
@@ -98,7 +100,7 @@ public sealed class SkillSyncTrialSession : IDisposable, IScenarioObjectStateSou
                 evaluators[node.nodeId]=evaluator=new ScenarioConditionEvaluator();evaluator.Begin(export,this);
             }
             if(!Paused) evaluator.Tick(conditionsById[node.nodeId],this,delta);
-            all &= evaluator.Succeeded;
+            all &= evaluator.Succeeded || manual.Contains(node.nodeId);
             if (node.nodeId == selectedId)
             {
                 Distance=distance;InRange=distance<=conditionsById[node.nodeId].distanceMeters;
@@ -107,6 +109,8 @@ public sealed class SkillSyncTrialSession : IDisposable, IScenarioObjectStateSou
         }
         Complete = all;
     }
+    public void MarkSucceeded(string nodeId) { if (!string.IsNullOrEmpty(nodeId)) manual.Add(nodeId); }
+    public bool IsSucceeded(string nodeId) => manual.Contains(nodeId) || (evaluators.TryGetValue(nodeId, out var e) && e.Succeeded);
     public void Reset(bool restorePositions = true)
     {
         if (restorePositions) foreach (var p in initial) if (p.Key != null)
@@ -116,7 +120,7 @@ public sealed class SkillSyncTrialSession : IDisposable, IScenarioObjectStateSou
             p.Key.localScale = p.Value.localScale;
         }
         HeldSeconds = 0; Complete = false; InRange = false; Paused = false;
-        evaluators.Clear();conditionsById.Clear();
+        evaluators.Clear();conditionsById.Clear();manual.Clear();
     }
     public void Dispose()
     {

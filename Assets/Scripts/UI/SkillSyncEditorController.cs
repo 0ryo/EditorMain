@@ -51,6 +51,12 @@ public sealed class SkillSyncEditorController : MonoBehaviour
     Transform labelTargetA, labelTargetB;
     readonly Vector3[] corners = new Vector3[4];
     GraphValidationResult validation;
+    // Distance conditions whose limit is smaller than the two parts' sizes allow (condition node id -> message).
+    readonly Dictionary<string,string> distanceWarnings = new();
+    readonly HashSet<string> stepsWithWarning = new();
+    float nextWarningCheck;
+    string warningSignature = "";
+    bool stepRowsShowTrial;
     ScenarioNode Step => graph != null ? graph.FindNode(stepId) : null;
     ScenarioNode Condition => graph != null ? graph.FindNode(conditionId) : null;
     PlacedObject[] Placed => FindObjectsByType<PlacedObject>(FindObjectsSortMode.None);
@@ -87,7 +93,10 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         view.EnsureProjectLoadControl();
         view.EnsureConditionControls();
         view.EnsureStepControls();
+        view.EnsureWalkthroughControl();
         SkillSyncConditionEditorView.Ensure(view);
+        if(view.conditionList!=null) view.conditionList.Selected=SelectCondition;
+        if(view.trialList!=null) view.trialList.ActionClicked=ManualSucceed;
         view.EnsureViewportLabels();
         TopCenterNotification.Ensure(transform, view.inspectorTitle);
         cameraView = EditWorkspace.ResolveCamera();
@@ -185,6 +194,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
             if(!TextInputFocused && EditInput.ProjectShortcutPressedThisFrame(false)) EditorProjectPanel.Ensure(transform.root)?.OpenForDesignUi();
         }
         bool inside=RectTransformUtility.RectangleContainsScreenPoint(view.viewport,EditInput.MousePosition);
+        if(pickTarget!=null && !TextInputFocused && SkillSyncObjectPicker.ConfirmPressedThisFrame()) CommitProvisional();
         if(!TextInputFocused && EditInput.CancelPressedThisFrame())
         {
             if(GetComponent<SkillSyncObjectPicker>()?.IsOpen==true) GetComponent<SkillSyncObjectPicker>().Close();
@@ -208,9 +218,11 @@ public sealed class SkillSyncEditorController : MonoBehaviour
             }
             else if(pickTarget!=null)
             {
+                // The first click only marks a provisional target; "この対象に決定" (or Enter) commits it.
                 var candidate=ScreenPickCandidate();
-                GetComponent<SkillSyncObjectPicker>()?.ShowCandidate(candidate);
-                if(candidate!=null && EditInput.LeftPressedThisFrame()) Pick(candidate.Id);
+                var picker=GetComponent<SkillSyncObjectPicker>();
+                picker?.ShowCandidate(candidate);
+                if(candidate!=null && EditInput.LeftPressedThisFrame()) picker?.SetProvisional(candidate);
             }
             else if(trial!=null) SelectTrialObject();
         }
@@ -228,6 +240,12 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         if(Time.unscaledTime>=nextRefresh)
         {
             nextRefresh=Time.unscaledTime+.25f;
+            // Part sizes change without a graph event, so the distance warnings are polled slowly.
+            if(trial==null && ghost==null && Time.unscaledTime>=nextWarningCheck)
+            {
+                nextWarningCheck=Time.unscaledTime+1f;
+                if(RecomputeDistanceWarnings()) RebuildSteps();
+            }
             RefreshValues();
             var signature=string.Join("|",Entries().Select(e=>e.typeId));
             if(signature!=librarySignature) RebuildLibrary();
@@ -290,8 +308,6 @@ public sealed class SkillSyncEditorController : MonoBehaviour
             case "PickA": OpenObjectPicker("A");return;
             case "PickB": OpenObjectPicker("B");return;
             case "Snap": EditSnapSettings.Configure(.1f,15,!EditSnapSettings.Enabled);break;
-            case "PreviousCondition": MoveCondition(-1);break;
-            case "NextCondition": MoveCondition(1);break;
             case "DeleteCondition": DeleteCondition();break;
             case "詳細設定": catalog?.ShowDesignSettings();return;
             case "ヘルプ": case "Guide": HintPanelController.Ensure(transform.root)?.Show();return;
@@ -305,9 +321,10 @@ public sealed class SkillSyncEditorController : MonoBehaviour
             case "編集に戻る": EndTrial();mode=1;break;
             case "Ⅱ 一時停止": if(trial!=null) {trial.Paused=!trial.Paused;UpdateTrialGizmo();Notify(trial.Paused?"一時停止中":"試行を再開しました",false);}break;
             case "初期配置に戻す": case "もう一度試す": ResetTrial();logs.Clear();trialTime=0;break;
-            case "最初から試す":
-                EndTrial();stepId=graph.GetDisplayOrderedSteps().FirstOrDefault()?.nodeId;conditionId=null;GraphChanged();BeginTrial();return;
-            case "次の手順を確認": {EndTrial();var before=stepId;NextStep();mode=1;if(stepId!=before) {BeginTrial();return;}break;}
+            case "最初から試す": case "最初から通して確認":
+                if(graph.GetDisplayOrderedSteps().Count==0) {Notify("先に手順を追加してください",true);break;}
+                EndTrial();pickTarget=null;stepId=graph.GetDisplayOrderedSteps().FirstOrDefault()?.nodeId;conditionId=null;GraphChanged();BeginTrial();return;
+            case "次の手順を確認": AdvanceTrial();return;
             case "すべて": case "部品": case "環境": category=action;RebuildLibrary();break;
         }
         Refresh();
@@ -433,15 +450,6 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         });
         Notify(removed?"手順と所属する完了条件を削除しました":"手順を削除できません: "+reason,!removed);
     }
-    void MoveCondition(int offset)
-    {
-        var conditions=Step!=null?graph.GetConditionNodesForStep(stepId):new List<ScenarioNode>();
-        if(conditions.Count<=1) return;
-        int index=conditions.FindIndex(c=>c.nodeId==conditionId);
-        int next=index+offset;
-        if(index<0 || next<0 || next>=conditions.Count) return;
-        conditionId=conditions[next].nodeId;
-    }
     void DeleteCondition()
     {
         var conditions=Step!=null?graph.GetConditionNodesForStep(stepId):new List<ScenarioNode>();
@@ -464,9 +472,10 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         if(picker==null)return;
         pickTarget=null;picker.SetPicking(null);
         string otherId=which=="A"?Condition.condition.objectBId:Condition.condition.objectAId;
-        picker.Show(Placed.Where(p=>p.Id!=otherId).ToArray(),(RectTransform)view.controls.First(c=>c.action=="Pick"+which).button.transform,id=>{pickTarget=which;Pick(id);},()=>{
-            pickTarget=which;Notify("対象をビューポートでクリックしてください（Escで取消）",false);Refresh();
-        });
+        string currentId=which=="A"?Condition.condition.objectAId:Condition.condition.objectBId;
+        picker.Show(Placed,(RectTransform)view.controls.First(c=>c.action=="Pick"+which).button.transform,id=>{pickTarget=which;Pick(id);},()=>{
+            pickTarget=which;Notify("対象を3D画面でクリックしてください。「この対象に決定」を押すまで確定しません（Escで取消）",false);Refresh();
+        },currentId,otherId);
     }
     void Pick(string id)
     {
@@ -475,26 +484,38 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         if(which!="A" && (which!="B" || !ConditionTypeCatalog.RequiresObjectB(Condition.condition.type)))
         {pickTarget=null;Refresh();return;}
         if(id==(which=="A"?Condition.condition.objectBId:Condition.condition.objectAId) && !string.IsNullOrEmpty(id))
-        {pickTarget=null;Notify("動かすものと同じ部品は選べません",true);Refresh();return;}
+        {pickTarget=null;Notify(which=="A"?"近づける先と同じ部品は選べません":"動かすものと同じ部品は選べません",true);Refresh();return;}
         graph.UpdateConditionData(Condition.nodeId,"Choose condition object",data=>
         {
             if(which=="A") data.objectAId=id;else data.objectBId=id;
         });
-        pickTarget=null;Notify("対象を設定しました",false);Refresh();
+        pickTarget=null;GetComponent<SkillSyncObjectPicker>()?.SetPicking(null);Notify("対象を設定しました",false);Refresh();
+    }
+    void CommitProvisional()
+    {
+        var picker=GetComponent<SkillSyncObjectPicker>();
+        var chosen=picker!=null?picker.Provisional:null;
+        if(chosen==null || pickTarget==null) return;
+        Pick(chosen.Id);
+    }
+    void SelectCondition(string id)
+    {
+        if(trial!=null || Modal || string.IsNullOrEmpty(id) || id==conditionId) return;
+        // A target pick in progress belongs to the previous condition and must not land in this one.
+        pickTarget=null;
+        GetComponent<SkillSyncObjectPicker>()?.Close();
+        conditionId=id;
+        Refresh();
     }
     PlacedObject ScreenPickCandidate()
     {
         if(cameraView==null || Condition==null) return null;
         Physics.SyncTransforms();
         if(!PlacedObjectPicker.TryPick(cameraView.ScreenPointToRay(EditInput.MousePosition),~0,out var picked,out _,out _)) return null;
+        // Once something is provisional, the next click goes inside that group.
+        var provisional=GetComponent<SkillSyncObjectPicker>()?.Provisional;
         string currentId=pickTarget=="A"?Condition.condition.objectAId:Condition.condition.objectBId;
-        return PlacedObjectOptionProvider.ScreenCandidate(picked,FindPlaced(currentId));
-    }
-    void NextStep()
-    {
-        var next=ScenarioFlow.Next(graph.curriculum,stepId).Where(n=>n.nodeType==ScenarioNodeType.Step).ToList();
-        if(next.Count==1) {stepId=next[0].nodeId;conditionId=null;GraphChanged();}
-        else Notify(next.Count==0?"次の手順はありません":"分岐先の手順を左の一覧から選んでください",false);
+        return PlacedObjectOptionProvider.ScreenCandidate(picked,provisional?provisional:FindPlaced(currentId));
     }
     void GraphChanged()
     {
@@ -538,16 +559,64 @@ public sealed class SkillSyncEditorController : MonoBehaviour
             }
         }
         finally {validating=false;}
+        RecomputeDistanceWarnings();
+    }
+    Dictionary<string,PlacedObject> PlacedLookup()
+    {
+        var lookup=new Dictionary<string,PlacedObject>();
+        foreach(var p in Placed) if(!string.IsNullOrEmpty(p.Id)) lookup[p.Id]=p;
+        return lookup;
+    }
+    string MarkerHint()
+    {
+        var env=Entries().FirstOrDefault(e=>e.typeId!=null && e.typeId.StartsWith("Env/",StringComparison.Ordinal));
+        if(env==null || catalog==null) return null;
+        catalog.TryGetTypeInfo(env.typeId,out var title,out _);
+        return string.IsNullOrEmpty(title)?null:"ライブラリの「"+title+"」などの部品";
+    }
+    string DistanceWarningFor(ConditionNodeData c,Dictionary<string,PlacedObject> lookup,Dictionary<string,Bounds?> sizes)
+    {
+        if(!SkillSyncConditionEditing.UsesCenterDistance(c) || !SkillSyncConditionEditing.TargetsValid(c,lookup.ContainsKey)) return null;
+        Bounds? Size(string id)
+        {
+            if(sizes.TryGetValue(id,out var known)) return known;
+            Bounds? measured=PlacedObjectGrounding.TryGetRendererBounds(lookup[id].transform,out var bounds)?bounds:(Bounds?)null;
+            return sizes[id]=measured;
+        }
+        var a=Size(c.objectAId);var b=Size(c.objectBId);
+        if(a==null || b==null) return null;
+        float minimum=SkillSyncConditionEditing.MinimumCenterDistance(a.Value.extents.x,a.Value.extents.y,a.Value.extents.z,b.Value.extents.x,b.Value.extents.y,b.Value.extents.z);
+        float limit=ConditionTypeCatalog.GetNumber(c,ConditionTypeCatalog.DistanceKey,.1f);
+        return SkillSyncConditionEditing.DistanceLikelyUnreachable(limit,minimum)?SkillSyncConditionEditing.DistanceWarning(limit,minimum,MarkerHint()):null;
+    }
+    // Sizes change without graph events, so this is also polled (see RefreshValues). Returns true when the result changed.
+    bool RecomputeDistanceWarnings()
+    {
+        if(graph==null) return false;
+        distanceWarnings.Clear();stepsWithWarning.Clear();
+        var lookup=PlacedLookup();var sizes=new Dictionary<string,Bounds?>();
+        foreach(var step in graph.GetDisplayOrderedSteps())
+            foreach(var node in graph.GetConditionNodesForStep(step.nodeId))
+            {
+                string message=DistanceWarningFor(node.condition,lookup,sizes);
+                if(message==null) continue;
+                distanceWarnings[node.nodeId]=message;stepsWithWarning.Add(step.nodeId);
+                validation?.AddWarning("W-03",message,node.nodeId);
+            }
+        string signature=string.Join("|",distanceWarnings.Keys.OrderBy(k=>k,StringComparer.Ordinal));
+        bool changed=signature!=warningSignature;
+        warningSignature=signature;
+        return changed;
     }
     // Object deletion and undo change validity without a graph event, so rebuild the step rows only when the result changed.
     void RevalidateAndSync()
     {
-        string before=validationErrorCount+"|"+string.Join(",",stepsWithIssue.OrderBy(i=>i,StringComparer.Ordinal));
+        string before=validationErrorCount+"|"+string.Join(",",stepsWithIssue.OrderBy(i=>i,StringComparer.Ordinal))+"|"+warningSignature;
         Revalidate();
-        string after=validationErrorCount+"|"+string.Join(",",stepsWithIssue.OrderBy(i=>i,StringComparer.Ordinal));
+        string after=validationErrorCount+"|"+string.Join(",",stepsWithIssue.OrderBy(i=>i,StringComparer.Ordinal))+"|"+warningSignature;
         if(before!=after) RebuildSteps();
     }
-    string ValidationSummary() => validationErrorCount>0?"エラー"+validationErrorCount+"件":"問題なし";
+    string ValidationSummary() => validationErrorCount>0?"エラー"+validationErrorCount+"件":distanceWarnings.Count>0?"注意"+distanceWarnings.Count+"件":"問題なし";
     // Two-step confirm: the first press arms a 4 s window and the second press inside it proceeds.
     bool ConfirmTwice(string key,string message)
     {
@@ -670,9 +739,11 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         for(int i=0;i<steps.Count;i++)
         {
             var step=steps[i];var row=Row(view.stepTemplate,view.stepsContent,stepRows);
-            bool hasIssue=stepsWithIssue.Contains(step.nodeId);
-            row.Set(hasIssue?"⚠ "+step.step.title+"（要修正）":step.step.title,step.step.body,(i+1).ToString(),step.nodeId==stepId,!hasIssue);
-            row.button.onClick.AddListener(()=>{EndTrial();stepId=step.nodeId;conditionId=null;mode=1;GraphChanged();});
+            bool hasIssue=stepsWithIssue.Contains(step.nodeId),hasWarning=!hasIssue && stepsWithWarning.Contains(step.nodeId);
+            int conditionCount=graph.GetConditionCountForStep(step.nodeId);
+            string summary=(conditionCount==0?"条件なし":"条件"+conditionCount+"件")+(string.IsNullOrWhiteSpace(step.step.body)?"":" ｜ "+step.step.body);
+            row.Set(hasIssue?"⚠ "+step.step.title+"（要修正）":hasWarning?"⚠ "+step.step.title+"（要確認）":step.step.title,summary,(i+1).ToString(),step.nodeId==stepId,!hasIssue && !hasWarning);
+            row.button.onClick.AddListener(()=>{EndTrial();pickTarget=null;GetComponent<SkillSyncObjectPicker>()?.Close();stepId=step.nodeId;conditionId=null;mode=1;GraphChanged();});
         }
         if(stepId!=scrolledStepId)
         {
@@ -734,6 +805,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         var picker=GetComponent<SkillSyncObjectPicker>();
         if(picker!=null) {
             picker.CancelPicking=()=>{pickTarget=null;Refresh();};
+            picker.ConfirmPicking=CommitProvisional;
             picker.SetPicking(pickTarget);
         }
         view.Value("project",project.CurrentProjectName);
@@ -741,7 +813,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         string footerStatus = status;
         view.Text("footer",trial!=null?"試行中の操作は教材の初期配置に保存されません":(string.IsNullOrEmpty(footerStatus)?project.IsDirty?"未保存の変更があります":"✓ すべての変更を保存しました":footerStatus)+" ｜ "+ValidationSummary());
         view.Text("objectCount",Placed.Length+"件"+(ghost!=null?" ＋ 仮配置1件":""));
-        view.Text("stepCount",graph.GetDisplayOrderedSteps().Count+"つの手順 ｜ "+ValidationSummary());
+        view.Text("stepCount","手順 "+graph.GetDisplayOrderedSteps().Count+"件 ｜ "+ValidationSummary());
         var current=selection.Current;
         Transform target=ghost!=null?ghost.Transform:current!=null?current.transform:null;
         view.Text("selectionTitle",ghost!=null?"置く場所を選ぶ":current!=null?current.GetDisplayName():"部品を選択");
@@ -756,7 +828,9 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         view.Value("hold",SkillSyncConditionEditing.Value(Condition?.condition,1));
         bool requiresB=Condition!=null && ConditionTypeCatalog.RequiresObjectB(Condition.condition.type);
         bool distanceCondition=SkillSyncConditionEditing.SupportsPcTrial(Condition?.condition);
-        var a=FindPlaced(Condition?.condition.objectAId);var b=requiresB?FindPlaced(Condition?.condition.objectBId):null;
+        var lookup=PlacedLookup();
+        PlacedObject Find(string id)=>!string.IsNullOrEmpty(id) && lookup.TryGetValue(id,out var found)?found:null;
+        var a=Find(Condition?.condition.objectAId);var b=requiresB?Find(Condition?.condition.objectBId):null;
         // Retain the selected condition, but only show its targets in the step view.
         bool showConditionLabels=mode==1 || trial!=null;
         PositionLabel(view.partALabel,labelTargetA=trial!=null?trial.Find(Condition?.condition.objectAId):ghost!=null?ghost.Transform:showConditionLabels&&a!=null?a.transform:target,
@@ -767,29 +841,28 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         if(view.conditionOverlay!=null) view.conditionOverlay.Configure(cameraView,
             trial!=null?trial.Find(Condition?.condition.objectAId):mode==1 && distanceCondition && a!=null?a.transform:null,
             trial!=null?trial.Find(Condition?.condition.objectBId):mode==1 && distanceCondition && b!=null?b.transform:null,DistanceLimit(),trial!=null && trial.InRange);
-        view.Text("objectA",a!=null?ImportedModelParts.Label(a):"対象を選択してください");
-        view.Text("objectB",b!=null?ImportedModelParts.Label(b):"対象を選択してください");
-        bool valid=SkillSyncConditionEditing.TargetsValid(Condition?.condition,id=>FindPlaced(id)!=null);
+        view.Text("objectA",a!=null?SkillSyncObjectPicker.DisplayLabel(a):"対象を選択してください");
+        view.Text("objectB",b!=null?SkillSyncObjectPicker.DisplayLabel(b):"対象を選択してください");
+        bool valid=SkillSyncConditionEditing.TargetsValid(Condition?.condition,lookup.ContainsKey);
         var conditions=Step!=null?graph.GetConditionNodesForStep(stepId):new List<ScenarioNode>();
-        bool canTrial=valid && conditions.Count>0 && conditions.All(c=>SkillSyncConditionEditing.SupportsPcTrial(c.condition) &&
-            SkillSyncConditionEditing.TargetsValid(c.condition,id=>FindPlaced(id)!=null));
+        bool canTrial=conditions.Count>0 && conditions.All(c=>SkillSyncConditionEditing.TargetsValid(c.condition,lookup.ContainsKey));
         int conditionIndex=conditions.FindIndex(c=>c.nodeId==conditionId);
+        int maxConditions=graph.GetMaxConditionsPerStep();
         view.Text("conditionHeading","完了する条件");
-        view.Text("conditionCounter",conditions.Count==0?"0件":conditionIndex>=0?$"{conditionIndex+1}/{conditions.Count}":"");
-        view.SetVisible("PreviousCondition",conditions.Count>1);
-        view.SetVisible("NextCondition",conditions.Count>1);
+        view.Text("conditionCounter",conditions.Count==0?"0件":$"{conditions.Count}件（最大{maxConditions}件）");
         view.SetVisible("DeleteCondition",conditionIndex>=0);
-        view.Enable("PreviousCondition",conditionIndex>0);
-        view.Enable("NextCondition",conditionIndex>=0 && conditionIndex<conditions.Count-1);
         view.Enable("DeleteCondition",conditionIndex>=0);
+        view.Enable("＋ 完了条件を追加",conditions.Count<maxConditions);
         view.Enable("DeleteStep",Step!=null && trial==null && ghost==null);
+        if(view.conditionList!=null) view.conditionList.SetItems(conditions.Select((c,i)=>ConditionItem(c,i,lookup)).ToList());
         view.Text("conditionSummary",Step==null?"先に手順を追加してください":Condition==null?"完了条件がありません。下の＋で追加してください":
-            SkillSyncConditionEditing.Summary(Condition.condition)+(valid?"":"\n\n⚠ 対象未設定・参照不正"));
-        SkillSyncConditionEditorView.Refresh(view,Condition?.condition,canTrial);
+            SkillSyncConditionEditing.Summary(Condition.condition)+(valid?"":"\n\n⚠ 対象が未設定です"));
+        SkillSyncConditionEditorView.Refresh(view,Condition?.condition,canTrial,Condition!=null && distanceWarnings.TryGetValue(Condition.nodeId,out var warning)?warning:null);
         view.Enable("▶ この条件を試す",true);
         view.Enable("動作を確認",true);
         view.Enable("↑ 上へ",index>1);view.Enable("↓ 下へ",index>0 && index<graph.GetDisplayOrderedSteps().Count);
         view.Enable("↶ 元に戻す",trial==null && CommandService.I?.Stack.CanUndo==true);view.Enable("↷",trial==null && CommandService.I?.Stack.CanRedo==true);
+        view.Enable("最初から通して確認",trial==null && ghost==null);
         view.Enable("↑ 教材を書き出す",trial==null && ghost==null);
         view.Enable("Save",trial==null && ghost==null);
         view.Enable("教材を読み込む",!BlocksEditingShortcuts);
@@ -799,7 +872,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         view.viewportDistance.transform.parent.gameObject.SetActive(valid && distanceCondition && (view.State==1 || trial!=null));
         view.viewportGrid.text=$"グリッド {EditSnapSettings.GridSize*100:0.##} cm";
         view.viewportGrid.color=new Color32(88,103,124,255);
-        view.Text("viewportMode",mode==1||trial!=null?valid?distanceCondition?"判定範囲を表示中":"操作条件（PC試行は未対応）":"対象を選択してください":EditSnapSettings.ShouldSnap?"作業面に吸着：ON":"作業面に吸着：OFF");
+        view.Text("viewportMode",mode==1||trial!=null?valid?distanceCondition?"判定範囲（球）を表示中":"操作条件（PCでは自動判定できません）":"対象を選択してください":EditSnapSettings.ShouldSnap?"作業面に吸着：ON":"作業面に吸着：OFF");
         if(valid && distanceCondition && cameraView!=null)
         {
             var ta=trial!=null?trial.Find(a.Id):a.transform;var tb=trial!=null?trial.Find(b.Id):b.transform;
@@ -814,6 +887,21 @@ public sealed class SkillSyncEditorController : MonoBehaviour
                 }
             }
         }
+    }
+    SkillSyncItemList.Item ConditionItem(ScenarioNode node,int index,Dictionary<string,PlacedObject> lookup)
+    {
+        var c=node.condition;
+        string Name(string id)=>!string.IsNullOrEmpty(id) && lookup.TryGetValue(id,out var found)?SkillSyncObjectPicker.PartName(found):null;
+        string a=Name(c.objectAId),b=Name(c.objectBId);
+        string targets=a==null?"対象が未設定":ConditionTypeCatalog.RequiresObjectB(c.type)?a+" → "+(b??"未設定"):a;
+        bool valid=SkillSyncConditionEditing.TargetsValid(c,lookup.ContainsKey),warn=true;
+        string detail;
+        if(!valid) detail="⚠ 対象が未設定です";
+        else if(distanceWarnings.ContainsKey(node.nodeId)) detail="⚠ 距離が小さすぎて成立しない可能性があります";
+        else {warn=false;detail=SkillSyncConditionEditing.SupportsPcTrial(c)?SkillSyncConditionEditing.Detail(c):SkillSyncConditionEditing.PcUnsupportedText;}
+        bool selected=node.nodeId==conditionId;
+        return new SkillSyncItemList.Item{id=node.nodeId,number=index+1,title=(ConditionTypeCatalog.Find(c.type)?.label??"未対応の条件")+"："+targets,
+            detail=detail,warn=warn,selected=selected,tag=selected?"編集中":null};
     }
     PlacedObject FindPlaced(string id) => string.IsNullOrEmpty(id)?null:Placed.FirstOrDefault(p=>p.Id==id);
     RenderTexture ObjectThumbnail(PlacedObject placed)
@@ -868,10 +956,14 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         if(!SkillSyncConditionEditing.TargetsValid(Condition?.condition,id=>FindPlaced(id)!=null))
         {Notify("試す条件の対象を設定してください",true);Refresh();return;}
         var conditions=graph.GetConditionNodesForStep(stepId);
-        if(conditions.Any(c=>!SkillSyncConditionEditing.SupportsPcTrial(c.condition)))
-        {Notify("この画面で試行できるのは距離・保持条件です。既存の条件データは保持しています。",true);Refresh();return;}
         if(conditions.Any(c=>!SkillSyncConditionEditing.TargetsValid(c.condition,id=>FindPlaced(id)!=null)))
         {Notify("手順内のすべての条件に対象を設定してください",true);Refresh();return;}
+        // Conditions the PC cannot judge stay in the flow; the gauges follow the first one it can.
+        if(!SkillSyncConditionEditing.SupportsPcTrial(Condition.condition))
+        {
+            var judgeable=conditions.FirstOrDefault(c=>SkillSyncConditionEditing.SupportsPcTrial(c.condition));
+            if(judgeable!=null) conditionId=judgeable.nodeId;
+        }
         EndTrial();pickTarget=null;
         trialMoveTool = FindFirstObjectByType<MoveTool>();
         PauseTool(trialMoveTool);
@@ -884,7 +976,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         trialSelected = SelectionService.CanEdit(first) ? trial.Find(first.Id) : null;
         UpdateTrialGizmo();
         if (trialMoveTool != null) trialMoveTool.enabled = true;
-        Log("条件の試行を開始");Refresh();
+        Log("動作の確認を開始");Refresh();
     }
     void PauseTool(Behaviour tool) {if(tool!=null) {pausedTools[tool]=tool.enabled;tool.enabled=false;}}
     void EndTrial()
@@ -894,6 +986,30 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         trial?.Dispose();trial=null;
         foreach(var p in pausedTools) if(p.Key!=null) p.Key.enabled=p.Value;
         pausedTools.Clear();
+        // The trial rewrote the step rows ("実行中" etc.); restore titles and condition counts.
+        if(stepRowsShowTrial) {stepRowsShowTrial=false;RebuildSteps();}
+    }
+    // Leaves the finished (or skipped) step and starts the next one; after the last step, says the walkthrough is done.
+    void AdvanceTrial()
+    {
+        EndTrial();
+        var before=stepId;
+        var next=ScenarioFlow.Next(graph.curriculum,stepId).Where(n=>n.nodeType==ScenarioNodeType.Step).ToList();
+        mode=1;
+        if(next.Count==1) {stepId=next[0].nodeId;conditionId=null;GraphChanged();BeginTrial();return;}
+        Notify(next.Count==0?"すべての手順を確認しました":"分岐先の手順を左の一覧から選んでください",false);
+        if(stepId!=before) GraphChanged();
+        Refresh();
+    }
+    // "成立として次へ": the PC cannot judge this condition, so it is counted as met to check the flow.
+    void ManualSucceed(string nodeId)
+    {
+        if(trial==null) return;
+        var conditions=graph.GetConditionNodesForStep(stepId);
+        bool last=conditions.Where(c=>c.nodeId!=nodeId).All(c=>trial.IsSucceeded(c.nodeId));
+        trial.MarkSucceeded(nodeId);
+        Log("PCでは判定できない条件を成立として進めました");
+        if(last) AdvanceTrial();
     }
     void UpdateTrialGizmo()
     {
@@ -943,11 +1059,44 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         view.holdProgress.color=trial.Complete?new Color32(21,115,74,255):new Color32(8,102,232,255);
         view.viewportDistance.text=$"現在の距離 {trial.Distance*100:0} cm";
         RefreshValues();
+        bool gauge=SkillSyncConditionEditing.SupportsPcTrial(Condition?.condition);
+        if(!gauge) SkillSyncConditionEditorView.HideTrialGauges(view);
+        UpdateTrialList(gauge);
         if(trial.Complete) view.Text("status",$"✓ 手順{index}が完了しました");
         var steps=graph.GetDisplayOrderedSteps();
+        stepRowsShowTrial=true;
         for(int i=0;i<stepRows.Count && i<steps.Count;i++)
             stepRows[i].Set(steps[i].step.title,steps[i].nodeId==stepId?trial.Complete?"完了":"実行中 · 条件を確認":"待機中",(i+1).ToString(),
                 trial.Complete?i==index:steps[i].nodeId==stepId,trial.Complete && steps[i].nodeId==stepId);
+    }
+    void UpdateTrialList(bool gauge)
+    {
+        var list=view.trialList;
+        if(list==null) return;
+        var conditions=graph.GetConditionNodesForStep(stepId);
+        // With a gauge only the conditions it cannot show are listed; without one, all of them.
+        var shown=conditions.Where(c=>!gauge || !SkillSyncConditionEditing.SupportsPcTrial(c.condition)).ToList();
+        if(shown.Count==0) {list.gameObject.SetActive(false);return;}
+        var lookup=PlacedLookup();
+        string Name(string id)=>!string.IsNullOrEmpty(id) && lookup.TryGetValue(id,out var found)?SkillSyncObjectPicker.PartName(found):"未設定";
+        var items=new List<SkillSyncItemList.Item>();
+        foreach(var node in shown)
+        {
+            var c=node.condition;
+            bool supported=SkillSyncConditionEditing.SupportsPcTrial(c),done=trial.IsSucceeded(node.nodeId);
+            bool last=conditions.Where(o=>o.nodeId!=node.nodeId).All(o=>trial.IsSucceeded(o.nodeId));
+            string targets=Name(c.objectAId)+(ConditionTypeCatalog.RequiresObjectB(c.type)?" → "+Name(c.objectBId):"");
+            items.Add(new SkillSyncItemList.Item{id=node.nodeId,number=conditions.IndexOf(node)+1,done=done,
+                title=(ConditionTypeCatalog.Find(c.type)?.label??"未対応の条件")+"："+targets,
+                detail=done?"✓ 成立しました":supported?"判定中…":SkillSyncConditionEditing.PcUnsupportedText,
+                actionLabel=!done && !supported?(last?"成立として次へ":"成立にする"):null});
+        }
+        float x=view.wideLayout?SkillSyncDesignLayout.MapX(1184):1184;
+        if(gauge) SkillSyncConditionEditorView.HideTrialLog(view);
+        float top=gauge?728:320,height=gauge?160:380;
+        list.SetBounds(x,top,392,Mathf.Min(height,shown.Count*(SkillSyncItemList.RowHeight+SkillSyncItemList.RowGap)-SkillSyncItemList.RowGap));
+        list.SetItems(items);
+        list.gameObject.SetActive(true);
     }
     void BeginGhost(PrefabEntry entry)
     {
@@ -972,9 +1121,19 @@ public sealed class SkillSyncEditorController : MonoBehaviour
             Refresh();
         }
     }
+    // Steps whose distance condition is smaller than the parts' sizes allow, for the export notice.
+    string DistanceCaution()
+    {
+        RecomputeDistanceWarnings();
+        if(distanceWarnings.Count==0) return "";
+        var steps=graph.GetDisplayOrderedSteps();
+        var numbers=steps.Select((step,i)=>stepsWithWarning.Contains(step.nodeId)?"手順"+(i+1):null).Where(n=>n!=null);
+        return "（"+string.Join("・",numbers)+"の距離は小さすぎて、成立しない可能性があります）";
+    }
     void Export()
     {
         if(trial!=null || ghost!=null) return;
+        string caution=DistanceCaution();
         var result=TeachingMaterialExportWorkflow.Run(
             (out string message)=>project.Save(project.CurrentProjectName,out message),
             ()=>{validation=graph.ValidateGraph();return validation.CanExport;},
@@ -1000,9 +1159,9 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         {
             string dir=System.IO.Path.GetDirectoryName(result.exportPath);
             if(string.IsNullOrEmpty(dir) || !System.IO.Path.IsPathRooted(dir))
-                TopCenterNotification.Ensure(transform, view.inspectorTitle)?.Show("再編集用データを保存し、教材を書き出しました", false, 8f);
+                TopCenterNotification.Ensure(transform, view.inspectorTitle)?.Show("再編集用データを保存し、教材を書き出しました"+caution, false, caution.Length>0?14f:8f);
             else
-                TopCenterNotification.Ensure(transform, view.inspectorTitle)?.Show("再編集用データを保存し、教材を書き出しました: "+dir, false, 8f, "フォルダを開く", ()=>Application.OpenURL(new System.Uri(dir).AbsoluteUri));
+                TopCenterNotification.Ensure(transform, view.inspectorTitle)?.Show("再編集用データを保存し、教材を書き出しました"+caution+": "+dir, false, caution.Length>0?14f:8f, "フォルダを開く", ()=>Application.OpenURL(new System.Uri(dir).AbsoluteUri));
         }
         else
         {
@@ -1026,7 +1185,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         switch(issue?.code)
         {
             case "E-08": case "E-10":
-                if(Condition!=null) {pickTarget=string.IsNullOrEmpty(Condition.condition.objectAId)?"A":"B";Notify("対象を3D空間または配置一覧から選んでください",false);RefreshValues();return;}
+                if(Condition!=null) {pickTarget=string.IsNullOrEmpty(Condition.condition.objectAId)?"A":"B";Notify("対象を3D画面または配置した部品の一覧から選んでください",false);RefreshValues();return;}
                 break;
         }
         if(Condition!=null) {Notify(ScenarioValidationText.GetFriendlyMessage(issue),true);}

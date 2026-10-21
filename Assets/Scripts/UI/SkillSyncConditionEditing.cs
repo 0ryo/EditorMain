@@ -68,6 +68,40 @@ public static class SkillSyncConditionEditing
     public static bool SupportsPcTrial(ConditionNodeData condition) =>
         condition != null && (condition.type == ConditionTypeCatalog.Proximity || condition.type == ConditionTypeCatalog.SnapHold);
 
+    public const string PcUnsupportedText = "PCでは自動判定できません";
+
+    // Distances are measured between the bounding-box centres of the two parts.
+    public static bool UsesCenterDistance(ConditionNodeData condition) =>
+        condition != null && (condition.type == ConditionTypeCatalog.Proximity || condition.type == ConditionTypeCatalog.SnapHold);
+
+    // Two solid parts cannot be closer than their sizes allow. The smallest axis-wise sum of half sizes
+    // is the nearest they can stand side by side; far below it the condition cannot be met in practice.
+    public static float MinimumCenterDistance(float ax, float ay, float az, float bx, float by, float bz) =>
+        Math.Min(ax + bx, Math.Min(ay + by, az + bz));
+
+    public static bool DistanceLikelyUnreachable(float limitMeters, float minimumMeters) =>
+        minimumMeters > 0 && limitMeters < minimumMeters * .5f;
+
+    public static string DistanceWarning(float limitMeters, float minimumMeters, string markerHint)
+    {
+        if (!DistanceLikelyUnreachable(limitMeters, minimumMeters)) return null;
+        return $"距離{limitMeters * 100:0.##} cmは小さすぎて、成立しない可能性があります（中心どうしは約{minimumMeters * 100:0} cm以上離れます）。" +
+            "場所を指定するには、" + (string.IsNullOrEmpty(markerHint) ? "目印の部品" : markerHint) + "をその場所に置き、そこへ近づけてください。";
+    }
+
+    // One-line description shown under the condition title in the step's condition list.
+    public static string Detail(ConditionNodeData condition)
+    {
+        string distance = Value(condition, 0), hold = Value(condition, 1);
+        return condition?.type switch
+        {
+            ConditionTypeCatalog.Proximity => $"{distance} cm以内に近づけると完了",
+            ConditionTypeCatalog.SnapHold => $"{distance} cm以内に{hold}秒とどまると完了",
+            ConditionTypeCatalog.Turn => $"{distance}度以上回すと完了",
+            _ => ""
+        };
+    }
+
     public static string Summary(ConditionNodeData condition)
     {
         string distance = Value(condition, 0), hold = Value(condition, 1);

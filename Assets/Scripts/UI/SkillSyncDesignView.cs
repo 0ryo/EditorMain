@@ -42,6 +42,7 @@ public sealed class SkillSyncDesignView : MonoBehaviour
     public TMP_Text viewportDistance;
     public TMP_Text viewportGrid;
     public SkillSyncViewportOverlay conditionOverlay;
+    [NonSerialized] public SkillSyncItemList conditionList, trialList;
     public UnityEngine.UI.RawImage objectAThumbnail, objectBThumbnail;
     public TMP_Dropdown conditionTypeDropdown;
     public TMP_Text partALabel, partBLabel;
@@ -137,15 +138,15 @@ public sealed class SkillSyncDesignView : MonoBehaviour
             var counterRect = new GameObject("ConditionCounter", typeof(RectTransform), typeof(TextMeshProUGUI)).GetComponent<RectTransform>();
             counterRect.SetParent(parent, false);
             counterRect.anchorMin = counterRect.anchorMax = counterRect.pivot = new Vector2(0, 1);
-            counterRect.anchoredPosition = new Vector2(X(1364), -347);
-            counterRect.sizeDelta = new Vector2(32, 24);
+            counterRect.anchoredPosition = new Vector2(X(1316), -347);
+            counterRect.sizeDelta = new Vector2(130, 24);
             var counterLabel = counterRect.GetComponent<TextMeshProUGUI>();
             counterLabel.font = heading.label.font;
             counterLabel.fontSharedMaterial = heading.label.fontSharedMaterial;
             counterLabel.fontSize = 14;
             counterLabel.fontWeight = FontWeight.Medium;
             counterLabel.color = new Color32(88, 103, 124, 255);
-            counterLabel.alignment = TextAlignmentOptions.Midline;
+            counterLabel.alignment = TextAlignmentOptions.MidlineLeft;
             counterLabel.richText = false;
             counterLabel.textWrappingMode = TextWrappingModes.NoWrap;
             counterLabel.raycastTarget = false;
@@ -159,13 +160,13 @@ public sealed class SkillSyncDesignView : MonoBehaviour
         }
         var counterTransform = (RectTransform)counter.target.transform;
         counterTransform.anchorMin = counterTransform.anchorMax = counterTransform.pivot = new Vector2(0, 1);
-        counterTransform.anchoredPosition = new Vector2(X(1364), -347);
-        counterTransform.sizeDelta = new Vector2(32, 24);
+        counterTransform.anchoredPosition = new Vector2(X(1316), -347);
+        counterTransform.sizeDelta = new Vector2(130, 24);
+        if (counter.label != null) counter.label.alignment = TextAlignmentOptions.MidlineLeft;
         counter.mask = mask;
         counter.orders = heading.orders;
 
-        EnsureConditionButton("PreviousCondition", "<", 1314, 32, new Color32(255, 255, 255, 255), new Color32(205, 213, 224, 255), new Color32(23, 34, 54, 255), 17, parent, heading, mask, X);
-        EnsureConditionButton("NextCondition", ">", 1400, DesignTokens.MinTouchTarget, new Color32(255, 255, 255, 255), new Color32(205, 213, 224, 255), new Color32(23, 34, 54, 255), 17, parent, heading, mask, X);
+        // Every condition of the step is listed in the editor, so the previous/next pager is gone.
         EnsureConditionButton("DeleteCondition", "この条件を削除", 1452, 124, Color.white, new Color32(168, 44, 38, 255), new Color32(168, 44, 38, 255), 14, parent, heading, mask, X);
     }
 
@@ -199,6 +200,20 @@ public sealed class SkillSyncDesignView : MonoBehaviour
             buttonRect.anchoredPosition = new Vector2(right + 24 - parentRect.rect.xMin,
                 centerY + buttonRect.sizeDelta.y / 2 - parentRect.rect.yMax);
         }
+    }
+
+    // Whole-lesson walkthrough entry under the step list (step editing only).
+    public void EnsureWalkthroughControl()
+    {
+        if (visuals == null || controls == null) return;
+        var heading = visuals.FirstOrDefault(visual => visual.role == "conditionHeading" && visual.label != null);
+        var add = controls.FirstOrDefault(c => c.action == "＋ 手順を追加");
+        if (heading == null || add?.button == null) return;
+        // The small reorder hint sits where the button goes; the up/down buttons already say it.
+        foreach (var hint in visuals)
+            if (hint.label != null && hint.label.text == "順番は後から変更できます") { hint.mask = 0; hint.target.SetActive(false); }
+        EnsureConditionButton("最初から通して確認", "▶ 最初から通して確認", 16, 232, Color.white, new Color32(8, 102, 232, 255), new Color32(8, 102, 232, 255), 15,
+            add.button.transform.parent, heading, 1 << 1, x => x, 940);
     }
 
     void EnsureConditionButton(string action, string caption, float sourceX, float width, Color surfaceColor, Color borderColor, Color textColor, float fontSize,
