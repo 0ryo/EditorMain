@@ -4,16 +4,21 @@ using System.Linq;
 
 // Rows of the "配置した部品" list: placement roots first, the parts inside a model nested below
 // them. Parts stay collapsed unless expanded, or unless they (or a part below) match the search.
+// Placement roots that share an editor group get one heading row above their members.
 public static class SkillSyncPartsTree
 {
     public const int MaxIndentLevels = 5;
 
     public sealed class Row
     {
-        public PlacedObject part;
+        public PlacedObject part;      // for a group heading: the group's leading member
+        public string groupId;         // set only on group heading rows
         public int depth;
         public string title, detail;
         public bool hasChildren, expanded;
+        public bool IsGroup => groupId != null;
+        // Rows are keyed by this, so a group heading and its leading member never collide.
+        public object Key => groupId != null ? (object)("group:" + groupId) : part;
     }
 
     public static PlacedObject ParentOf(PlacedObject part)
@@ -22,7 +27,7 @@ public static class SkillSyncPartsTree
         return parent != null ? parent.GetComponentInParent<PlacedObject>(true) : null;
     }
 
-    public static List<Row> Build(IEnumerable<PlacedObject> all, ISet<PlacedObject> expanded, string filter, out int rootCount, out int matchCount)
+    public static List<Row> Build(IEnumerable<PlacedObject> all, ISet<PlacedObject> expanded, ISet<string> collapsedGroups, string filter, out int rootCount, out int matchCount)
     {
         var set = new HashSet<PlacedObject>(all.Where(p => p != null));
         var children = new Dictionary<PlacedObject, List<PlacedObject>>();
@@ -77,7 +82,34 @@ public static class SkillSyncPartsTree
             var names = SiblingTitles(kids);
             foreach (var kid in shown) Emit(kid, depth + 1, names[kid]);
         }
-        foreach (var root in roots) Emit(root, 0, root.GetDisplayName());
+        var groupRoots = new Dictionary<string, List<PlacedObject>>();
+        foreach (var root in roots)
+        {
+            if (string.IsNullOrEmpty(root.editorGroupId)) continue;
+            if (!groupRoots.TryGetValue(root.editorGroupId, out var members)) groupRoots[root.editorGroupId] = members = new List<PlacedObject>();
+            members.Add(root);
+        }
+        var emittedGroups = new HashSet<string>();
+        foreach (var root in roots)
+        {
+            string id = root.editorGroupId;
+            if (!string.IsNullOrEmpty(id) && groupRoots[id].Count >= 2)
+            {
+                if (emittedGroups.Add(id)) EmitGroup(id, groupRoots[id]);
+                continue;
+            }
+            Emit(root, 0, root.GetDisplayName());
+        }
+        void EmitGroup(string id, List<PlacedObject> members)
+        {
+            if (filtering && !members.Any(SubtreeMatches)) return;
+            bool open = filtering || !collapsedGroups.Contains(id);
+            var leader = SelectionGroups.Leader(members);
+            rows.Add(new Row { part = leader, groupId = id, depth = 0, title = "グループ「" + leader.GetDisplayName() + "」",
+                detail = "部品" + members.Count + "個", hasChildren = true, expanded = open });
+            if (!open) return;
+            foreach (var member in members) Emit(member, 1, member.GetDisplayName());
+        }
         rootCount = roots.Count;
         matchCount = matches;
         return rows;

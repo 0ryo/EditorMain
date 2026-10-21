@@ -19,6 +19,8 @@ public static class EditWorkspace
     {
         var modal = EditorProjectPanel.GetOpenModalRoot(within);
         if (modal != null) return modal;
+        var menu = SkillSyncContextMenu.OpenRoot;
+        if (menu != null && (within == null || menu == within || menu.IsChildOf(within))) return menu;
         modal = CatalogUI.GetOpenModalRoot();
         return modal != null && (within == null || modal == within || modal.IsChildOf(within)) ? modal : null;
     }
