@@ -28,7 +28,7 @@ public sealed class SkillSyncObjectPicker : MonoBehaviour
         float y = menuRect.rect.yMax - local.y;
         panel.anchoredPosition = new Vector2(local.x - menuRect.rect.xMin, -Mathf.Min(y, menuRect.rect.height - 12 - height));
         panel.sizeDelta=new Vector2(360,height);
-        Add("ビューポートから選択…",eyedropper);
+        Add("3D画面から選択…",eyedropper);
         Array.Sort(objects,(left,right)=>{
             int depth=ImportedModelParts.Depth(left).CompareTo(ImportedModelParts.Depth(right));
             return depth!=0?depth:string.Compare(ImportedModelParts.Label(left),ImportedModelParts.Label(right),StringComparison.CurrentCulture);

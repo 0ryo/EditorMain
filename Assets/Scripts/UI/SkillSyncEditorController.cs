@@ -115,6 +115,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         cameraView = EditWorkspace.ResolveCamera();
         if(view.orientation!=null) view.orientation.sourceCamera=cameraView;
         cameraController = FindFirstObjectByType<EditorCameraController>();
+        SkillSyncViewportTools.Ensure(view,view.objectTemplate.title.font,selection,cameraController,()=>Act("選択を表示"));
         if (cameraView != null) { previousCameraRect=cameraView.rect; previousCameraColor=cameraView.backgroundColor; }
         foreach(var control in view.controls)
         {
@@ -147,6 +148,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         placement.ObjectPlaced += ObjectPlaced;
         PlacedObjectEditState.StateChanged += EditStateChanged;
         project.StatusChanged += ProjectStatus;
+        EditorCameraController.Notice += CameraNotice;
         if(CommandService.I != null) {CommandService.I.Stack.HistoryChanged += HistoryChanged;CommandService.I.Stack.HistoryApplied += HistoryApplied;}
         if(EditModeService.I != null) {subscribedModes=EditModeService.I;subscribedModes.ModeChanged += EditModeChanged;}
         initialized=true;
@@ -165,6 +167,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         if(placement!=null) placement.ObjectPlaced-=ObjectPlaced;
         PlacedObjectEditState.StateChanged-=EditStateChanged;
         if(project!=null) project.StatusChanged-=ProjectStatus;
+        EditorCameraController.Notice-=CameraNotice;
         if(catalog!=null) catalog.StatusChanged-=CatalogStatus;
         if(CommandService.I!=null) {CommandService.I.Stack.HistoryChanged-=HistoryChanged;CommandService.I.Stack.HistoryApplied-=HistoryApplied;}
         if(subscribedModes!=null) subscribedModes.ModeChanged-=EditModeChanged;
@@ -302,7 +305,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
             case "動作を確認": case "▶ この条件を試す": BeginTrial();return;
             case "↶ 元に戻す": if(trial==null) CommandService.I?.Stack.Undo();break;
             case "↷": if(trial==null) CommandService.I?.Stack.Redo();break;
-            case "全体を見る": cameraController?.ResetToDefaultView();break;
+            case "全体を見る": cameraController?.ShowAll();break;
             case "上から見る": cameraController?.SetViewPreset(EditorCameraController.ViewPreset.Top);break;
             case "選択を表示": cameraController?.FocusSelected();break;
             case "移動": transformTab=action;TransformToolSettings.SetTool(TransformTool.Move);EditModeService.I?.SetMode(EditMode.Transform);break;
@@ -634,7 +637,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         pickTarget=null;picker.SetPicking(null);
         string otherId=which=="A"?Condition.condition.objectBId:Condition.condition.objectAId;
         picker.Show(Placed.Where(p=>p.Id!=otherId).ToArray(),(RectTransform)view.controls.First(c=>c.action=="Pick"+which).button.transform,id=>{pickTarget=which;Pick(id);},()=>{
-            pickTarget=which;Notify("対象をビューポートでクリックしてください（Escで取消）",false);Refresh();
+            pickTarget=which;Notify("対象を3D画面でクリックしてください（Escで取消）",false);Refresh();
         });
     }
     void Pick(string id)
@@ -767,6 +770,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         foreach (var pair in libraryTypes) pair.Key.SetSelected(pair.Value == type || pair.Value == highlightType);
     }
     void ObjectPlaced(PlacedObject _,string __) {RevalidateAndSync();RebuildObjects();RefreshValues();}
+    void CameraNotice(string message) => Notify(message,false);
     void HistoryChanged() {RevalidateAndSync();RebuildObjects();RefreshValues();}
     // Button and Cmd/Ctrl+Z both land here, so the key path says what was undone too.
     void HistoryApplied(bool redone,string description) => Notify((redone?"やり直しました：":"元に戻しました：")+description,false);

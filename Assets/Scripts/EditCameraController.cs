@@ -1,4 +1,55 @@
+using System;
 using UnityEngine;
+
+/// <summary>2本指スクロールの扱い。マウス＝ホイールでズーム、トラックパッド＝2本指で回転（Shiftでパン、Cmd/Ctrl+でズーム）。</summary>
+public enum EditorCameraScrollMode { Auto, Mouse, Trackpad }
+
+public static class EditorCameraInputSettings
+{
+    const string Key = "EditorMain.CameraScrollMode";
+    static EditorCameraScrollMode mode;
+    static bool loaded;
+    public static event Action Changed;
+
+    /// <summary>Auto の間にトラックパッドらしい横スクロールを検出したら true（その起動中だけ）。</summary>
+    public static bool DetectedTrackpad { get; private set; }
+
+    public static EditorCameraScrollMode Mode
+    {
+        get
+        {
+            if (!loaded)
+            {
+                loaded = true;
+                try { mode = (EditorCameraScrollMode)Mathf.Clamp(PlayerPrefs.GetInt(Key, 0), 0, 2); }
+                catch (Exception) { mode = EditorCameraScrollMode.Auto; }
+            }
+            return mode;
+        }
+        set
+        {
+            loaded = true;
+            mode = value;
+            try { PlayerPrefs.SetInt(Key, (int)value); PlayerPrefs.Save(); }
+            catch (Exception) { }
+            Changed?.Invoke();
+        }
+    }
+
+    public static bool UseTrackpad => Mode == EditorCameraScrollMode.Trackpad || (Mode == EditorCameraScrollMode.Auto && DetectedTrackpad);
+
+    public static void MarkTrackpadDetected()
+    {
+        if (DetectedTrackpad) return;
+        DetectedTrackpad = true;
+        Changed?.Invoke();
+    }
+
+    public static void Toggle()
+    {
+        Mode = UseTrackpad ? EditorCameraScrollMode.Mouse : EditorCameraScrollMode.Trackpad;
+    }
+}
 
 public class EditorCameraController : MonoBehaviour
 {
@@ -8,6 +59,10 @@ public class EditorCameraController : MonoBehaviour
     public const float DefaultPerspectiveZoomSpeed = 0.08f;
     public float zoomSpeed = DefaultPerspectiveZoomSpeed;
     public float orthographicZoomSpeed = 0.12f;
+    [Header("Trackpad (two-finger scroll)")]
+    public float trackpadOrbitGain = 14f;
+    public float trackpadPanGain = 14f;
+    public float trackpadZoomGain = 0.5f;
 
     [Header("Limits")]
     public float minDistance = 1.2f;
@@ -34,12 +89,20 @@ public class EditorCameraController : MonoBehaviour
     Vector2 previousMousePosition;
     bool hasPreviousMousePosition;
     float nextDiagnosticLogTime;
+    bool leftDragNavigation;
+    int trackpadScrollFrames;
+
+    /// <summary>視点を切り替えたときの短い通知（「正面から表示」など）。ボタンでもキーでも同じ文言を出す。</summary>
+    public static event Action<string> Notice;
 
     public enum ViewPreset
     {
         Front,
         Right,
-        Top
+        Top,
+        Left,
+        Back,
+        Bottom
     }
 
     void Awake()
@@ -69,7 +132,11 @@ public class EditorCameraController : MonoBehaviour
         }
 
         bool typingBlocked = EditWorkspace.IsCameraInputBlocked();
-        float scrollY = EditInput.ScrollY;
+        bool textFieldFocused = EditWorkspace.IsTextFieldFocused();
+        Vector2 scroll = EditInput.ScrollDelta;
+        float scrollY = scroll.y;
+        if (!EditInput.LeftPressed()) leftDragNavigation = false;
+        bool leftPressed = leftDragNavigation && EditInput.LeftPressed();
         bool middlePressed = EditInput.MiddlePressed();
         bool rightPressed = EditInput.RightPressed();
         bool shiftPressed = EditInput.ShiftPressed();
@@ -79,7 +146,7 @@ public class EditorCameraController : MonoBehaviour
         {
             if (middlePressed || rightPressed || Mathf.Abs(scrollY) > 0.0001f)
             {
-                LogDiagnostics("Input ignored because a text field is focused", true, Vector2.zero, scrollY);
+                LogDiagnostics("Input ignored because the editor is busy", true, Vector2.zero, scrollY);
             }
             return;
         }
@@ -90,10 +157,11 @@ public class EditorCameraController : MonoBehaviour
             return;
         }
 
-        HandleZoom(scrollY);
-        HandleViewShortcuts();
+        HandleScroll(scroll, shiftPressed);
+        // Keys stay with the text field while it has the caret; the mouse works whenever it is over the 3D screen.
+        if (!textFieldFocused) HandleViewShortcuts();
 
-        bool navigationPressed = middlePressed || rightPressed;
+        bool navigationPressed = middlePressed || rightPressed || leftPressed;
         if (!navigationPressed)
         {
             RememberMousePosition(mousePosition);
@@ -181,7 +249,33 @@ public class EditorCameraController : MonoBehaviour
         }
     }
 
+    /// <summary>置いた部品すべてが収まる視点にする。部品が無ければ作業台の既定位置。</summary>
+    public void ShowAll()
+    {
+        EnsureCameraRig();
+        Bounds bounds = default;
+        bool found = false;
+        foreach (var item in FindObjectsByType<PlacedObject>(FindObjectsSortMode.None))
+        {
+            if (item == null || !item.gameObject.activeInHierarchy) continue;
+            if (!SelectionRegionUtility.TryGetBounds(item, out var itemBounds)) continue;
+            if (!found) bounds = itemBounds;
+            else bounds.Encapsulate(itemBounds);
+            found = true;
+        }
+        ResetToDefaultView();
+        if (found) FocusBounds(bounds.center, Mathf.Max(3f, bounds.extents.magnitude));
+        Notice?.Invoke(found ? "全体を表示" : "全体を表示（部品はまだありません）");
+    }
+
     public bool FocusSelected()
+    {
+        bool focused = FocusSelectedCore();
+        Notice?.Invoke(focused ? "選択した部品を表示" : "部品を選ぶと、その部品を画面に収めて表示します");
+        return focused;
+    }
+
+    bool FocusSelectedCore()
     {
         var moveTool = FindFirstObjectByType<MoveTool>();
         var preview = moveTool != null ? moveTool.PreviewTarget : null;
@@ -243,6 +337,18 @@ public class EditorCameraController : MonoBehaviour
                 pitch = 89f;
                 yaw = 0f;
                 break;
+            case ViewPreset.Left:
+                pitch = 0f;
+                yaw = 90f;
+                break;
+            case ViewPreset.Back:
+                pitch = 0f;
+                yaw = 180f;
+                break;
+            case ViewPreset.Bottom:
+                pitch = -89f;
+                yaw = 0f;
+                break;
             default:
                 pitch = 0f;
                 yaw = 0f;
@@ -250,6 +356,27 @@ public class EditorCameraController : MonoBehaviour
         }
 
         ApplyRigPose(distance);
+        Notice?.Invoke(ViewPresetName(preset) + "から表示");
+    }
+
+    public static string ViewPresetName(ViewPreset preset)
+    {
+        switch (preset)
+        {
+            case ViewPreset.Right: return "右";
+            case ViewPreset.Left: return "左";
+            case ViewPreset.Top: return "上";
+            case ViewPreset.Bottom: return "下";
+            case ViewPreset.Back: return "背面";
+            default: return "正面";
+        }
+    }
+
+    /// <summary>Option(Alt)＋左ドラッグ（何もない所）で始まる視点操作。実際の動きは Update が左ボタンを離すまで続ける。</summary>
+    public void BeginLeftDragNavigation()
+    {
+        leftDragNavigation = true;
+        RememberMousePosition(EditInput.MousePosition);
     }
 
     public bool ToggleProjection()
@@ -279,6 +406,7 @@ public class EditorCameraController : MonoBehaviour
             SyncOrthographicCameraDistance(cachedCamera.orthographicSize);
         }
 
+        Notice?.Invoke(cachedCamera.orthographic ? "平行投影に切り替え（Oキーでもとに戻ります）" : "透視投影に切り替え");
         return cachedCamera.orthographic;
     }
 
@@ -299,7 +427,7 @@ public class EditorCameraController : MonoBehaviour
         if (controlOrCommand) return;
 
         if (Input.GetKeyDown(KeyCode.F)) FocusSelected();
-        if (Input.GetKeyDown(KeyCode.Home)) ResetToDefaultView();
+        if (Input.GetKeyDown(KeyCode.Home)) ShowAll();
         if (Input.GetKeyDown(KeyCode.Alpha1) || Input.GetKeyDown(KeyCode.Keypad1)) SetViewPreset(ViewPreset.Front);
         if (Input.GetKeyDown(KeyCode.Alpha3) || Input.GetKeyDown(KeyCode.Keypad3)) SetViewPreset(ViewPreset.Right);
         if (Input.GetKeyDown(KeyCode.Alpha7) || Input.GetKeyDown(KeyCode.Keypad7)) SetViewPreset(ViewPreset.Top);
@@ -384,10 +512,49 @@ public class EditorCameraController : MonoBehaviour
         pivot.position += move;
     }
 
-    void HandleZoom(float rawScrollY)
+    // Mouse: the wheel zooms, Ctrl/Cmd or not. Trackpad: two fingers orbit, Shift pans, Ctrl/Cmd zooms.
+    void HandleScroll(Vector2 scroll, bool shiftPressed)
     {
-        float scroll = EditorCameraNavigationMath.NormalizeScroll(rawScrollY);
-        if (scroll == 0f) return;
+        if (scroll.sqrMagnitude <= 0.00000001f) { trackpadScrollFrames = 0; return; }
+        bool primary = EditInput.PrimaryModifierPressed();
+        if (EditorCameraInputSettings.Mode == EditorCameraScrollMode.Auto && !EditorCameraInputSettings.DetectedTrackpad)
+        {
+            // A wheel never scrolls sideways; a trackpad does almost every time two fingers move.
+            trackpadScrollFrames = Mathf.Abs(scroll.x) > 0.02f ? trackpadScrollFrames + 1 : trackpadScrollFrames;
+            if (trackpadScrollFrames >= 4)
+            {
+                EditorCameraInputSettings.MarkTrackpadDetected();
+                Notice?.Invoke("トラックパッドの操作にしました：2本指で回転、Shift＋2本指でパン、Cmd＋2本指でズーム（3D画面右上のボタンで切替）");
+            }
+        }
+
+        if (!EditorCameraInputSettings.UseTrackpad)
+        {
+            HandleZoom(EditorCameraNavigationMath.NormalizeScroll(scroll.y));
+            return;
+        }
+        if (primary)
+        {
+            ApplyZoom(scroll.y * trackpadZoomGain);
+            return;
+        }
+        if (shiftPressed)
+        {
+            HandleHorizontalPan(scroll * trackpadPanGain);
+            return;
+        }
+        HandleOrbit(scroll * trackpadOrbitGain);
+    }
+
+    void HandleZoom(float scroll)
+    {
+        ApplyZoom(scroll);
+    }
+
+    void ApplyZoom(float scroll)
+    {
+        float rawScrollY = scroll;
+        if (Mathf.Abs(scroll) < 0.0001f) return;
 
         if (cachedCamera != null && cachedCamera.orthographic)
         {

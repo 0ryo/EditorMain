@@ -151,9 +151,14 @@ public static class EditWorkspace
     }
 
     // Camera navigation stays available during ghost placement / target picking, unlike keyboard shortcuts.
+    // A text field that still has the caret does not stop the mouse (wheel, drag) over the 3D screen; see IsTextFieldFocused for keys.
     public static bool IsCameraInputBlocked()
     {
-        if (!Application.isFocused || HasOpenModal || ObjectScreenPicker.Capturing) return true;
+        return !Application.isFocused || HasOpenModal || ObjectScreenPicker.Capturing;
+    }
+
+    public static bool IsTextFieldFocused()
+    {
         var selected = EventSystem.current != null ? EventSystem.current.currentSelectedGameObject : null;
         if (selected == null) return false;
         var tmpInput = selected.GetComponent<TMP_InputField>() ?? selected.GetComponentInParent<TMP_InputField>();

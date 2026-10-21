@@ -13,6 +13,7 @@ public class SelectionService : MonoBehaviour
     public System.Func<IReadOnlyList<PlacedObject>, bool> DeleteGuard;
     PlacedObject listRangeAnchor;
     public Camera cam;
+    EditorCameraController cameraController;
     public LayerMask pickMask = ~0;
     public PlacedObject Current;
     readonly List<PlacedObject> selected = new();
@@ -174,6 +175,12 @@ public class SelectionService : MonoBehaviour
                     LogDebug($"Picked placed object: id={picked.Id}, name={picked.name}, mouse={mousePosition}");
                 }
                 BeginPick(picked, pickedPoint, mousePosition);
+            }
+            else if (EditInput.AltPressed())
+            {
+                // Option/Alt + drag on empty space turns the view (with Shift: pans) for trackpads; on a part Alt still means "no snapping".
+                if (cameraController == null) cameraController = FindFirstObjectByType<EditorCameraController>();
+                if (cameraController != null) cameraController.BeginLeftDragNavigation();
             }
             else
             {

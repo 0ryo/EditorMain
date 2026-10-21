@@ -84,6 +84,35 @@ public static class EditInput
         }
     }
 
+    /// <summary>ホイール／トラックパッドの2本指スクロール量。x は横スクロール（トラックパッドのみ）。</summary>
+    public static Vector2 ScrollDelta
+    {
+        get
+        {
+#if ENABLE_LEGACY_INPUT_MANAGER
+            return Input.mouseScrollDelta;
+#elif ENABLE_INPUT_SYSTEM
+            if (Mouse.current != null) return Mouse.current.scroll.ReadValue() / 120f;
+            return Vector2.zero;
+#else
+            return Vector2.zero;
+#endif
+        }
+    }
+
+    public static bool PrimaryModifierPressed()
+    {
+#if ENABLE_LEGACY_INPUT_MANAGER
+        return Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl) ||
+               Input.GetKey(KeyCode.LeftCommand) || Input.GetKey(KeyCode.RightCommand);
+#elif ENABLE_INPUT_SYSTEM
+        return Keyboard.current != null &&
+            (Keyboard.current.ctrlKey.isPressed || Keyboard.current.metaKey.isPressed);
+#else
+        return false;
+#endif
+    }
+
     public static bool LeftPressedThisFrame()
     {
 #if ENABLE_LEGACY_INPUT_MANAGER
