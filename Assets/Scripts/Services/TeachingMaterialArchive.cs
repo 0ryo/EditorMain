@@ -58,7 +58,7 @@ public static class TeachingMaterialArchive
         if (Path.IsPathRooted(relative)) throw new IOException("配布素材には相対パスが必要です。");
         string path = Path.GetFullPath(Path.Combine(directory, relative));
         if (!path.StartsWith(directory + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
-            throw new IOException("出力先の外側の素材は同梱できません。");
+            throw new IOException("書き出し先の外側の素材は同梱できません。");
         return path;
     }
 }

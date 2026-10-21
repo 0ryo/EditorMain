@@ -206,6 +206,8 @@ public partial class CurriculumGraphService : MonoBehaviour
 
             RemoveEdge(previous.nodeId, next.nodeId, ScenarioEdgeType.StepFlow);
             candidate = AddStep();
+            // A blank title shows the step's position ("手順 n") and the title field's example, instead of a counter that drifts from the order.
+            candidate.step.title = string.Empty;
             candidateCondition = AddCondition();
             ConditionTypeCatalog.Normalize(candidateCondition.condition, curriculum.rules);
             return TryAddEdge(previous.nodeId, candidate.nodeId, out failureReason) &&

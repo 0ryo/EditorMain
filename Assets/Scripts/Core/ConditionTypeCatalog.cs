@@ -16,6 +16,9 @@ public static class ConditionTypeCatalog
     public const string AngleKey = "angleDegrees";
     public const string DistanceKey = "distanceMeters";
     public const string HoldSecondsKey = "holdSeconds";
+    // Turn direction as seen by the operator: 0 either, 1 clockwise, 2 counterclockwise.
+    public const string TurnDirectionKey = "turnDirection";
+    public const int TurnEither = 0, TurnClockwise = 1, TurnCounterclockwise = 2;
 
     public sealed class ParameterDefinition
     {
@@ -24,6 +27,8 @@ public static class ConditionTypeCatalog
         public float defaultValue;
         public float minValue;
         public float maxValue;
+        // Non-null for a choice parameter: the stored number is an index into these labels (no numeric field).
+        public string[] choices;
     }
 
     public sealed class Definition
@@ -43,7 +48,7 @@ public static class ConditionTypeCatalog
             parameters = new[]
             {
                 Parameter(DistanceKey, "距離 (m)", 0.1f, 0.001f, 10f),
-                Parameter(HoldSecondsKey, "保持 (秒)", 1f, 0f, 600f)
+                Parameter(HoldSecondsKey, "近づけたまま (秒)", 1f, 0f, 600f)
             }
         },
         new Definition
@@ -64,20 +69,21 @@ public static class ConditionTypeCatalog
         {
             id = RotationMatch, label = "向きをそろえる",
             parameters = new[] { Parameter(AngleKey, "角度の許容差 (度)", 10f, 0.1f, 180f),
-                Parameter(HoldSecondsKey, "保持 (秒)", 1f, 0f, 600f) }
+                Parameter(HoldSecondsKey, "そろえたまま (秒)", 1f, 0f, 600f) }
         },
         new Definition { id = Grabbed, label = "もつ", requiresObjectB = false, parameters = Array.Empty<ParameterDefinition>() },
         new Definition { id = Push, label = "押す", requiresObjectB = false, parameters = Array.Empty<ParameterDefinition>() },
         new Definition { id = Pull, label = "引く", requiresObjectB = false, parameters = Array.Empty<ParameterDefinition>() },
         new Definition { id = Turn, label = "回す", requiresObjectB = false,
-            parameters = new[] { Parameter(AngleKey, "回す角度 (度)", 90f, 0.1f, 36000f) } },
-        new Definition { id = Released, label = "つかんで手放す", requiresObjectB = false, parameters = Array.Empty<ParameterDefinition>() }
+            parameters = new[] { Parameter(AngleKey, "回す角度 (度)", 90f, 0.1f, 36000f),
+                Choice(TurnDirectionKey, "回す向き", "どちらでも", "時計回り", "反時計回り") } },
+        new Definition { id = Released, label = "手放す", requiresObjectB = false, parameters = Array.Empty<ParameterDefinition>() }
     };
 
     public static bool RequiresObjectB(string type) => Find(type)?.requiresObjectB != false;
 
     public static IReadOnlyList<Definition> Definitions => new[]
-    { Find(Proximity), Find(SnapHold), Find(Push), Find(Pull), Find(Grabbed), Find(Turn) };
+    { Find(Proximity), Find(SnapHold), Find(Push), Find(Pull), Find(Grabbed), Find(Released), Find(Turn) };
 
     public static Definition Find(string type)
     {
@@ -167,6 +173,13 @@ public static class ConditionTypeCatalog
             minValue = minValue,
             maxValue = maxValue
         };
+    }
+
+    static ParameterDefinition Choice(string key, string label, params string[] choices)
+    {
+        var definition = Parameter(key, label, 0f, 0f, choices.Length - 1);
+        definition.choices = choices;
+        return definition;
     }
 
     static float Clamp(ParameterDefinition definition, float value)

@@ -1,6 +1,6 @@
 using UnityEngine;
 
-// Projects the real condition radius and centre-to-centre line into the measured viewport.
+// Projects the real condition radius (a sphere around the target centre) and the centre-to-centre line into the measured viewport.
 [RequireComponent(typeof(CanvasRenderer))]
 public sealed class SkillSyncViewportOverlay : UnityEngine.UI.MaskableGraphic
 {
@@ -15,17 +15,24 @@ public sealed class SkillSyncViewportOverlay : UnityEngine.UI.MaskableGraphic
         vh.Clear();if(sourceCamera==null || first==null || second==null || radius<=0) return;
         var a=SkillSyncTrialSession.Center(first);var b=SkillSyncTrialSession.Center(second);
         Color line=satisfied?new Color32(21,115,74,255):new Color32(8,102,232,255);
+        // The condition is a 3D distance, so the range is drawn as a sphere: the floor circle is filled and two
+        // vertical rings show that height counts as well.
+        Vector3[,] axes={{Vector3.right,Vector3.forward},{Vector3.right,Vector3.up},{Vector3.forward,Vector3.up}};
+        for(int ring=0;ring<3;ring++)
         for(int i=0;i<96;i++)
         {
             float start=i*2*Mathf.PI/96,end=(i+1)*2*Mathf.PI/96;
-            Vector3 p=b+new Vector3(Mathf.Cos(start),0,Mathf.Sin(start))*radius;
-            Vector3 q=b+new Vector3(Mathf.Cos(end),0,Mathf.Sin(end))*radius;
+            Vector3 p=b+(axes[ring,0]*Mathf.Cos(start)+axes[ring,1]*Mathf.Sin(start))*radius;
+            Vector3 q=b+(axes[ring,0]*Mathf.Cos(end)+axes[ring,1]*Mathf.Sin(end))*radius;
             if(Project(b,out var center) && Project(p,out var left) && Project(q,out var right))
             {
-                int index=vh.currentVertCount;var fill=line;fill.a=.08f;
-                vh.AddVert(center,fill,Vector2.zero);vh.AddVert(left,fill,Vector2.zero);vh.AddVert(right,fill,Vector2.zero);
-                vh.AddTriangle(index,index+1,index+2);
-                if(i%2==0) Segment(vh,left,right,line,1.4f);
+                if(ring==0)
+                {
+                    int index=vh.currentVertCount;var fill=line;fill.a=.08f;
+                    vh.AddVert(center,fill,Vector2.zero);vh.AddVert(left,fill,Vector2.zero);vh.AddVert(right,fill,Vector2.zero);
+                    vh.AddTriangle(index,index+1,index+2);
+                }
+                if(i%2==0) Segment(vh,left,right,line,ring==0?1.4f:1f);
             }
         }
         if(Project(a,out var pa) && Project(b,out var pb))

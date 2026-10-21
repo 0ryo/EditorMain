@@ -61,6 +61,7 @@ static class Program
         groupsPassed &= RunGroup("Authoring", AuthoringFeatureChecks.Run, keepGoing);
         groupsPassed &= RunGroup("Step insertion", StepInsertionChecks.Run, keepGoing);
         groupsPassed &= RunGroup("Condition editor", ConditionEditorChecks.Run, keepGoing);
+        groupsPassed &= RunGroup("Validation text", ValidationTextChecks.Run, keepGoing);
         var root = Path.Combine(Path.GetTempPath(), "SkillSyncChecks-" + Guid.NewGuid().ToString("N"));
         Application.persistentDataPath = root;
         Directory.CreateDirectory(root);

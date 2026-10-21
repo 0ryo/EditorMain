@@ -25,11 +25,20 @@ public static class RuntimeExportPathUtility
         return Path.Combine(ExportsDirectory, fileName);
     }
 
-    public static string CreateTeachingMaterialDirectory(string outputDirectory, DateTime savedAt)
+    // The folder is named after the lesson ("<教材名>-yyyyMMdd-HHmm"); a second export in the same minute gets "-2", "-3", ...
+    public static string BuildTeachingMaterialName(string materialName, DateTime savedAt)
+    {
+        if (string.IsNullOrWhiteSpace(materialName))
+            return "XR教材データ-" + savedAt.ToString("yyyyMMddHHmmss", CultureInfo.InvariantCulture);
+        return ExportFileNameUtility.SanitizeProjectName(materialName, "教材") + "-" +
+            savedAt.ToString("yyyyMMdd-HHmm", CultureInfo.InvariantCulture);
+    }
+
+    public static string CreateTeachingMaterialDirectory(string outputDirectory, DateTime savedAt, string materialName = null)
     {
         string root = Path.GetFullPath(outputDirectory);
         Directory.CreateDirectory(root);
-        string name = "XR教材データ-" + savedAt.ToString("yyyyMMddHHmmss", CultureInfo.InvariantCulture);
+        string name = BuildTeachingMaterialName(materialName, savedAt);
         string staging = Path.Combine(root, ".XR-" + Guid.NewGuid().ToString("N") + ".tmp");
         Directory.CreateDirectory(staging);
         try

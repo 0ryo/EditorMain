@@ -18,8 +18,24 @@ public static class SkillSyncConditionEditing
 
     public static ConditionTypeCatalog.ParameterDefinition Parameter(ConditionNodeData condition, int slot)
     {
-        var parameters = ConditionTypeCatalog.Find(condition?.type)?.parameters;
+        var parameters = ConditionTypeCatalog.Find(condition?.type)?.parameters?.Where(p => p.choices == null).ToList();
         return parameters != null && slot >= 0 && slot < parameters.Count ? parameters[slot] : null;
+    }
+
+    // The choice parameter (turn direction) has no numeric field; the editor shows it as buttons.
+    public static ConditionTypeCatalog.ParameterDefinition ChoiceParameter(ConditionNodeData condition) =>
+        ConditionTypeCatalog.Find(condition?.type)?.parameters?.FirstOrDefault(p => p.choices != null);
+
+    public static int Choice(ConditionNodeData condition)
+    {
+        var parameter = ChoiceParameter(condition);
+        return parameter == null ? 0 : (int)ConditionTypeCatalog.GetNumber(condition, parameter.key, parameter.defaultValue);
+    }
+
+    public static string ChoiceLabel(ConditionNodeData condition)
+    {
+        var parameter = ChoiceParameter(condition);
+        return parameter == null ? "" : parameter.choices[Math.Max(0, Math.Min(parameter.choices.Length - 1, Choice(condition)))];
     }
 
     public static string Value(ConditionNodeData condition, int slot)
@@ -28,6 +44,12 @@ public static class SkillSyncConditionEditing
         if (parameter == null) return "";
         float value = ConditionTypeCatalog.GetNumber(condition, parameter.key, parameter.defaultValue);
         return (parameter.key == ConditionTypeCatalog.DistanceKey ? value * 100 : value).ToString("0.##", CultureInfo.CurrentCulture);
+    }
+
+    public static void SetChoice(ConditionNodeData condition, int index)
+    {
+        var parameter = ChoiceParameter(condition);
+        if (parameter != null) ConditionTypeCatalog.SetNumber(condition, parameter.key, index);
     }
 
     public static bool TrySetValue(ConditionNodeData condition, int slot, string input) => TrySetValue(condition, slot, input, out _);
@@ -65,8 +87,69 @@ public static class SkillSyncConditionEditing
             (!string.IsNullOrEmpty(condition.objectBId) && condition.objectAId != condition.objectBId && exists(condition.objectBId));
     }
 
+    // The captions of the two target fields in the condition editor, also used when a problem names a field.
+    public static string TargetLabelA(string type) => type != null && ConditionTypeCatalog.RequiresObjectB(type) ? "動かすもの" : "対象";
+    public static string TargetLabelB(string type) => type == ConditionTypeCatalog.RotationMatch ? "向きの基準" :
+        type == ConditionTypeCatalog.Separation ? "離す基準" : "近づける先";
+
     public static bool SupportsPcTrial(ConditionNodeData condition) =>
         condition != null && (condition.type == ConditionTypeCatalog.Proximity || condition.type == ConditionTypeCatalog.SnapHold);
+
+    public const string PcUnsupportedText = "PCでは自動判定できません";
+
+    // Distances are measured between the bounding-box centres of the two parts.
+    public static bool UsesCenterDistance(ConditionNodeData condition) =>
+        condition != null && (condition.type == ConditionTypeCatalog.Proximity || condition.type == ConditionTypeCatalog.SnapHold);
+
+    // Two solid parts cannot be closer than their sizes allow. The smallest axis-wise sum of half sizes
+    // is the nearest they can stand side by side; far below it the condition cannot be met in practice.
+    public static float MinimumCenterDistance(float ax, float ay, float az, float bx, float by, float bz) =>
+        Math.Min(ax + bx, Math.Min(ay + by, az + bz));
+
+    public static bool DistanceLikelyUnreachable(float limitMeters, float minimumMeters) =>
+        minimumMeters > 0 && limitMeters < minimumMeters * .5f;
+
+    public static string DistanceWarning(float limitMeters, float minimumMeters)
+    {
+        if (!DistanceLikelyUnreachable(limitMeters, minimumMeters)) return null;
+        return $"{limitMeters * 100:0.##} cmは近すぎて成立しない可能性があります。位置を示すには目印の部品を置き、そこへ近づけます";
+    }
+
+    // What the player must do for the condition to be met, as the runtime judges it (ScenarioConditionEvaluator).
+    public static string Criteria(ConditionNodeData condition)
+    {
+        string distance = Value(condition, 0), hold = Value(condition, 1);
+        return condition?.type switch
+        {
+            ConditionTypeCatalog.Proximity => $"2つの部品の中心どうしが{distance} cm以内になると完了します（3D画面の球が判定範囲）",
+            ConditionTypeCatalog.SnapHold => $"中心どうしが{distance} cm以内の状態を{hold}秒続けると完了します。部品をもつ必要はなく、範囲を出ると数え直します",
+            ConditionTypeCatalog.Push => "対象を押す操作が1回あると完了します（何を押す操作とみなすかはXRアプリ側で判定します）",
+            ConditionTypeCatalog.Pull => "対象を引く操作が1回あると完了します（何を引く操作とみなすかはXRアプリ側で判定します）",
+            ConditionTypeCatalog.Grabbed => "対象をつかんだ時点で完了します。運ぶ動きは判定しないので、運ぶ場合は「近づけて保持」を使います",
+            ConditionTypeCatalog.Released => "対象をつかんだあと、手放すと完了します。最初からつかんでいないだけでは完了しません",
+            ConditionTypeCatalog.Turn => $"対象を{distance}度以上回すと完了します。" + (Choice(condition) == 0 ? "向きは問いません（XRアプリ側で判定します）" : ChoiceLabel(condition) + "だけが数えられます（XRアプリ側で判定します）"),
+            ConditionTypeCatalog.Separation => $"2つの部品の中心どうしが{distance} cm以上離れると完了します",
+            ConditionTypeCatalog.RotationMatch => $"2つの部品の向きの差が{distance}度以内の状態を{hold}秒続けると完了します",
+            _ => ""
+        };
+    }
+
+    // One-line description shown under the condition title in the step's condition list.
+    public static string Detail(ConditionNodeData condition)
+    {
+        string distance = Value(condition, 0), hold = Value(condition, 1);
+        return condition?.type switch
+        {
+            ConditionTypeCatalog.Proximity => $"{distance} cm以内に近づけると完了",
+            ConditionTypeCatalog.SnapHold => $"{distance} cm以内に{hold}秒とどまると完了（もつ必要なし）",
+            ConditionTypeCatalog.Turn => $"{distance}度以上回すと完了（{ChoiceLabel(condition)}）",
+            ConditionTypeCatalog.Push => "押す操作で完了",
+            ConditionTypeCatalog.Pull => "引く操作で完了",
+            ConditionTypeCatalog.Grabbed => "つかむと完了",
+            ConditionTypeCatalog.Released => "つかんだあと手放すと完了",
+            _ => ""
+        };
+    }
 
     public static string Summary(ConditionNodeData condition)
     {
@@ -74,14 +157,14 @@ public static class SkillSyncConditionEditing
         return condition?.type switch
         {
             ConditionTypeCatalog.Proximity => $"近づける：{distance} cm以内で完了",
-            ConditionTypeCatalog.SnapHold => $"近づけて保持：{distance} cm以内で{hold}秒保持",
-            ConditionTypeCatalog.Push => "押す：対象への押す操作で完了",
-            ConditionTypeCatalog.Pull => "引く：対象への引く操作で完了",
+            ConditionTypeCatalog.SnapHold => $"近づけて保持：{distance} cm以内に{hold}秒とどまると完了",
+            ConditionTypeCatalog.Push => "押す：対象を押す操作で完了",
+            ConditionTypeCatalog.Pull => "引く：対象を引く操作で完了",
             ConditionTypeCatalog.Grabbed => "もつ：対象をつかむと完了",
-            ConditionTypeCatalog.Turn => $"回す：対象を{distance}度以上回すと完了",
+            ConditionTypeCatalog.Turn => $"回す：対象を{distance}度以上回すと完了（{ChoiceLabel(condition)}）",
             ConditionTypeCatalog.Separation => $"離す：{distance} cm以上で完了",
-            ConditionTypeCatalog.RotationMatch => $"向きをそろえる：{distance}度以内で{hold}秒保持",
-            ConditionTypeCatalog.Released => "つかんで手放す：この手順中につかんだ対象を手放す",
+            ConditionTypeCatalog.RotationMatch => $"向きをそろえる：{distance}度以内の状態を{hold}秒続けると完了",
+            ConditionTypeCatalog.Released => "手放す：つかんだ対象を手放すと完了",
             _ => "未対応の条件：" + condition?.type
         };
     }

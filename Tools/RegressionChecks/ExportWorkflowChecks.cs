@@ -94,7 +94,7 @@ static class ExportWorkflowChecks
         var succeeded = TeachingMaterialExportWorkflow.Run(Save, Validate, Export);
         Require(succeeded.outcome == TeachingMaterialExportWorkflow.Outcome.Exported && saves == 3 && validations == 1 && exports == 1,
             "Retry after removing the save failure must save, validate and export once");
-        Require(succeeded.message.Contains("再編集用データを保存しました") && succeeded.message.Contains("教材を出力しました") &&
+        Require(succeeded.message.Contains("教材を保存しました") && succeeded.message.Contains("書き出しました") &&
             succeeded.message.Contains(succeeded.exportPath) && succeeded.message.Contains(TeachingMaterialArchive.GetPath(succeeded.exportPath)),
             "Success must identify both editable save and distribution paths");
         Require(EditorProjectStore.TryLoad(projectPath, out var saved, out _) && saved.objects[0].position.x == 9 &&
@@ -113,7 +113,7 @@ static class ExportWorkflowChecks
         draft.objects[0].position.x = 11;
         var invalid = TeachingMaterialExportWorkflow.Run(Save, () => { validations++; return false; }, Export);
         Require(invalid.outcome == TeachingMaterialExportWorkflow.Outcome.InvalidGraph && exports == 1 && invalid.exportPath == null &&
-            invalid.message.Contains("保存済み") && invalid.message.Contains("エラーを修正"),
+            invalid.message.Contains("保存済み") && invalid.message.Contains("問題を直して"),
             "Invalid graph must keep the saved draft and give repair guidance without exporting");
         Require(EditorProjectStore.TryLoad(projectPath, out saved, out _) && saved.objects[0].position.x == 11,
             "Validation rejection must still preserve the latest draft");

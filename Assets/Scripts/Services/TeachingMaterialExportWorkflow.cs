@@ -29,25 +29,25 @@ public static class TeachingMaterialExportWorkflow
         // Stop before validation/export so no later success can hide this failure.
         if (!save(out string saveMessage))
             return new Result(Outcome.SaveFailed,
-                "再編集用データの保存に失敗したため、教材の書き出しを中止しました。" +
-                "エラー内容と保存先を確認し、「保存」または「教材を書き出す」を再試行してください。理由: " + saveMessage);
+                "教材の保存に失敗したため、書き出しを中止しました。" +
+                "保存先の空き容量と権限を確認し、「保存」または「教材を書き出す」を再試行してください。理由: " + saveMessage);
 
         if (!canExport())
             return new Result(Outcome.InvalidGraph,
-                "再編集用データは保存済みです。手順・条件のエラーを修正してから「教材を書き出す」を再試行してください。");
+                "教材は保存済みです。手順・完了条件の問題を直してから、「教材を書き出す」を再試行してください。");
 
         try
         {
             string path = export();
             return new Result(Outcome.Exported,
-                "再編集用データを保存しました。教材を出力しました: " + path +
+                "教材を保存しました。書き出しました: " + path +
                 " / XR配布用: " + TeachingMaterialArchive.GetPath(path), path);
         }
         catch (Exception ex)
         {
             return new Result(Outcome.ExportFailed,
-                "再編集用データは保存済みです。書き出しに失敗しました: " + ex.Message +
-                " エラー内容と出力先を確認し、「教材を書き出す」を再試行してください。", exception: ex);
+                "教材は保存済みです。書き出しに失敗しました: " + ex.Message +
+                " 書き出し先と空き容量を確認し、「教材を書き出す」を再試行してください。", exception: ex);
         }
     }
 }
