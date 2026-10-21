@@ -28,6 +28,9 @@ public class MoveTool : MonoBehaviour
     public Color moveAxisSelectedColor = new Color(0.2f, 1f, 1f, 1f);
     public Color rotateArcSelectedColor = new Color(1f, 0.92f, 0.35f, 1f);
 
+    // Arrow hits beyond this fraction of the shaft (the tip side) win over the part under the pointer.
+    const float ArrowTipFraction = 0.5f;
+
     static readonly Vector3[] GizmoAxes = { Vector3.right, Vector3.up, Vector3.forward };
     static readonly Color[] GizmoColors =
     {
@@ -401,13 +404,15 @@ public class MoveTool : MonoBehaviour
         if (!TryGetSelectionCenterAndAxisLength(out var center, out var axisLength)) return false;
         if (!TryWorldToScreen(center, out var centerScreen)) return false;
 
-        if (TryPickRotateHandleFromRay(pointer, out axis))
+        if (ShowRings && TryPickRotateHandleFromRay(pointer, out axis))
         {
             dragMode = GizmoDragMode.Rotate;
             return true;
         }
 
+        if (!ShowArrows) return false;
         float bestMoveDistance = float.MaxValue;
+        bool bodyChecked = false, bodyUnderPointer = false;
         for (int i = 0; i < GizmoAxes.Length; i++)
         {
             Vector3 axisDir = TransformGizmoUtility.AxisDirection((GizmoAxis)i, ActiveTarget.rotation);
@@ -418,6 +423,12 @@ public class MoveTool : MonoBehaviour
             if (!isInsideSegment) continue;
             if (distance > moveHandlePickRadiusPixels) continue;
             if (distance >= bestMoveDistance) continue;
+            // Over the part itself the inner half of an arrow yields to selection; the tip side always grabs.
+            if (!previewMode && t < ArrowTipFraction)
+            {
+                if (!bodyChecked) { bodyChecked = true; bodyUnderPointer = IsPartUnderPointer(pointer); }
+                if (bodyUnderPointer) continue;
+            }
 
             bestMoveDistance = distance;
             dragMode = GizmoDragMode.Move;
@@ -425,6 +436,12 @@ public class MoveTool : MonoBehaviour
         }
 
         return dragMode != GizmoDragMode.None;
+    }
+
+    bool IsPartUnderPointer(Vector2 pointer)
+    {
+        if (cam == null) return false;
+        return PlacedObjectPicker.TryPick(cam.ScreenPointToRay(pointer), sel != null ? sel.pickMask : (LayerMask)~0, out _, out _, out _);
     }
 
     bool TryPickRotateHandleFromRay(Vector2 pointer, out GizmoAxis axis)
@@ -502,8 +519,14 @@ public class MoveTool : MonoBehaviour
         float headWidth = headLength * 0.3f;
         Quaternion objectRotation = currentTransform.rotation;
 
+        bool arrows = ShowArrows, rings = ShowRings;
         for (int i = 0; i < GizmoAxes.Length; i++)
         {
+            SetActiveIfNeeded(axisRenderers[i], arrows);
+            SetActiveIfNeeded(axisConeTransforms[i], arrows);
+            SetActiveIfNeeded(rotateArcRenderers[i], rings);
+            SetActiveIfNeeded(arcHandles[i], rings);
+            if (!arrows) continue;
             Vector3 axis = TransformGizmoUtility.AxisDirection((GizmoAxis)i, objectRotation);
             Vector3 tip = center + axis * axisLength;
             Vector3 shaftEnd = tip - axis * headLength;
@@ -536,10 +559,9 @@ public class MoveTool : MonoBehaviour
             }
         }
 
-        for (int i = 0; i < rotateArcRenderers.Length; i++)
-        {
-            UpdateRotateArcVisual(i, center, objectRotation, arcRadius, arcLineWidth, arcColliderThickness);
-        }
+        if (rings)
+            for (int i = 0; i < rotateArcRenderers.Length; i++)
+                UpdateRotateArcVisual(i, center, objectRotation, arcRadius, arcLineWidth, arcColliderThickness);
 
         TransformGizmoUtility.SetScreenCircle(centerRing, cam, center, 4f);
         gizmoVisualTarget = currentTransform;
@@ -556,6 +578,11 @@ public class MoveTool : MonoBehaviour
             gizmoProjectionMatrix = cam.projectionMatrix;
             gizmoPixelHeight = cam.pixelHeight;
         }
+    }
+
+    static void SetActiveIfNeeded(Component part, bool active)
+    {
+        if (part != null && part.gameObject.activeSelf != active) part.gameObject.SetActive(active);
     }
 
     void EnsureGizmo()
@@ -839,6 +866,10 @@ public class MoveTool : MonoBehaviour
         color.a *= GizmoAlphaScale;
         return color;
     }
+
+    // The 移動 tab shows only arrows and the 回転 tab only rings; the trial preview keeps both.
+    bool ShowArrows => previewMode || TransformToolSettings.Tool == TransformTool.Move;
+    bool ShowRings => previewMode || TransformToolSettings.Tool == TransformTool.Rotate;
 
     bool IsTransformMode()
     {

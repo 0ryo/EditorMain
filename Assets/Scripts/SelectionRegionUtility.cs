@@ -33,6 +33,24 @@ internal static class SelectionRegionUtility
         return !hasRenderer && OverlapsBounds(camera, region, new Bounds(item.transform.position, Vector3.zero));
     }
 
+    // True when every visible renderer of the item projects entirely inside the region.
+    public static bool Contains(Camera camera, Rect region, PlacedObject item)
+    {
+        if (camera == null || item == null || !TryGetBounds(item, out var bounds)) return false;
+        Vector2 min = new Vector2(float.PositiveInfinity, float.PositiveInfinity);
+        Vector2 max = new Vector2(float.NegativeInfinity, float.NegativeInfinity);
+        for (int i = 0; i < 8; i++)
+        {
+            Vector3 corner = bounds.center + Vector3.Scale(bounds.extents, new Vector3(
+                (i & 1) == 0 ? -1 : 1, (i & 2) == 0 ? -1 : 1, (i & 4) == 0 ? -1 : 1));
+            Vector3 screen = camera.WorldToScreenPoint(corner);
+            if (screen.z <= 0f) return false;
+            min = Vector2.Min(min, screen);
+            max = Vector2.Max(max, screen);
+        }
+        return region.Contains(min) && region.Contains(max);
+    }
+
     static bool OverlapsBounds(Camera camera, Rect region, Bounds bounds)
     {
         var corners = new Vector3[8];

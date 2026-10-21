@@ -228,11 +228,13 @@ public class SelectionService : MonoBehaviour
         if (EditInput.LeftPressed()) return;
         if (regionDragging)
         {
-            var matches = FindObjectsByType<PlacedObject>(FindObjectsSortMode.InstanceID)
-                .Where(item => CanEdit(item) && SelectionRegionUtility.Overlaps(cam, region, item)).ToArray();
-            // Touching one part should not select its entire model through the parent bounds.
-            SelectMany(matches.Where(item => !matches.Any(child => child != item &&
-                child.transform.IsChildOf(item.transform))), regionAdditive);
+            // The range selects the same units a click does: a whole model or flat group, never a loose part.
+            // Environment pieces (floor, walls) count only when fully inside, so a frame that merely touches them skips them.
+            var roots = FindObjectsByType<PlacedObject>(FindObjectsSortMode.InstanceID)
+                .Where(item => CanEdit(item) && SelectionRegionUtility.Overlaps(cam, region, item))
+                .Select(SelectionGroups.PickRoot).Where(root => root != null && CanEdit(root)).Distinct()
+                .Where(root => !SelectionGroups.IsEnvironment(root) || SelectionRegionUtility.Contains(cam, region, root)).ToArray();
+            SelectMany(roots, regionAdditive);
         }
         else if (!regionAdditive) Select(null);
         CancelRegion();
@@ -397,13 +399,16 @@ public class SelectionService : MonoBehaviour
     {
         var items = selected.Where(CanEdit).ToList();
         if (items.Count < (ungroup ? 1 : 2))
-        { OperationMessage?.Invoke("グループ化は2件以上を選択してください（Ctrl+G / 解除 Ctrl+Shift+G）"); return; }
+        { OperationMessage?.Invoke(ungroup ? "解除するグループを選んでください" : "グループにするには、2個以上の部品を選んでください"); return; }
+        if (ungroup && !items.Any(item => !string.IsNullOrEmpty(item.editorGroupId)))
+        { OperationMessage?.Invoke("選んだ部品はグループになっていません"); return; }
         var ids = new HashSet<string>(items.Select(item => item.editorGroupId).Where(id => !string.IsNullOrEmpty(id)));
         // Include hidden members when dissolving an existing group; never leave half a group behind.
         items.AddRange(FindObjectsByType<PlacedObject>(FindObjectsInactive.Include, FindObjectsSortMode.None)
             .Where(item => ids.Contains(item.editorGroupId)));
-        if (Execute(new SelectionGroupCommand(items.Distinct(), ungroup ? null : System.Guid.NewGuid().ToString("N"))))
-        { PublishSelection(); OperationMessage?.Invoke(ungroup ? "グループを解除しました" : "グループ化しました（Ctrl+Shift+Gで解除）"); }
+        items = items.Distinct().ToList();
+        if (Execute(new SelectionGroupCommand(items, ungroup ? null : System.Guid.NewGuid().ToString("N"))))
+        { PublishSelection(); OperationMessage?.Invoke(ungroup ? "グループを解除しました" : $"{items.Count}個の部品をグループにしました"); }
     }
 
     public void CopySelected()
@@ -411,26 +416,26 @@ public class SelectionService : MonoBehaviour
         try
         {
             int count = clipboard.Copy(selected);
-            OperationMessage?.Invoke(count > 0 ? $"{count}件をコピーしました" : "コピーする対象を選択してください");
+            OperationMessage?.Invoke(count > 0 ? $"{count}個の部品をコピーしました" : "コピーする部品を選んでください");
         }
         catch (System.Exception ex) { ReportClipboardFailure("コピーできませんでした", ex); }
     }
 
     public void PasteSelected(bool inPlace = false)
     {
-        if (!clipboard.HasContent) { OperationMessage?.Invoke("先にオブジェクトをコピーしてください"); return; }
+        if (!clipboard.HasContent) { OperationMessage?.Invoke("先に部品をコピーしてください（Ctrl/Cmd+C）"); return; }
         var command = clipboard.CreateCommand(placementController, registry, inPlace);
         try
         {
             if (!Execute(command))
             {
                 command.Discard();
-                ReportClipboardFailure("貼り付けできません。元モデルを確認してください", null);
+                ReportClipboardFailure("貼り付けできません。元の3Dモデルが残っているか確認してください", null);
                 return;
             }
             clipboard.DidPaste(inPlace);
             SelectMany(command.Results);
-            OperationMessage?.Invoke($"{command.Results.Count}件を貼り付けました");
+            OperationMessage?.Invoke($"{command.Results.Count}個の部品を貼り付けました");
         }
         catch (System.Exception ex) { command.Discard(); ReportClipboardFailure("貼り付けできませんでした", ex); }
     }

@@ -66,8 +66,8 @@ public sealed class SelectionTransformSession
 
         if (commands.Count > 0 && PlacementOverlapDetector.TryFindOverlap(objects, out _, out var overlapping))
         {
-            string name = overlapping != null ? overlapping.GetDisplayName() : "別の配置物";
-            selectionService?.ReportOperationMessage($"重なりの可能性があります: {name}");
+            string name = overlapping != null ? overlapping.GetDisplayName() : "別の部品";
+            selectionService?.ReportOperationMessage($"部品が重なっています：{name}");
         }
     }
 
