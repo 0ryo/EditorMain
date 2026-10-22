@@ -76,13 +76,11 @@ public sealed class SkillSyncEditorController : MonoBehaviour
     readonly Dictionary<string,ValidationEntry> issueByCondition=new();
     string lastIssueKey;int lastIssueOrder=-1;
     // Distance conditions whose limit is smaller than the two parts' sizes allow (condition node id -> message).
-    readonly Dictionary<string,string> distanceWarnings = new();
-    readonly HashSet<string> stepsWithWarning = new();
-    float nextWarningCheck;
-    string warningSignature = "";
     bool stepRowsShowTrial, stepRebuildPending, trialCarried;
     int trialStartIndex;
     TMPro.TMP_InputField partsSearch;
+    SkillSyncLeftTabs leftTabs;
+    int placedRootCount;
     float nextLineBreakSweep;
     // Body drag during a trial: moves the trial copy only, along the floor through the grabbed point.
     Transform trialDragTarget;
@@ -158,8 +156,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         deleteConditionLabel=view.controls.FirstOrDefault(c=>c.action=="DeleteCondition")?.button.GetComponentInChildren<TMP_Text>(true);
         var resetLabel=view.controls.FirstOrDefault(c=>c.action=="初期配置に戻す")?.button.GetComponentInChildren<TMP_Text>(true);
         if(resetLabel!=null) resetLabel.text="手順の最初に戻す";
-        var titleField=view.fields.FirstOrDefault(f=>f.role=="stepTitle");
-        if(titleField?.input.placeholder is TMP_Text titleHint) titleHint.text="手順の題名（例：ナット1を外す）";
+        view.EnsureStepTextFields();
         var tryControl=view.controls.FirstOrDefault(c=>c.action=="▶ この条件を試す");
         var tryLabel=tryControl?.button!=null?tryControl.button.GetComponentInChildren<TMP_Text>(true):null;
         if(tryLabel!=null) tryLabel.text="▶ この手順を試す";
@@ -187,6 +184,8 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         }
         partsSearch=SkillSyncPartsSearch.Ensure(view.objectsContent.parent.parent as RectTransform,view.objectTemplate.title.font);
         if(partsSearch!=null) partsSearch.onValueChanged.AddListener(value=>{partsFilter=value??"";RebuildObjects();});
+        leftTabs=new SkillSyncLeftTabs(view,view.objectTemplate.regularFont,view.objectTemplate.boldFont){Changed=Refresh};
+        leftTabs.SetPartsSearch(partsSearch);
         view.objectsContent.GetComponentInParent<ScrollRect>()?.onValueChanged.AddListener(_=>ShowVisiblePartThumbnails());
         graph.GraphChanged += GraphChanged;
         selection.OnSelectionChanged += SelectionChanged;
@@ -328,12 +327,6 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         if(Time.unscaledTime>=nextRefresh)
         {
             nextRefresh=Time.unscaledTime+.25f;
-            // Part sizes change without a graph event, so the distance warnings are polled slowly.
-            if(trial==null && ghost==null && Time.unscaledTime>=nextWarningCheck)
-            {
-                nextWarningCheck=Time.unscaledTime+1f;
-                if(RecomputeDistanceWarnings()) RebuildSteps();
-            }
             if(dragEntry!=null && !Input.GetMouseButton(0)) {dragEntry=null;dragAborted=false;}
             if(highlightType!=null && Time.unscaledTime>highlightUntil) {highlightType=null;RefreshLibrarySelection();}
             if(objectsDirty) {objectsDirty=false;RebuildObjects();}
@@ -967,7 +960,6 @@ public sealed class SkillSyncEditorController : MonoBehaviour
             }
         }
         finally {validating=false;}
-        RecomputeDistanceWarnings();
     }
     Dictionary<string,PlacedObject> PlacedLookup()
     {
@@ -975,49 +967,15 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         foreach(var p in Placed) if(!string.IsNullOrEmpty(p.Id)) lookup[p.Id]=p;
         return lookup;
     }
-    string DistanceWarningFor(ConditionNodeData c,Dictionary<string,PlacedObject> lookup,Dictionary<string,Bounds?> sizes)
-    {
-        if(!SkillSyncConditionEditing.UsesCenterDistance(c) || !SkillSyncConditionEditing.TargetsValid(c,lookup.ContainsKey)) return null;
-        Bounds? Size(string id)
-        {
-            if(sizes.TryGetValue(id,out var known)) return known;
-            Bounds? measured=PlacedObjectGrounding.TryGetRendererBounds(lookup[id].transform,out var bounds)?bounds:(Bounds?)null;
-            return sizes[id]=measured;
-        }
-        var a=Size(c.objectAId);var b=Size(c.objectBId);
-        if(a==null || b==null) return null;
-        float minimum=SkillSyncConditionEditing.MinimumCenterDistance(a.Value.extents.x,a.Value.extents.y,a.Value.extents.z,b.Value.extents.x,b.Value.extents.y,b.Value.extents.z);
-        float limit=ConditionTypeCatalog.GetNumber(c,ConditionTypeCatalog.DistanceKey,.1f);
-        return SkillSyncConditionEditing.DistanceLikelyUnreachable(limit,minimum)?SkillSyncConditionEditing.DistanceWarning(limit,minimum):null;
-    }
-    // Sizes change without graph events, so this is also polled (see RefreshValues). Returns true when the result changed.
-    bool RecomputeDistanceWarnings()
-    {
-        if(graph==null) return false;
-        distanceWarnings.Clear();stepsWithWarning.Clear();
-        var lookup=PlacedLookup();var sizes=new Dictionary<string,Bounds?>();
-        foreach(var step in graph.GetDisplayOrderedSteps())
-            foreach(var node in graph.GetConditionNodesForStep(step.nodeId))
-            {
-                string message=DistanceWarningFor(node.condition,lookup,sizes);
-                if(message==null) continue;
-                distanceWarnings[node.nodeId]=message;stepsWithWarning.Add(step.nodeId);
-                validation?.AddWarning("W-03",message,node.nodeId);
-            }
-        string signature=string.Join("|",distanceWarnings.Keys.OrderBy(k=>k,StringComparer.Ordinal));
-        bool changed=signature!=warningSignature;
-        warningSignature=signature;
-        return changed;
-    }
     // Object deletion and undo change validity without a graph event, so rebuild the step rows only when the result changed.
     void RevalidateAndSync()
     {
-        string before=validationErrorCount+"|"+string.Join(",",stepsWithIssue.OrderBy(i=>i,StringComparer.Ordinal))+"|"+warningSignature;
+        string before=validationErrorCount+"|"+string.Join(",",stepsWithIssue.OrderBy(i=>i,StringComparer.Ordinal));
         Revalidate();
-        string after=validationErrorCount+"|"+string.Join(",",stepsWithIssue.OrderBy(i=>i,StringComparer.Ordinal))+"|"+warningSignature;
+        string after=validationErrorCount+"|"+string.Join(",",stepsWithIssue.OrderBy(i=>i,StringComparer.Ordinal));
         if(before!=after) RebuildSteps();
     }
-    string ValidationSummary() => validationErrorCount>0?"要修正"+validationErrorCount+"件":distanceWarnings.Count>0?"注意"+distanceWarnings.Count+"件":"問題なし";
+    string ValidationSummary() => validationErrorCount>0?"要修正"+validationErrorCount+"件":"問題なし";
     // Deleting parts that step conditions use asks first in the central dialog; the real delete runs only after "削除".
     bool ConfirmDeleteObjects(IReadOnlyList<PlacedObject> items)
     {
@@ -1087,7 +1045,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
     static void Clear(List<SkillSyncDesignRow> rows)
     {foreach(var row in rows) if(row!=null) {row.gameObject.SetActive(false);Destroy(row.gameObject);} rows.Clear();}
     SkillSyncDesignRow Row(SkillSyncDesignRow template,RectTransform parent,List<SkillSyncDesignRow> rows)
-    {var row=Instantiate(template,parent);row.gameObject.SetActive(true);rows.Add(row);return row;}
+    {var row=Instantiate(template,parent);row.gameObject.SetActive(true);SkillSyncLineBreak.Attach(row.transform);rows.Add(row);return row;}
     // Includes whether the catalog has named each card yet, so cards built before it is ready (internal IDs) are renamed once it is.
     string LibrarySignature(IEnumerable<PrefabEntry> entries) =>
         string.Join("|",entries.Select(e=>e.typeId+(catalog!=null && catalog.TryGetTypeInfo(e.typeId,out _,out _)?"+":"-")));
@@ -1151,13 +1109,13 @@ public sealed class SkillSyncEditorController : MonoBehaviour
             var step=steps[i];var row=Row(view.stepTemplate,view.stepsContent,stepRows);
             reorder?.Attach((RectTransform)row.transform,i);
             string title=StepTitle(step,i);
-            bool hasIssue=stepsWithIssue.Contains(step.nodeId),hasWarning=!hasIssue && stepsWithWarning.Contains(step.nodeId);
+            bool hasIssue=stepsWithIssue.Contains(step.nodeId);
             int conditionCount=graph.GetConditionCountForStep(step.nodeId);
             string summary=(conditionCount==0?"条件なし":"条件"+conditionCount+"件")+(string.IsNullOrWhiteSpace(step.step.body)?"":" ｜ "+step.step.body);
             // The reason comes first, so a flagged step says what to fix without opening it.
-            string reason=hasIssue?StepIssueReason(step.nodeId):hasWarning?"距離が小さすぎて、成立しない可能性があります":null;
+            string reason=hasIssue?StepIssueReason(step.nodeId):null;
             if(reason!=null) summary="⚠ "+reason+"\n"+summary;
-            row.Set(hasIssue?"⚠ "+title+"（要修正）":hasWarning?"⚠ "+title+"（要確認）":title,summary,(i+1).ToString(),step.nodeId==stepId,!hasIssue && !hasWarning);
+            row.Set(hasIssue?"⚠ "+title+"（要修正）":title,summary,(i+1).ToString(),step.nodeId==stepId,!hasIssue);
             row.button.onClick.AddListener(()=>
             {
                 // During a trial the card moves the trial to that step instead of silently leaving it.
@@ -1195,6 +1153,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
             members.Add(part);
         }
         objectCountText=string.IsNullOrWhiteSpace(partsFilter)?rootCount+"件":matchCount+"件が一致";
+        placedRootCount=rootCount;
         var visible=new HashSet<object>(rowsData.Select(r=>r.Key));
         foreach (var removed in placedRows.Keys.Where(p => p == null || (p is PlacedObject placedKey && placedKey == null) || !visible.Contains(p)).ToArray())
         {
@@ -1444,7 +1403,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         if(view.conditionList!=null) view.conditionList.SetItems(conditions.Select((c,i)=>ConditionItem(c,i,lookup)).ToList());
         view.Text("conditionSummary",Step==null?"先に手順を追加してください":Condition==null?"完了条件がありません。下の＋で追加してください":
             SkillSyncConditionEditing.Summary(Condition.condition)+(valid?"":"\n\n⚠ "+(issueByCondition.TryGetValue(Condition.nodeId,out var conditionIssue)?conditionIssue.what+"。"+conditionIssue.action:"対象が未設定です")));
-        SkillSyncConditionEditorView.Refresh(view,Condition?.condition,canTrial,Condition!=null && distanceWarnings.TryGetValue(Condition.nodeId,out var warning)?warning:null);
+        SkillSyncConditionEditorView.Refresh(view,Condition?.condition,canTrial);
         view.SetVisible("IssueChip",issues.Count>0 && !Modal && graph.GetDisplayOrderedSteps().Count>0);
         if(issues.Count>0) view.SetCaption("IssueChip","⚠ 要修正 "+issues.Count+"件");
         view.Enable("▶ この条件を試す",true);
@@ -1465,9 +1424,9 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         if(noParts) guide?.SetEmptyHint("部品を置いてみましょう","① 左の「部品を追加」から、置きたい部品をクリック\n② 3D画面の置きたい場所をクリック\n（部品を3D画面へドラッグしても置けます）");
         else if(noSteps) guide?.SetEmptyHint("最初の手順を作りましょう","左下の「＋ 手順を追加」を押すと、手順が1つ増えます。\n手順ごとに、完了の条件を右側で決めます");
         else guide?.SetEmptyHint(null,null);
-        guide?.Refresh(view.State==0 || view.State==3,libraryEmptyText);
+        guide?.Refresh((view.State==0 || view.State==3) && leftTabs?.ShowingPlaced!=true,libraryEmptyText);
         // Empty screens show only what can be used: no parts → no parts search; no steps → only the right panel's heading.
-        if(partsSearch!=null) partsSearch.gameObject.SetActive(Placed.Length>0 || !string.IsNullOrEmpty(partsFilter));
+        leftTabs?.Apply(placedRootCount,!string.IsNullOrEmpty(partsFilter));
         if(noSteps) view.HideInspectorBelowHeading();
         view.Text("status",pickTarget!=null?status:ghost!=null?"＋ 部品を置く場所を選んでいます":trial!=null?trial.Complete?"✓ 条件が成立しました":"▶ 動作確認中：部品をドラッグするか、矢印や輪のつまみで動かして確かめます":current!=null?"Escで選択を解除":"部品を選択してください"); // the right panel already names what is selected
         if(trial==null) view.viewportDistance.text=valid && distanceCondition?$"現在の距離 {Vector3.Distance(SkillSyncTrialSession.Center(a.transform),SkillSyncTrialSession.Center(b.transform))*100:0} cm":"";
@@ -1508,7 +1467,6 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         bool valid=SkillSyncConditionEditing.TargetsValid(c,lookup.ContainsKey),warn=true;
         string detail;
         if(!valid) detail="⚠ "+(issueByCondition.TryGetValue(node.nodeId,out var issue)?issue.what:"対象が未設定です");
-        else if(distanceWarnings.ContainsKey(node.nodeId)) detail="⚠ 距離が小さすぎて成立しない可能性があります";
         else {warn=false;detail=SkillSyncConditionEditing.SupportsPcTrial(c)?SkillSyncConditionEditing.Detail(c):SkillSyncConditionEditing.PcUnsupportedText;}
         bool selected=node.nodeId==conditionId;
         return new SkillSyncItemList.Item{id=node.nodeId,number=index+1,title=(ConditionTypeCatalog.Find(c.type)?.label??"未対応の条件")+"："+targets,
@@ -1855,21 +1813,11 @@ public sealed class SkillSyncEditorController : MonoBehaviour
             Refresh();
         }
     }
-    // Steps whose distance condition is smaller than the parts' sizes allow, for the export notice.
-    string DistanceCaution()
-    {
-        RecomputeDistanceWarnings();
-        if(distanceWarnings.Count==0) return "";
-        var steps=graph.GetDisplayOrderedSteps();
-        var numbers=steps.Select((step,i)=>stepsWithWarning.Contains(step.nodeId)?"手順"+(i+1):null).Where(n=>n!=null);
-        return "（"+string.Join("・",numbers)+"の距離は小さすぎて、成立しない可能性があります）";
-    }
     void Export()
     {
         if(trial!=null || ghost!=null) return;
         // The export saves the lesson first, so a never-saved lesson is named (and a name clash confirmed) before anything is written.
         if(!project.HasSavedFile) {EditorProjectSaveFlow.Run(project,saved=>{if(saved) Export();});return;}
-        string caution=DistanceCaution();
         // Only a lesson that can be exported asks where to put it; problems are reported right away.
         string root=null;
         if(graph.ValidateGraph().CanExport)
@@ -1900,9 +1848,9 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         if(result.outcome==TeachingMaterialExportWorkflow.Outcome.Exported)
         {
             string zip=TeachingMaterialArchive.GetPath(result.exportPath);
-            string message="教材を書き出しました。XRアプリには「"+System.IO.Path.GetFileName(zip)+"」を渡してください"+caution;
+            string message="教材を書き出しました。XRアプリには「"+System.IO.Path.GetFileName(zip)+"」を渡してください";
             string dir=System.IO.Path.GetDirectoryName(result.exportPath);
-            float seconds=caution.Length>0?24f:16f;
+            float seconds=16f;
             if(string.IsNullOrEmpty(dir) || !System.IO.Path.IsPathRooted(dir))
                 TopCenterNotification.Ensure(transform, view.inspectorTitle)?.Show(message, false, 8f);
             else

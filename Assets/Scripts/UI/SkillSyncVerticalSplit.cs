@@ -28,10 +28,14 @@ public sealed class SkillSyncVerticalSplit : MonoBehaviour, IBeginDragHandler, I
     public void OnDrag(PointerEventData e) {SetOffset(start+pointer-Local(e));}
     float Local(PointerEventData e) {RectTransformUtility.ScreenPointToLocalPointInRectangle((RectTransform)view.transform,e.position,e.pressEventCamera,out var p);return p.y;}
     public void SetOffset(float value) {Offset=Mathf.Clamp(value,-330,70);Apply();}
+    // The list below the 3D screen moved to the left panel: the screen takes the strip (down to its status bar)
+    // and there is nothing left to resize, so the handle goes away. Trial states keep their learner panel.
+    float collapsed=-1;
+    public void Collapse(float amount) {collapsed=amount;Apply();}
     public void Apply() {
         bool active=view.State==0||view.State==1||view.State==3||view.State==5;
-        gameObject.SetActive(active);
-        float delta=active?Offset:0;
+        gameObject.SetActive(active && collapsed<0);
+        float delta=active?collapsed>=0?collapsed:Offset:0;
         foreach(var item in items) {
             var p=item.rect.anchoredPosition;p.y=item.y-delta*item.move;item.rect.anchoredPosition=p;
             item.rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical,item.height+delta*item.grow);

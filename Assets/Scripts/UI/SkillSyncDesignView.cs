@@ -786,6 +786,65 @@ public sealed class SkillSyncDesignView : MonoBehaviour
         foreach (var go in hiddenInspector) if (go != null) go.SetActive(true);
         hiddenInspector.Clear();
     }
+    // The step title is an input like the others: a bordered box with an example while it is empty. The generated
+    // field had neither (an empty line with a caret). The description keeps its box and gets an example too.
+    public void EnsureStepTextFields()
+    {
+        var title = fields?.FirstOrDefault(f => f.role == "stepTitle")?.input;
+        if (title != null)
+        {
+            var rect = (RectTransform)title.transform;
+            if (rect.Find("Box") == null)
+            {
+                var box = new GameObject("Box", typeof(RectTransform), typeof(SkillSyncRoundedGraphic)).GetComponent<RectTransform>();
+                box.SetParent(rect, false); box.SetAsFirstSibling();
+                box.anchorMin = Vector2.zero; box.anchorMax = Vector2.one; box.offsetMin = box.offsetMax = Vector2.zero;
+                var surface = box.GetComponent<SkillSyncRoundedGraphic>();
+                surface.color = Color.white; surface.borderColor = new Color32(205, 213, 224, 255); surface.borderWidth = 1; surface.radius = 8;
+                surface.raycastTarget = false;
+                // Same height as the delete button beside it, about the same centre line.
+                const float height = 44;
+                rect.anchoredPosition += Vector2.up * (height - rect.sizeDelta.y) / 2;
+                rect.sizeDelta = new Vector2(rect.sizeDelta.x, height);
+            }
+            var area = title.textViewport;
+            area.anchorMin = Vector2.zero; area.anchorMax = Vector2.one; area.offsetMin = new Vector2(14, 0); area.offsetMax = new Vector2(-14, 0);
+            var text = title.textComponent;
+            text.rectTransform.anchorMin = Vector2.zero; text.rectTransform.anchorMax = Vector2.one;
+            text.rectTransform.offsetMin = text.rectTransform.offsetMax = Vector2.zero;
+            // TMP puts the caret of an empty field at the text's origin; with the generated top-left pivot that is the box's top edge.
+            text.rectTransform.pivot = new Vector2(.5f, .5f);
+            // Regular weight and size like the other inputs (the name field, the description).
+            var description = fields.FirstOrDefault(f => f.role == "body")?.input;
+            if (description != null) { text.font = description.textComponent.font; text.fontSharedMaterial = description.textComponent.fontSharedMaterial; }
+            text.fontSize = 17; text.fontStyle = FontStyles.Normal; text.alignment = TextAlignmentOptions.MidlineLeft;
+            text.ForceMeshUpdate(true);
+            // A caret made before this restyle keeps the old text rect; it follows the text again.
+            foreach (Transform child in area)
+                if (child != text.transform && child.GetComponent<TMP_SelectionCaret>() != null)
+                {
+                    var caret = (RectTransform)child;
+                    caret.anchorMin = Vector2.zero; caret.anchorMax = Vector2.one; caret.pivot = text.rectTransform.pivot; caret.offsetMin = caret.offsetMax = Vector2.zero;
+                }
+            AddPlaceholder(title, "例：ナット1を外す");
+        }
+        var body = fields?.FirstOrDefault(f => f.role == "body")?.input;
+        if (body != null) AddPlaceholder(body, "例：レンチでナットを左に回して外します");
+    }
+
+    static void AddPlaceholder(TMP_InputField input, string example)
+    {
+        if (input.placeholder is TMP_Text existing) { existing.text = example; return; }
+        var placeholder = Instantiate(input.textComponent, input.textComponent.transform.parent);
+        placeholder.name = "Placeholder";
+        placeholder.text = example;
+        placeholder.color = new Color32(138, 150, 168, 255);
+        placeholder.fontStyle = FontStyles.Normal;
+        placeholder.raycastTarget = false;
+        placeholder.transform.SetSiblingIndex(input.textComponent.transform.GetSiblingIndex());
+        input.placeholder = placeholder;
+    }
+
     public void Focus(string role)
     {
         foreach (var f in fields) if (f.role == role && f.input.gameObject.activeInHierarchy)

@@ -227,11 +227,10 @@ public static class ConditionEditorLayoutChecks
             {
                 id = "condition-" + i, number = i + 1, selected = i == 0, tag = i == 0 ? "編集中" : null, warn = i == 0 && warning,
                 title = "近づけて保持：長い名前の対象部品でも欄からはみ出さないことを確認する → ジャッキ",
-                detail = i == 0 && warning ? "⚠ 距離が小さすぎて成立しない可能性があります" : SkillSyncConditionEditing.PcUnsupportedText
+                detail = i == 0 && warning ? "⚠ 対象の部品が見つかりません" : SkillSyncConditionEditing.PcUnsupportedText
             }).ToList();
             list.SetItems(items);
-            SkillSyncConditionEditorView.Refresh(view, Condition(type), true,
-                warning ? SkillSyncConditionEditing.DistanceWarning(.1f, 1.2f) : null);
+            SkillSyncConditionEditorView.Refresh(view, Condition(type), true);
             Check(view, type);
             Canvas.ForceUpdateCanvases();
             string name = $"list of {count} ({type}, warning={warning})";
@@ -245,7 +244,8 @@ public static class ConditionEditorLayoutChecks
             float visible = Mathf.Min(list.ContentHeight, listRect.rect.height);
             Require(listRect.rect.height >= Mathf.Min(list.ContentHeight, SkillSyncItemList.RowHeight) - .5f, name + " shows at least one row");
             // A tall editor (two targets plus two values) leaves room for one row and a peek of the next, which invites scrolling.
-            if (count <= 2) Require(listRect.rect.height >= Mathf.Min(list.ContentHeight, SkillSyncItemList.RowHeight * 1.5f) - .5f, name + " shows the first condition and hints at the next");
+            float rowsShown = (listRect.rect.height + SkillSyncItemList.RowGap) / (SkillSyncItemList.RowHeight + SkillSyncItemList.RowGap);
+            Require(Mathf.Abs(rowsShown - Mathf.Round(rowsShown)) < .01f, name + " shows whole rows only");
             var row = listRect.Find("Viewport/Content/Row_0");
             Require(row != null && row.Find("Tag") != null, name + " marks the condition being edited");
             foreach (string part in new[] { "Title", "Detail" })
@@ -275,10 +275,9 @@ public static class ConditionEditorLayoutChecks
             {
                 id = "condition-" + i, number = i + 1, selected = i == 0, tag = i == 0 ? "編集中" : null, warn = i == 0 && warning,
                 title = (i % 2 == 0 ? "近づけて保持" : "回す") + "：ジャッキ → 設置枠" + (i == 1 ? "（長い名前の対象部品でも欄からはみ出さない）" : ""),
-                detail = i == 0 && warning ? "⚠ 距離が小さすぎて成立しない可能性があります" : i % 2 == 1 ? SkillSyncConditionEditing.PcUnsupportedText : "10 cm以内に1秒とどまると完了"
+                detail = i == 0 && warning ? "⚠ 対象の部品が見つかりません" : i % 2 == 1 ? SkillSyncConditionEditing.PcUnsupportedText : "10 cm以内に1秒とどまると完了"
             }).ToList());
-            SkillSyncConditionEditorView.Refresh(view, Condition(type), true,
-                warning ? SkillSyncConditionEditing.DistanceWarning(.1f, 1.2f) : null);
+            SkillSyncConditionEditorView.Refresh(view, Condition(type), true);
             Canvas.ForceUpdateCanvases();
             captures.Add(Render(root, view));
         }

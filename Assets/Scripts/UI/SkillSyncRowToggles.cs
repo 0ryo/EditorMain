@@ -9,6 +9,8 @@ using UnityEngine.UI;
 public sealed class SkillSyncRowToggles : MonoBehaviour
 {
     public const float Slot = 36f, Margin = 10f, Reserved = Margin * 2 + Slot * 2;
+    // Smaller buttons for the compact rows of the left panel.
+    public const float CompactSlot = 26f, CompactMargin = 6f, CompactReserved = CompactMargin * 2 + CompactSlot * 2;
     public Action toggleHidden, toggleLocked;
     SkillSyncIconGraphic eye, padlock;
     SkillSyncHoverTip eyeTip, lockTip;
@@ -16,18 +18,20 @@ public sealed class SkillSyncRowToggles : MonoBehaviour
     public static SkillSyncRowToggles Add(SkillSyncDesignRow row, TMP_FontAsset font)
     {
         var toggles = row.gameObject.AddComponent<SkillSyncRowToggles>();
-        toggles.padlock = toggles.NewButton("LockToggle", -Margin, font, out toggles.lockTip, () => toggles.toggleLocked?.Invoke());
-        toggles.eye = toggles.NewButton("VisibilityToggle", -Margin - Slot, font, out toggles.eyeTip, () => toggles.toggleHidden?.Invoke());
+        float slot = row.compact ? CompactSlot : Slot, margin = row.compact ? CompactMargin : Margin;
+        toggles.padlock = toggles.NewButton("LockToggle", -margin, slot, font, out toggles.lockTip, () => toggles.toggleLocked?.Invoke());
+        toggles.eye = toggles.NewButton("VisibilityToggle", -margin - slot, slot, font, out toggles.eyeTip, () => toggles.toggleHidden?.Invoke());
         return toggles;
     }
 
-    SkillSyncIconGraphic NewButton(string name, float x, TMP_FontAsset font, out SkillSyncHoverTip tip, UnityEngine.Events.UnityAction click)
+    SkillSyncIconGraphic NewButton(string name, float x, float slot, TMP_FontAsset font, out SkillSyncHoverTip tip, UnityEngine.Events.UnityAction click)
     {
-        var go = new GameObject(name, typeof(RectTransform), typeof(SkillSyncIconGraphic), typeof(Button), typeof(EditorUiInputBlocker), typeof(SkillSyncHoverTip));
+        // CanvasRenderer is listed explicitly: without it the icon (a custom Graphic) is never drawn.
+        var go = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(SkillSyncIconGraphic), typeof(Button), typeof(EditorUiInputBlocker), typeof(SkillSyncHoverTip));
         var rect = (RectTransform)go.transform;
         rect.SetParent(transform, false);
         rect.anchorMin = rect.anchorMax = new Vector2(1, .5f); rect.pivot = new Vector2(1, .5f);
-        rect.sizeDelta = new Vector2(Slot, Slot); rect.anchoredPosition = new Vector2(x, 0);
+        rect.sizeDelta = new Vector2(slot, slot); rect.anchoredPosition = new Vector2(x, 0);
         var icon = go.GetComponent<SkillSyncIconGraphic>();
         icon.raycastTarget = true;
         var button = go.GetComponent<Button>();

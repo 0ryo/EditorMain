@@ -47,7 +47,8 @@ public static class ConditionTypeCatalog
             label = "近づけて保持",
             parameters = new[]
             {
-                Parameter(DistanceKey, "距離 (m)", 0.1f, 0.001f, 10f),
+                // 0–100 cm: the XR side handles any distance in this range (even 0), so the editor never warns about it.
+                Parameter(DistanceKey, "距離 (m)", 0.1f, 0f, 1f),
                 Parameter(HoldSecondsKey, "近づけたまま (秒)", 1f, 0f, 600f)
             }
         },
@@ -57,7 +58,7 @@ public static class ConditionTypeCatalog
             label = "近づける",
             parameters = new[]
             {
-                Parameter(DistanceKey, "距離 (m)", 0.1f, 0.001f, 10f)
+                Parameter(DistanceKey, "距離 (m)", 0.1f, 0f, 1f)
             }
         },
         new Definition

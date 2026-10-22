@@ -109,7 +109,7 @@ public static class SkillSyncConditionEditorView
         Layout(view, new ConditionNodeData { type = ConditionTypeCatalog.SnapHold });
     }
 
-    public static void Refresh(SkillSyncDesignView view, ConditionNodeData condition, bool canTrial, string warning = null)
+    public static void Refresh(SkillSyncDesignView view, ConditionNodeData condition, bool canTrial)
     {
         bool requiresB = condition != null && ConditionTypeCatalog.RequiresObjectB(condition.type);
         bool editing = view.State == 1, inspector = editing || view.State == 5;
@@ -178,18 +178,16 @@ public static class SkillSyncConditionEditorView
         if (view.objectBThumbnail != null) view.objectBThumbnail.gameObject.SetActive(inspector && condition != null && requiresB);
         view.holdProgress.gameObject.SetActive(holdTrial && (view.State == 2 || view.State == 4));
         var definition = ConditionTypeCatalog.Find(condition?.type);
-        view.Text("conditionEditorNote", NoteText(condition, definition, warning));
+        view.Text("conditionEditorNote", NoteText(condition, definition));
         if (view.conditionList != null)
             view.conditionList.gameObject.SetActive((editing || view.State == 5) && condition != null && view.conditionList.Count > 1);
         if (inspector) Layout(view, condition);
     }
 
-    static string NoteText(ConditionNodeData condition, ConditionTypeCatalog.Definition definition, string warning)
+    static string NoteText(ConditionNodeData condition, ConditionTypeCatalog.Definition definition)
     {
         if (condition == null) return "種類を選び、対象を設定してください";
         if (definition == null) return "未対応の条件です。種類を確認してください";
-        // The warning is the more urgent explanation, so it replaces the plain one.
-        if (!string.IsNullOrEmpty(warning)) return "<color=#B45309>⚠ " + warning + "</color>";
         return SkillSyncConditionEditing.Criteria(condition);
     }
 
@@ -455,6 +453,11 @@ public static class SkillSyncConditionEditorView
         var item = template.Find("Viewport/Content/Item") as RectTransform;
         if (item == null) return;
         item.anchorMin = new Vector2(0, 1); item.anchorMax = new Vector2(1, 1);
+        // The list's layout sizes each row to the full width; otherwise rows keep a default 100 px width and the
+        // highlight of the hovered or selected row stops partway across.
+        var rows = item.parent.GetComponent<UnityEngine.UI.VerticalLayoutGroup>();
+        if (rows != null) { rows.childControlWidth = true; rows.childForceExpandWidth = true; rows.padding = new RectOffset(0, 0, 4, 4); }
+        item.sizeDelta = new Vector2(0, item.sizeDelta.y);
         var toggle = item.GetComponent<UnityEngine.UI.Toggle>();
         if (toggle == null) return;
         var colors = toggle.colors;
@@ -481,7 +484,7 @@ public static class SkillSyncConditionEditorView
             if (dropdown.template != null)
             {
                 var offset = dropdown.template.offsetMin;
-                dropdown.template.offsetMin = new Vector2(offset.x, -36 * labels.Count);
+                dropdown.template.offsetMin = new Vector2(offset.x, -36 * labels.Count - 8); // rows plus the list's 4 px top and bottom padding
             }
         }
         dropdown.SetValueWithoutNotify(Mathf.Max(0, selectedType));
@@ -621,7 +624,10 @@ public static class SkillSyncConditionEditorView
         {
             // The list is the summary: one card per condition, shortened to the space the inspector has left.
             float available = BottomLimit - (44 + Padding) - cursor - 2 * ListPadding;
-            float visible = Mathf.Min(list.ContentHeight, Mathf.Max(0, available));
+            // Whole rows only: a row cut in half at an edge reads as broken, and the list scrolls row by row.
+            float step = SkillSyncItemList.RowHeight + SkillSyncItemList.RowGap;
+            int rows = Mathf.Max(1, Mathf.FloorToInt((Mathf.Max(0, available) + SkillSyncItemList.RowGap) / step));
+            float visible = Mathf.Min(list.ContentHeight, rows * step - SkillSyncItemList.RowGap);
             float boxHeight = visible + 2 * ListPadding;
             PlaceRole("conditionSummaryBox", 1184, cursor, CardWidth, boxHeight);
             list.SetBounds(X(1184) + ListPadding, cursor + ListPadding, CardWidth - 2 * ListPadding, visible);

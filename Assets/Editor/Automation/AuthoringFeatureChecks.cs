@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEditor;
 using UnityEngine;
 
@@ -44,15 +45,12 @@ public static class AuthoringFeatureChecks
 
     static void CheckConditions()
     {
-        // A distance far below what the two parts' sizes allow is warned about; reachable distances are not.
-        float apart = SkillSyncConditionEditing.MinimumCenterDistance(.9f, .75f, 2.2f, .25f, .2f, .15f);
-        Check(System.Math.Abs(apart - .75f) < .0001f, "Nearest centre distance uses the thicker part's thinnest half size");
-        float onMarker = SkillSyncConditionEditing.MinimumCenterDistance(.25f, .2f, .15f, .3f, .005f, .3f);
-        Check(SkillSyncConditionEditing.DistanceWarning(.1f, onMarker) == null, "A jack moved onto a flat marker frame is not warned");
-        Check(SkillSyncConditionEditing.DistanceWarning(.1f, apart) != null, "A 10 cm limit between a car and a jack is warned");
-        Check(SkillSyncConditionEditing.DistanceWarning(.1f, apart).Contains("目印"), "The warning points to a marker part");
-        Check(SkillSyncConditionEditing.DistanceWarning(.6f, apart) == null, "A distance within reach of the sizes is not warned");
-        Check(SkillSyncConditionEditing.DistanceWarning(.1f, 0f) == null, "Unknown sizes are never warned");
+        // Any distance from 0 to 100 cm is accepted as it is (the XR side handles it); nothing is warned about.
+        foreach (var type in new[] { ConditionTypeCatalog.SnapHold, ConditionTypeCatalog.Proximity })
+        {
+            var distance = ConditionTypeCatalog.Find(type).parameters.First(p => p.key == ConditionTypeCatalog.DistanceKey);
+            Check(distance.minValue == 0f && distance.maxValue == 1f, type + " distance range is 0–100 cm");
+        }
         var source = new States();
         source.values["a"] = new ScenarioObjectState { rotation = Quaternion.identity };
         source.values["b"] = new ScenarioObjectState { position = new Vector3(0.05f, 0f, 0f), rotation = Quaternion.identity };

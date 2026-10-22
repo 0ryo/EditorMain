@@ -129,7 +129,14 @@ public sealed class RecoveryStartupWarningTests
     {
         var project = Activator.CreateInstance(RuntimeType("EditorProjectFile"));
         project.GetType().GetField("projectName").SetValue(project, "Previous lesson");
-        string original = (string)storeType.GetMethod("Save").Invoke(null, new[] { project, "Previous lesson" });
+        // The saved lesson differs from the recovery: a recovery identical to a saved lesson is dropped, not protected.
+        var saved = Activator.CreateInstance(RuntimeType("EditorProjectFile"));
+        saved.GetType().GetField("projectName").SetValue(saved, "Previous lesson");
+        var objects = (System.Collections.IList)saved.GetType().GetField("objects").GetValue(saved);
+        var placed = Activator.CreateInstance(RuntimeType("EditorProjectObject"));
+        placed.GetType().GetField("id").SetValue(placed, "saved-only");
+        objects.Add(placed);
+        string original = (string)storeType.GetMethod("Save").Invoke(null, new[] { saved, "Previous lesson" });
         string originalBytes = File.ReadAllText(original);
         storeType.GetMethod("SaveRecovery").Invoke(null, new[] { project });
         string recoveryBytes = File.ReadAllText(RecoveryPath);

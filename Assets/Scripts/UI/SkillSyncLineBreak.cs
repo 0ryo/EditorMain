@@ -39,12 +39,23 @@ public sealed class SkillSyncLineBreak : ITextPreprocessor
             int start = i;
             while (i < text.Length && Kind(text[i]) == 1) i++;          // kanji, katakana, latin, digits
             while (i < text.Length && Kind(text[i]) == 2) i++;          // the hiragana that follow
+            // Closing brackets and punctuation belong to the phrase before them, and so do the particles after a bracket
+            // (「動かすもの」と stays one piece; a line never starts with 」).
+            while (i > start && i < text.Length && Closing(text[i]))
+            {
+                i++;
+                while (i < text.Length && Kind(text[i]) == 2) i++;
+            }
             if (i == start)
             {
                 // Punctuation, spaces, line breaks. TMP does not break after 。、」 by itself, so a break is offered there too.
                 char c = text[i++];
+                // "⚠ 完了条件…": a mark and the word after it stay together (no-break space instead of a break point).
+                if (c == ' ' && i >= 2 && IsMark(text[i - 2])) { builder.Append('\u00A0'); continue; }
+                // A line may break before an opening bracket, never after it.
+                if (Opening(c) && builder.Length > 0 && builder[builder.Length - 1] != '\u200B' && !char.IsWhiteSpace(builder[builder.Length - 1])) builder.Append('\u200B');
                 builder.Append(c);
-                if (i < text.Length && Kind(text[i]) != 0 && "「『（［【〈《(".IndexOf(c) < 0 && !char.IsWhiteSpace(c)) builder.Append('\u200B');
+                if (i < text.Length && Kind(text[i]) != 0 && !Opening(c) && !char.IsWhiteSpace(c)) builder.Append('\u200B');
                 continue;
             }
             if (i - start == 1) builder.Append(text[start]);
@@ -62,6 +73,15 @@ public sealed class SkillSyncLineBreak : ITextPreprocessor
         if (c >= '゠' && c <= 'ヿ' || c >= '一' && c <= '鿿' || c == '々') return 1;
         if (c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z' || c >= '0' && c <= '9' || c >= '０' && c <= 'ｚ') return 1;
         return 0;
+    }
+
+    static bool Opening(char c) => "「『（［【〈《(".IndexOf(c) >= 0;
+    static bool Closing(char c) => "」』）］】〉》)、。，．！？：・".IndexOf(c) >= 0;
+
+    static bool IsMark(char c)
+    {
+        var category = char.GetUnicodeCategory(c);
+        return category == System.Globalization.UnicodeCategory.OtherSymbol || category == System.Globalization.UnicodeCategory.MathSymbol || c == '●' || c == '▶';
     }
 
     static bool HasJapanese(string text)
