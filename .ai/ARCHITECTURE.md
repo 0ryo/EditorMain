@@ -17,7 +17,7 @@ CatalogUI → PlacementController → workspace plane + snap
 
 PlacedObject IDs → CurriculumGraphService ← ScenarioGraphUI
         ↓                 ↓ validate/export
-EditorProjectService   Exports/XR教材データ-<日時>/*.json + ZIP（Editor: project直下）
+EditorProjectService   Exports/<教材名>-<日時>/*.json + ZIP（既定。書き出し時に保存先を選択可）
         ↓
 persistentDataPath/Projects/*.skillsync.json
 ```
@@ -56,10 +56,27 @@ persistentDataPath/Projects/*.skillsync.json
 - `ApplyViewportImprovements`は使用中の各URP assetへ`SkillSyncViewportRenderer`を冪等に追加する。既存Renderer index／既定Rendererは維持し、runtimeは名前で専用Rendererを見つけて編集カメラだけに指定する。新しい品質設定を追加した場合も再適用する。
 - ギズモの描画幅はカメラ深度と画面高さから算出し、選択用の幅は独立して確保する。床・照明・ギズモは保存・出力対象にしない。
 
+### 固定UIの共通部品（2026-10 初見UX改善）
+
+- 起動時は`SkillSyncStartScreen`（新規／テンプレート／見本／最近の教材／復旧dataの案内）を出し、前回教材を自動で開かない。見本は`Assets/StreamingAssets/Samples/`の教材＋GLBを未保存のコピーとして開き、見本fileへは書かない。
+- 元に戻せる削除（部品・手順・完了条件・ゴミ箱へ移す）は確認せず即時に実行し、影響を書いた「元に戻す」付き通知（8秒、ポインタを乗せている間は消えない）を出す。部品削除は`SelectionService.DeleteGuard`の`DeleteObjectsWithUndo`が実削除まで行う。取り返しのつかない操作（上書き、復旧dataの破棄、未保存の破棄、終了）だけ`SkillSyncConfirmDialog`（runtime生成の中央モーダル、Esc=取消、Enter=主ボタン、`Show`は即時return）で確認する。通し確認の完了画面も同じダイアログを使う。
+- 上部通知（`TopCenterNotification`）は、ボタンなしの情報通知どうしなら新しいものが即座に置き換える。エラーと「元に戻す」付き通知は置き換えない。結果が画面で見える頻繁な操作（大きさ・高さ・角度・手順移動・吸着・視点）は通知しない。
+- 手順・条件の未入力（完了条件なし`E-06`、対象未設定`E-08`）は、書き出しを試すまで「未完成：」の中立表示にし、⚠（要修正）は付けない。部品削除による参照切れなど実際の不整合は常に⚠。
+- 動作確認画面の右パネルは`SkillSyncConditionEditorView.LayoutTrial`が、表示中の要素だけを上から詰めて並べる。デザイン原本の座標からの差分で動かす。原本座標を直接いじったり、要素ごとに固定座標を足したりしない。
+- 教材ごとの「続き」（配置／手順、選んでいた手順と条件、左タブ、視点）は`SkillSyncViewMemory`がPlayerPrefsに教材pathのhashで保存する。教材fileには入れない。controllerは0.25秒ごとの更新で、開いている教材のpathが変わったことを検知し、保存してから復元する。初回保存やリネームでは何も復元しない。
+- ボタンやキーによる視点変更は、`EditorCameraController.Transition`で0.3秒補間する。navigation入力があればその場で止まる。新しい視点操作も`Transition`か`BeginTransition`を通す。
+- 固定UIの数値欄は`SkillSyncConditionEditing.TryParseNumber`で解釈する（全角・単位・桁区切りを許容）。IMEの全角入力を黙って捨てるため、`TMP_InputField`の数値`contentType`は使わない。
+- runtime生成の中央モーダル・メニューは`EditWorkspace.GetOpenModalRoot`へ登録しないと3D編集とshortcutを遮断できない。
+- ヘッダー右側のボタン列（書き出し／教材を開く／ヘルプ／保存／新規。通知履歴と要修正チップはcontrolとして残し非表示）は`SkillSyncDesignView.EnsureProjectFileControls`が右から幅を測って並べる。ヘッダーへ要素を足すときはここに組み込む。
+- 配置した部品の一覧は3D画面の下ではなく、配置画面の左パネルのタブ（`SkillSyncLeftTabs`：「部品を追加」／「配置した部品 n」）にある。行は`SkillSyncDesignRow.compact`の狭い行。下部の帯は`SkillSyncVerticalSplit.Collapse`で3D画面に渡し（下端はステータスバー）、動作確認（state 2/4）だけ学習者パネルのため元の高さに戻る。手順画面には部品一覧を出さない。左パネルのタブは表示マスクで配置専用の要素だけを切り替えるので、手順画面の要素は触らない。
+- 操作不能のボタン・入力欄は`SkillSyncDisabledLook`で薄く表示し、`SkillSyncHoverTip`で理由を出す。用語の統一は`SkillSyncTerms`、記号ボタンの説明は`SkillSyncButtonTips`。
+- Undo/Redoは`CommandStack.UndoDescription`/`RedoDescription`と`HistoryApplied`で日本語の説明を通知する。新しいcommandは`IDescribedEditorCommand`か`ICommandSubject`で説明を持たせる（無ければ「編集」）。
+
 ### シナリオ
 
 - `SkillSyncTrialSession`: PlacedObjectや保存対象のscriptを持たない表示専用コピーで条件を試行する。`MoveTool`のpreview対象としてギズモ操作し、編集選択・Undo履歴を変えず通常のカメラ操作を許可する。再試行ではコピーの位置・回転・scaleを戻し、終了時に原本の描画と編集toolの有効状態を復元する。
 - `Core/CurriculumModel.cs`: 編集モデル。Start/End/Step/ConditionとStepFlow/ConditionBind、Step詳細、拡張可能なCondition parameterを明示するschema version 5。Condition種別定義と既定parameterは`ConditionTypeCatalog`へ集約する。
+- `SkillSyncTrialAutoplay`: 動作確認中に、各条件の理想の動作（移動・回転・保持）を表示専用コピーへ順に再生する。教材data・選択・Undoには触れない。選択中のコピーが再生以外で動いたら、その手順は手動に切り替わる。controllerの`Update`から`Tick`し、`true`が返ったら`AdvanceTrial`を呼ぶ。
 - `CurriculumGraphService`: node/edge操作、接続制約、欠損参照を保持した検証、分岐・合流を含むStep経路の検証と表示順生成、export model変換。UI非依存の中心サービス。
 - `ScenarioGraphUI`: nodeの配置・接続操作、status表示、保存処理を統括する。4種のnode生成と再構築時の破棄は`ScenarioNodeViewFactory`、旧Prefabの不足template補完は`ScenarioNodeTemplateFactory`へ委譲し、位置・展開状態と編集操作のcallbackはUI側で保持する。検証結果を各nodeの文字badgeと枠へ常時反映し、`ScenarioValidationPanel`の前後navigationから問題nodeへfocusする。検証済みgraphは`ScenarioPreviewPanel`で成功を模擬し、接続に沿って進路を選んで確認できる。
 - `ScenarioGraphSelection`はgraph UIの複数選択・集合移動・端揃えを扱い、`CurriculumGraphClipboard`はservice経由で選択ノードと内部接続をsnapshot複製する。Stepの埋込条件も含め、新node IDを発行する。
@@ -67,7 +84,7 @@ persistentDataPath/Projects/*.skillsync.json
 - `StepNodeUI` / `ConditionNodeUI` / `ConditionRowUI` / `TerminalNodeUI`: node単位の表示と編集。Step/Conditionの再同期はgraph/command/placement eventで行い、定期pollingしない。
 - `ObjectDetailPanel`: 選択中 `PlacedObject` の名前/説明と、詳細パネルの開閉を担当する。参照しているCondition nodeの探索はGraphChangedでdirty化して表示時に再描画する。差分判定、互換UI生成、編集後のgraph再同期は`ObjectConditionReferencePresenter`へ委譲する。
 - `Core/ScenarioExportModel.cs`: JSON出力用のversion 6モデル。編集用graphをそのまま保存せず、Step詳細、Condition parameter、接続先IDを含む `requiredActions` へ変換する。実行順は配列順ではなく接続先IDが正本。配置ルート内の`parts`で部品IDと編集状態を渡す。
-- `Core/EditorProjectModel.cs` / `EditorProjectService`: 配置Transform・表示情報・lock/hidden状態と`Curriculum`を一体で保存する。読込時は配置IDの欠損・重複を一意IDへ修復し、typeId解決を検証してから現在内容を完全置換する。編集eventと選択中objectの差分からdirtyを判定し、保存済みprojectは元fileへ、未保存projectは復旧dataへautosaveする。
+- `Core/EditorProjectModel.cs` / `EditorProjectService`: 配置Transform・表示情報・lock/hidden状態と`Curriculum`を一体で保存する。読込時は配置IDの欠損・重複を一意IDへ修復し、typeId解決を検証してから現在内容を完全置換する。編集eventと選択中objectの差分からdirtyを判定する。定期autosaveは保存済み・未保存を問わず`Projects/Recovery`の復旧dataだけへ書き、教材fileは明示保存（保存ボタン/Cmd+S・書き出し前の保存）でのみ変わる。一度も保存していない教材の初回保存と、別教材との同名は`EditorProjectSaveFlow`が名前入力と置き換え確認を必須にする。名前欄の変更は同じfileのリネーム。
 - `EditorProjectStore`: `persistentDataPath/Projects` の `.skillsync.json` をtemp file + backupで保存し、schema migration、保存済み一覧、`Projects/Recovery`の復旧dataを提供する。
 - 教材ライブラリは`Projects/Templates`へ保存済み教材を複製してテンプレート化し、使用時は`Projects`へ別コピーを作る。削除は`Projects/Trash/Projects`または`Trash/Templates`への移動で、復元時は元の分類へ戻す。同名は番号で回避する。現在開いている教材は削除せず、同じ教材名での手動保存はファイル名を再生成せず現在の保存先を使う。教材間の素材ライブラリは共用する。
 
@@ -78,7 +95,7 @@ persistentDataPath/Projects/*.skillsync.json
 - `CatalogUI` のEditor限定経路: `.fbx` を `Assets/ImportedFbx/` へコピー/Importし、Prefabとして登録。
 - `RuntimeExportPathUtility`: 配布先はEditorではproject直下の`Exports`、PlayerではDocumentsの`SkillSync/Exports`（Documentsが取得できない場合はpersistentDataPath配下）。編集projectと素材ライブラリは引き続きpersistentDataPathへ保存する。
 - `PlacementExportService`: Scene上の `PlacedObject` を共通の配布先へplacement JSONとして出力。
-- `TeachingMaterialExportService`: 新旧UIの教材書き出しを共通化し、毎回`XR教材データ-yyyyMMddHHmmss`の新規フォルダー内へ同名のJSON・ZIPと素材を出力する。同秒の衝突は`-2`以降で回避し、既存のまとまりを上書きしない。ZIPにはJSON・GLB/glTF素材・EditorのPrefabパッケージを含む。Editorでは使用typeIdだけのPrefab/FBXとAssets内の依存素材を`.unitypackage`へまとめ、JSONの`prefabPackage`と各modelの`prefabAssetPath`でXR側へ登録対応を渡す。Packages内の依存はXR project側で用意する。
+- `TeachingMaterialExportService`: 新旧UIの教材書き出しを共通化し、毎回`<教材名>-yyyyMMdd-HHmm`（教材名なしの旧経路は`XR教材データ-yyyyMMddHHmmss`）の新規フォルダー内へ同名のJSON・ZIPと素材を出力する。同秒の衝突は`-2`以降で回避し、既存のまとまりを上書きしない。ZIPにはJSON・GLB/glTF素材・EditorのPrefabパッケージを含む。Editorでは使用typeIdだけのPrefab/FBXとAssets内の依存素材を`.unitypackage`へまとめ、JSONの`prefabPackage`と各modelの`prefabAssetPath`でXR側へ登録対応を渡す。Packages内の依存はXR project側で用意する。
 
 ### UI生成・適用
 
@@ -103,7 +120,7 @@ persistentDataPath/Projects/*.skillsync.json
 1. `EditorProjectService` が配置objectと`Curriculum`を編集用modelへ取り込む。
 2. `EditorProjectStore` がschema version 6として`persistentDataPath/Projects`へ保存する。旧形式の部品情報がない配置はルートのみとして読み込む。
 3. 読込時はmigration、配置ID修復、登録済みtypeId検証を先に行い、成功後に既存の配置とgraphを完全置換してUndo履歴をclearする。
-4. 未保存変更はUIへ表示し、保存済みprojectは元fileへ一定間隔でautosaveして一覧の同じ行へ日時を表示する。まだ保存先のないprojectだけ`Projects/Recovery`へ保存し、次回起動時に復元または破棄できる。
+4. 未保存変更はUIへ表示し（未保存／未保存の変更あり／保存済み）、一定間隔で`Projects/Recovery`へ復旧dataを保存する。次回起動時は起動画面と「教材を開く」の注意帯から復旧して開く／破棄を選べる。
 
 ### 配布用シナリオ出力
 
@@ -116,7 +133,7 @@ persistentDataPath/Projects/*.skillsync.json
 
 - Core modelはUnity serialization用のplain classだが、UI classへ依存しない。
 - Graphの規則は `CurriculumGraphService` に集約し、node UIはservice経由で変更する。
-- 条件の新規選択肢と旧形式の互換判定は `ConditionTypeCatalog.Definitions` / `Find` で区別する。操作条件の実行側入力契約は `IScenarioInteractionStateSource`、詳細は `Docs/rules/scenario_rules.md`。
+- 条件の新規選択肢と旧形式の互換判定は `ConditionTypeCatalog.Definitions` / `Find` で区別する。操作条件の実行側入力契約は `IScenarioInteractionStateSource`、詳細は `.ai/SCENARIO_SPEC.md`。
 - 条件候補の検索・ホバーは `ObjectDropdownBrowser` → `ObjectCandidatePreview`。深度なしのMeshマスクから輪郭だけをUIへ重ね、編集選択・元素材・保存データには触れない。Resourcesの専用Shaderへカメラ描画開始時のview/projectionと各Rendererの現在のlocalToWorldを合成して渡し、SRPの暗黙の描画行列に依存しない。`ObjectScreenPicker`は対象欄の既存変更リスナーへIDを渡し、完了フレームも通常の配置・変形入力を抑止する。
 - 追加モデルの条件候補はルート・中間親も既存の`PlacedObject.id`で参照し、`ImportedModelParts.Label`が「グループ全体」を明示する。固定UIの候補も共通ラベルと輪郭表示を使う。画面からの条件指定は初回にルート、同じ対象を再指定した場合はクリックした部品を返す。平坦な編集用グループIDをシナリオの対象IDに変換することはしない。
 - 通常選択は `SelectionHighlightSet` から同じ形状描画を青色で利用する。対象ごとにマスクを作り輪郭を合成するため、選択対象同士の包含でも内側を見失わない。全選択で2枚のRenderTextureを共有する。`SelectionOutline`は拡縮の角位置計算・操作ハンドルを担当し、矩形の選択枠は描かない。
@@ -128,11 +145,11 @@ persistentDataPath/Projects/*.skillsync.json
 
 | 変更 | 一緒に確認する箇所 |
 |---|---|
-| Catalog/UI hierarchy名 | `CatalogUI`、`BuildUiPrefabs`、`DesignTokenApplier`、`UIRoot.prefab`、UI仕様 |
+| Catalog/UI hierarchy名 | `CatalogUI`、`BuildUiPrefabs`、`DesignTokenApplier`、`UIRoot.prefab` |
 | 配置/入力/Camera | `EditInput`、`EditWorkspace`、`PlacementController`、`SelectionService`、`MoveTool`、`ViewportStatusStrip` |
 | `PlacedObject` ID/metadata | Selection、Detail、Condition dropdown、graph validation、両export |
 | Scenario node/edge | Core model、`CurriculumGraphService`、各NodeUI、`ScenarioGraphUI`、export model |
-| デザイントークン | `DesignTokens`、applier、builder、runtime補完、`Docs/rules/design_rule.md` |
+| デザイントークン | `DesignTokens`、applier、builder、runtime補完 |
 | TMP/font | `TmpFontInitializer`、TMP Settings、Fallback asset、全UI text/input/dropdown |
 | UI Prefab更新 | builderとruntime補完の両経路、scene apply、ユーザーのUnity検証 |
 

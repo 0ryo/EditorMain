@@ -13,6 +13,7 @@
 
 | 優先度 | テーマ | 次に達成する状態 | 詳細 |
 |---|---|---|---|
+| P0 | 初見利用の迷いどころ（教員評価の前提） | 実装済みのUXR-14・25・27〜41、自動再生、動作確認画面のレイアウトを`Builds/DelightUX-20261025e`で確認してから、友人の予備評価に進む。UXR-01〜23のPlayer確認とUXR-24の判断も残る | [初見UX](BACKLOG/first-use-ux-plan.md) `UXR-*` |
 | P0 | 教材復旧の原本保護・主要UIの状況認知 | managed確認済みの復旧保護とUI実装をUnityで直接確認する | [監査](BACKLOG/editor-app-audit.md) `REC-01/UIB-04..06`、[品質確認](../QUALITY.md) |
 | P1 | タイヤ交換の操作表現 | 既存6条件での教材表現を確認する。工具回転・着脱の専用条件は対象外 | [教材計画](BACKLOG/tire-change-authoring-plan.md) |
 | P1 | XR／Web連携・教員評価 | Web側完成と再開依頼を待つ。外部連携の実装はユーザー指定で保留 | [連携・評価](BACKLOG/research-integration-plan.md) |

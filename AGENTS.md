@@ -5,8 +5,9 @@
 このリポジトリは、Unity上で3Dオブジェクト配置・編集とシナリオグラフ作成を行うエディタアプリです。
 
 - 作業開始時は最初に `.ai/INDEX.md` を読む。
-- `.ai/` と `Docs/` は、INDEXが案内するタスク関連資料だけを読む。一括読込は禁止。
-- 長期知識は `.ai/`、詳細なUI仕様や旧履歴は `Docs/` に置く。ソースコードと設定を最終的な事実確認先とする。
+- `.ai/` は、INDEXが案内するタスク関連資料だけを読む。一括読込は禁止。
+- 仕様書・設計資料（`Design/`、`.ai/`、各種ドキュメント）と現在の実装が異なる場合は、現在の実装（コード）を正とする。食い違いを見つけたら、ドキュメント側を実装に合わせて直す。
+- 長期知識は `.ai/` だけに置く。作業日誌・監査メモ・確認用スクショは残さない（履歴はgit）。ソースコードと設定を最終的な事実確認先とする。
 
 ## 重要ディレクトリ
 
@@ -16,7 +17,7 @@
 - `Assets/EditorMain.unity`: メインScene
 - `Assets/Data/DefaultRegistry.asset`: 既定の配置Prefab一覧
 - `Packages/`, `ProjectSettings/`: Unity依存とプロジェクト設定
-- `Docs/`: 詳細仕様、監査、旧Worklog（必要時のみ参照）
+- `Design/skillsync_codex_handoff/`: 固定SkillSync UIのデザイン原本（Figma・PDF・`DESIGN_SPEC.md`）。必要時のみ参照
 
 ## 基本確認
 

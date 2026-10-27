@@ -53,10 +53,12 @@
 - `Tools/RegressionChecks`は依存追加なしの.NET 8回帰runner。productionの条件判定・保存・migration・CommandStackを直接リンクし、Unity数学/JSONの代替を使う。Unity固有のserialization・PlayModeを代替しない。`Tools/Automation/Check Authoring Logic`で同じ条件チェックをUnity上でも実行できる。独自asmdef、Lint、CIは未整備。
 - Codexの標準静的確認は `git diff --check`、対象pathの存在確認、`rg` による参照/旧値確認、必要に応じたJSON parse。
 - `ConditionEditorLayoutChecks` は実Prefabで6種類・未設定/設定済み・長い対象名・連続切替・表示state・旧条件・条件0件を検査する。文字meshと背景の中央一致、はみ出し、表示/描画順、空白/重なりをPlayerビルド前の必須検査にする。レイアウト変更時は `RunAndRender` の描画画像も確認する。
+- uGUIの可変レイアウトは、表示中の行だけを配置し、その合計高さから容器と後続の操作部品を決める（表示切替と寸法計算を1つの処理にする）。
 - 修正完了時はCodexがUnity CLIで対象Playerをビルドし、結果と出力物を確認する。GUI操作・PlayModeの実機確認はユーザーが行い、失敗logを受けて修正する。
 
 ## ドキュメント
 
 - 恒久知識は `.ai/` に統合し、作業日誌を連続追記しない。
-- 詳細UI仕様は `Docs/worklog/worklog_UI/`、design sourceは `Docs/rules/design_rule.md`。
+- UIの事実確認先は `UIRoot.prefab`、`Assets/Scripts/UI/SkillSync*.cs`、`DesignTokens.cs`。UI仕様書は別に持たない。
+- 作業日誌・監査メモ・レイアウト確認用スクショはリポジトリに残さない。
 - 実装と文書が違う場合は推測で解決せず、差異を明示して正本を確認する。

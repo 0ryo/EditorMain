@@ -5,8 +5,9 @@
 | ファイル | 内容 | 読むとき |
 |---|---|---|
 | `editor-app-audit.md` | 2026-08-22のコード・Unity実操作監査から得た未完了タスク | 品質改善、機能追加、リファクタリングの対象選定時 |
-
 | `viewport-polish-plan.md` | ビューポート改善のUnity受入確認 | 描画・操作の確認時 |
 | `tire-change-authoring-plan.md` | タイヤ交換の操作表現 | 教材操作実装時 |
+| `first-use-ux-plan.md` | 初見利用の迷いどころ `UXR-*` | 教員評価の前のUI改善時 |
 | `research-integration-plan.md` | XR／Web連携、教員評価、再利用運用 | 外部接続・評価準備時 |
 | `function-preserving-refactor-plan.md` | 責務分割と残る確認 | リファクタリング時 |
+| `evaluation-method.md` | 研究の評価方法 | 評価の質問・設計時 |

@@ -24,7 +24,7 @@
 - **Reason:** serialized参照をUnityに正しく書かせ、Scene直置きと手編集YAMLの破損riskを抑えるため。
 - **Alternatives:** UI Toolkitへ移行、Sceneへ直接配置、YAML直接編集、runtime hierarchyだけで構築。
 - **Consequences:** UI構造変更は `BuildUiPrefabs`、必要に応じ `ApplyUiPrefab`、runtime互換補完、仕様書を一緒に確認する。CodexはUnity CLIからEditor API automationを実行し、保存結果とPlayer buildを確認する。GUI・PlayModeの実機確認はユーザーが行う。
-- **Evidence:** `Docs/rules/ui_editing_rules.md`、`BuildUiPrefabs.cs`、`ApplyUiPrefab.cs`、`UIRoot.prefab`。
+- **Evidence:** `BuildUiPrefabs.cs`、`ApplyUiPrefab.cs`、`UIRoot.prefab`。
 
 ## D-004 — 既存Prefab・作業Scene互換のruntime補完を限定的に維持する
 
@@ -60,10 +60,10 @@
 
 ## D-008 — 編集用projectと配布用JSONを分離する
 
-- **Decision:** 再編集用の配置・Scenario統合dataはschema version付き `.skillsync.json` として `persistentDataPath/Projects` に保存する。配布先は浅い階層へ出力するユーザー方針に従い、Editorではproject直下`Exports`、PlayerではDocuments内`SkillSync/Exports`を使う（Documentsを取得できない場合はpersistentDataPathへfallback）。教材書き出しは毎回`XR教材データ-yyyyMMddHHmmss`の別フォルダーに同名のJSON・ZIPと素材をまとめ、過去の出力を上書きしない。同秒の保存は末尾`-2`以降で区別する。
+- **Decision:** 再編集用の配置・Scenario統合dataはschema version付き `.skillsync.json` として `persistentDataPath/Projects` に保存する。配布先は浅い階層へ出力するユーザー方針に従い、Editorではproject直下`Exports`、PlayerではDocuments内`SkillSync/Exports`を使う（Documentsを取得できない場合はpersistentDataPathへfallback）。教材書き出しは毎回`<教材名>-yyyyMMdd-HHmm`の別フォルダー（書き出し時に保存先を選択可、前回の場所を記憶）に同名のJSON・ZIPと素材をまとめ、過去の出力を上書きしない。同秒の保存は末尾`-2`以降で区別する。
 - **Reason:** 編集状態を欠落なく復元しつつ、配布物を見つけやすくまとめ、UnityのAssets import経路へ出力しないため。
 - **Alternatives:** graphと配置を別fileで管理する、配布JSONを再編集dataとして兼用する、`Application.dataPath/Exports`を維持する。
-- **Consequences:** project loadはmigrationとtypeId/ID検証後に一括置換する。保存先があるprojectは同じfileへautosaveし、未保存projectは `Projects/Recovery` へ置く。追加モデルはprojectとは別の `ImportedModels` ライブラリでtypeIdを永続化する。
+- **Consequences:** project loadはmigrationとtypeId/ID検証後に一括置換する。定期autosaveは `Projects/Recovery` の復旧dataだけに書き、教材fileは利用者の明示保存でのみ更新する（初見利用で意図しない上書きを防ぐ）。追加モデルはprojectとは別の `ImportedModels` ライブラリでtypeIdを永続化する。
 - **Evidence:** `Core/EditorProjectModel.cs`、`EditorProjectStore.cs`、`EditorProjectService.cs`、`RuntimeExportPathUtility.cs`、`TeachingMaterialExportService.cs`。
 
 ## D-009 — 成功するまで待機し、失敗設定を増やさない
@@ -71,13 +71,20 @@
 - **Decision:** 手順は全成功条件の達成まで待機する。失敗時の処理・失敗分岐は実装対象にしない。分岐は成功後に接続先から進路を選ぶ方式とし、未選択経路を合流時に待たない。
 - **Reason:** 教員の設定項目と操作負担を増やさず、成功しないと先に進めない制約でカバーするというユーザーの明示方針。
 - **Consequences:** 出力JSON version 5は接続先IDを保持する。配列順の実行を禁止し、実行側はバージョンを検査する。エディタプレビューの成功模擬とVR実機での条件判定を区別する。
-- **Evidence:** 2026-09-08のユーザー指示、`ScenarioFlow`、`ScenarioPlaybackSession`、`Docs/rules/scenario_rules.md`。
+- **Evidence:** 2026-09-08のユーザー指示、`ScenarioFlow`、`ScenarioPlaybackSession`、`.ai/SCENARIO_SPEC.md`。
 
 ## D-010 — 関連タスクをまとめて実装する
 
 - **Decision:** 小項目ごとの確認待ちをやめ、関連機能を一回のセッションでまとめて実装・静的確認する。Unity実操作や外部仕様の確認はまとまりごとに依頼する。
 - **Reason:** ユーザーが一括実装と確認頻度の削減を明示したため。Unityを起動しない制約は維持する。
 - **Evidence:** 2026-09-18のユーザー指示。
+
+## D-012 — 距離の条件は0〜100 cmを受け付け、寸法からの警告を出さない
+
+- **Decision:** 「近づける」「近づけて保持」の距離は0〜100 cm（0〜1 m）の任意の値を受け付け、部品の寸法から「近すぎて成立しない可能性」を警告しない（手順カード・条件一覧・書き出し通知とも）。
+- **Reason:** 判定位置の扱いはXR側で調整できるため、数値を決めれば足りるとユーザーが指示した（2026-10-22）。
+- **Consequences:** 旧`DistanceWarning`系の判定と`W-03`警告は削除済み。距離の判定はXR側の実装に依存する。
+- **Evidence:** `Core/ConditionTypeCatalog.cs`、`AuthoringFeatureChecks`。
 
 ## D-011 — 進捗はブランチで保存し、一時スクリプトを残さない
 
