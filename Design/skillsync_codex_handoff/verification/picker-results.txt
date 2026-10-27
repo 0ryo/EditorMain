@@ -1,1 +1,0 @@
-PASS: plain-text IME configuration; object dropdown binds actual graph; visible picking cue and cancel; object scroll persists across controller frames. OS IME interaction not automated.
