@@ -56,9 +56,11 @@ public class HintPanelController : MonoBehaviour
                 "・手順ごとに「＋ 完了条件を追加」。対象は3D画面か一覧でクリックして仮選択し、「この対象に決定」（Enter）で決めます\n" +
                 "・すべての完了条件がそろうと次の手順へ進みます（順不同）。順番が必要なときは手順を分けてください\n" +
                 Heading("動作確認") +
-                "・「動作を確認」で、部品を動かして完了条件が成立するか確かめます\n" +
+                "・「動作を確認」で、部品が完了条件どおりに自動で動き、学習者と同じ流れを確かめられます\n" +
+                "・確認中に部品をドラッグすると、その手順は自分で動かして確かめられます（次の手順からまた自動）\n" +
                 "・満たしにくい条件やパソコンで判定できない条件は「成立にする」（最後の条件では「成立として次へ」）で進められます\n" +
-                "・「▶ 最初から通して確認」：最初の手順から続けて確認　Esc：一時停止、もう一度Escで編集に戻る\n" +
+                "・「この手順をやり直す」：今の手順だけ最初から　「手順1から通す」：最初の手順から続けて確認\n" +
+                "・Esc：一時停止、もう一度Escで編集に戻る\n" +
                 "・確認中に動かした位置は、教材の配置には保存されません\n" +
                 Heading("教材のファイル") +
                 "・" + m + "+N：新しい教材　" + m + "+S：保存　" + m + "+O：教材を開く\n" +
@@ -71,9 +73,68 @@ public class HintPanelController : MonoBehaviour
         }
     }
 
-    static string Heading(string title)
+    // Marks where a section starts; Compose turns the marks into foldable headings.
+    const char SectionMark = '\u0001';
+    static string Heading(string title) => SectionMark + title + "\n";
+
+    // The few things the current screen is for, shown first (the full guide follows, folded).
+    static string QuickLines(int state)
     {
-        return "\n\n<size=118%><b><color=#" + ColorUtility.ToHtmlStringRGB(DesignTokens.Accent) + ">" + title + "</color></b></size>\n";
+        string m = SkillSyncDesignView.ShortcutModifierName;
+        if (state == 2 || state == 4)
+            return "・部品が完了条件どおりに自動で動きます。部品をドラッグすると、その手順は自分で確かめられます\n" +
+                "・パソコンで判定できない条件は「成立にする」で進めます\n" +
+                "・Esc：一時停止　もう一度Escで編集に戻ります";
+        if (state == 1 || state == 5)
+            return "・「＋ 手順を追加」で手順を足し、題名と説明を書きます\n" +
+                "・右の「完了条件」で、何をしたら次の手順へ進むかを決めます（対象は3D画面でも選べます）\n" +
+                "・「動作を確認」で、学習者と同じ流れを自動で再生して確かめます\n" +
+                "・" + m + "+S で保存、「教材を書き出す」でXRアプリに渡すZIPを作ります";
+        return "・左の部品をクリックして、3D画面の置きたい場所をクリックすると置けます\n" +
+            "・部品の本体をドラッグすると床に沿って動きます。「移動／回転／大きさ」で矢印・輪・角を使います\n" +
+            "・右ドラッグで視点を回し、ホイールでズーム（トラックパッドは2本指）\n" +
+            "・間違えたら " + m + "+Z で元に戻せます";
+    }
+
+    readonly System.Collections.Generic.HashSet<string> openSections = new System.Collections.Generic.HashSet<string>();
+
+    string Compose()
+    {
+        string accent = "#" + ColorUtility.ToHtmlStringRGB(DesignTokens.Accent);
+        var view = transform.parent != null ? transform.parent.GetComponentInChildren<SkillSyncDesignView>(true) : null;
+        var text = new System.Text.StringBuilder();
+        if (view != null)
+            text.Append("<size=118%><b>この画面でよく使う操作</b></size>\n").Append(QuickLines(view.State)).Append("\n");
+        foreach (var part in HintBody.Split(SectionMark))
+        {
+            if (string.IsNullOrWhiteSpace(part)) continue;
+            int end = part.IndexOf('\n');
+            string title = end < 0 ? part : part.Substring(0, end), body = end < 0 ? "" : part.Substring(end + 1).TrimEnd('\n');
+            bool open = view == null || openSections.Contains(title);
+            text.Append("\n<link=\"").Append(title).Append("\"><size=118%><b><color=").Append(accent).Append(">")
+                .Append(open ? "▼ " : "▶ ").Append(title).Append("</color></b></size></link>\n");
+            if (open) text.Append(body).Append("\n");
+        }
+        return text.ToString().TrimEnd('\n');
+    }
+
+    // A heading click opens or folds its section.
+    public void ToggleSection(string title)
+    {
+        if (!openSections.Remove(title)) openSections.Add(title);
+        RefreshContent();
+    }
+
+    sealed class SectionClicks : MonoBehaviour, UnityEngine.EventSystems.IPointerClickHandler
+    {
+        public HintPanelController owner;
+        public TMP_Text body;
+        public void OnPointerClick(UnityEngine.EventSystems.PointerEventData e)
+        {
+            if (owner == null || body == null) return;
+            int link = TMP_TextUtilities.FindIntersectingLink(body, e.position, e.pressEventCamera);
+            if (link >= 0) owner.ToggleSection(body.textInfo.linkInfo[link].GetLinkID());
+        }
     }
 
     [SerializeField] Button openButton;
@@ -176,6 +237,9 @@ public class HintPanelController : MonoBehaviour
 
     public void Show()
     {
+        // Each opening starts from the current screen's few lines with only the overview unfolded.
+        openSections.Clear(); openSections.Add("教材を作る流れ");
+        RefreshContent();
         IsOpen = true;
         EnsureScrim();
         if (scrim != null) { scrim.gameObject.SetActive(true); scrim.SetAsLastSibling(); }
@@ -229,11 +293,14 @@ public class HintPanelController : MonoBehaviour
         }
 
         var title = transform.Find("Text_Title")?.GetComponent<TMP_Text>();
-        if (title != null) title.text = "ヘルプ";
+        if (title != null) { title.text = "ヘルプ"; title.fontStyle = FontStyles.Bold; } // heavier than the section headings below it
 
         var body = transform.Find(ScrollName + "/Viewport/Text_Body")?.GetComponent<TMP_Text>();
         if (body == null) return;
-        body.text = HintBody.TrimStart('\n');
+        body.text = Compose();
+        var clicks = body.transform.parent.GetComponent<SectionClicks>();
+        if (clicks == null) clicks = body.transform.parent.gameObject.AddComponent<SectionClicks>();
+        clicks.owner = this; clicks.body = body;
         body.fontSize = Mathf.Max(DesignTokens.FontSizeBody, BodyFontSize);
         body.color = DesignTokens.TextPrimary;
         body.richText = true;
@@ -329,7 +396,7 @@ public class HintPanelController : MonoBehaviour
         // The wheel only reaches the ScrollRect through something it can hit; the text itself is not a raycast target.
         var wheelTarget = viewport.gameObject.AddComponent<Image>();
         wheelTarget.color = Color.clear;
-        var body = CreateText("Text_Body", viewport, HintBody.TrimStart('\n'), Mathf.Max(DesignTokens.FontSizeBody, BodyFontSize), DesignTokens.TextPrimary);
+        var body = CreateText("Text_Body", viewport, "", Mathf.Max(DesignTokens.FontSizeBody, BodyFontSize), DesignTokens.TextPrimary);
         body.alignment = TextAlignmentOptions.TopLeft;
         body.textWrappingMode = TMPro.TextWrappingModes.Normal;
         body.richText = true;

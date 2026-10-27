@@ -187,6 +187,8 @@ public sealed class SkillSyncItemList : MonoBehaviour
         text.richText = false;
         text.textWrappingMode = TextWrappingModes.NoWrap;
         text.overflowMode = TextOverflowModes.Ellipsis;
+        // Shrink a little before cutting a long part name off.
+        text.enableAutoSizing = size >= 12; text.fontSizeMax = size; text.fontSizeMin = Mathf.Min(size, 11);
         text.raycastTarget = false;
         return text;
     }

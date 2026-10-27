@@ -292,19 +292,18 @@ public static class ConditionEditorLayoutChecks
             if (variant == 0)
             {
                 SkillSyncConditionEditorView.HideTrialGauges(view);
-                list.SetBounds(SkillSyncDesignLayout.MapX(1184), 320, 392, 380);
                 list.SetItems(new List<SkillSyncItemList.Item>
                 {
                     new SkillSyncItemList.Item { id = "a", number = 1, title = "回す：ナット1", detail = SkillSyncConditionEditing.PcUnsupportedText, actionLabel = "成立にする" },
                     new SkillSyncItemList.Item { id = "b", number = 2, title = "引く：ナット1", detail = SkillSyncConditionEditing.PcUnsupportedText, actionLabel = "成立として次へ" }
                 });
+                SkillSyncConditionEditorView.LayoutTrial(view, false, false, 2);
             }
             else
             {
-                SkillSyncConditionEditorView.HideTrialLog(view);
-                list.SetBounds(SkillSyncDesignLayout.MapX(1184), 728, 392, 48);
                 list.SetItems(new List<SkillSyncItemList.Item>
                 { new SkillSyncItemList.Item { id = "a", number = 2, done = true, title = "押す：ジャッキのハンドル", detail = "✓ 成立しました" } });
+                SkillSyncConditionEditorView.LayoutTrial(view, true, true, 1);
             }
             Canvas.ForceUpdateCanvases();
             captures.Add(Render(root, view));

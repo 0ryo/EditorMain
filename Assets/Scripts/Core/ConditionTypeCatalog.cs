@@ -44,7 +44,8 @@ public static class ConditionTypeCatalog
         new Definition
         {
             id = SnapHold,
-            label = "近づけて保持",
+            // Shown as one type with Proximity in the editor: holding for more than 0 seconds is stored as SnapHold.
+            label = "近づける",
             parameters = new[]
             {
                 // 0–100 cm: the XR side handles any distance in this range (even 0), so the editor never warns about it.
@@ -85,6 +86,11 @@ public static class ConditionTypeCatalog
 
     public static IReadOnlyList<Definition> Definitions => new[]
     { Find(Proximity), Find(SnapHold), Find(Push), Find(Pull), Find(Grabbed), Find(Released), Find(Turn) };
+
+    // The dropdown's choices: "近づける" covers both Proximity and SnapHold (its hold time decides which is stored),
+    // so the XR side keeps receiving the same two types.
+    public static IReadOnlyList<Definition> EditorChoices => Definitions.Where(d => d.id != SnapHold).ToArray();
+    public static string EditorChoiceOf(string type) => type == SnapHold ? Proximity : type;
 
     public static Definition Find(string type)
     {

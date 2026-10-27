@@ -647,6 +647,9 @@ public sealed class SkillSyncDesignView : MonoBehaviour
     public void Show(int state)
     {
         RestoreInspector(); // before the masks decide, so nothing hidden for an empty step view leaks into another state
+        // Switching placement / steps / trial: the side panels' new content fades in instead of popping.
+        if (ScreenOf(State) != ScreenOf(state) && shownOnce) BeginSwitchFade();
+        shownOnce = true;
         State = state;
         int bit = 1 << state;
         foreach (var v in visuals) v.target.SetActive((v.mask & bit) != 0);
@@ -681,6 +684,59 @@ public sealed class SkillSyncDesignView : MonoBehaviour
         if(objectAThumbnail!=null) {objectAThumbnail.gameObject.SetActive(state==1||state==5);objectAThumbnail.transform.SetAsLastSibling();}
         if(objectBThumbnail!=null) {objectBThumbnail.gameObject.SetActive(state==1);objectBThumbnail.transform.SetAsLastSibling();}
         UpdateSelectionHeader();
+        foreach (var cover in switchCovers) if (cover != null && cover.gameObject.activeSelf) cover.SetAsLastSibling();
+    }
+
+    // 0 placement, 1 steps (and the export list over it), 2 trial (running or complete).
+    static int ScreenOf(int state) => state == 0 || state == 3 ? 0 : state == 1 || state == 5 ? 1 : 2;
+    const float SwitchFadeSeconds = 0.15f;
+    bool shownOnce;
+    float switchFadeStart = -1f;
+    readonly RectTransform[] switchCovers = new RectTransform[2];
+
+    // A panel-coloured cover over the left and right panels fades out; the 3D screen and header never flash.
+    // It never takes input, and any key or click ends it at once.
+    void BeginSwitchFade()
+    {
+        var chrome = viewport != null ? viewport.parent as RectTransform : null;
+        if (chrome == null) return;
+        float X(float x) => wideLayout ? SkillSyncDesignLayout.MapX(x) : x;
+        float top = 88f, height = Mathf.Max(0f, chrome.rect.height - top);
+        for (int i = 0; i < 2; i++)
+        {
+            if (switchCovers[i] == null)
+            {
+                var go = new GameObject(i == 0 ? "SwitchFadeLeft" : "SwitchFadeRight", typeof(RectTransform), typeof(CanvasRenderer), typeof(UnityEngine.UI.Image));
+                go.transform.SetParent(chrome, false);
+                var image = go.GetComponent<UnityEngine.UI.Image>();
+                image.raycastTarget = false;
+                switchCovers[i] = (RectTransform)go.transform;
+            }
+            var cover = switchCovers[i];
+            cover.anchorMin = cover.anchorMax = cover.pivot = new Vector2(0, 1);
+            float left = i == 0 ? 0f : X(1160), right = i == 0 ? X(264) : chrome.rect.width;
+            cover.anchoredPosition = new Vector2(left, -top);
+            cover.sizeDelta = new Vector2(Mathf.Max(0f, right - left), height);
+            cover.GetComponent<UnityEngine.UI.Image>().color = DesignTokens.Surface;
+            cover.gameObject.SetActive(true);
+            cover.SetAsLastSibling();
+        }
+        switchFadeStart = Time.unscaledTime;
+    }
+
+    void Update()
+    {
+        if (switchFadeStart < 0f) return;
+        float t = (Time.unscaledTime - switchFadeStart) / SwitchFadeSeconds;
+        bool interrupted = Input.anyKeyDown || Input.GetMouseButtonDown(0) || Input.GetMouseButtonDown(1) || Input.GetMouseButtonDown(2);
+        foreach (var cover in switchCovers)
+        {
+            if (cover == null) continue;
+            if (t >= 1f || interrupted) { cover.gameObject.SetActive(false); continue; }
+            var image = cover.GetComponent<UnityEngine.UI.Image>();
+            var color = image.color; color.a = 1f - t * t; image.color = color;
+        }
+        if (t >= 1f || interrupted) switchFadeStart = -1f;
     }
     public void UpdateSelectionHeader()
     {
@@ -695,6 +751,19 @@ public sealed class SkillSyncDesignView : MonoBehaviour
         if(status.gameObject.activeSelf==compactSelectionTitle) status.gameObject.SetActive(!compactSelectionTitle);
         var position=status.rectTransform.anchoredPosition;
         status.rectTransform.anchoredPosition=new Vector2(title.rectTransform.anchoredPosition.x+width+7,position.y);
+        LiftSelectionHeader(title,status);
+    }
+    // The heading row sat right on top of "名前"; it moves up into the empty row above it (once, from its design position).
+    readonly Dictionary<RectTransform,float> headerOrigin=new Dictionary<RectTransform,float>();
+    void LiftSelectionHeader(params TMP_Text[] labels)
+    {
+        const float Lift=6f; // even space above (to the header line) and below (to "名前")
+        foreach(var label in labels)
+        {
+            var rect=label.rectTransform;
+            if(!headerOrigin.TryGetValue(rect,out float origin)) headerOrigin[rect]=origin=rect.anchoredPosition.y;
+            rect.anchoredPosition=new Vector2(rect.anchoredPosition.x,origin+Lift);
+        }
     }
     public void Text(string role, string value)
     {

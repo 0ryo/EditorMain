@@ -364,7 +364,7 @@ public class SelectionService : MonoBehaviour
         OnSelectionChanged?.Invoke(Current);
     }
 
-    /// <summary>skipGuard=true は DeleteGuard の確認ダイアログで「削除」が選ばれた後の実削除に使う。</summary>
+    /// <summary>skipGuard=true は DeleteGuard 自身が実削除するときに使う（固定UIは即時削除して「元に戻す」付きの通知を出す）。</summary>
     public void DeleteSelected(bool skipGuard = false)
     {
         var commands = selected.Where(CanEdit).Select(item => (IEditorCommand)new DeleteObjectCommand(

@@ -609,15 +609,25 @@ public sealed class EditorProjectPanel : MonoBehaviour
         }
         else Add("この教材から作成", 180f, () => RunPrimaryAction(info), true);
 
-        var trash = Add("ゴミ箱へ移す", 140f, () => Ask(
-            libraryMode == 1 ? "テンプレートをゴミ箱へ移しますか？" : "教材をゴミ箱へ移しますか？",
-            $"「{info.DisplayName}」をゴミ箱へ移します。「ゴミ箱」タブから元に戻せます。",
-            "ゴミ箱へ移す", () =>
+        // Moving to the trash can be undone, so it happens at once with "元に戻す" on the notice instead of a question first.
+        var trash = Add("ゴミ箱へ移す", 140f, () =>
+        {
+            string name = info.DisplayName;
+            if (!projectService.ArchiveSaved(info.Path, out var message, out var archived))
             {
-                projectService.ArchiveSaved(info.Path, out _);
-                selectedPath = null;
-                RefreshProjectList();
-            }));
+                TopCenterNotification.Ensure(uiRoot, null)?.Show(message, true);
+                return;
+            }
+            selectedPath = null;
+            RefreshProjectList();
+            TopCenterNotification.Ensure(uiRoot, null)?.Show($"「{name}」をゴミ箱へ移しました", false, 8f, "元に戻す", () =>
+            {
+                if (string.IsNullOrEmpty(archived) || !System.IO.File.Exists(archived)) return;
+                projectService.RestoreSaved(archived, out _);
+                if (this != null && listContent != null) RefreshProjectList();
+                TopCenterNotification.Ensure(uiRoot, null)?.Show($"「{name}」を元に戻しました", false, 3f);
+            });
+        });
         // The open lesson cannot be moved away from under the editor.
         if (string.Equals(info.Path, projectService.CurrentProjectPath, StringComparison.OrdinalIgnoreCase))
             trash.interactable = false;

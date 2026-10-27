@@ -36,7 +36,7 @@ public sealed class SkillSyncObjectPicker : MonoBehaviour
     readonly Dictionary<PlacedObject,string> labels=new Dictionary<PlacedObject,string>();
     Action<string> choose;
     Action eyedropper;
-    string currentId, excludedId;
+    string currentId, excludedId, suggestedId;
 
     void Awake() {dismiss.onClick.AddListener(Close);cancel.onClick.AddListener(()=>CancelPicking?.Invoke());}
     public void Close() {menu.SetActive(false);ClearPreview();}
@@ -115,9 +115,10 @@ public sealed class SkillSyncObjectPicker : MonoBehaviour
         return (a.Length-i).CompareTo(b.Length-j);
     }
 
-    public void Show(PlacedObject[] objects,RectTransform anchor,Action<string> choose,Action eyedropper,string currentId=null,string excludedId=null) {
+    // suggestedId: the part selected on the placement screen, offered once at the top while the field is empty (never filled in by itself).
+    public void Show(PlacedObject[] objects,RectTransform anchor,Action<string> choose,Action eyedropper,string currentId=null,string excludedId=null,string suggestedId=null) {
         ClearPreview();
-        this.choose=choose;this.eyedropper=eyedropper;this.currentId=currentId;this.excludedId=excludedId;
+        this.choose=choose;this.eyedropper=eyedropper;this.currentId=currentId;this.excludedId=excludedId;this.suggestedId=suggestedId;
         all=objects;
         BuildTree();
         expanded.Clear();forcedClosed.Clear();
@@ -268,6 +269,12 @@ public sealed class SkillSyncObjectPicker : MonoBehaviour
                 }
             }
         AddRow("3D画面で選択…",0,null,false,false,false,eyedropper,null,null,true);
+        var suggested=term.Length==0 && string.IsNullOrEmpty(currentId) && !string.IsNullOrEmpty(suggestedId) && suggestedId!=excludedId?all.FirstOrDefault(o=>o.Id==suggestedId):null;
+        if(suggested && labels.TryGetValue(suggested,out var suggestedLabel))
+        {
+            string id=suggested.Id;
+            AddRow("選択中の部品：「"+suggestedLabel+"」",0,null,false,false,false,()=>choose(id),suggested,null,true);
+        }
         int shown=0;
         void Emit(PlacedObject o,int depth)
         {

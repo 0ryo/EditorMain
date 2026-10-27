@@ -49,13 +49,16 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Assets/Editor/Automation/SkillSyncSplitBuilder.cs" />
+    <Compile Include="Assets/Editor/Automation/GroupSelectionChecks.cs" />
     <Compile Include="Assets/Editor/Automation/ProjectAssetValidator.cs" />
     <Compile Include="Assets/Editor/Automation/AutomationEntry.cs" />
     <Compile Include="Assets/Editor/Automation/RuntimeGltfShaderBuildSetup.cs" />
     <Compile Include="Assets/Editor/Automation/SkillSyncPdfRefinement.cs" />
     <Compile Include="Assets/Editor/Automation/ImportedModelPartChecks.cs" />
+    <Compile Include="Assets/Editor/Automation/SkillSyncAuditPanelPatch.cs" />
     <Compile Include="Assets/Editor/Automation/TireChangeDiagnosticChecks.cs" />
     <Compile Include="Assets/Editor/Automation/ApplyViewportImprovements.cs" />
+    <Compile Include="Assets/Editor/Automation/SkillSyncAuditChromePatch.cs" />
     <Compile Include="Assets/Editor/Automation/ConditionEditorLayoutChecks.cs" />
     <Compile Include="Assets/Editor/Automation/BuildUiPrefabs.cs" />
     <Compile Include="Assets/Editor/Automation/ApplySkillSyncDesign.cs" />

@@ -48,7 +48,9 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Assets/Tests/PlayMode/RuntimeGltfMaterialTests.cs" />
+    <Compile Include="Assets/Tests/PlayMode/FirstUseFlowTests.cs" />
     <Compile Include="Assets/Tests/PlayMode/RecoveryStartupWarningTests.cs" />
+    <Compile Include="Assets/Tests/PlayMode/OpenLessonDialogTests.cs" />
     <Compile Include="Assets/Tests/PlayMode/P1PlayModeSmokeTests.cs" />
   </ItemGroup>
   <ItemGroup>

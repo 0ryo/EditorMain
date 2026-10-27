@@ -4,8 +4,8 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
-// Drag-to-reorder for the step rows: a blue insertion line shows where the row lands, the list scrolls near its
-// edges, and one drop is one move (one Undo). Rows are rebuilt by the owner, which re-attaches the handles.
+// Drag-to-reorder for the step rows: the card follows the pointer, an empty slot shows where it lands, the list
+// scrolls near its edges, Esc cancels, and one drop is one move (one Undo). Rows are rebuilt by the owner, which re-attaches the handles.
 public sealed class SkillSyncStepReorder : MonoBehaviour
 {
     sealed class Handle : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler
@@ -19,14 +19,17 @@ public sealed class SkillSyncStepReorder : MonoBehaviour
 
     const float EdgeZone = 40, ScrollSpeed = 520;
     readonly List<RectTransform> rows = new List<RectTransform>();
-    RectTransform content, line;
+    RectTransform content, gap, dragged;
     ScrollRect scroll;
     Func<bool> canDrag;
     Action<int, int> moved;
     Action finished;
-    int dragIndex = -1, insert = -1;
+    int dragIndex = -1, insert = -1, siblingIndex;
+    float grab;
     Vector2 pointer;
     public bool Dragging => dragIndex >= 0;
+    // The frame Esc cancelled a drag, so the same Esc does not also clear the selection.
+    public static int CancelFrame { get; private set; } = -1;
 
     public void Setup(RectTransform stepsContent, Func<bool> canDrag, Action<int, int> onMoved, Action onFinished)
     {
@@ -43,36 +46,68 @@ public sealed class SkillSyncStepReorder : MonoBehaviour
         handle.owner = this; handle.index = index;
     }
 
+    // The card lifts out of the list and follows the pointer; an empty slot opens where it would land,
+    // and the other cards move to make room. Esc puts everything back.
     void Begin(int index, PointerEventData e)
     {
         if (canDrag != null && !canDrag()) return;
-        dragIndex = index; pointer = e.position;
-        if (index < rows.Count && rows[index] != null) Group(rows[index]).alpha = .45f;
-        EnsureLine();
-        UpdateLine();
+        if (index >= rows.Count || rows[index] == null) return;
+        dragIndex = index; pointer = e.position; insert = index;
+        dragged = rows[index];
+        siblingIndex = dragged.GetSiblingIndex();
+        EnsureGap(dragged.rect.height);
+        gap.SetSiblingIndex(siblingIndex);
+        Layout(dragged).ignoreLayout = true;
+        dragged.SetAsLastSibling();
+        Group(dragged).alpha = .92f;
+        Group(dragged).blocksRaycasts = false;
+        grab = RectTransformUtility.ScreenPointToLocalPointInRectangle(content, pointer, null, out var local) ? dragged.localPosition.y - local.y : 0;
+        Follow();
     }
 
     void Drag(PointerEventData e)
     {
         if (!Dragging) return;
         pointer = e.position;
-        UpdateLine();
+        Follow();
     }
 
     void End()
     {
         if (!Dragging) return;
-        int from = dragIndex, to = insert > from ? insert - 1 : insert;
-        if (from < rows.Count && rows[from] != null) Group(rows[from]).alpha = 1f;
-        dragIndex = -1; insert = -1;
-        if (line != null) line.gameObject.SetActive(false);
+        int from = dragIndex, to = insert;
+        Restore();
         if (to >= 0 && to != from) moved?.Invoke(from, to);
         finished?.Invoke();
     }
 
+    void Cancel()
+    {
+        if (!Dragging) return;
+        CancelFrame = Time.frameCount;
+        Restore();
+        finished?.Invoke();
+    }
+
+    void Restore()
+    {
+        if (dragged != null)
+        {
+            Layout(dragged).ignoreLayout = false;
+            dragged.SetSiblingIndex(siblingIndex);
+            Group(dragged).alpha = 1f;
+            Group(dragged).blocksRaycasts = true;
+        }
+        if (gap != null) gap.gameObject.SetActive(false);
+        dragIndex = -1; insert = -1; dragged = null;
+        LayoutRebuilder.ForceRebuildLayoutImmediate(content);
+    }
+
     void Update()
     {
-        if (!Dragging || scroll == null || scroll.viewport == null) return;
+        if (!Dragging) return;
+        if (EditInput.CancelPressedThisFrame()) { Cancel(); return; }
+        if (scroll == null || scroll.viewport == null) return;
         // Keep scrolling while the pointer rests in the top or bottom edge zone.
         var viewport = scroll.viewport;
         if (RectTransformUtility.ScreenPointToLocalPointInRectangle(viewport, pointer, null, out var local))
@@ -84,39 +119,46 @@ public sealed class SkillSyncStepReorder : MonoBehaviour
             {
                 float step = direction * ScrollSpeed * Time.unscaledDeltaTime / scrollable;
                 scroll.verticalNormalizedPosition = Mathf.Clamp01(scroll.verticalNormalizedPosition + step);
-                UpdateLine();
+                Follow();
             }
         }
     }
 
-    void UpdateLine()
+    void Follow()
     {
-        if (rows.Count == 0 || !RectTransformUtility.ScreenPointToLocalPointInRectangle(content, pointer, null, out var local)) return;
-        insert = 0;
-        for (int i = 0; i < rows.Count; i++)
-            if (rows[i] != null && content.InverseTransformPoint(rows[i].TransformPoint(rows[i].rect.center)).y > local.y) insert = i + 1;
-        float y;
-        if (insert < rows.Count && rows[insert] != null)
-            y = content.InverseTransformPoint(rows[insert].TransformPoint(new Vector3(0, rows[insert].rect.yMax, 0))).y + 2;
-        else
-            y = content.InverseTransformPoint(rows[rows.Count - 1].TransformPoint(new Vector3(0, rows[rows.Count - 1].rect.yMin, 0))).y - 2;
-        line.gameObject.SetActive(true);
-        line.SetAsLastSibling();
-        line.sizeDelta = new Vector2(content.rect.width, 4);
-        line.localPosition = new Vector3(content.rect.xMin, y, 0);
+        if (dragged == null || !RectTransformUtility.ScreenPointToLocalPointInRectangle(content, pointer, null, out var local)) return;
+        dragged.localPosition = new Vector3(dragged.localPosition.x, local.y + grab, dragged.localPosition.z);
+        // The landing slot is counted among the other cards only, so it never flickers as they move.
+        var others = new List<RectTransform>();
+        for (int i = 0; i < rows.Count; i++) if (i != dragIndex && rows[i] != null) others.Add(rows[i]);
+        float center = dragged.localPosition.y + (0.5f - dragged.pivot.y) * dragged.rect.height;
+        int slot = 0;
+        foreach (var other in others)
+            if (other.localPosition.y + (0.5f - other.pivot.y) * other.rect.height > center) slot++;
+        if (slot == insert) return;
+        insert = slot;
+        gap.SetAsLastSibling();
+        if (slot < others.Count) gap.SetSiblingIndex(others[slot].GetSiblingIndex());
+        dragged.SetAsLastSibling();
+        LayoutRebuilder.ForceRebuildLayoutImmediate(content);
     }
 
-    void EnsureLine()
+    void EnsureGap(float height)
     {
-        if (line != null) return;
-        var go = new GameObject("InsertionLine", typeof(RectTransform), typeof(Image), typeof(LayoutElement));
-        go.transform.SetParent(content, false);
-        go.GetComponent<LayoutElement>().ignoreLayout = true;
-        var image = go.GetComponent<Image>();
-        image.color = new Color32(8, 102, 232, 255); image.raycastTarget = false;
-        line = (RectTransform)go.transform;
-        line.anchorMin = line.anchorMax = new Vector2(0, 1); line.pivot = new Vector2(0, .5f);
+        if (gap == null)
+        {
+            var go = new GameObject("DropSlot", typeof(RectTransform), typeof(CanvasRenderer), typeof(SkillSyncRoundedGraphic), typeof(LayoutElement));
+            go.transform.SetParent(content, false);
+            var surface = go.GetComponent<SkillSyncRoundedGraphic>();
+            surface.color = new Color32(234, 242, 255, 255); surface.borderColor = new Color32(8, 102, 232, 255);
+            surface.borderWidth = 1.5f; surface.radius = 10; surface.raycastTarget = false;
+            gap = (RectTransform)go.transform;
+        }
+        gap.GetComponent<LayoutElement>().preferredHeight = height;
+        gap.gameObject.SetActive(true);
     }
+
+    static LayoutElement Layout(RectTransform row) => row.GetComponent<LayoutElement>() != null ? row.GetComponent<LayoutElement>() : row.gameObject.AddComponent<LayoutElement>();
 
     static CanvasGroup Group(RectTransform row) => row.GetComponent<CanvasGroup>() != null ? row.GetComponent<CanvasGroup>() : row.gameObject.AddComponent<CanvasGroup>();
 }

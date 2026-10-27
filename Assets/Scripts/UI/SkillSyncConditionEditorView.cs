@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using TMPro;
 using UnityEngine;
@@ -72,6 +73,11 @@ public static class SkillSyncConditionEditorView
             if (Source("26:212") || Source("26:1903")) visual.role = "conditionTestBox";
             if (Source("26:213") || Source("26:1904")) visual.role = "conditionTestLabel";
             if (Source("26:600") || Source("26:1001") || Source("26:604")) visual.role = "conditionTrialHoldBox";
+            // Trial screen: the step's text is already in the learner panel below, the "動作確認中" pill repeats the
+            // status strip and the header, and the captions under "最初から試す" repeat the rule line and the footer.
+            if (visual.role == "trialBody" || visual.role == "trialBody2" || Source("26:586") || Source("26:587") || Source("26:987") || Source("26:988") ||
+                visual.label != null && (visual.label.text == "編集中の内容は保持されます" || visual.label.text == "終了すると元の配置に戻ります"))
+            { visual.mask = 0; visual.target.SetActive(false); }
             if (visual.role == "conditionEditorCard") EnsureSurface(visual, Color.white, 1);
             if (visual.role == "conditionSummaryBox") EnsureSurface(visual, new Color32(233, 242, 255, 255), 0);
             if (visual.role == "inspectorLabel" && (visual.mask & 2) != 0)
@@ -101,7 +107,8 @@ public static class SkillSyncConditionEditorView
         }
         foreach (var field in view.fields.Where(f => f.role == "distance" || f.role == "hold"))
         {
-            field.input.contentType = TMP_InputField.ContentType.DecimalNumber;
+            // Standard, not DecimalNumber: the decimal filter silently drops full-width digits typed with the IME on.
+            field.input.contentType = TMP_InputField.ContentType.Standard;
             CenterText(field.input.textComponent, TextAlignmentOptions.MidlineLeft, false);
             Stretch(field.input.textViewport, 12, 0, -44, 0);
             Stretch(field.input.textComponent.rectTransform, 0, 0, 0, 0);
@@ -291,12 +298,80 @@ public static class SkillSyncConditionEditorView
         view.holdProgress.gameObject.SetActive(false);
     }
 
-    // A gauge plus unjudgeable conditions: the log block makes way for the condition list.
-    public static void HideTrialLog(SkillSyncDesignView view)
+    // The trial screen's right panel flows from the top by what is shown: the step pill, the heading, the rule,
+    // the gauges that apply, the condition list, then the log only when it fits above "編集に戻る".
+    // The design file placed every block for one fixed case, which left gaps or overlaps for the others.
+    const float TrialBottom = 887, TrialGap = 16;
+    static readonly Dictionary<RectTransform, Vector2> trialOrigin = new Dictionary<RectTransform, Vector2>();
+    public static void LayoutTrial(SkillSyncDesignView view, bool gauge, bool holds, int rows)
     {
-        foreach (var visual in view.visuals)
-            if (visual.role == "log1" || visual.role == "log2" || visual.label?.text == "判定ログ" || visual.sourceNodeIds?.Contains("26:608") == true)
-                visual.target.SetActive(false);
+        var chrome = view.conditionTypeDropdown != null ? view.conditionTypeDropdown.transform.parent : null;
+        if (chrome == null) return;
+        bool Source(SkillSyncDesignView.Visual v, params string[] ids) => v.sourceNodeIds != null && ids.Any(id => v.sourceNodeIds.Contains(id));
+        IEnumerable<SkillSyncDesignView.Visual> Shown(Func<SkillSyncDesignView.Visual, bool> match) =>
+            view.visuals.Where(v => v.target != null && (v.mask & (1 << view.State)) != 0 && match(v));
+        void Move(float designTop, float top, IEnumerable<RectTransform> rects)
+        {
+            foreach (var rect in rects) ShiftFromOrigin(rect, chrome, top - designTop);
+        }
+
+        // Pill: as wide as its text, the text centred in it.
+        var pillText = Shown(v => v.role == "trialStep").FirstOrDefault()?.label;
+        var pill = Shown(v => Source(v, "26:591")).FirstOrDefault();
+        if (pillText != null && pill != null)
+        {
+            float width = Mathf.Ceil(pillText.GetPreferredValues(pillText.text).x) + 24;
+            Place(view, (RectTransform)pill.target.transform, 1184, 116, width, 28);
+            Place(view, pillText.rectTransform, 1184, 116, width, 28);
+            CenterText(pillText, TextAlignmentOptions.Midline, false);
+        }
+        float cursor = 206;
+        var rule = Shown(v => v.role == "trialRule").FirstOrDefault()?.label;
+        if (rule != null)
+        {
+            rule.fontSize = 13; rule.lineSpacing = 4;
+            float height = Mathf.Ceil(rule.GetPreferredValues(rule.text, CardWidth, Mathf.Infinity).y);
+            Place(view, rule.rectTransform, 1184, cursor, CardWidth, height);
+            cursor += height + TrialGap;
+        }
+        if (gauge)
+        {
+            Move(311, cursor, Shown(v => Source(v, "26:596", "26:997") || v.role == "distanceStatus" || v.role == "distanceValue" || v.role == "distanceLimit")
+                .Select(v => (RectTransform)v.target.transform));
+            cursor += 126 + 12;
+            if (holds)
+            {
+                var hold = Shown(v => v.role == "conditionTrialHoldBox" || v.role == "holdStatus" || v.role == "holdValue" || v.role == "holdLimit")
+                    .Select(v => (RectTransform)v.target.transform).ToList();
+                if (view.holdProgress != null) hold.Add(view.holdProgress.rectTransform);
+                Move(457, cursor, hold);
+                cursor += 154 + 12;
+            }
+            Move(643, cursor, Shown(v => v.role == "trialNote" || v.role == "trialNote2").Select(v => (RectTransform)v.target.transform));
+            cursor += 41 + TrialGap;
+        }
+        if (view.trialList != null && rows > 0)
+        {
+            float height = Mathf.Min(rows * (SkillSyncItemList.RowHeight + SkillSyncItemList.RowGap) - SkillSyncItemList.RowGap, TrialBottom - cursor);
+            view.trialList.SetBounds(view.wideLayout ? SkillSyncDesignLayout.MapX(1184) : 1184, cursor, CardWidth, Mathf.Max(SkillSyncItemList.RowHeight, height));
+            cursor += height + TrialGap + 8;
+        }
+        // The log (line, heading, two entries: 115 high in the design) follows the list, or gives way when it does not fit.
+        var log = view.visuals.Where(v => v.target != null && (v.mask & (1 << view.State)) != 0 &&
+            (Source(v, "26:608", "26:1009", "26:609", "26:1010") || v.role == "log1" || v.role == "log2")).ToList();
+        bool fits = cursor + 115 <= TrialBottom;
+        foreach (var v in log) if (v.target.activeSelf != fits) v.target.SetActive(fits);
+        if (fits) Move(718, cursor, log.Select(v => (RectTransform)v.target.transform));
+    }
+
+    static void ShiftFromOrigin(RectTransform rect, Transform chrome, float designDelta)
+    {
+        if (rect == null) return;
+        if (!trialOrigin.TryGetValue(rect, out var origin)) trialOrigin[rect] = origin = rect.anchoredPosition;
+        // Child units per design unit: the inverse of the scales between the design space and this rect's parent.
+        float scale = 1f;
+        for (var t = rect.parent; t != null && t != chrome; t = t.parent) scale *= t.localScale.y;
+        rect.anchoredPosition = new Vector2(origin.x, origin.y - designDelta / (Mathf.Abs(scale) < 1e-5f ? 1f : scale));
     }
 
     // Trial-only list of the step's conditions (manual success for those the PC cannot judge).
@@ -320,9 +395,9 @@ public static class SkillSyncConditionEditorView
 
     public static string TypeForDropdownIndex(TMP_Dropdown dropdown, int index)
     {
-        int typeIndex = index - (dropdown.options.Count > ConditionTypeCatalog.Definitions.Count ? 1 : 0);
-        return typeIndex >= 0 && typeIndex < ConditionTypeCatalog.Definitions.Count ?
-            ConditionTypeCatalog.Definitions[typeIndex].id : null;
+        var choices = ConditionTypeCatalog.EditorChoices;
+        int typeIndex = index - (dropdown.options.Count > choices.Count ? 1 : 0);
+        return typeIndex >= 0 && typeIndex < choices.Count ? choices[typeIndex].id : null;
     }
 
     static void EnsureTypeDropdown(SkillSyncDesignView view, Transform parent, TMP_Text fontSource, float x)
@@ -472,8 +547,10 @@ public static class SkillSyncConditionEditorView
         var dropdown = view.conditionTypeDropdown;
         if (dropdown == null) return;
         var definition = ConditionTypeCatalog.Find(condition?.type);
-        int selectedType = ConditionTypeCatalog.Definitions.ToList().FindIndex(d => d.id == condition?.type);
-        var labels = ConditionTypeCatalog.Definitions.Select(d => d.label).ToList();
+        var choices = ConditionTypeCatalog.EditorChoices;
+        string shown = ConditionTypeCatalog.EditorChoiceOf(condition?.type);
+        int selectedType = choices.ToList().FindIndex(d => d.id == shown);
+        var labels = choices.Select(d => d.label).ToList();
         if (selectedType < 0)
             labels.Insert(0, condition == null ? "種類を選択してください" :
                 definition?.label ?? "未対応の条件：" + condition.type);
@@ -523,18 +600,7 @@ public static class SkillSyncConditionEditorView
         void PlaceRole(string role, float x, float y, float width, float height)
         {
             foreach (var visual in view.visuals.Where(v => v.role == role))
-            {
-                var rect = (RectTransform)visual.target.transform;
-                // Shared refinements can parent captions to buttons/inputs. Coordinates
-                // belong to the inspector, so convert them instead of applying them twice.
-                var parent = (RectTransform)rect.parent;
-                var relative = Matrix4x4.identity;
-                for (var current = rect.parent; current != view.conditionTypeDropdown.transform.parent; current = current.parent)
-                    relative = Matrix4x4.TRS(current.localPosition, current.localRotation, current.localScale) * relative;
-                // Use the local hierarchy, since a saved overlay Canvas can have scale 0.
-                var point = relative.inverse.MultiplyPoint3x4(new Vector3(X(x), -y, 0));
-                Bounds(rect, point.x - parent.rect.xMin, parent.rect.yMax - point.y, width, height);
-            }
+                Place(view, (RectTransform)visual.target.transform, x, y, width, height);
         }
         void PlaceControl(string action, float x, float y, float width, float height)
         {
@@ -652,6 +718,21 @@ public static class SkillSyncConditionEditorView
         PlaceControl("▶ この条件を試す", trialX, cursor, half, 44);
         PlaceRole("conditionTestBox", trialX, cursor, half, 44);
         PlaceRole("conditionTestLabel", trialX, cursor, half, 44);
+    }
+
+    // Places a rect at inspector design coordinates, whatever it is parented to.
+    static void Place(SkillSyncDesignView view, RectTransform rect, float x, float y, float width, float height)
+    {
+        float X(float value) => view.wideLayout ? SkillSyncDesignLayout.MapX(value) : value;
+        // Shared refinements can parent captions to buttons/inputs. Coordinates
+        // belong to the inspector, so convert them instead of applying them twice.
+        var parent = (RectTransform)rect.parent;
+        var relative = Matrix4x4.identity;
+        for (var current = rect.parent; current != view.conditionTypeDropdown.transform.parent; current = current.parent)
+            relative = Matrix4x4.TRS(current.localPosition, current.localRotation, current.localScale) * relative;
+        // Use the local hierarchy, since a saved overlay Canvas can have scale 0.
+        var point = relative.inverse.MultiplyPoint3x4(new Vector3(X(x), -y, 0));
+        Bounds(rect, point.x - parent.rect.xMin, parent.rect.yMax - point.y, width, height);
     }
 
     static void CenterText(TMP_Text text, TextAlignmentOptions alignment, bool wrap)

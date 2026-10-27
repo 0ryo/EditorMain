@@ -11,8 +11,22 @@ public static class EditorCameraInputSettings
     static bool loaded;
     public static event Action Changed;
 
-    /// <summary>Auto の間にトラックパッドらしい横スクロールを検出したら true（その起動中だけ）。</summary>
-    public static bool DetectedTrackpad { get; private set; }
+    const string DetectedKey = "EditorMain.TrackpadDetected";
+    static bool detectedLoaded, detected;
+
+    /// <summary>Auto の間にトラックパッドらしい横スクロールを検出したら true。次の起動でも覚えている（毎回最初の2本指でズームしない）。</summary>
+    public static bool DetectedTrackpad
+    {
+        get
+        {
+            if (!detectedLoaded)
+            {
+                detectedLoaded = true;
+                try { detected = PlayerPrefs.GetInt(DetectedKey, 0) != 0; } catch (Exception) { detected = false; }
+            }
+            return detected;
+        }
+    }
 
     public static EditorCameraScrollMode Mode
     {
@@ -41,7 +55,8 @@ public static class EditorCameraInputSettings
     public static void MarkTrackpadDetected()
     {
         if (DetectedTrackpad) return;
-        DetectedTrackpad = true;
+        detected = true;
+        try { PlayerPrefs.SetInt(DetectedKey, 1); PlayerPrefs.Save(); } catch (Exception) { }
         Changed?.Invoke();
     }
 
@@ -124,6 +139,7 @@ public class EditorCameraController : MonoBehaviour
     void Update()
     {
         EnsureCameraRig();
+        TickTransition();
         Vector2 mousePosition = EditInput.MousePosition;
         if (!IsPointerInsideGameView(mousePosition))
         {
@@ -157,6 +173,8 @@ public class EditorCameraController : MonoBehaviour
             return;
         }
 
+        // Any wheel, trackpad or drag input takes the view back from a running transition at once.
+        if (transitionStart >= 0f && (scroll.sqrMagnitude > 0.00000001f || middlePressed || rightPressed || leftPressed)) transitionStart = -1f;
         HandleScroll(scroll, shiftPressed);
         // Keys stay with the text field while it has the caret; the mouse works whenever it is over the 3D screen.
         if (!textFieldFocused) HandleViewShortcuts();
@@ -263,14 +281,21 @@ public class EditorCameraController : MonoBehaviour
             else bounds.Encapsulate(itemBounds);
             found = true;
         }
-        ResetToDefaultView();
-        if (found) FocusBounds(bounds.center, Mathf.Max(3f, bounds.extents.magnitude));
+        Transition(() =>
+        {
+            // Keep the angle the user chose; only a view from below or the side (easy to get lost in) returns to the default tilt.
+            if (!found) { ResetToDefaultView(); return; }
+            if (pitch < 10f) pitch = Mathf.Atan2(EditWorkspace.DefaultCameraPosition.y, -EditWorkspace.DefaultCameraPosition.z) * Mathf.Rad2Deg;
+            ApplyPivotRotation();
+            FocusBounds(bounds.center, Mathf.Max(3f, bounds.extents.magnitude));
+        });
         Notice?.Invoke(found ? "全体を表示" : "全体を表示（部品はまだありません）");
     }
 
     public bool FocusSelected()
     {
-        bool focused = FocusSelectedCore();
+        bool focused = false;
+        Transition(() => focused = FocusSelectedCore());
         Notice?.Invoke(focused ? "選択した部品を表示" : "部品を選ぶと、その部品を画面に収めて表示します");
         return focused;
     }
@@ -326,6 +351,7 @@ public class EditorCameraController : MonoBehaviour
     public void SetViewPreset(ViewPreset preset)
     {
         EnsureCameraRig();
+        var from = CapturePose();
         float distance = Mathf.Clamp(transform.localPosition.magnitude, minDistance, maxDistance);
         switch (preset)
         {
@@ -356,6 +382,7 @@ public class EditorCameraController : MonoBehaviour
         }
 
         ApplyRigPose(distance);
+        BeginTransition(from);
         Notice?.Invoke(ViewPresetName(preset) + "から表示");
     }
 
@@ -432,6 +459,81 @@ public class EditorCameraController : MonoBehaviour
         if (Input.GetKeyDown(KeyCode.Alpha3) || Input.GetKeyDown(KeyCode.Keypad3)) SetViewPreset(ViewPreset.Right);
         if (Input.GetKeyDown(KeyCode.Alpha7) || Input.GetKeyDown(KeyCode.Keypad7)) SetViewPreset(ViewPreset.Top);
         if (Input.GetKeyDown(KeyCode.O)) ToggleProjection();
+    }
+
+    // The view as it is now, for remembering where a lesson was left (SkillSyncViewMemory).
+    public void CaptureView(SkillSyncViewMemory.State state)
+    {
+        EnsureCameraRig();
+        if (state == null) return;
+        var pose = transitionStart >= 0f ? transitionTo : CapturePose();
+        state.hasCamera = true; state.orthographic = cachedCamera != null && cachedCamera.orthographic;
+        state.pivot = pose.pivot; state.pitch = pose.pitch; state.yaw = pose.yaw; state.distance = pose.distance; state.size = pose.size;
+    }
+
+    public void RestoreView(SkillSyncViewMemory.State state)
+    {
+        EnsureCameraRig();
+        if (state == null || !state.hasCamera) return;
+        transitionStart = -1f;
+        if (cachedCamera != null) cachedCamera.orthographic = state.orthographic;
+        ApplyPose(new Pose { pivot = state.pivot, pitch = Mathf.Clamp(state.pitch, minPitch, maxPitch), yaw = state.yaw, distance = state.distance, size = state.size });
+        if (cachedCamera != null && cachedCamera.orthographic) SyncOrthographicCameraDistance(Mathf.Clamp(state.size, minOrthographicSize, maxOrthographicSize));
+    }
+
+    // View changes from buttons and keys glide for a moment so the user can follow where the view went.
+    // Any navigation input stops the glide where it is (the user never waits for it).
+    const float TransitionSeconds = 0.3f;
+    struct Pose { public Vector3 pivot; public float pitch, yaw, distance, size; }
+    Pose transitionFrom, transitionTo;
+    float transitionStart = -1f;
+
+    Pose CapturePose() => new Pose
+    {
+        pivot = pivot.position, pitch = pitch, yaw = yaw, distance = transform.localPosition.magnitude,
+        size = cachedCamera != null ? cachedCamera.orthographicSize : 0f,
+    };
+
+    void ApplyPose(Pose pose)
+    {
+        pivot.position = pose.pivot; pitch = pose.pitch; yaw = pose.yaw;
+        if (cachedCamera != null && cachedCamera.orthographic) cachedCamera.orthographicSize = pose.size;
+        ApplyRigPose(pose.distance);
+    }
+
+    void Transition(Action change)
+    {
+        EnsureCameraRig();
+        var from = CapturePose();
+        change();
+        BeginTransition(from);
+    }
+
+    // The change is already applied; play it again from the pose before it.
+    void BeginTransition(Pose from)
+    {
+        var to = CapturePose();
+        bool moved = (from.pivot - to.pivot).sqrMagnitude > 1e-6f || Mathf.Abs(Mathf.DeltaAngle(from.yaw, to.yaw)) > .01f ||
+            Mathf.Abs(from.pitch - to.pitch) > .01f || Mathf.Abs(from.distance - to.distance) > 1e-4f || Mathf.Abs(from.size - to.size) > 1e-4f;
+        if (!moved) return;
+        transitionFrom = from; transitionTo = to; transitionStart = Time.unscaledTime;
+        ApplyPose(from);
+    }
+
+    void TickTransition()
+    {
+        if (transitionStart < 0f) return;
+        float t = Mathf.Clamp01((Time.unscaledTime - transitionStart) / TransitionSeconds);
+        float e = 1f - Mathf.Pow(1f - t, 3f);
+        ApplyPose(new Pose
+        {
+            pivot = Vector3.Lerp(transitionFrom.pivot, transitionTo.pivot, e),
+            pitch = Mathf.Lerp(transitionFrom.pitch, transitionTo.pitch, e),
+            yaw = Mathf.LerpAngle(transitionFrom.yaw, transitionTo.yaw, e),
+            distance = Mathf.Lerp(transitionFrom.distance, transitionTo.distance, e),
+            size = Mathf.Lerp(transitionFrom.size, transitionTo.size, e),
+        });
+        if (t >= 1f) transitionStart = -1f;
     }
 
     void ApplyRigPose(float distance)
@@ -524,7 +626,7 @@ public class EditorCameraController : MonoBehaviour
             if (trackpadScrollFrames >= 4)
             {
                 EditorCameraInputSettings.MarkTrackpadDetected();
-                Notice?.Invoke("トラックパッドの操作にしました：2本指で回転、Shift＋2本指で平行移動、" + SkillSyncDesignView.ShortcutModifierName + "＋2本指でズーム（3D画面右上のボタンで切替）");
+                Notice?.Invoke("トラックパッドの操作にしました：2本指で回転、Shift＋2本指で平行移動、" + SkillSyncDesignView.ShortcutModifierName + "＋2本指でズーム（マウスに戻すときは、配置画面の右下「詳細設定」で切り替えられます）");
             }
         }
 

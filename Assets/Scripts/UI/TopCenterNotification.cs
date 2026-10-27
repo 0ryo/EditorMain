@@ -71,15 +71,33 @@ public sealed class TopCenterNotification : MonoBehaviour
         if (!repeat && !string.IsNullOrEmpty(message)) RecordHistory(message, error);
         // The same message only restarts the timer; a different one waits so an error is never overwritten.
         if (repeat) { current = entry; startPending = true; return; }
+        bool plainInfo = !error && action == null;
+        // A plain info notice is about what just happened: it replaces an older plain info at once instead of
+        // arriving seconds late behind it. Errors and notices with a button (元に戻す) are never replaced.
+        if (plainInfo && duration > 0 && !HintPanelController.IsOpen && !current.error && current.action == null)
+        {
+            DropQueuedPlainInfo();
+            Display(entry);
+            started = Time.unscaledTime - SlideSeconds; // already on screen: no second slide-in
+            startPending = false;
+            return;
+        }
         // The help covers the middle of the screen; notices wait until it is closed (they are in the history already).
         if (duration > 0 || HintPanelController.IsOpen)
         {
+            if (plainInfo) DropQueuedPlainInfo(); // only the newest info is worth showing later
             if (queue.Count >= MaxQueued && !DropOldestInfo(error)) return;
             queue.Enqueue(entry);
             if (!gameObject.activeSelf) gameObject.SetActive(true); // Update shows it once the help closes.
             return;
         }
         Display(entry);
+    }
+
+    void DropQueuedPlainInfo()
+    {
+        var kept = new List<Entry>(queue); queue.Clear();
+        foreach (var e in kept) if (e.error || e.action != null) queue.Enqueue(e);
     }
 
     // Makes room for a new message by dropping the oldest queued info; returns false if the new info should be discarded.
@@ -225,6 +243,13 @@ public sealed class TopCenterNotification : MonoBehaviour
         if (canvasWidth != canvasRect.rect.width || canvasHeight != canvasRect.rect.height) ResizeToMessage();
         else ComputePlacement();
         float elapsed = Time.unscaledTime - started;
+        // A notice with a button (元に戻す) stays while the pointer rests on it, so it never vanishes under the cursor.
+        if (current.action != null && elapsed > SlideSeconds && elapsed < duration - SlideSeconds &&
+            RectTransformUtility.RectangleContainsScreenPoint(rect, EditInput.MousePosition, null))
+        {
+            started += Time.unscaledDeltaTime;
+            elapsed = Time.unscaledTime - started;
+        }
         float progress = elapsed < SlideSeconds ? Mathf.Clamp01(elapsed / SlideSeconds) : Mathf.Clamp01((duration - elapsed) / SlideSeconds);
         float eased = 1f - Mathf.Pow(1f - progress, 3f);
         // Fade plus a short slide from just above the final spot: it never sweeps across the header.

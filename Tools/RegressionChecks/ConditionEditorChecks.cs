@@ -46,7 +46,20 @@ static class ConditionEditorChecks
                 Check(SkillSyncConditionEditing.TargetsValid(Current(), value => value == "a" || value == "b"), "Configured targets: " + definition.id);
                 Check(SkillSyncConditionEditing.Summary(Current()).StartsWith(definition.label + "："), "Type-specific summary: " + definition.id);
                 Check(SkillSyncConditionEditing.SupportsPcTrial(Current()) == (definition.id == "Proximity" || definition.id == "SnapHold"), "PC trial capability: " + definition.id);
-                Check(SkillSyncConditionEditing.Parameter(Current(), definition.parameters.Count) == null, "Unused parameter slot: " + definition.id);
+                // "近づける" (Proximity) also edits the hold time: 0 seconds stays Proximity, more becomes SnapHold.
+                int slots = definition.id == "Proximity" ? 2 : definition.parameters.Count;
+                Check(SkillSyncConditionEditing.Parameter(Current(), slots) == null, "Unused parameter slot: " + definition.id);
+                if (definition.id == "Proximity")
+                {
+                    Check(SkillSyncConditionEditing.Value(Current(), 1) == "0", "Proximity holds for 0 seconds");
+                    graph.UpdateConditionData(id, "Hold", data => SkillSyncConditionEditing.TrySetValue(data, 1, "2"));
+                    Check(Current().type == "SnapHold" && SkillSyncConditionEditing.Value(Current(), 1) == "2", "A hold time makes SnapHold");
+                    graph.UpdateConditionData(id, "No hold", data => SkillSyncConditionEditing.TrySetValue(data, 1, "０秒"));
+                    Check(Current().type == "Proximity", "0 seconds makes Proximity again");
+                    Check(ConditionTypeCatalog.EditorChoiceOf("SnapHold") == "Proximity" && ConditionTypeCatalog.EditorChoices.All(d => d.id != "SnapHold"), "One editor choice for both");
+                    // Put back the retained hold time the later checks expect (setting 0 seconds stored 0).
+                    graph.UpdateConditionData(id, "Retained hold", data => ConditionTypeCatalog.SetNumber(data, ConditionTypeCatalog.HoldSecondsKey, 3));
+                }
                 if (!definition.requiresObjectB)
                 {
                     graph.UpdateConditionData(id, "Retain missing inactive B", data => data.objectBId = "missing");

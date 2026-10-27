@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
@@ -116,18 +117,31 @@ public sealed class SkillSyncStartScreen : MonoBehaviour
         bool hasNotice = notice != null && EditorProjectStore.TryGetFileInfo(notice.path, out _);
         if (hasNotice) { BuildRecoveryNotice(notice); Spacer(20f); }
 
-        var cards = Row("Cards", 16f, 176f);
-        Card(cards, "＋  新しい教材を作る", "空の教材から始めます。", true, Close);
+        // The lesson used last comes first, opened where it was left (its view is remembered per lesson).
+        var last = EditorProjectRecents.Get(1);
+        var continued = last.Count > 0 ? last[0] : null;
+        if (continued != null)
+        {
+            var where = SkillSyncViewMemory.Load(continued.Path)?.label;
+            var resume = Row("Continue", 16f, 92f);
+            Card(resume, "▶  前回の続き：「" + continued.DisplayName + "」",
+                (string.IsNullOrEmpty(where) ? "" : where + "・") + continued.LastWriteTimeUtc.ToLocalTime().ToString("M月d日 HH:mm") + "に保存", true, () => OpenRecent(continued),
+                centered: true);
+            Spacer(16f);
+        }
+        var cards = Row("Cards", 16f, 124f);
+        Card(cards, "＋  新しい教材を作る", "空の教材から始めます。", continued == null, Close);
         // One card for "start from a copy": the bundled sample and the user's own templates are listed together.
         Card(cards, "見本・テンプレートから作る", "完成例や保存したテンプレートのコピーから始めます。", false, () => { page = Page.Templates; Rebuild(); });
         Spacer(24f);
 
         AddText("RecentTitle", "最近使った教材", 22, DesignTokens.TextPrimary, FontStyles.Bold);
         Spacer(8f);
-        var recent = EditorProjectRecents.Get(hasNotice ? RecentCount - 1 : RecentCount);
+        // The continue card already offers the first one.
+        var recent = EditorProjectRecents.Get((hasNotice ? RecentCount - 1 : RecentCount) + (continued != null ? 1 : 0)).Skip(continued != null ? 1 : 0).ToList();
         if (recent.Count == 0)
         {
-            var empty = AddText("RecentEmpty", "まだ保存した教材はありません。作った教材はここに表示されます。", 20, DesignTokens.TextSecondary);
+            var empty = AddText("RecentEmpty", continued != null ? "ほかに最近使った教材はありません。" : "まだ保存した教材はありません。作った教材はここに表示されます。", 20, DesignTokens.TextSecondary);
             SkillSyncModalKit.WithHeight(empty, 48f);
         }
         foreach (var info in recent) { ListRow(info.DisplayName, info.LastWriteTimeUtc.ToLocalTime().ToString("yyyy/MM/dd HH:mm"), () => OpenRecent(info)); Spacer(6f); }
@@ -195,7 +209,8 @@ public sealed class SkillSyncStartScreen : MonoBehaviour
         var sample = SkillSyncSamples.TireChange();
         if (sample != null)
         {
-            ListRow(sample.title, "見本", () => OpenSample(sample));
+            TMP_Text sampleDetail = null;
+            sampleDetail = ListRow(sample.title, "見本", () => OpenSample(sample, sampleDetail));
             Spacer(6f);
         }
         var templates = EditorProjectStore.ListTemplates();
@@ -240,10 +255,18 @@ public sealed class SkillSyncStartScreen : MonoBehaviour
         EditorProjectPanel.Ensure(uiRoot)?.RequestDiscardStartupRecovery(Rebuild);
     }
 
-    async void OpenSample(SkillSyncSamples.Sample sample)
+    // The pressed row answers at once: it says it is preparing (with moving dots) and the page stops taking clicks,
+    // so a second press is never silently swallowed.
+    async void OpenSample(SkillSyncSamples.Sample sample, TMP_Text detail = null)
     {
         if (busy) return;
         busy = true;
+        CanvasGroup group = null;
+        if (panel != null) { group = panel.GetComponent<CanvasGroup>(); if (group == null) group = panel.gameObject.AddComponent<CanvasGroup>(); }
+        if (group != null) group.interactable = false;
+        string before = detail != null ? detail.text : null;
+        Color beforeColor = detail != null ? detail.color : Color.clear;
+        var dots = detail != null ? StartCoroutine(Preparing(detail)) : null;
         Notify("見本を準備しています。初めて開くときは少し時間がかかります。");
         try
         {
@@ -264,7 +287,26 @@ public sealed class SkillSyncStartScreen : MonoBehaviour
             Debug.LogException(ex);
             Notify("見本を開けませんでした: " + ex.Message, true);
         }
-        finally { busy = false; }
+        finally
+        {
+            busy = false;
+            if (this != null)
+            {
+                if (dots != null) StopCoroutine(dots);
+                if (detail != null) { detail.text = before; detail.color = beforeColor; }
+                if (group != null) group.interactable = true;
+            }
+        }
+    }
+
+    System.Collections.IEnumerator Preparing(TMP_Text detail)
+    {
+        detail.color = DesignTokens.Accent;
+        for (int i = 0; ; i = (i + 1) % 4)
+        {
+            detail.text = "準備しています" + new string('.', i);
+            yield return new WaitForSecondsRealtime(.35f);
+        }
     }
 
     void Notify(string message, bool error = false)
@@ -308,7 +350,8 @@ public sealed class SkillSyncStartScreen : MonoBehaviour
         space.flexibleWidth = 1f;
     }
 
-    void Card(Transform parent, string title, string description, bool primary, Action onClick)
+    // centered: a one-row card (the continue card) keeps its two lines in the middle instead of leaving space below.
+    void Card(Transform parent, string title, string description, bool primary, Action onClick, bool centered = false)
     {
         var button = SkillSyncModalKit.NewButton("Card", parent, font);
         button.label.gameObject.SetActive(false); Destroy(button.label.gameObject);
@@ -319,6 +362,7 @@ public sealed class SkillSyncStartScreen : MonoBehaviour
         button.surface.borderColor = primary ? DesignTokens.Accent : DesignTokens.Divider;
         var layout = button.button.gameObject.AddComponent<VerticalLayoutGroup>();
         layout.padding = new RectOffset(20, 20, 18, 16); layout.spacing = 8f;
+        if (centered) { layout.padding = new RectOffset(24, 24, 0, 0); layout.spacing = 6f; layout.childAlignment = TextAnchor.MiddleLeft; }
         layout.childControlWidth = layout.childControlHeight = true; layout.childForceExpandWidth = true; layout.childForceExpandHeight = false;
         var titleText = SkillSyncModalKit.NewText("CardTitle", button.button.transform, font, 24, primary ? DesignTokens.ButtonTextLight : DesignTokens.TextPrimary, FontStyles.Bold);
         titleText.text = title;
@@ -327,7 +371,7 @@ public sealed class SkillSyncStartScreen : MonoBehaviour
         button.button.onClick.AddListener(() => onClick());
     }
 
-    void ListRow(string name, string detail, Action onClick)
+    TMP_Text ListRow(string name, string detail, Action onClick)
     {
         var button = SkillSyncModalKit.NewButton("Row", panel, font);
         button.label.gameObject.SetActive(false); Destroy(button.label.gameObject);
@@ -344,5 +388,6 @@ public sealed class SkillSyncStartScreen : MonoBehaviour
         var dateLayout = date.gameObject.AddComponent<LayoutElement>();
         dateLayout.preferredWidth = dateLayout.minWidth = 200f;
         button.button.onClick.AddListener(() => onClick());
+        return date;
     }
 }

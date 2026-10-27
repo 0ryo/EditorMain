@@ -193,14 +193,18 @@ public sealed class EditorProjectService : MonoBehaviour
         catch (Exception ex) { return Fail((asTemplate ? "テンプレートにできません: " : "複製できません: ") + ex.Message, out message); }
     }
 
-    public bool ArchiveSaved(string path, out string message)
+    public bool ArchiveSaved(string path, out string message) => ArchiveSaved(path, out message, out _);
+
+    // archivedPath: where the file now is in the trash, so the move can be undone right away.
+    public bool ArchiveSaved(string path, out string message, out string archivedPath)
     {
+        archivedPath = null;
         try
         {
             if (!string.IsNullOrEmpty(CurrentProjectPath) && string.Equals(System.IO.Path.GetFullPath(path),
                 System.IO.Path.GetFullPath(CurrentProjectPath), StringComparison.OrdinalIgnoreCase))
                 return Fail("編集中の教材はゴミ箱へ移せません。別の教材を開いてから、もう一度試してください。", out message);
-            EditorProjectStore.Archive(path);
+            archivedPath = EditorProjectStore.Archive(path);
             message = "ゴミ箱へ移しました。「ゴミ箱」タブから元に戻せます。";
             NotifyStatus(message, true);
             return true;

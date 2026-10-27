@@ -16,9 +16,14 @@ public static class SkillSyncConditionEditing
         return true;
     }
 
+    // "近づける" edits distance and hold time whether it is stored as Proximity (0 seconds) or SnapHold.
+    static bool Approach(ConditionNodeData condition) =>
+        condition != null && (condition.type == ConditionTypeCatalog.Proximity || condition.type == ConditionTypeCatalog.SnapHold);
+
     public static ConditionTypeCatalog.ParameterDefinition Parameter(ConditionNodeData condition, int slot)
     {
-        var parameters = ConditionTypeCatalog.Find(condition?.type)?.parameters?.Where(p => p.choices == null).ToList();
+        string type = Approach(condition) ? ConditionTypeCatalog.SnapHold : condition?.type;
+        var parameters = ConditionTypeCatalog.Find(type)?.parameters?.Where(p => p.choices == null).ToList();
         return parameters != null && slot >= 0 && slot < parameters.Count ? parameters[slot] : null;
     }
 
@@ -42,7 +47,9 @@ public static class SkillSyncConditionEditing
     {
         var parameter = Parameter(condition, slot);
         if (parameter == null) return "";
-        float value = ConditionTypeCatalog.GetNumber(condition, parameter.key, parameter.defaultValue);
+        // Proximity is "near for 0 seconds", whatever an earlier SnapHold left stored.
+        float value = condition.type == ConditionTypeCatalog.Proximity && parameter.key == ConditionTypeCatalog.HoldSecondsKey ? 0f :
+            ConditionTypeCatalog.GetNumber(condition, parameter.key, parameter.defaultValue);
         return (parameter.key == ConditionTypeCatalog.DistanceKey ? value * 100 : value).ToString("0.##", CultureInfo.CurrentCulture);
     }
 
@@ -59,13 +66,39 @@ public static class SkillSyncConditionEditing
     {
         clamped = false;
         var parameter = Parameter(condition, slot);
-        if (parameter == null || !float.TryParse(input, NumberStyles.Float, CultureInfo.CurrentCulture, out float value) ||
-            float.IsNaN(value) || float.IsInfinity(value)) return false;
+        if (parameter == null || !TryParseNumber(input, out float value)) return false;
         if (parameter.key == ConditionTypeCatalog.DistanceKey) value /= 100;
         float bounded = Math.Max(parameter.minValue, Math.Min(parameter.maxValue, value));
         clamped = bounded != value;
+        // The hold time of "近づける" decides the stored type: 0 seconds is Proximity, more is SnapHold.
+        if (Approach(condition) && parameter.key == ConditionTypeCatalog.HoldSecondsKey)
+            condition.type = bounded > 0 ? ConditionTypeCatalog.SnapHold : ConditionTypeCatalog.Proximity;
         ConditionTypeCatalog.SetNumber(condition, parameter.key, bounded);
         return true;
+    }
+
+    // Accepts what people type with a Japanese IME: full-width digits, points and signs, spaces, thousands commas,
+    // and a trailing unit ("10cm", "１０ｃｍ", "90度", "90°", "2秒", "120%"). Anything else is still rejected.
+    public static bool TryParseNumber(string input, out float value)
+    {
+        value = 0;
+        if (string.IsNullOrWhiteSpace(input)) return false;
+        string text = input.Normalize(System.Text.NormalizationForm.FormKC).Trim();
+        bool commaDecimal = CultureInfo.CurrentCulture.NumberFormat.NumberDecimalSeparator == ",";
+        var builder = new System.Text.StringBuilder(text.Length);
+        foreach (char c in text)
+        {
+            if (char.IsWhiteSpace(c)) continue;
+            if (c == '−' || c == 'ー' || c == '–' || c == '—') builder.Append('-');
+            // A comma is the decimal mark where the OS locale uses one (values are shown that way too), otherwise a thousands separator ("1,000").
+            else if (c == ',') { if (commaDecimal) builder.Append('.'); }
+            else builder.Append(c);
+        }
+        text = builder.ToString().ToLowerInvariant();
+        foreach (var unit in new[] { "cm", "センチ", "度", "°", "秒", "s", "%" })
+            if (text.EndsWith(unit, StringComparison.Ordinal)) { text = text.Substring(0, text.Length - unit.Length); break; }
+        return float.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out value) &&
+            !float.IsNaN(value) && !float.IsInfinity(value);
     }
 
     public static string RangeHint(ConditionNodeData condition, int slot)
@@ -111,7 +144,7 @@ public static class SkillSyncConditionEditing
             ConditionTypeCatalog.SnapHold => $"中心どうしが{distance} cm以内の状態を{hold}秒続けると完了します。部品をもつ必要はなく、範囲を出ると数え直します",
             ConditionTypeCatalog.Push => "対象を押す操作が1回あると完了します（何を押す操作とみなすかはXRアプリ側で判定します）",
             ConditionTypeCatalog.Pull => "対象を引く操作が1回あると完了します（何を引く操作とみなすかはXRアプリ側で判定します）",
-            ConditionTypeCatalog.Grabbed => "対象をつかんだ時点で完了します。運ぶ動きは判定しないので、運ぶ場合は「近づけて保持」を使います",
+            ConditionTypeCatalog.Grabbed => "対象をつかんだ時点で完了します。運ぶ動きは判定しないので、運ぶ場合は「近づける」でとどまる秒数を決めます",
             ConditionTypeCatalog.Released => "対象をつかんだあと、手放すと完了します。最初からつかんでいないだけでは完了しません",
             ConditionTypeCatalog.Turn => $"対象を{distance}度以上回すと完了します。" + (Choice(condition) == 0 ? "向きは問いません（XRアプリ側で判定します）" : ChoiceLabel(condition) + "だけが数えられます（XRアプリ側で判定します）"),
             ConditionTypeCatalog.Separation => $"2つの部品の中心どうしが{distance} cm以上離れると完了します",
@@ -143,7 +176,7 @@ public static class SkillSyncConditionEditing
         return condition?.type switch
         {
             ConditionTypeCatalog.Proximity => $"近づける：{distance} cm以内で完了",
-            ConditionTypeCatalog.SnapHold => $"近づけて保持：{distance} cm以内に{hold}秒とどまると完了",
+            ConditionTypeCatalog.SnapHold => $"近づける：{distance} cm以内に{hold}秒とどまると完了",
             ConditionTypeCatalog.Push => "押す：対象を押す操作で完了",
             ConditionTypeCatalog.Pull => "引く：対象を引く操作で完了",
             ConditionTypeCatalog.Grabbed => "もつ：対象をつかむと完了",
