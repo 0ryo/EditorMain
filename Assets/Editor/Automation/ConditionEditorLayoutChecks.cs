@@ -142,7 +142,8 @@ public static class ConditionEditorLayoutChecks
         Canvas.ForceUpdateCanvases();
         var definition = ConditionTypeCatalog.Find(type);
         bool requiresB = ConditionTypeCatalog.RequiresObjectB(type);
-        int parameters = definition?.parameters.Count(p => p.choices == null) ?? 0;
+        // Count the slots the editor shows: "近づける" edits distance and hold time even when stored as Proximity.
+        int parameters = Enumerable.Range(0, 2).Count(slot => SkillSyncConditionEditing.Parameter(Condition(type), slot) != null);
         var dropdown = view.conditionTypeDropdown;
         var card = Rect(view, "conditionEditorCard");
         var note = Rect(view, "conditionEditorNote");
