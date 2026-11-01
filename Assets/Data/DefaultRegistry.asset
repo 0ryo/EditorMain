@@ -13,11 +13,5 @@ MonoBehaviour:
   m_Name: DefaultRegistry
   m_EditorClassIdentifier: Assembly-CSharp::PrefabRegistry
   entries:
-  - typeId: Vehicle/Car_Proxy
-    prefab: {fileID: 1142807961295399604, guid: 1c690c77e8c65ee42af8fd37908787ec, type: 3}
-  - typeId: ToolBox/Basic_Proxy
-    prefab: {fileID: 4289515882471490109, guid: 9740582f2ec2b47458da298e18c9e1e1, type: 3}
-  - typeId: Tire/Replacement_Proxy
-    prefab: {fileID: 3507959828662749789, guid: 5215446bd1560cf41a446a00f43ab84e, type: 3}
-  - typeId: Env/Wall_Min
-    prefab: {fileID: 5827425159960688368, guid: 67fe6a28571a31044af6098bf087c2a9, type: 3}
+  - typeId: Tool/ImpactWrench
+    prefab: {fileID: 8770655277094737947, guid: e2deaac411e334c2ca2d9e4ffaf43190, type: 3}

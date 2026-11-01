@@ -54,7 +54,7 @@
 - `Assets/Scripts/UI/`: シナリオノード、詳細パネル、デザイントークン、状態表示。
 - `Assets/UI/Prefabs/UIRoot.prefab`: Catalog、Scenario Graph、Detail、Settings等を含むUIルート。
 - `Assets/Editor/Automation/`: `UIRoot.prefab` 生成、Scene適用、検証エントリポイント。
-- `Assets/Data/DefaultRegistry.asset`: 既定4種の `typeId` とPrefab参照。
+- `Assets/Data/DefaultRegistry.asset`: 起動時の部品一覧に出る既定の `typeId` とPrefab参照。現在は課題用インパクトレンチ `Tool/ImpactWrench` のみ（旧仮オブジェクト4種の `*_Proxy`/`Env_Wall_Min` Prefabは一覧から外して残置）。インパクトレンチは `ImpactWrenchPrefabBuilder.Build` で再生成する。
 - `Design/skillsync_codex_handoff/`: 固定SkillSync UIのデザイン原本（Figma・PDF・`DESIGN_SPEC.md`）。
 
 配置・シナリオJSONの出力先は、Editorではプロジェクト直下の`Exports/`、PlayerではDocuments内の`SkillSync/Exports/`です（Documentsが取得できない場合はpersistentDataPath配下）。「教材を書き出す」は保存先を選び（macOS。他は既定の場所）、毎回`<教材名>-yyyyMMdd-HHmm`の別フォルダーに、同名のJSON・ZIPとモデル素材・EditorのPrefabパッケージをまとめます。同じ分の出力は末尾`-2`以降で区別し、以前の出力を保持します。

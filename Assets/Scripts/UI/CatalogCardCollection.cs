@@ -106,6 +106,7 @@ public static class CatalogCardText
         if (typeId.Contains("ToolBox", StringComparison.OrdinalIgnoreCase)) return "\u5DE5\u5177\u7BB1";
         if (typeId.Contains("Tire/Replacement", StringComparison.OrdinalIgnoreCase)) return "\u30BF\u30A4\u30E4\u4EA4\u63DB";
         if (typeId.Contains("Env/Wall", StringComparison.OrdinalIgnoreCase)) return "\u58C1";
+        if (typeId.Contains("Tool/ImpactWrench", StringComparison.OrdinalIgnoreCase)) return "\u30A4\u30F3\u30D1\u30AF\u30C8\u30EC\u30F3\u30C1";
 
         string tail = typeId;
         int slash = tail.LastIndexOf('/');
