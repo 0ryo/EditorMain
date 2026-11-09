@@ -178,6 +178,14 @@ h1,h2,h3,.steps .work,.fix .fh span,.place .box .k{font-feature-settings:"palt";
 .key{margin:0 .5mm}
 /* 丸ゴシックの字形で後ろが空いて見える文字を詰める（Webフォントに palt がないため個別に調整） */
 .kern{margin-right:-.22em}
+/* 番号の丸：丸ゴシックの数字は文字の枠の中で下寄りに描かれるため、grid の中央揃えでは丸の中心より下にずれる。
+   文字の枠を数字の高さ（cap）まで詰め、その高さを丸の内側の上下中央に置く。--d は丸の内側の直径 */
+.flow div b,.steps .no b,.fix .fh b,.mini div b,.memo .line b{display:block;text-align:center;line-height:1;text-box:trim-both cap alphabetic;padding-top:calc((var(--d) - 1cap)/2)}
+.flow div b{--d:5.6mm}
+.steps .no b{--d:7mm;flex:none}
+.fix .fh b{--d:6.4mm}
+.mini div b{--d:5mm}
+.memo .line b{--d:calc(5.2mm - 2.8px)}
 </style>
 </head>
 <body>

@@ -167,6 +167,18 @@ h1,h2,h3,.cond .t,.flow .name{font-feature-settings:"palt";letter-spacing:.03em}
 .kern{margin-right:-.22em}
 /* PDFではぼかし影が灰色の四角として描かれるため、印刷時は番号ピンの影を外し、輪郭線で代える */
 @media print{.pin{box-shadow:0 0 0 .2mm rgba(23,34,54,.25)}}
+/* 番号の丸：丸ゴシックの数字は文字の枠の中で下寄りに描かれるため、grid の中央揃えでは丸の中心より下にずれる。
+   文字の枠を数字の高さ（cap）まで詰め、その高さを丸の内側の上下中央に置く。--d は丸の内側の直径 */
+.pin,.legend b,.badge,ol.steps li::before{display:block;text-align:center;line-height:1;text-box:trim-both cap alphabetic;padding-top:calc((var(--d) - 1cap)/2)}
+.pin{--d:5mm}
+/* 写真上のピンは直径約23pxと小さく、文字位置の1px単位の丸めだけで直径の4%ずれる。
+   4倍の大きさで描いて1/4に縮め、丸めの影響を1/4にする（見た目の大きさは元と同じ） */
+.pin{width:24.8mm;height:24.8mm;border-width:2.4mm;font-size:36pt;--d:20mm;transform:translate(-50%,-50%) scale(.25);box-shadow:0 1.6mm 5.6mm rgba(0,0,0,.28)}
+@media print{.pin{box-shadow:0 0 0 .8mm rgba(23,34,54,.25)}}
+.legend b,ol.steps li::before{--d:5mm}
+.badge{--d:13mm}
+/* 擬似要素には * の box-sizing が効かないため、padding で丸が縦に伸びないようにする */
+ol.steps li::before{box-sizing:border-box}
 </style>
 </head>
 <body>
