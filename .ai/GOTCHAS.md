@@ -3,7 +3,10 @@
 ## 検証環境
 
 - CodexはGUI操作をせず、Unity CLIとEditor APIでcompile、Prefab更新、Player buildと出力物を確認する。GUI操作・PlayModeの実機確認はユーザーが行う。
-- ユーザー依頼でcomputer useによる画面点検をする場合: Playerは全画面の別Spaceで動き、app_*の背景操作ではクリックもドラッグも届かないため、画面全体の操作が必要（サブエージェントからの全画面操作は開始直後に中断されたため、メインセッションで行う）。2026-10の初見UX改善以降、定期autosaveは復旧dataだけへ書く（教材fileは明示保存でのみ変わる）。それ以前のビルドでは現在の教材へ自動保存されるため、テスト編集は元に戻すで取り消す。3Dモデル読込のOSファイル選択パネルはcomputer useで操作できず、ユーザーに閉じてもらう。`Builds/`には複数の旧Playerが残り、bundle IDも同じなので、点検や再現の前に`~/Library/Logs/DefaultCompany/Editor/Player.log`先頭のMono pathか`ps`で起動中の`.app`を確認する。
+- ユーザー依頼でcomputer useによる画面点検をする場合: Playerは全画面の別Spaceで動き、app_*の背景操作ではクリックもドラッグも届かないため、画面全体の操作が必要（サブエージェントからの全画面操作は開始直後に中断されたため、メインセッションで行う）。2026-10の初見UX改善以降、定期autosaveは復旧dataだけへ書く（教材fileは明示保存でのみ変わる）。それ以前のビルドでは現在の教材へ自動保存されるため、テスト編集は元に戻すで取り消す。3Dモデル読込のOSファイル選択パネルと、書き出し先のフォルダー選択パネルはcomputer useで操作できず、ユーザーに操作してもらう。
+  - 資料用の画面撮影は`screencapture -x -l<ウインドウID>`（IDは`app_list_windows`）で撮る。全画面撮影には操作中の画面の縁の光が写る。2026-11のMacBook（表示1440×900pt）ではPlayerは2880×1800で描かれ、アプリ部分は16:9で上下に黒帯が付く。
+  - Playerのボタンは、直前に`mouse_move`で乗せてからでないとクリックが効かないことがある。スクロールに付けた修飾キー（Shift/Cmd）は届かないので、視点を回すときは「詳細設定」で操作をトラックパッドに切り替え（スクロール＝回転）、終わったらマウスに戻す。`F`で選んだ部品に寄り、`3`で横から見る。
+  - 動作確認の自動再生は1手順が数秒で進み、通過した手順は「完了」から「待機中」に戻る。特定の手順で止めるには、手順を選んで［この手順を試す］の直後にEscを押す。`Builds/`には複数の旧Playerが残り、bundle IDも同じなので、点検や再現の前に`~/Library/Logs/DefaultCompany/Editor/Player.log`先頭のMono pathか`ps`で起動中の`.app`を確認する。
 - 変形モード「大きさ」では、選択を変えたクリックと同じフレームで`SelectionOutline`のスケールドラッグが新しい対象に対して始まり、細い部品が数倍に伸びて自動保存される。部品の勝手な拡大は、まずこれを疑う。
 - `Tools/RegressionChecks` に本番ロジックをリンクする.NET 8回帰runnerがある。Unity数学/JSONはadapterのためPlayMode/Unity serializationの代用にはならない。独自asmdef/Lint/CIは未確認。
   - macOSでは`dotnet run -- --skip-fbx --keep-going`で回す。FBXの検査はWindowsのpathを前提にしている。Material exportの「Concurrent exports」は、変更前のコードでも失敗する（2026-10-25確認）。
