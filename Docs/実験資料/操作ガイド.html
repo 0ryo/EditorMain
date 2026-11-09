@@ -1,0 +1,623 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>教材作成ツール 操作ガイド</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --text:#172236; --muted:#58677C; --border:#CDD5E0; --canvas:#F5F7FA; --subtle:#EEF2F7; --surface:#FFFFFF;
+  --blue:#0866E8; --blue-soft:#EAF2FF;
+  --teal:#147E83; --teal-soft:#E6F4F4;
+  --green:#15734A; --green-soft:#EAF7F0;
+  --amber:#B4690E; --amber-soft:#FFF5E6;
+  --accent:var(--blue); --accent-soft:var(--blue-soft);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+body{background:#DDE3EB;color:var(--text);font-family:"Noto Sans JP","Hiragino Sans","Yu Gothic",sans-serif;font-size:9.6pt;line-height:1.6}
+h1,h2,h3,.round{font-family:"Zen Maru Gothic","Hiragino Maru Gothic ProN","Noto Sans JP",sans-serif}
+
+/* ---------- ページ（A4縦） ---------- */
+.page{width:210mm;height:297mm;margin:8mm auto;background:var(--surface);padding:12mm 13mm 10mm;position:relative;overflow:hidden;display:flex;flex-direction:column;gap:4.2mm;box-shadow:0 2px 14px rgba(23,34,54,.18)}
+.page.mode-place{--accent:var(--blue);--accent-soft:var(--blue-soft)}
+.page.mode-step{--accent:var(--teal);--accent-soft:var(--teal-soft)}
+.page.mode-check{--accent:var(--green);--accent-soft:var(--green-soft)}
+.page.mode-file{--accent:var(--amber);--accent-soft:var(--amber-soft)}
+.page > *{flex-shrink:0}
+.foot{margin-top:auto;display:flex;justify-content:space-between;font-size:7.6pt;color:var(--muted);border-top:1px solid var(--subtle);padding-top:2mm}
+
+/* ---------- 見出し ---------- */
+.cover-head{background:var(--blue);color:#fff;border-radius:5mm;padding:7mm 8mm 6mm;position:relative;overflow:hidden}
+.cover-head::after{content:"";position:absolute;right:-18mm;top:-22mm;width:70mm;height:70mm;border-radius:50%;background:rgba(255,255,255,.09)}
+.cover-head .kicker{font-size:8.5pt;opacity:.85;letter-spacing:.08em}
+.cover-head h1{font-size:25pt;line-height:1.3;margin:1mm 0 2mm}
+.cover-head p{font-size:10.5pt;max-width:150mm}
+
+.page-head{display:flex;align-items:center;gap:4mm;padding-bottom:3mm;border-bottom:2px solid var(--accent)}
+.badge{flex:none;width:13mm;height:13mm;border-radius:50%;background:var(--accent);color:#fff;display:grid;place-items:center;font:700 17pt/1 "Zen Maru Gothic",sans-serif}
+.page-head .label{font-size:8pt;color:var(--accent);font-weight:700;letter-spacing:.06em}
+.page-head h2{font-size:17pt;line-height:1.25}
+.page-head p{font-size:9.4pt;color:var(--muted);margin-top:.5mm}
+
+h3{font-size:11.5pt;display:flex;align-items:center;gap:2mm;margin-bottom:1.6mm}
+h3::before{content:"";width:1.4mm;height:4.4mm;border-radius:1mm;background:var(--accent)}
+
+/* ---------- カード ---------- */
+.card{border:1px solid var(--border);border-radius:3.5mm;padding:3.6mm 4mm;background:var(--surface)}
+.card.soft{background:var(--accent-soft);border-color:transparent}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:4mm}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:3.5mm}
+.row{display:flex;gap:4mm;align-items:flex-start}
+.row > .grow{flex:1;min-width:0}
+
+/* ---------- 3ステップ ---------- */
+.flow{display:grid;grid-template-columns:1fr auto 1fr auto 1fr;align-items:stretch;gap:2mm}
+.flow .step{border-radius:3.5mm;padding:3.5mm;background:var(--accent-soft);border-top:1.6mm solid var(--accent)}
+.flow .step.s1{--accent:var(--blue);--accent-soft:var(--blue-soft)}
+.flow .step.s2{--accent:var(--teal);--accent-soft:var(--teal-soft)}
+.flow .step.s3{--accent:var(--green);--accent-soft:var(--green-soft)}
+.flow .num{font:700 8pt "Zen Maru Gothic",sans-serif;color:var(--accent)}
+.flow .name{font:700 12.5pt "Zen Maru Gothic",sans-serif;margin:.5mm 0 1mm}
+.flow .desc{font-size:8.8pt;line-height:1.55}
+.flow .ref{font-size:7.6pt;color:var(--muted);margin-top:1.4mm}
+.flow .arrow{align-self:center;color:var(--border);font-size:15pt}
+
+/* ---------- 番号付きの手順 ---------- */
+ol.steps{list-style:none;counter-reset:s;display:flex;flex-direction:column;gap:1.4mm}
+ol.steps li{counter-increment:s;position:relative;padding-left:7mm}
+ol.steps li::before{content:counter(s);position:absolute;left:0;top:.3mm;width:5mm;height:5mm;border-radius:50%;background:var(--accent);color:#fff;font:700 8pt/5mm "Zen Maru Gothic",sans-serif;text-align:center}
+ul.dots{list-style:none;display:flex;flex-direction:column;gap:1mm}
+ul.dots li{padding-left:3.6mm;position:relative}
+ul.dots li::before{content:"";position:absolute;left:.4mm;top:2.3mm;width:1.5mm;height:1.5mm;border-radius:50%;background:var(--accent)}
+
+/* ---------- ボタン表記 ---------- */
+.btn{display:inline-block;border:1px solid var(--border);background:#fff;border-radius:1.6mm;padding:0 1.6mm;font-size:.92em;font-weight:500;line-height:1.5;white-space:nowrap;box-shadow:0 .3mm 0 var(--border)}
+.btn.primary{background:var(--blue);border-color:var(--blue);color:#fff;box-shadow:none}
+.key{display:inline-block;border:1px solid var(--muted);border-radius:1.2mm;padding:0 1.3mm;font-size:.86em;font-weight:500;line-height:1.45}
+.ui{font-weight:700}
+
+/* ---------- 操作表 ---------- */
+table.ops{width:100%;border-collapse:separate;border-spacing:0}
+table.ops th,table.ops td{text-align:left;vertical-align:top;padding:1.8mm 2.4mm;border-bottom:1px solid var(--subtle)}
+table.ops tr:last-child th,table.ops tr:last-child td{border-bottom:0}
+table.ops th{width:31mm;font-weight:700;white-space:nowrap}
+table.ops th small{display:block;font-weight:400;color:var(--muted);font-size:7.8pt}
+
+/* ---------- 注意・ヒント ---------- */
+.note{display:flex;gap:2.4mm;align-items:flex-start;background:var(--canvas);border-radius:2.6mm;padding:2.4mm 3mm;font-size:8.8pt}
+.note .ic{flex:none;width:5mm;height:5mm;border-radius:50%;background:var(--accent);color:#fff;display:grid;place-items:center;font:700 8pt/1 sans-serif}
+
+/* ---------- スクリーンショット枠 ---------- */
+.shot{position:relative;width:100%;aspect-ratio:var(--r,16/10);border-radius:2.6mm;overflow:hidden;background:repeating-linear-gradient(135deg,#F5F7FA 0 3mm,#EEF2F7 3mm 6mm);border:1.2px dashed #9AA8BC}
+.shot.has-img{border:1px solid var(--border);background:#fff}
+.shot > img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:top left}
+.shot .ph{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:3mm;gap:1mm;z-index:1}
+.shot.has-img .ph,.shot.has-img .wf{display:none}
+.shot .ph .tag{font:700 8pt "Zen Maru Gothic",sans-serif;background:var(--text);color:#fff;border-radius:10mm;padding:.4mm 2.6mm}
+.shot .ph .what{font-weight:700;font-size:9pt;line-height:1.45}
+.shot .ph .detail{font-size:7.4pt;color:var(--muted);line-height:1.45;max-width:120mm}
+.shot .ph .file{font-family:ui-monospace,Menlo,monospace;font-size:6.8pt;color:var(--muted)}
+.shot.sm .ph .detail{display:none}
+.shot.sm .ph .what{font-size:8pt}
+/* 画面全体の写真の下書き（ヘッダー・左右の欄） */
+.wf{position:absolute;inset:0}
+.wf i{position:absolute;background:rgba(255,255,255,.75);border:1px solid #C3CDDA}
+.wf .h{left:0;top:0;width:100%;height:8.8%}
+.wf .l{left:0;top:8.8%;width:16.5%;bottom:0}
+.wf .r{right:0;top:8.8%;width:27.5%;bottom:0}
+/* 番号ピン（撮影後に位置を調整） */
+.pin{position:absolute;left:var(--x);top:var(--y);transform:translate(-50%,-50%);z-index:2;width:6.2mm;height:6.2mm;border-radius:50%;background:var(--accent);color:#fff;border:.6mm solid #fff;box-shadow:0 .4mm 1.4mm rgba(0,0,0,.28);display:grid;place-items:center;font:700 9pt/1 "Zen Maru Gothic",sans-serif}
+.legend{display:grid;grid-template-columns:repeat(var(--cols,3),1fr);gap:1.6mm 4mm;font-size:8.8pt}
+.legend div{display:flex;gap:1.8mm;align-items:flex-start}
+.legend b{flex:none;width:5mm;height:5mm;border-radius:50%;background:var(--accent);color:#fff;display:grid;place-items:center;font:700 8pt/1 "Zen Maru Gothic",sans-serif;margin-top:.3mm}
+.split{display:grid;grid-template-columns:1fr 42mm;gap:4mm;align-items:center}
+.split .legend{--cols:1;gap:2.6mm}
+.cap{font-size:7.8pt;color:var(--muted);margin-top:1mm;text-align:center}
+.pair{display:grid;grid-template-columns:1fr auto 1fr;gap:2mm;align-items:center}
+.pair .to{color:var(--accent);font-size:13pt;font-weight:700}
+
+/* ---------- 完了条件カード ---------- */
+.cond{display:flex;gap:3mm;align-items:flex-start}
+.cond svg{flex:none;width:14mm;height:14mm}
+.cond .t{font:700 12pt "Zen Maru Gothic",sans-serif;color:var(--accent);line-height:1.3}
+.cond .when{font-size:9pt;margin:.6mm 0 1.2mm}
+.vals{display:flex;flex-wrap:wrap;gap:1.2mm}
+.vals span{font-size:7.8pt;background:var(--canvas);border:1px solid var(--subtle);border-radius:1.4mm;padding:0 1.6mm}
+.vals .none{color:var(--muted)}
+
+/* ---------- 撮影リスト（画面表示のみ） ---------- */
+.shotlist{width:210mm;margin:8mm auto 16mm;background:#fff;padding:10mm 13mm;box-shadow:0 2px 14px rgba(23,34,54,.18)}
+.shotlist h2{font-size:14pt;margin-bottom:1mm}
+.shotlist p{color:var(--muted);font-size:9pt;margin-bottom:4mm}
+.shotlist table{width:100%;border-collapse:collapse;font-size:8.6pt}
+.shotlist th,.shotlist td{border-bottom:1px solid var(--subtle);padding:1.6mm 2mm;text-align:left;vertical-align:top}
+.shotlist td.ok{color:var(--green);font-weight:700}
+.shotlist td.ng{color:var(--muted)}
+.shotlist code{font-family:ui-monospace,Menlo,monospace;font-size:8pt}
+
+@page{size:A4;margin:0}
+@media print{
+  body{background:none}
+  .page{margin:0;box-shadow:none;break-after:page}
+  .page:last-of-type{break-after:auto}
+  .screen-only{display:none!important}
+}
+@media screen and (max-width:820px){
+  .page,.shotlist{zoom:.46}
+}
+
+/* ---------- 細部の調整（印刷・PDF用） ---------- */
+/* 日本語を文節単位で折り返し、1〜2文字だけが次の行に残るのを防ぐ */
+body{word-break:auto-phrase;line-break:strict;overflow-wrap:break-word}
+/* 丸ゴシックの見出しはかなの字間が空くため、プロポーショナル字詰めにする */
+h1,h2,h3,.cond .t,.flow .name{font-feature-settings:"palt";letter-spacing:.03em}
+/* 並んだボタン表記・キー表記が文字や隣の表記に接しないようにする */
+.btn + .btn{margin-left:1.2mm}
+.key{margin:0 .5mm}
+/* 写真の下書きの説明文を中央の3D画面の範囲に収め、左右の欄の線と重ねない */
+.shot:has(.wf) .ph{left:16.5%;right:27.5%;top:8.8%}
+.shot:has(.wf) .ph .detail{max-width:none}
+/* 写真横の凡例は語の途中で折り返さない幅にする */
+.split{grid-template-columns:1fr 46mm}
+/* 丸ゴシックの字形で後ろが空いて見える文字を詰める（Webフォントに palt がないため個別に調整） */
+.kern{margin-right:-.22em}
+/* PDFではぼかし影が灰色の四角として描かれるため、印刷時は番号ピンの影を外し、輪郭線で代える */
+@media print{.pin{box-shadow:0 0 0 .2mm rgba(23,34,54,.25)}}
+</style>
+</head>
+<body>
+
+<!-- ======================= 1. はじめに ======================= -->
+<section class="page">
+  <header class="cover-head">
+    <div class="kicker">先生用</div>
+    <h1>教材作成ツール 操作ガ<span class="kern">イ</span>ド</h1>
+    <p>VRゴーグルで使う実習教材を作るツールです。画面上部の3つのボタンを、左から順に使って作ります。</p>
+  </header>
+
+  <div class="flow">
+    <div class="step s1">
+      <div class="num">STEP 1</div>
+      <div class="name">配置を編集</div>
+      <div class="desc">部品（工具や車など）を置き、位置と向きを決めます。</div>
+      <div class="ref">→ 2ページ</div>
+    </div>
+    <div class="arrow">▶</div>
+    <div class="step s2">
+      <div class="num">STEP 2</div>
+      <div class="name">手順を編集</div>
+      <div class="desc">作業の手順を作り、手順ごとに説明文と完了条件を決めます。</div>
+      <div class="ref">→ 3・4ページ</div>
+    </div>
+    <div class="arrow">▶</div>
+    <div class="step s3">
+      <div class="num">STEP 3</div>
+      <div class="name">動作を確認</div>
+      <div class="desc">部品を自動で動かし、手順が思いどおりに進むか確かめます。</div>
+      <div class="ref">→ 5ページ</div>
+    </div>
+  </div>
+
+  <div>
+    <h3>画面の見方</h3>
+    <div class="split">
+    <figure class="shot" data-id="S01"
+      data-what="ツール起動直後の画面全体"
+      data-detail="「配置を編集」を選んだ状態。タイヤ交換の初期配置（車・タイヤ）が3D画面に見え、上部の3つのボタン、左の欄、右の欄、［↑ 教材を書き出す］がすべて写るように撮る。">
+      <div class="wf"><i class="h"></i><i class="l"></i><i class="r"></i></div>
+      <span class="pin" style="--x:48%;--y:4.4%">1</span>
+      <span class="pin" style="--x:8%;--y:45%">2</span>
+      <span class="pin" style="--x:44%;--y:28%">3</span>
+      <span class="pin" style="--x:86%;--y:45%">4</span>
+      <span class="pin" style="--x:92%;--y:4.4%">5</span>
+    </figure>
+    <div class="legend">
+      <div><b>1</b><span>3つのボタン（作業の切り替え）</span></div>
+      <div><b>2</b><span>左の欄：部品や手順の一覧</span></div>
+      <div><b>3</b><span>3D画面：教材の空間</span></div>
+      <div><b>4</b><span>右の欄：選んだものの設定</span></div>
+      <div><b>5</b><span><span class="btn">↑ 教材を書き出す</span>（6ページ）</span></div>
+    </div>
+    </div>
+  </div>
+
+  <div class="card soft">
+    <h3>3D画面の視点を動かす</h3>
+    <div class="grid3">
+      <div class="cond">
+        <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2" style="color:var(--accent);width:11mm;height:11mm"><rect x="14" y="6" width="20" height="34" rx="10"/><path d="M24 6v12M14 18h20"/><path d="M24 18V6h-1a9 9 0 0 1 11 9v3z" fill="currentColor" stroke="none"/><path d="M40 28a14 14 0 0 1-4 10M8 28a14 14 0 0 0 4 10" stroke-linecap="round"/></svg>
+        <div><b>右ボタンか中ボタン</b>を押したままドラッグすると、視点が回ります。</div>
+      </div>
+      <div class="cond">
+        <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2" style="color:var(--accent);width:11mm;height:11mm"><rect x="14" y="6" width="20" height="34" rx="10"/><path d="M14 18h20"/><rect x="21.5" y="9" width="5" height="7" rx="2.5" fill="currentColor" stroke="none"/><path d="M40 12v12M37 15l3-3 3 3M37 21l3 3 3-3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <div><b>ホイール</b>を回すと、拡大・縮小します。</div>
+      </div>
+      <div class="cond">
+        <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2" style="color:var(--accent);width:11mm;height:11mm"><path d="M8 16V8h8M40 16V8h-8M8 32v8h8M40 32v8h-8" stroke-linecap="round" stroke-linejoin="round"/><rect x="17" y="17" width="14" height="14" rx="2"/></svg>
+        <div><span class="btn">全体を見る</span>を押すと、置いた部品がすべて見える位置に戻ります。</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note"><span class="ic">i</span><span>ボタンにマウスを重ねると、説明が表示されます。操作を間違えたときは、<span class="btn">↶ 元に戻す</span>を押すと戻せます。分からないことがあれば、いつでも声をかけてください。</span></div>
+
+  <div class="foot"><span>教材作成ツール 操作ガイド</span><span>1 / 6</span></div>
+</section>
+
+<!-- ======================= 2. 配置を編集 ======================= -->
+<section class="page mode-place">
+  <header class="page-head">
+    <div class="badge">1</div>
+    <div>
+      <div class="label">STEP 1</div>
+      <h2>配置を編集</h2>
+      <p>部品を置き、位置・向き・大きさを決めます。</p>
+    </div>
+  </header>
+
+  <div>
+    <h3>部品を置く</h3>
+    <div class="pair">
+      <figure>
+        <div class="shot" style="--r:16/10" data-id="S02"
+          data-what="左の欄「部品を追加」"
+          data-detail="左の欄だけを切り抜く。ジャッキやソケットレンチなどの部品が並んでいる状態。">
+        </div>
+        <figcaption class="cap">① 左の欄で部品をクリック</figcaption>
+      </figure>
+      <div class="to">▶</div>
+      <figure>
+        <div class="shot" style="--r:16/10" data-id="S03"
+          data-what="3D画面で置く場所を選んでいるところ"
+          data-detail="部品を選んだ後、3D画面上に半透明の部品が表示されている状態。3D画面の中央付近を切り抜く。">
+        </div>
+        <figcaption class="cap">② 3D画面の置きたい場所をクリック</figcaption>
+      </figure>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="grow">
+      <h3>部品を選ぶ</h3>
+      <ul class="dots">
+        <li>3D画面で部品をクリックします。</li>
+        <li>車などは、1回目のクリックで全体が、もう一度クリックすると中の部品が選ばれます。</li>
+        <li>左の欄の<span class="ui">「配置した部品」</span>タブからも選べます。</li>
+      </ul>
+    </div>
+  </div>
+
+  <div>
+    <h3>動かす・回す・大きさを変える</h3>
+    <div class="row">
+      <figure style="width:54mm;flex:none">
+        <div class="shot sm" style="--r:4/5" data-id="S04"
+          data-what="右の欄（移動・回転・大きさ）"
+          data-detail="部品を選んだ状態の右の欄。［移動］［回転］［大きさ］と「向き」「倍率」の入力欄が写るように切り抜く。">
+          <span class="pin" style="--x:50%;--y:10%">A</span>
+        </div>
+        <figcaption class="cap">A：［移動］［回転］［大きさ］の切り替え</figcaption>
+      </figure>
+      <div class="grow">
+        <table class="ops">
+          <tr><th>動かす</th><td>部品の本体をドラッグすると、床に沿って動きます。<span class="btn">移動</span>を選ぶと、矢印をドラッグして動かせます（緑の矢印は上下）。</td></tr>
+          <tr><th>回す</th><td><span class="btn">回転</span>を選び、輪をドラッグします。「向き」の欄に角度を入れても回せます。</td></tr>
+          <tr><th>大きさを変える</th><td><span class="btn">大きさ</span>を選び、角をドラッグします。「倍率」の欄に％を入れても変えられます。</td></tr>
+          <tr><th>削除する</th><td><span class="btn">削除</span>を押すか、<span class="key">Delete</span>キーを押します。</td></tr>
+        </table>
+        <figure style="margin-top:2mm">
+          <div class="shot sm" style="--r:16/7" data-id="S05"
+            data-what="3D画面の移動用の矢印"
+            data-detail="［移動］を選んだときに部品に表示される矢印（緑の上下矢印を含む）を拡大して切り抜く。">
+          </div>
+        </figure>
+      </div>
+    </div>
+  </div>
+
+  <div class="foot"><span>教材作成ツール 操作ガイド</span><span>2 / 6</span></div>
+</section>
+
+<!-- ======================= 3. 手順を編集 ======================= -->
+<section class="page mode-step">
+  <header class="page-head">
+    <div class="badge">2</div>
+    <div>
+      <div class="label">STEP 2</div>
+      <h2>手順を編集</h2>
+      <p>作業の手順を作り、手順ごとに説明文と完了条件を決めます。</p>
+    </div>
+  </header>
+
+  <div class="split">
+    <figure class="shot" data-id="S06"
+      data-what="「手順を編集」の画面全体"
+      data-detail="手順が3つほどある教材で、1つの手順を選んだ状態。左の手順一覧、右の題名・説明文・完了条件の欄がすべて写るように撮る。">
+      <div class="wf"><i class="h"></i><i class="l"></i><i class="r"></i></div>
+      <span class="pin" style="--x:8%;--y:40%">1</span>
+      <span class="pin" style="--x:86%;--y:22%">2</span>
+      <span class="pin" style="--x:86%;--y:62%">3</span>
+    </figure>
+    <div class="legend">
+      <div><b>1</b><span>手順の一覧</span></div>
+      <div><b>2</b><span>題名と説明文</span></div>
+      <div><b>3</b><span>完了条件</span></div>
+    </div>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <h3>手順を増やす・並べ替える</h3>
+      <table class="ops">
+        <tr><th>増やす</th><td><span class="btn">＋ 手順を追加</span>を押します。</td></tr>
+        <tr><th>順番を変える</th><td>手順をドラッグするか、<span class="btn">↑ 上へ</span><span class="btn">↓ 下へ</span>を押します。</td></tr>
+        <tr><th>消す</th><td><span class="btn">この手順を削除</span>を押します。</td></tr>
+      </table>
+    </div>
+    <div class="card">
+      <h3>題名と説明文を書く</h3>
+      <p>右の欄の題名と説明の欄に入力します。</p>
+      <div class="note" style="margin-top:2mm"><span class="ic">!</span><span>説明文は、学習者のVRゴーグルの画面に表示されます。</span></div>
+    </div>
+  </div>
+
+  <div>
+    <h3>完了条件を付ける</h3>
+    <div class="row">
+      <div class="grow">
+        <ol class="steps">
+          <li><span class="btn">＋ 完了条件を追加</span>を押します。</li>
+          <li>条件の種類を選びます（6種類。4ページを参照）。</li>
+          <li>対象の欄を押し、開いた一覧から部品を選びます。名前で探すこともできます。</li>
+        </ol>
+        <div class="note" style="margin-top:2.4mm"><span class="ic">i</span><span>3D画面で選ぶときは、一覧の<span class="ui">「3D画面で選択…」</span>を押し、部品をクリックしてから<span class="btn">この対象に決定</span>を押します。</span></div>
+      </div>
+      <figure style="width:66mm;flex:none">
+        <div class="shot sm" style="--r:4/3" data-id="S07"
+          data-what="対象の欄を押したときの部品一覧"
+          data-detail="完了条件の対象の欄を押して、部品の一覧と「3D画面で選択…」が表示された状態を切り抜く。">
+        </div>
+      </figure>
+    </div>
+  </div>
+
+  <div class="note"><span class="ic">i</span><span>1つの手順に、完了条件は8個まで付けられます。複数付けた場合は、すべて満たした時点で次の手順に進みます（満たす順番は問いません）。</span></div>
+
+  <div class="foot"><span>教材作成ツール 操作ガイド</span><span>3 / 6</span></div>
+</section>
+
+<!-- ======================= 4. 完了条件の6種類 ======================= -->
+<section class="page mode-step">
+  <header class="page-head">
+    <div class="badge">2</div>
+    <div>
+      <div class="label">STEP 2 ・ 手順を編集</div>
+      <h2>完了条件の6種類</h2>
+      <p>完了条件は、学習者がどの動作をしたら次の手順に進むかを決めるものです。</p>
+    </div>
+  </header>
+
+  <div class="card">
+    <div class="row">
+      <div class="grow cond">
+        <svg viewBox="0 0 56 56" fill="none" stroke="currentColor" stroke-width="2.2" style="color:var(--accent)"><circle cx="38" cy="28" r="14" stroke-dasharray="3 3"/><circle cx="38" cy="28" r="4" fill="currentColor"/><rect x="4" y="21" width="14" height="14" rx="3"/><path d="M20 28h9M25 24l4 4-4 4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <div>
+          <div class="t">近づける</div>
+          <div class="when">「動かすもの」が「近づける先」から、指定の距離以内に入ったときに完了します。「近づけたまま」に秒数を入れると、その秒数とどまったときに完了します。</div>
+          <div class="vals"><span>距離（cm）</span><span>近づけたまま（秒）</span></div>
+        </div>
+      </div>
+      <figure style="width:80mm;flex:none">
+        <div class="shot sm" style="--r:4/3" data-id="S08"
+          data-what="「近づける」の入力欄"
+          data-detail="右の欄の完了条件のうち、「近づける」を選んだもの。動かすもの・近づける先・距離・近づけたままの欄が写るように切り抜く。">
+        </div>
+      </figure>
+    </div>
+  </div>
+
+  <div class="grid2">
+    <div class="card cond">
+      <svg viewBox="0 0 56 56" fill="none" stroke="currentColor" stroke-width="2.2" style="color:var(--accent)"><rect x="30" y="12" width="18" height="32" rx="3"/><circle cx="39" cy="28" r="5"/><path d="M6 28h16M17 23l5 5-5 5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <div><div class="t">押す</div><div class="when">対象を1回押したときに完了します。</div><div class="vals"><span class="none">入力する値はありません</span></div></div>
+    </div>
+    <div class="card cond">
+      <svg viewBox="0 0 56 56" fill="none" stroke="currentColor" stroke-width="2.2" style="color:var(--accent)"><rect x="30" y="12" width="18" height="32" rx="3"/><circle cx="39" cy="28" r="5"/><path d="M24 28H6M11 23l-5 5 5 5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <div><div class="t">引く</div><div class="when">対象を1回引いたときに完了します。</div><div class="vals"><span class="none">入力する値はありません</span></div></div>
+    </div>
+    <div class="card cond">
+      <svg viewBox="0 0 56 56" fill="none" stroke="currentColor" stroke-width="2.2" style="color:var(--accent)"><path d="M14 30V18a3 3 0 0 1 6 0v8M20 26V14a3 3 0 0 1 6 0v12M26 26V16a3 3 0 0 1 6 0v10M32 26v-6a3 3 0 0 1 6 0v12c0 8-5 14-12 14h-2c-6 0-10-4-12-9l-4-8a3 3 0 0 1 5-3l3 4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <div><div class="t">もつ</div><div class="when">対象をつかんだときに完了します。</div><div class="vals"><span class="none">入力する値はありません</span></div></div>
+    </div>
+    <div class="card cond">
+      <svg viewBox="0 0 56 56" fill="none" stroke="currentColor" stroke-width="2.2" style="color:var(--accent)"><path d="M12 24V10a3 3 0 0 1 6 0v12M18 22V8a3 3 0 0 1 6 0v14M24 22V10a3 3 0 0 1 6 0v12M30 22v-8a3 3 0 0 1 6 0v12c0 7-4 12-11 12h-2c-6 0-9-3-11-8l-3-6" stroke-linecap="round" stroke-linejoin="round"/><path d="M44 36v12M40 44l4 4 4-4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <div><div class="t">手放す</div><div class="when">つかんでいた対象を離したときに完了します。</div><div class="vals"><span class="none">入力する値はありません</span></div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <div class="grow cond">
+        <svg viewBox="0 0 56 56" fill="none" stroke="currentColor" stroke-width="2.2" style="color:var(--accent)"><circle cx="28" cy="28" r="6"/><path d="M46 28a18 18 0 1 1-6-13.4" stroke-linecap="round"/><path d="M41 7v8h-8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <div>
+          <div class="t">回す</div>
+          <div class="when">対象を、指定の角度以上回したときに完了します。回す向きは「どちらでも」「時計回り」「反時計回り」から選びます。</div>
+          <div class="vals"><span>回す角度（度）</span><span>回す向き</span></div>
+        </div>
+      </div>
+      <figure style="width:80mm;flex:none">
+        <div class="shot sm" style="--r:4/3" data-id="S09"
+          data-what="「回す」の入力欄"
+          data-detail="右の欄の完了条件のうち、「回す」を選んだもの。回す角度と回す向きの欄が写るように切り抜く。">
+        </div>
+      </figure>
+    </div>
+  </div>
+
+  <div class="foot"><span>教材作成ツール 操作ガイド</span><span>4 / 6</span></div>
+</section>
+
+<!-- ======================= 5. 動作を確認 ======================= -->
+<section class="page mode-check">
+  <header class="page-head">
+    <div class="badge">3</div>
+    <div>
+      <div class="label">STEP 3</div>
+      <h2>動作を確認</h2>
+      <p>部品が完了条件どおりに自動で動きます。学習者と同じ流れで手順が進むかを、見て確かめます。</p>
+    </div>
+  </header>
+
+  <div class="split">
+    <figure class="shot" data-id="S10"
+      data-what="「動作を確認」中の画面全体"
+      data-detail="確認の途中で、完了した手順・実行中の手順・待機中の手順が左に並び、右に条件の一覧が出ている状態。下部の［Ⅱ 一時停止］なども写るように撮る。">
+      <div class="wf"><i class="h"></i><i class="l"></i><i class="r"></i></div>
+      <span class="pin" style="--x:8%;--y:40%">1</span>
+      <span class="pin" style="--x:86%;--y:40%">2</span>
+      <span class="pin" style="--x:44%;--y:88%">3</span>
+    </figure>
+    <div class="legend">
+      <div><b>1</b><span>手順の進み具合</span></div>
+      <div><b>2</b><span>今の手順の条件の一覧</span></div>
+      <div><b>3</b><span>一時停止・やり直しなどのボタン</span></div>
+    </div>
+  </div>
+
+  <table class="ops card" style="padding:1mm 2mm">
+    <tr><th>確認を始める</th><td><span class="btn">動作を確認</span>を押すと、選んでいる手順から最後まで自動で動きます。</td></tr>
+    <tr><th>手順1から通す</th><td>「手順を編集」の画面で<span class="btn">▶ 最初から通して確認</span>を押します。確認中に<span class="btn">手順1から通す</span>を押しても、手順1から確かめ直せます。</td></tr>
+    <tr><th>自分で動かす</th><td>確認中に部品をドラッグすると、その手順だけ自分で動かして確かめられます。次の手順からは、また自動で動きます。</td></tr>
+    <tr><th>やり直す</th><td><span class="btn">この手順をやり直す</span>を押します。</td></tr>
+    <tr><th>一時停止する</th><td><span class="btn">Ⅱ 一時停止</span>を押すか、<span class="key">Esc</span>キーを押します。</td></tr>
+    <tr><th>編集に戻る</th><td><span class="btn">編集に戻る</span>を押すか、一時停止中にもう一度<span class="key">Esc</span>キーを押します。</td></tr>
+  </table>
+
+  <div class="row">
+    <div class="grow card soft">
+      <h3>条件を満たしたことにして進める</h3>
+      <p>自分で動かしていて満たしにくい条件は、条件の一覧の<span class="btn">成立にする</span>を押して進めます。最後の条件では<span class="btn">成立として次へ</span>と表示されます。</p>
+    </div>
+    <figure style="width:62mm;flex:none">
+      <div class="shot sm" style="--r:4/3" data-id="S11"
+        data-what="条件の一覧と［成立にする］"
+        data-detail="確認中の右の欄で、条件ごとに［成立にする］ボタンが並んでいる部分を切り抜く。">
+      </div>
+    </figure>
+  </div>
+
+  <div class="note"><span class="ic">!</span><span>確認中に動いた部品の位置は、保存されません。編集に戻ると元の位置に戻ります。</span></div>
+
+  <div class="foot"><span>教材作成ツール 操作ガイド</span><span>5 / 6</span></div>
+</section>
+
+<!-- ======================= 6. 保存と書き出し ======================= -->
+<section class="page mode-file">
+  <header class="page-head">
+    <div class="badge">✓</div>
+    <div>
+      <div class="label">仕上げ</div>
+      <h2>保存と書き出し</h2>
+      <p>作業中の教材は保存し、完成した教材はファイルに書き出します。</p>
+    </div>
+  </header>
+
+  <div class="grid2">
+    <div class="card">
+      <h3>保存する</h3>
+      <p><span class="btn">保存</span>を押します。初めて保存するときは、教材の名前を入力します。</p>
+    </div>
+    <div class="card">
+      <h3>書き出す</h3>
+      <p><span class="btn primary">↑ 教材を書き出す</span>を押し、書き出し先を選びます。書き出すたびに、教材名と日時の付いたフォルダーとZIPファイルができます。</p>
+    </div>
+  </div>
+
+  <div>
+    <h3>書き出せないとき</h3>
+    <div class="row">
+      <div class="grow">
+        <p style="margin-bottom:2mm">直す所があると、書き出せない理由の一覧が表示されます。</p>
+        <ol class="steps">
+          <li>一覧の行を押すと、直す所に移動します。</li>
+          <li>表示された所を直してから、もう一度書き出します。</li>
+        </ol>
+        <div class="note" style="margin-top:2.6mm"><span class="ic">i</span><span>画面上部の<span class="btn">⚠ 要修正</span>を押しても、直す所に移動できます。</span></div>
+      </div>
+      <figure style="width:86mm;flex:none">
+        <div class="shot sm" style="--r:4/3" data-id="S12"
+          data-what="書き出せない理由の一覧"
+          data-detail="完了条件の対象を未設定にした状態で［↑ 教材を書き出す］を押し、理由の一覧が表示された画面を撮る。上部の「⚠ 要修正」も写るとよい。">
+        </div>
+      </figure>
+    </div>
+  </div>
+
+  <div>
+    <figure class="shot" style="--r:16/6" data-id="S13"
+      data-what="書き出し後のフォルダーとZIPファイル"
+      data-detail="書き出し先をFinder（またはエクスプローラー）で開き、「教材名_日時」のフォルダーとZIPファイルが並んでいる様子を撮る。">
+    </figure>
+    <div class="cap">書き出すと、教材名と日時の付いたフォルダーとZIPファイルができます。</div>
+  </div>
+
+  <div class="card soft" style="--accent:var(--blue);--accent-soft:var(--blue-soft)">
+    <h3>困ったときは</h3>
+    <ul class="dots">
+      <li>ボタンにマウスを重ねると、説明が表示されます。</li>
+      <li>操作を間違えたときは、<span class="btn">↶ 元に戻す</span>を押すと戻せます。</li>
+      <li>分からないことがあれば、いつでも声をかけてください。</li>
+    </ul>
+  </div>
+
+  <div class="foot"><span>教材作成ツール 操作ガイド</span><span>6 / 6</span></div>
+</section>
+
+<!-- ======================= 撮影リスト（印刷されません） ======================= -->
+<section class="shotlist screen-only">
+  <h2>撮影リスト（作成用・印刷されません）</h2>
+  <p>スクリーンショットを <code>images/S01.png</code> のような名前で、このHTMLと同じ場所の <code>images</code> フォルダーに入れると、枠が写真に置き換わります。番号ピンの位置は、写真を入れた後に <code>--x</code> と <code>--y</code> を調整します。</p>
+  <table>
+    <thead><tr><th>番号</th><th>ページ</th><th>写すもの</th><th>撮り方</th><th>状態</th></tr></thead>
+    <tbody id="shotlist-body"></tbody>
+  </table>
+</section>
+
+<script>
+(function(){
+  var pages = Array.prototype.slice.call(document.querySelectorAll('.page'));
+  var rows = [];
+  document.querySelectorAll('.shot[data-id]').forEach(function(el){
+    var id = el.dataset.id, file = 'images/' + id + '.png';
+    var page = pages.indexOf(el.closest('.page')) + 1;
+    // 枠の中に、何の写真が入るかを表示する
+    var ph = document.createElement('div');
+    ph.className = 'ph';
+    ph.innerHTML = '<span class="tag">写真 ' + id + '</span>' +
+      '<span class="what">' + el.dataset.what + '</span>' +
+      '<span class="detail">' + el.dataset.detail + '</span>' +
+      '<span class="file">' + file + '</span>';
+    el.appendChild(ph);
+    var row = {id:id, page:page, what:el.dataset.what, detail:el.dataset.detail, ok:false};
+    rows.push(row);
+    // 画像があれば差し替える
+    var img = new Image();
+    img.alt = el.dataset.what;
+    img.onload = function(){ el.classList.add('has-img'); el.insertBefore(img, el.firstChild); row.ok = true; render(); };
+    img.src = file;
+  });
+  function render(){
+    document.getElementById('shotlist-body').innerHTML = rows.map(function(r){
+      return '<tr><td><b>' + r.id + '</b></td><td>' + r.page + '</td><td>' + r.what + '</td><td>' + r.detail + '</td>' +
+        (r.ok ? '<td class="ok">入れ済み</td>' : '<td class="ng">未撮影</td>') + '</tr>';
+    }).join('');
+  }
+  render();
+})();
+</script>
+</body>
+</html>
