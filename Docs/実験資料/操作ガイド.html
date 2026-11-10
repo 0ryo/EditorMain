@@ -167,6 +167,18 @@ h1,h2,h3,.cond .t,.flow .name{font-feature-settings:"palt";letter-spacing:.03em}
 .kern{margin-right:-.22em}
 /* PDFではぼかし影が灰色の四角として描かれるため、印刷時は番号ピンの影を外し、輪郭線で代える */
 @media print{.pin{box-shadow:0 0 0 .2mm rgba(23,34,54,.25)}}
+/* 番号の丸：丸ゴシックの数字は文字の枠の中で下寄りに描かれるため、grid の中央揃えでは丸の中心より下にずれる。
+   文字の枠を数字の高さ（cap）まで詰め、その高さを丸の内側の上下中央に置く。--d は丸の内側の直径 */
+.pin,.legend b,.badge,ol.steps li::before{display:block;text-align:center;line-height:1;text-box:trim-both cap alphabetic;padding-top:calc((var(--d) - 1cap)/2)}
+.pin{--d:5mm}
+/* 写真上のピンは直径約23pxと小さく、文字位置の1px単位の丸めだけで直径の4%ずれる。
+   4倍の大きさで描いて1/4に縮め、丸めの影響を1/4にする（見た目の大きさは元と同じ） */
+.pin{width:24.8mm;height:24.8mm;border-width:2.4mm;font-size:36pt;--d:20mm;transform:translate(-50%,-50%) scale(.25);box-shadow:0 1.6mm 5.6mm rgba(0,0,0,.28)}
+@media print{.pin{box-shadow:0 0 0 .8mm rgba(23,34,54,.25)}}
+.legend b,ol.steps li::before{--d:5mm}
+.badge{--d:13mm}
+/* 擬似要素には * の box-sizing が効かないため、padding で丸が縦に伸びないようにする */
+ol.steps li::before{box-sizing:border-box}
 </style>
 </head>
 <body>
@@ -205,15 +217,15 @@ h1,h2,h3,.cond .t,.flow .name{font-feature-settings:"palt";letter-spacing:.03em}
   <div>
     <h3>画面の見方</h3>
     <div class="split">
-    <figure class="shot" data-id="S01"
+    <figure class="shot" style="--r:16/9" data-id="S01"
       data-what="ツール起動直後の画面全体"
       data-detail="「配置を編集」を選んだ状態。タイヤ交換の初期配置（車・タイヤ）が3D画面に見え、上部の3つのボタン、左の欄、右の欄、［↑ 教材を書き出す］がすべて写るように撮る。">
       <div class="wf"><i class="h"></i><i class="l"></i><i class="r"></i></div>
-      <span class="pin" style="--x:23.6%;--y:6.7%">1</span>
-      <span class="pin" style="--x:7.3%;--y:59.3%">2</span>
-      <span class="pin" style="--x:45.0%;--y:25.3%">3</span>
-      <span class="pin" style="--x:87.6%;--y:56.5%">4</span>
-      <span class="pin" style="--x:89.5%;--y:7.0%">5</span>
+      <span class="pin" style="--x:35.9%;--y:10.7%">1</span>
+      <span class="pin" style="--x:11.0%;--y:28.1%">2</span>
+      <span class="pin" style="--x:45.0%;--y:22.6%">3</span>
+      <span class="pin" style="--x:87.6%;--y:57.3%">4</span>
+      <span class="pin" style="--x:94.1%;--y:10.7%">5</span>
     </figure>
     <div class="legend">
       <div><b>1</b><span>3つのボタン（作業の切り替え）</span></div>
@@ -334,13 +346,13 @@ h1,h2,h3,.cond .t,.flow .name{font-feature-settings:"palt";letter-spacing:.03em}
   </header>
 
   <div class="split">
-    <figure class="shot" data-id="S06"
+    <figure class="shot" style="--r:16/9" data-id="S06"
       data-what="「手順を編集」の画面全体"
       data-detail="手順が3つほどある教材で、1つの手順を選んだ状態。左の手順一覧、右の題名・説明文・完了条件の欄がすべて写るように撮る。">
       <div class="wf"><i class="h"></i><i class="l"></i><i class="r"></i></div>
-      <span class="pin" style="--x:11.5%;--y:21.0%">1</span>
-      <span class="pin" style="--x:87.6%;--y:23.7%">2</span>
-      <span class="pin" style="--x:92.9%;--y:62.2%">3</span>
+      <span class="pin" style="--x:11.5%;--y:15.4%">1</span>
+      <span class="pin" style="--x:87.8%;--y:11.7%">2</span>
+      <span class="pin" style="--x:92.9%;--y:63.6%">3</span>
     </figure>
     <div class="legend">
       <div><b>1</b><span>手順の一覧</span></div>
@@ -473,13 +485,13 @@ h1,h2,h3,.cond .t,.flow .name{font-feature-settings:"palt";letter-spacing:.03em}
   </header>
 
   <div class="split">
-    <figure class="shot" data-id="S10"
+    <figure class="shot" style="--r:16/9" data-id="S10"
       data-what="「動作を確認」中の画面全体"
       data-detail="確認の途中で、完了した手順・実行中の手順・待機中の手順が左に並び、右に条件の一覧が出ている状態。下部の［Ⅱ 一時停止］なども写るように撮る。">
       <div class="wf"><i class="h"></i><i class="l"></i><i class="r"></i></div>
-      <span class="pin" style="--x:11.5%;--y:21.0%">1</span>
-      <span class="pin" style="--x:88.9%;--y:40.3%">2</span>
-      <span class="pin" style="--x:17.6%;--y:84.9%">3</span>
+      <span class="pin" style="--x:12.0%;--y:16.3%">1</span>
+      <span class="pin" style="--x:88.9%;--y:39.3%">2</span>
+      <span class="pin" style="--x:45.1%;--y:90.9%">3</span>
     </figure>
     <div class="legend">
       <div><b>1</b><span>手順の進み具合</span></div>
