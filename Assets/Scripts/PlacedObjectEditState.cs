@@ -84,6 +84,27 @@ public sealed class PlacedObjectEditState : MonoBehaviour
         RestoreRenderers();
     }
 
+    // Session-only hiding for the step editor (parts already pulled off in an earlier step). Never saved.
+    static readonly HashSet<PlacedObject> StepHidden = new();
+
+    public static void SetStepHidden(IEnumerable<PlacedObject> parts)
+    {
+        var next = new HashSet<PlacedObject>();
+        if (parts != null) foreach (var part in parts) if (part != null) next.Add(part);
+        if (next.SetEquals(StepHidden)) return;
+        var changed = new List<PlacedObject>();
+        foreach (var part in StepHidden) if (part != null && !next.Contains(part)) changed.Add(part);
+        foreach (var part in next) if (!StepHidden.Contains(part)) changed.Add(part);
+        StepHidden.Clear();
+        StepHidden.UnionWith(next);
+        foreach (var part in changed)
+        {
+            foreach (var placed in part.GetComponentsInChildren<PlacedObject>(true))
+                if (placed.GetComponent<PlacedObjectEditState>() == null) placed.gameObject.AddComponent<PlacedObjectEditState>();
+            part.GetComponent<PlacedObjectEditState>().RefreshSubtree();
+        }
+    }
+
     public static bool IsCategoryVisible(string category) => !HiddenCategories.Contains(category ?? string.Empty);
 
     public static void SetCategoryVisible(string category, bool visible)
@@ -145,7 +166,7 @@ public sealed class PlacedObjectEditState : MonoBehaviour
             var state = node.GetComponent<PlacedObjectEditState>();
             if (state != null && state.hidden) return true;
             var placed = node.GetComponent<PlacedObject>();
-            if (placed != null && !IsVisibleByCategory(placed)) return true;
+            if (placed != null && (!IsVisibleByCategory(placed) || StepHidden.Contains(placed))) return true;
         }
         return false;
     }
@@ -157,7 +178,7 @@ public sealed class PlacedObjectEditState : MonoBehaviour
             var state = node.GetComponent<PlacedObjectEditState>();
             if (state != null && (state.hidden || state.locked)) return true;
             var placed = node.GetComponent<PlacedObject>();
-            if (placed != null && !IsVisibleByCategory(placed)) return true;
+            if (placed != null && (!IsVisibleByCategory(placed) || StepHidden.Contains(placed))) return true;
         }
         return false;
     }

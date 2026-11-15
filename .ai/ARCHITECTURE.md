@@ -43,10 +43,10 @@ persistentDataPath/Projects/*.skillsync.json
 - `ViewportOutliner` / `PlacedObjectEditState`: `Panel_Catalog` の `配置` / `一覧` タブを切り替え、配置instanceの検索・選択、Rendererを使った表示切替、Colliderを使った編集固定を管理する。
 - `MoveTool` / `SelectionOutline` / `RotateTool`: Transform/Scaleの入力と視覚的handle。
 - `ObjectTransformPanel` / `TransformToolSettings`: 詳細パネルの数値Transform入力とworld/local座標系、pivot/center基準を共有し、ギズモ操作にも反映する。既定はlocalで、移動軸・回転リングが選択対象の回転に追従する。
-- `EditCameraController`: 初期・resetは透視投影。透視zoomは距離に比例する指数倍率で、旧serialized感度をAwakeで移行する。wheelは段階的に即時反映し、半段未満の入力は蓄積せず破棄する。中/右ドラッグorbit、Shift+中/右ドラッグpan、wheel zoom、選択focus、定型view、投影切替、resetを担当する。設定button下のcamera iconから開閉する`ViewportCameraToolbar`とshortcutから操作し、入力は`EditInput`経由で読む。`ViewportCameraToolbar`は3D viewport上部buttonの共通hover guideも提供する。
+- `EditCameraController`: 初期・resetは透視投影。透視zoomは距離に比例する指数倍率で、旧serialized感度をAwakeで移行する（予備検証で初見者が行き過ぎたため既定を下げた）。wheelは段階的に即時反映し、半段未満の入力は蓄積せず破棄し、1フレーム2段を上限にする。中/右ドラッグorbit、Shift+中/右ドラッグpan、wheel zoom、選択focus、定型view、投影切替、resetを担当する。設定button下のcamera iconから開閉する`ViewportCameraToolbar`とshortcutから操作し、入力は`EditInput`経由で読む。`ViewportCameraToolbar`は3D viewport上部buttonの共通hover guideも提供する。
 - `CommandService` / `CommandStack` / command classes: 編集操作のDo/Undo/Redo。
 - `SelectionGroups`はTransform階層を変更しない平坦な選択グループ。`editorGroupId`を配置ルートと部品状態に保存し、複製・貼付けではグループIDも再発行する。Ctrl/Cmd+Gでグループ化、Shift併用で解除する。
-- ビューポートの通常クリックは`SelectionService.SelectPicked`で、初回は階層モデルのルートまたは平坦グループ全体を選択し、再クリックから同グループ内の個別部品選択へ切り替える。別グループ・選択解除・一覧からの明示選択で部品選択状態を解除する。移動・回転・拡縮は既存の`SelectionTransformSession`を通し、親子の二重変形を避ける。一覧では指定した階層行の選択を維持する。
+- ビューポートの通常クリックは`SelectionService.SelectPicked`で、初回は階層モデルのルートまたは平坦グループ全体を選択し、以後はクリックごとにクリック位置の部品へ向かって1階層ずつ内側を選ぶ（車→左前輪の取付位置→ナット、子が直接なら2回で到達。`PlacedObjectOptionProvider.ScreenCandidate`、ユーザー指定）。別グループ・選択解除・一覧からの明示選択で部品選択状態を解除する。移動・回転・拡縮は既存の`SelectionTransformSession`を通し、親子の二重変形を避ける。一覧では指定した階層行の選択を維持する。
 - `SelectionClipboard`はPlay中の配置物コピーをデータのsnapshotとして保持し、隠し配置instanceを作らない。`PasteSelectionCommand`は元Prefabと部品pathを検証して全件を非表示のstaging下で復元し、成功後に公開する。貼り付けごとに新IDを割り当て、Undo/Redoは同じinstanceとIDを保持する。子部品の単体コピーは元モデル内のpathを引き継ぎ、Scenario条件参照は複製しない。
 
 ### 編集ビューポートの表示
@@ -58,10 +58,12 @@ persistentDataPath/Projects/*.skillsync.json
 
 ### 固定UIの共通部品（2026-10 初見UX改善）
 
-- 起動時は`SkillSyncStartScreen`（新規／テンプレート／見本／最近の教材／復旧dataの案内）を出し、前回教材を自動で開かない。見本は`Assets/StreamingAssets/Samples/`の教材＋GLBを未保存のコピーとして開き、見本fileへは書かない。
+- 起動時は`SkillSyncStartScreen`（新規／テンプレート／見本／最近の教材／復旧dataの案内）を出し、前回教材を自動で開かない。見本は`Assets/StreamingAssets/Samples/<フォルダー>/sample.json`ごとに1件（`order`順）で、教材＋GLBを未保存のコピーとして開き、見本fileへは書かない。現在は完成例「タイヤ交換（見本）」と、評価用の「課題1用教材」（部品のみ・手順なし）・「課題2用教材」（課題1の正解5手順。ナットの手順は もつ・近づける・回す の3条件）。課題用はGLBを`../TireChange/models/`から共用する。見本は起動画面と「教材を開く」のテンプレートタブの両方で先頭に並ぶ（`SkillSyncSamples.All`）。課題の内容は`Docs/実験資料/課題シート.html`と一致させる。
 - 元に戻せる削除（部品・手順・完了条件・ゴミ箱へ移す）は確認せず即時に実行し、影響を書いた「元に戻す」付き通知（8秒、ポインタを乗せている間は消えない）を出す。部品削除は`SelectionService.DeleteGuard`の`DeleteObjectsWithUndo`が実削除まで行う。取り返しのつかない操作（上書き、復旧dataの破棄、未保存の破棄、終了）だけ`SkillSyncConfirmDialog`（runtime生成の中央モーダル、Esc=取消、Enter=主ボタン、`Show`は即時return）で確認する。通し確認の完了画面も同じダイアログを使う。
 - 上部通知（`TopCenterNotification`）は、ボタンなしの情報通知どうしなら新しいものが即座に置き換える。エラーと「元に戻す」付き通知は置き換えない。結果が画面で見える頻繁な操作（大きさ・高さ・角度・手順移動・吸着・視点）は通知しない。
 - 手順・条件の未入力（完了条件なし`E-06`、対象未設定`E-08`）は、書き出しを試すまで「未完成：」の中立表示にし、⚠（要修正）は付けない。部品削除による参照切れなど実際の不整合は常に⚠。
+- 手順画面の3D表示は、選択中の手順より前（表示順）に「引く」で外した部品を非表示・クリック不可にする（その手順の条件で再び使う部品は除く）。`PlacedObjectEditState.SetStepHidden`のsession限定状態で、保存の`hidden`とは別。動作確認の開始前に解除し、試行コピー側は`SkillSyncTrialSession.Hide`で同じ部品を隠す。
+- 条件の対象リストを開いたまま3D画面の部品をクリックすると、そのまま3D選択に入りその部品を仮選択する（`SkillSyncEditorController.PickFromOpenMenu`）。
 - 動作確認画面の右パネルは`SkillSyncConditionEditorView.LayoutTrial`が、表示中の要素だけを上から詰めて並べる。デザイン原本の座標からの差分で動かす。原本座標を直接いじったり、要素ごとに固定座標を足したりしない。
 - 教材ごとの「続き」（配置／手順、選んでいた手順と条件、左タブ、視点）は`SkillSyncViewMemory`がPlayerPrefsに教材pathのhashで保存する。教材fileには入れない。controllerは0.25秒ごとの更新で、開いている教材のpathが変わったことを検知し、保存してから復元する。初回保存やリネームでは何も復元しない。
 - ボタンやキーによる視点変更は、`EditorCameraController.Transition`で0.3秒補間する。navigation入力があればその場で止まる。新しい視点操作も`Transition`か`BeginTransition`を通す。
@@ -76,7 +78,7 @@ persistentDataPath/Projects/*.skillsync.json
 
 - `SkillSyncTrialSession`: PlacedObjectや保存対象のscriptを持たない表示専用コピーで条件を試行する。`MoveTool`のpreview対象としてギズモ操作し、編集選択・Undo履歴を変えず通常のカメラ操作を許可する。再試行ではコピーの位置・回転・scaleを戻し、終了時に原本の描画と編集toolの有効状態を復元する。
 - `Core/CurriculumModel.cs`: 編集モデル。Start/End/Step/ConditionとStepFlow/ConditionBind、Step詳細、拡張可能なCondition parameterを明示するschema version 5。Condition種別定義と既定parameterは`ConditionTypeCatalog`へ集約する。
-- `SkillSyncTrialAutoplay`: 動作確認中に、各条件の理想の動作（移動・回転・保持）を表示専用コピーへ順に再生する。教材data・選択・Undoには触れない。選択中のコピーが再生以外で動いたら、その手順は手動に切り替わる。controllerの`Update`から`Tick`し、`true`が返ったら`AdvanceTrial`を呼ぶ。
+- `SkillSyncTrialAutoplay`: 動作確認中に、各条件の理想の動作（移動・回転・保持）を表示専用コピーへ順に再生する。「引く」は手前へ大きく引いてから非表示にする（「やり直す」で戻り、次の手順以降は非表示のまま）。「回す」は同じ手順の「近づける」相手（レンチ→ナット）があればその部品の軸と中心で回し、軸は部品自身の向きで2辺がほぼ等しい残りの辺（ナット・車輪）とする。モデル作成時の軸の向きに依存させない。距離の判定は部品の中心どうしなので、床置きの部品（ジャッキ）を床上の目印へ近づけると中心が沈む。再生では、開始時に底が地面（`EditWorkspace.GroundY`）以上だった部品の底を地面より下に行かせない。教材data・選択・Undoには触れない。選択中のコピーが再生以外で動いたら、その手順は手動に切り替わる。controllerの`Update`から`Tick`し、`true`が返ったら`AdvanceTrial`を呼ぶ。
 - `CurriculumGraphService`: node/edge操作、接続制約、欠損参照を保持した検証、分岐・合流を含むStep経路の検証と表示順生成、export model変換。UI非依存の中心サービス。
 - `ScenarioGraphUI`: nodeの配置・接続操作、status表示、保存処理を統括する。4種のnode生成と再構築時の破棄は`ScenarioNodeViewFactory`、旧Prefabの不足template補完は`ScenarioNodeTemplateFactory`へ委譲し、位置・展開状態と編集操作のcallbackはUI側で保持する。検証結果を各nodeの文字badgeと枠へ常時反映し、`ScenarioValidationPanel`の前後navigationから問題nodeへfocusする。検証済みgraphは`ScenarioPreviewPanel`で成功を模擬し、接続に沿って進路を選んで確認できる。
 - `ScenarioGraphSelection`はgraph UIの複数選択・集合移動・端揃えを扱い、`CurriculumGraphClipboard`はservice経由で選択ノードと内部接続をsnapshot複製する。Stepの埋込条件も含め、新node IDを発行する。
@@ -135,7 +137,7 @@ persistentDataPath/Projects/*.skillsync.json
 - Graphの規則は `CurriculumGraphService` に集約し、node UIはservice経由で変更する。
 - 条件の新規選択肢と旧形式の互換判定は `ConditionTypeCatalog.Definitions` / `Find` で区別する。操作条件の実行側入力契約は `IScenarioInteractionStateSource`、詳細は `.ai/SCENARIO_SPEC.md`。
 - 条件候補の検索・ホバーは `ObjectDropdownBrowser` → `ObjectCandidatePreview`。深度なしのMeshマスクから輪郭だけをUIへ重ね、編集選択・元素材・保存データには触れない。Resourcesの専用Shaderへカメラ描画開始時のview/projectionと各Rendererの現在のlocalToWorldを合成して渡し、SRPの暗黙の描画行列に依存しない。`ObjectScreenPicker`は対象欄の既存変更リスナーへIDを渡し、完了フレームも通常の配置・変形入力を抑止する。
-- 追加モデルの条件候補はルート・中間親も既存の`PlacedObject.id`で参照し、`ImportedModelParts.Label`が「グループ全体」を明示する。固定UIの候補も共通ラベルと輪郭表示を使う。画面からの条件指定は初回にルート、同じ対象を再指定した場合はクリックした部品を返す。平坦な編集用グループIDをシナリオの対象IDに変換することはしない。
+- 追加モデルの条件候補はルート・中間親も既存の`PlacedObject.id`で参照し、`ImportedModelParts.Label`が「グループ全体」を明示する。固定UIの候補も共通ラベルと輪郭表示を使う。画面からの条件指定も配置選択と同じく、初回にルート、以後はクリックごとに1階層ずつ内側を返す（同じモデル内の別の部品は、共通の親の1つ下から）。平坦な編集用グループIDをシナリオの対象IDに変換することはしない。
 - 通常選択は `SelectionHighlightSet` から同じ形状描画を青色で利用する。対象ごとにマスクを作り輪郭を合成するため、選択対象同士の包含でも内側を見失わない。全選択で2枚のRenderTextureを共有する。`SelectionOutline`は拡縮の角位置計算・操作ハンドルを担当し、矩形の選択枠は描かない。
 - Catalog metadataは `PrefabRegistry` とruntime card stateに分かれる。追加モデルは`ImportedModelStore`のライブラリへ保存し、再起動時に同じtypeIdで登録する。GLB/glTFの配布素材は`ScenarioModelBundle`が同梱し、モデルfolder名は取込時に設定した`displayName`を使う。保存先で禁止される文字は置換し、大文字小文字を無視した同名は`-2`以降で区別する。JSONの`models.uri`とZIP内のfolderも同じ名前にする。
 - Editor-only AssetDatabase処理は `Assets/Editor/Automation/` または `#if UNITY_EDITOR` 内に閉じる。
