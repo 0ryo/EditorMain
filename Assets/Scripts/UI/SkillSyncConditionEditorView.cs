@@ -690,10 +690,18 @@ public static class SkillSyncConditionEditorView
         {
             // The list is the summary: one card per condition, shortened to the space the inspector has left.
             float available = BottomLimit - (44 + Padding) - cursor - 2 * ListPadding;
-            // Whole rows only: a row cut in half at an edge reads as broken, and the list scrolls row by row.
+            // When every row fits, whole rows only. When some do not, the next row peeks out at the bottom edge,
+            // so it is plain without any text that the list goes on below.
             float step = SkillSyncItemList.RowHeight + SkillSyncItemList.RowGap;
             int rows = Mathf.Max(1, Mathf.FloorToInt((Mathf.Max(0, available) + SkillSyncItemList.RowGap) / step));
             float visible = Mathf.Min(list.ContentHeight, rows * step - SkillSyncItemList.RowGap);
+            if (list.ContentHeight > visible)
+            {
+                float room = Mathf.Max(SkillSyncItemList.RowHeight, available);
+                int whole = Mathf.FloorToInt((room - SkillSyncItemList.PeekHeight) / step);
+                // Too tight for a row and a peek: the whole room is used and the scroll thumb shows there is more.
+                visible = whole >= 1 ? whole * step + SkillSyncItemList.PeekHeight : room;
+            }
             float boxHeight = visible + 2 * ListPadding;
             PlaceRole("conditionSummaryBox", 1184, cursor, CardWidth, boxHeight);
             list.SetBounds(X(1184) + ListPadding, cursor + ListPadding, CardWidth - 2 * ListPadding, visible);
