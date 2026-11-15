@@ -48,9 +48,11 @@ public static class ImportedModelPartChecks
             Require(ImportedModelParts.Label(parts[2]) != ImportedModelParts.Label(parts[3]),
                 "Same-name component target labels remain distinct");
             Require(PlacedObjectOptionProvider.ScreenCandidate(parts[2], null) == root &&
-                PlacedObjectOptionProvider.ScreenCandidate(parts[2], root) == parts[2] &&
+                PlacedObjectOptionProvider.ScreenCandidate(parts[2], root) == parts[1] &&
+                PlacedObjectOptionProvider.ScreenCandidate(parts[2], parts[1]) == parts[2] &&
+                PlacedObjectOptionProvider.ScreenCandidate(parts[2], parts[2]) == parts[2] &&
                 PlacedObjectOptionProvider.ScreenCandidate(parts[3], parts[2]) == parts[3],
-                "Screen target picks the entire group first and individual components when the same model is specified again");
+                "Screen target goes one level in per click: model, then the wheel group, then the nut; a sibling nut is one click away");
             var otherModel = new GameObject("Other model");
             instances.Add(otherModel);
             var otherTarget = otherModel.AddComponent<PlacedObject>();
