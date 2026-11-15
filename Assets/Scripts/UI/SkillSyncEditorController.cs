@@ -303,7 +303,8 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         }
         if(trial!=null) DragTrialObject();
         else trialDragTarget=null;
-        if(!Modal && inside && !TextInputFocused && GetComponent<SkillSyncObjectPicker>()?.BlocksPointer(EditInput.MousePosition)!=true)
+        bool pickedFromMenu=PickFromOpenMenu(inside);
+        if(!pickedFromMenu && !Modal && inside && !TextInputFocused && GetComponent<SkillSyncObjectPicker>()?.BlocksPointer(EditInput.MousePosition)!=true)
         {
             if(ghost!=null)
             {
@@ -312,7 +313,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
             }
             else if(pickTarget!=null)
             {
-                // The first click only marks a provisional target; "この対象に決定" (or Enter) commits it.
+                // The first click only marks a provisional target; "このオブジェクトに決定" (or Enter) commits it.
                 var candidate=ScreenPickCandidate();
                 var picker=GetComponent<SkillSyncObjectPicker>();
                 picker?.ShowCandidate(candidate);
@@ -808,13 +809,40 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         var picker=GetComponent<SkillSyncObjectPicker>();
         if(picker==null)return;
         pickTarget=null;picker.SetPicking(null);
+        menuPickTarget=which;
         string otherId=which=="A"?Condition.condition.objectBId:Condition.condition.objectAId;
         string currentId=which=="A"?Condition.condition.objectAId:Condition.condition.objectBId;
         picker.Show(Placed,(RectTransform)view.controls.First(c=>c.action=="Pick"+which).button.transform,id=>{BeginPick(which);Pick(id);},()=>{
-            BeginPick(which);Notify("対象を3D画面でクリックしてください。「この対象に決定」を押すまで確定しません（Escで取消）",false);Refresh();
+            BeginPick(which);Notify("部品を3D画面でクリックしてください。「このオブジェクトに決定」を押すまで確定しません（Escで取消）",false,1.5f);Refresh();
         },currentId,otherId,selection.Current!=null?selection.Current.Id:null);
     }
     void BeginPick(string which) {pickTarget=which;pickConditionId=conditionId;}
+    // With the target list open, pointing at the 3D view previews the part and a click starts the 3D pick with it
+    // provisional, so "3D画面でクリックして選ぶ" need not be found first.
+    string menuPickTarget;
+    bool menuViewHover;
+    bool PickFromOpenMenu(bool inside)
+    {
+        var picker=GetComponent<SkillSyncObjectPicker>();
+        bool open=picker!=null && picker.IsOpen && menuPickTarget!=null && Condition!=null && !Modal;
+        if(!open || !inside || picker.OverPanel(EditInput.MousePosition))
+        {
+            if(menuViewHover && picker!=null) picker.ClearPreview();
+            menuViewHover=false;
+            return false;
+        }
+        string saved=pickTarget;
+        pickTarget=menuPickTarget;
+        var candidate=ScreenPickCandidate();
+        pickTarget=saved;
+        picker.ShowCandidate(candidate);
+        menuViewHover=true;
+        if(candidate==null || !EditInput.LeftPressedThisFrame()) return false;
+        menuViewHover=false;
+        picker.PickFromView(candidate);
+        Refresh();
+        return true;
+    }
     void CancelPick()
     {
         if(pickTarget==null) return;
@@ -870,10 +898,11 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         Revalidate();RebuildSteps();Refresh();
     }
     // The footer is hidden in the fixed UI, so every user-facing status also goes to the top notification.
-    void Notify(string message,bool error)
+    void Notify(string message,bool error) => Notify(message,error,error?8f:3f);
+    void Notify(string message,bool error,float seconds)
     {
         status=message;
-        if(!string.IsNullOrEmpty(message)) TopCenterNotification.Ensure(transform,view!=null?view.inspectorTitle:null)?.Show(message,error,error?8f:3f);
+        if(!string.IsNullOrEmpty(message)) TopCenterNotification.Ensure(transform,view!=null?view.inspectorTitle:null)?.Show(message,error,seconds);
     }
     // Why a control is unavailable right now (hover text of SkillSyncDisabledLook). Keys are control actions or "field:<role>".
     string DisabledReason(string key)
@@ -1424,6 +1453,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
     {
         if(!initialized) return;
         int state=Modal?5:trial!=null?(trial.Complete?4:2):ghost!=null?3:mode;
+        RefreshStepVisibility();
         view.Show(state);extras?.BringToFront();RebuildObjects();RefreshValues();
     }
     void RefreshValues()
@@ -1643,8 +1673,10 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         EndTrial();pickTarget=null;
         trialMoveTool = FindFirstObjectByType<MoveTool>();
         PauseTool(trialMoveTool);
+        PlacedObjectEditState.SetStepHidden(null);
         try {trial=new SkillSyncTrialSession(Placed);}
         catch(Exception e) {EndTrial();Notify("試行を開始できません: "+e.Message,true);Debug.LogException(e);Refresh();return;}
+        HidePulledInTrial();
         logs.Clear();trialTime=0;walkthroughTime=0;trialCarried=false;
         trialStartIndex=graph.GetDisplayOrderedSteps().FindIndex(s=>s.nodeId==stepId)+1;
         PauseTool(selection);PauseTool(placement);PauseTool(FindFirstObjectByType<RotateTool>());PauseTool(CommandService.I);
@@ -1656,6 +1688,40 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         if (trialMoveTool != null) trialMoveTool.enabled = true;
         autoplay=new SkillSyncTrialAutoplay(cameraView,Log,m=>Notify(m,false));
         Log("動作の確認を開始");Refresh();
+    }
+    // Parts pulled off ("引く") in an earlier step are gone in the steps after it, unless a later step uses them again.
+    // Steps are taken in display order (the order the author reads them in).
+    HashSet<string> PulledBefore(string currentStepId)
+    {
+        var pulled=new HashSet<string>(StringComparer.Ordinal);
+        if(graph==null || string.IsNullOrEmpty(currentStepId)) return pulled;
+        foreach(var step in graph.GetDisplayOrderedSteps())
+        {
+            var conditions=graph.GetConditionNodesForStep(step.nodeId);
+            if(step.nodeId==currentStepId)
+            {
+                foreach(var c in conditions) {pulled.Remove(c.condition.objectAId??"");pulled.Remove(c.condition.objectBId??"");}
+                return pulled;
+            }
+            foreach(var c in conditions)
+            {
+                if(c.condition.type==ConditionTypeCatalog.Pull && !string.IsNullOrEmpty(c.condition.objectAId)) pulled.Add(c.condition.objectAId);
+                else {pulled.Remove(c.condition.objectAId??"");pulled.Remove(c.condition.objectBId??"");}
+            }
+        }
+        return new HashSet<string>(StringComparer.Ordinal);
+    }
+    void HidePulledInTrial()
+    {
+        if(trial==null) return;
+        foreach(var id in PulledBefore(stepId)) trial.Hide(trial.Find(id),false);
+    }
+    // In the step editor, the 3D view shows the parts as they are at the selected step: pulled-off parts are hidden
+    // and cannot be clicked, so the part behind them (e.g. the wheel mount behind a removed tire) can be picked.
+    void RefreshStepVisibility()
+    {
+        var hidden=mode==1 && trial==null?PulledBefore(stepId):null;
+        PlacedObjectEditState.SetStepHidden(hidden!=null && hidden.Count>0?hidden.Select(FindPlaced).Where(p=>p!=null):null);
     }
     void PauseTool(Behaviour tool) {if(tool!=null) {pausedTools[tool]=tool.enabled;tool.enabled=false;}}
     void EndTrial()
@@ -1708,6 +1774,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         var lead=conditions.FirstOrDefault(c=>SkillSyncConditionEditing.SupportsPcTrial(c.condition))??conditions[0];
         conditionId=lead.nodeId;
         trial.BeginNextStep();
+        HidePulledInTrial();
         trialCarried=true;logs.Clear();trialTime=0;
         var first=FindPlaced(lead.condition.objectAId);
         trialSelectedId=first!=null && SelectionService.CanEdit(first)?first.Id:null;

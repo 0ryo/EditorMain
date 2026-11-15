@@ -244,9 +244,16 @@ public static class ConditionEditorLayoutChecks
             Require(Top(add) >= Bottom(box) + 12 && Bottom(add) <= 985, name + " leaves room for the action row");
             float visible = Mathf.Min(list.ContentHeight, listRect.rect.height);
             Require(listRect.rect.height >= Mathf.Min(list.ContentHeight, SkillSyncItemList.RowHeight) - .5f, name + " shows at least one row");
-            // A tall editor (two targets plus two values) leaves room for one row and a peek of the next, which invites scrolling.
-            float rowsShown = (listRect.rect.height + SkillSyncItemList.RowGap) / (SkillSyncItemList.RowHeight + SkillSyncItemList.RowGap);
-            Require(Mathf.Abs(rowsShown - Mathf.Round(rowsShown)) < .01f, name + " shows whole rows only");
+            // All rows fit: whole rows only. Some do not: whole rows and the top of the next one, which invites scrolling.
+            float step = SkillSyncItemList.RowHeight + SkillSyncItemList.RowGap;
+            float rowsShown = (listRect.rect.height + SkillSyncItemList.RowGap) / step;
+            if (list.ContentHeight <= listRect.rect.height + .5f)
+                Require(Mathf.Abs(rowsShown - Mathf.Round(rowsShown)) < .01f, name + " shows whole rows only");
+            else
+            {
+                float peek = listRect.rect.height - Mathf.Floor(listRect.rect.height / step) * step;
+                Require(peek >= 10 || listRect.rect.height < step + SkillSyncItemList.PeekHeight, name + " shows the top of the next row");
+            }
             var row = listRect.Find("Viewport/Content/Row_0");
             Require(row != null && row.Find("Tag") != null, name + " marks the condition being edited");
             foreach (string part in new[] { "Title", "Detail" })

@@ -15,11 +15,13 @@ public sealed class SkillSyncItemList : MonoBehaviour
     }
 
     public const float RowHeight = 48, RowGap = 4;
+    // How much of the next row shows at the bottom edge when the rows do not all fit.
+    public const float PeekHeight = 22;
     static readonly Color32 Ink = new Color32(23, 34, 54, 255), Muted = new Color32(88, 103, 124, 255),
         Line = new Color32(205, 213, 224, 255), Blue = new Color32(8, 102, 232, 255), BlueSoft = new Color32(234, 242, 255, 255),
         Warn = new Color32(180, 83, 9, 255), Ok = new Color32(21, 115, 74, 255), Badge = new Color32(238, 242, 247, 255);
 
-    RectTransform viewport, content;
+    RectTransform viewport, content, thumb;
     TMP_Text fontSource;
     readonly List<GameObject> rows = new List<GameObject>();
     string signature = "", selectedId;
@@ -52,6 +54,15 @@ public sealed class SkillSyncItemList : MonoBehaviour
         scroll.viewport = list.viewport; scroll.content = list.content;
         scroll.horizontal = false; scroll.scrollSensitivity = 30;
         scroll.movementType = UnityEngine.UI.ScrollRect.MovementType.Clamped;
+        // A slim thumb at the right edge, shown only when rows are out of view: where the list is and that it scrolls.
+        var bar = new GameObject("ScrollThumb", typeof(RectTransform), typeof(SkillSyncRoundedGraphic));
+        bar.transform.SetParent(root, false);
+        list.thumb = (RectTransform)bar.transform;
+        list.thumb.anchorMin = list.thumb.anchorMax = list.thumb.pivot = new Vector2(1, 1);
+        var thumbGraphic = bar.GetComponent<SkillSyncRoundedGraphic>();
+        thumbGraphic.radius = 2; thumbGraphic.borderWidth = 0; thumbGraphic.raycastTarget = false;
+        thumbGraphic.color = new Color32(150, 163, 182, 255);
+        bar.SetActive(false);
         return list;
     }
 
@@ -90,6 +101,20 @@ public sealed class SkillSyncItemList : MonoBehaviour
         // Follow the selection only when it changed, so manual scrolling is never fought.
         if (newSelected != selectedId && selectedIndex >= 0) EnsureVisible(selectedIndex);
         selectedId = newSelected;
+    }
+
+    void LateUpdate()
+    {
+        if (thumb == null) return;
+        float height = viewport.rect.height, total = ContentHeight;
+        bool overflow = total > height + .5f && height > 0;
+        if (thumb.gameObject.activeSelf != overflow) thumb.gameObject.SetActive(overflow);
+        if (!overflow) return;
+        float length = Mathf.Max(12, height * height / total);
+        float ratio = Mathf.Clamp01(content.anchoredPosition.y / (total - height));
+        // Just outside the rows, in the box's padding.
+        thumb.sizeDelta = new Vector2(4, length);
+        thumb.anchoredPosition = new Vector2(6, -ratio * (height - length));
     }
 
     static Item[] ToArray(IReadOnlyList<Item> items)

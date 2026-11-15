@@ -1,0 +1,10 @@
+{
+  "title": "課題1用教材",
+  "description": "自動車・取り外すタイヤ・交換用タイヤ・学習用ジャッキ設置位置だけを置いた、手順のない教材です。",
+  "order": 1,
+  "project": "lesson.skillsync.json",
+  "models": [
+    {"typeId": "Imported/car_639268510102200860", "displayName": "car", "description": "", "file": "../TireChange/models/car.glb"},
+    {"typeId": "Imported/TeacherJackPlacementMarker", "displayName": "学習用ジャッキ設置位置", "description": "ジャッキを置く位置を示す学習用の枠です（実車のジャッキポイントではありません）。", "file": "../TireChange/models/jack-placement-marker.glb"}
+  ]
+}

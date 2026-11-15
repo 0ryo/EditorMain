@@ -109,12 +109,26 @@ public sealed class SkillSyncTrialSession : IDisposable, IScenarioObjectStateSou
         }
         Complete = all;
     }
+    // Pulled-off parts disappear. Parts hidden during the current step come back on "やり直す" (Reset);
+    // once the next step begins they stay hidden.
+    readonly List<Renderer> hiddenThisStep = new();
+    public void Hide(Transform t, bool forThisStep = true)
+    {
+        if (t == null) return;
+        foreach (var r in t.GetComponentsInChildren<Renderer>())
+        {
+            if (!r.enabled) continue;
+            r.enabled = false;
+            if (forThisStep) hiddenThisStep.Add(r);
+        }
+    }
     public void MarkSucceeded(string nodeId) { if (!string.IsNullOrEmpty(nodeId)) manual.Add(nodeId); }
     public bool IsSucceeded(string nodeId) => manual.Contains(nodeId) || (evaluators.TryGetValue(nodeId, out var e) && e.Succeeded);
     // Starts the next step from where the parts now are: Reset() returns to this state, not to the lesson's first layout.
     public void BeginNextStep()
     {
         foreach (var key in new List<Transform>(initial.Keys)) if (key != null) initial[key] = TransformObjectCommand.State.Capture(key);
+        hiddenThisStep.Clear();
         Reset(false);
     }
 
@@ -126,6 +140,8 @@ public sealed class SkillSyncTrialSession : IDisposable, IScenarioObjectStateSou
             p.Key.localRotation = p.Value.localRotation;
             p.Key.localScale = p.Value.localScale;
         }
+        if (restorePositions) foreach (var r in hiddenThisStep) if (r != null) r.enabled = true;
+        hiddenThisStep.Clear();
         HeldSeconds = 0; Complete = false; InRange = false; Paused = false;
         evaluators.Clear();conditionsById.Clear();manual.Clear();
     }

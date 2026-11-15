@@ -5,7 +5,7 @@ using System.Linq;
 // a whole model/group, several loose parts) and what can be done with it.
 public sealed class SkillSyncSelectionInfo
 {
-    public const string DrillHint = "もう一度クリックすると中の部品を選べます";
+    public const string DrillHint = "もう一度クリックすると1段内側の部品を選べます";
 
     public int count;                 // selected units (a model or flat group counts once per root)
     public string title = "";

@@ -40,6 +40,15 @@ public sealed class SkillSyncObjectPicker : MonoBehaviour
 
     void Awake() {dismiss.onClick.AddListener(Close);cancel.onClick.AddListener(()=>CancelPicking?.Invoke());}
     public void Close() {menu.SetActive(false);ClearPreview();}
+    // While the list is open, a click on a part in the 3D view (outside the list) starts the 3D pick with that part provisional.
+    public bool OverPanel(Vector2 point)=>IsOpen && RectTransformUtility.RectangleContainsScreenPoint(panel,point);
+    public void PickFromView(PlacedObject candidate)
+    {
+        var start=eyedropper;
+        Close();
+        start?.Invoke();
+        SetProvisional(candidate);
+    }
 
     public static bool ConfirmPressedThisFrame()
     {
@@ -268,7 +277,10 @@ public sealed class SkillSyncObjectPicker : MonoBehaviour
                     if(placed && children.ContainsKey(placed) && labels.ContainsKey(placed)) {keep.Add(placed);searchOpen.Add(placed);}
                 }
             }
-        AddRow("3D画面で選択…",0,null,false,false,false,eyedropper,null,null,true);
+        AddRow("3D画面でクリックして選ぶ",0,null,false,false,false,eyedropper,null,null,true);
+        StyleViewPickRow(rows[rows.Count-1]);
+        AddRow("リストを開いたまま3D画面の部品をクリックしても選べます",0,null,false,true,false,null,null);
+        StyleViewPickHint(rows[rows.Count-1]);
         var suggested=term.Length==0 && string.IsNullOrEmpty(currentId) && !string.IsNullOrEmpty(suggestedId) && suggestedId!=excludedId?all.FirstOrDefault(o=>o.Id==suggestedId):null;
         if(suggested && labels.TryGetValue(suggested,out var suggestedLabel))
         {
@@ -293,6 +305,30 @@ public sealed class SkillSyncObjectPicker : MonoBehaviour
         UnityEngine.UI.LayoutRebuilder.ForceRebuildLayoutImmediate(content);
         var viewport=(RectTransform)content.parent;
         content.anchoredPosition=new Vector2(0,resetScroll?0:Mathf.Clamp(scrollY,0,Mathf.Max(0,content.rect.height-viewport.rect.height)));
+    }
+
+    // The 3D pick is the main way to choose a part, so it stands out as a filled button above the tree.
+    static void StyleViewPickRow(GameObject row)
+    {
+        var background=row.GetComponent<SkillSyncRoundedGraphic>();
+        if(background) {background.color=Blue;background.borderColor=Blue;background.borderWidth=1;background.radius=8;}
+        var text=row.GetComponentInChildren<TMP_Text>();
+        text.color=Color.white;text.fontStyle=FontStyles.Bold;
+        text.alignment=TextAlignmentOptions.Midline;
+        text.rectTransform.anchoredPosition=new Vector2(8,0);
+        text.rectTransform.sizeDelta=new Vector2(PanelWidth-12-16,RowHeight);
+    }
+    static void StyleViewPickHint(GameObject row)
+    {
+        var layout=row.GetComponent<UnityEngine.UI.LayoutElement>();
+        if(layout) layout.preferredHeight=24;
+        var text=row.GetComponentInChildren<TMP_Text>();
+        text.fontSize=Mathf.Min(text.fontSize,12);
+        text.alignment=TextAlignmentOptions.Midline;
+        text.rectTransform.anchoredPosition=new Vector2(8,0);
+        text.rectTransform.sizeDelta=new Vector2(PanelWidth-12-16,24);
+        text.textWrappingMode=TextWrappingModes.NoWrap;
+        text.overflowMode=TextOverflowModes.Ellipsis;
     }
 
     void Toggle(PlacedObject o,bool wasOpen)
@@ -348,9 +384,12 @@ public sealed class SkillSyncObjectPicker : MonoBehaviour
     void LayoutBanner()
     {
         var banner=(RectTransform)instruction.transform.parent;
+        // Bottom centre of the 3D view: notices appear at the top, so they never cover "このオブジェクトに決定".
+        banner.anchorMin=banner.anchorMax=banner.pivot=new Vector2(.5f,0);
+        banner.anchoredPosition=new Vector2(0,16);
         banner.sizeDelta=new Vector2(800,64);
         instruction.rectTransform.anchoredPosition=new Vector2(14,0);
-        instruction.rectTransform.sizeDelta=new Vector2(500,64);
+        instruction.rectTransform.sizeDelta=new Vector2(468,64);
         instruction.textWrappingMode=TextWrappingModes.Normal;
         instruction.overflowMode=TextOverflowModes.Ellipsis;
         if(!confirm)
@@ -362,7 +401,7 @@ public sealed class SkillSyncObjectPicker : MonoBehaviour
             var surface=confirm.GetComponent<SkillSyncRoundedGraphic>();
             if(surface) {surface.color=Blue;surface.borderColor=Blue;}
             var caption=confirm.GetComponentInChildren<TMP_Text>(true);
-            caption.text="この対象に決定";caption.color=Color.white;caption.fontStyle=FontStyles.Bold;
+            caption.text="このオブジェクトに決定";caption.color=Color.white;caption.fontStyle=FontStyles.Bold;
         }
         void Place(UnityEngine.UI.Button button,float x,float width)
         {
@@ -372,8 +411,8 @@ public sealed class SkillSyncObjectPicker : MonoBehaviour
             caption.anchorMin=Vector2.zero;caption.anchorMax=Vector2.one;
             caption.offsetMin=new Vector2(6,0);caption.offsetMax=new Vector2(-6,0);
         }
-        Place(confirm,524,150);
-        Place(cancel,684,104);
+        Place(confirm,490,192);
+        Place(cancel,690,104);
         cancel.GetComponentInChildren<TMP_Text>(true).text="取消（Esc）";
     }
 
@@ -384,9 +423,9 @@ public sealed class SkillSyncObjectPicker : MonoBehaviour
         {
             bool whole=ImportedModelParts.IsGroup(Provisional);
             instruction.text="仮選択中：「"+DisplayLabel(Provisional)+"」\n"+(whole?
-                "このまま「決定」するか、もう一度クリックして中の部品を選びます。":"「決定」（Enter）で確定します。別の部品はクリックで選び直せます。");
+                "このまま「決定」するか、もう一度クリックして1段内側の部品を選びます。":"「決定」（Enter）で確定します。別の部品はクリックで選び直せます。");
         }
-        else instruction.text="対象をクリックしてください。\n最初のクリックではグループ全体が仮選択され、もう一度クリックすると中の部品を選べます。";
+        else instruction.text="対象をクリックしてください。\n最初のクリックでは全体が仮選択され、クリックするたびに1段ずつ内側の部品へ進みます。";
         confirm.interactable=Provisional;
     }
 

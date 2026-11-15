@@ -319,9 +319,11 @@ public class SelectionService : MonoBehaviour
         }
         if (!additive && hasGroup && (sameDrilledGroup || groupSelected))
         {
+            // One level further in per click (PlacedObjectOptionProvider.ScreenCandidate), the same as condition targets.
+            var from = sameDrilledGroup ? Current : root;
             drilledGroupRoot = root;
             drilledEditorGroupId = root.editorGroupId;
-            SelectIndividual(picked, false);
+            SelectIndividual(PlacedObjectOptionProvider.ScreenCandidate(picked, from) ?? picked, false);
             return;
         }
 

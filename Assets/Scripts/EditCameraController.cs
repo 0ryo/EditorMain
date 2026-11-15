@@ -71,13 +71,17 @@ public class EditorCameraController : MonoBehaviour
     [Header("Sensitivity")]
     public float orbitSpeed = 12f;
     public float panSpeed = 0.01f;
-    public const float DefaultPerspectiveZoomSpeed = 0.08f;
+    // Lowered after the pilot study: first-time users overshot with the wheel (2026-11).
+    public const float DefaultPerspectiveZoomSpeed = 0.05f;
+    public const float DefaultOrthographicZoomSpeed = 0.07f;
+    // An accelerated wheel flick can report many steps in one frame; more than this per frame is dropped.
+    const float MaxWheelStepsPerFrame = 2f;
     public float zoomSpeed = DefaultPerspectiveZoomSpeed;
-    public float orthographicZoomSpeed = 0.12f;
+    public float orthographicZoomSpeed = DefaultOrthographicZoomSpeed;
     [Header("Trackpad (two-finger scroll)")]
     public float trackpadOrbitGain = 14f;
     public float trackpadPanGain = 14f;
-    public float trackpadZoomGain = 0.5f;
+    public float trackpadZoomGain = 0.3f;
 
     [Header("Limits")]
     public float minDistance = 1.2f;
@@ -570,7 +574,7 @@ public class EditorCameraController : MonoBehaviour
 
         if (!float.IsFinite(orthographicZoomSpeed) || orthographicZoomSpeed <= 0f || orthographicZoomSpeed > 0.5f)
         {
-            orthographicZoomSpeed = 0.12f;
+            orthographicZoomSpeed = DefaultOrthographicZoomSpeed;
         }
     }
 
@@ -632,7 +636,7 @@ public class EditorCameraController : MonoBehaviour
 
         if (!EditorCameraInputSettings.UseTrackpad)
         {
-            HandleZoom(EditorCameraNavigationMath.NormalizeScroll(scroll.y));
+            HandleZoom(Mathf.Clamp(EditorCameraNavigationMath.NormalizeScroll(scroll.y), -MaxWheelStepsPerFrame, MaxWheelStepsPerFrame));
             return;
         }
         if (primary)

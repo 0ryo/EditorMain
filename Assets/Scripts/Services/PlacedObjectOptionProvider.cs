@@ -44,12 +44,24 @@ public static class PlacedObjectOptionProvider
         return string.Join("|", options.Select(o => $"{o.id}:{o.label}"));
     }
 
-    // A screen pick commits immediately. Reopening the same target lets the next
-    // click select a component inside that model, while a new model starts whole.
+    // Each click goes one level further in, along the path from the model (or flat group) to the clicked part:
+    // a new model starts whole, the next click picks the part or group just inside it, and so on down to the
+    // clicked part. Clicking elsewhere in the same model goes one level below what the two have in common.
     public static PlacedObject ScreenCandidate(PlacedObject picked, PlacedObject currentTarget)
     {
         if (!picked) return null;
         var root = SelectionGroups.PickRoot(picked);
-        return currentTarget && SelectionGroups.PickRoot(currentTarget) == root ? picked : root;
+        if (!currentTarget || SelectionGroups.PickRoot(currentTarget) != root) return root;
+        var path = new List<PlacedObject>();
+        for (var node = picked.transform; node != null; node = node.parent)
+        {
+            var placed = node.GetComponent<PlacedObject>();
+            if (placed != null) path.Insert(0, placed);
+            if (placed == root) break;
+        }
+        int shared = -1;
+        for (int i = 0; i < path.Count; i++)
+            if (currentTarget == path[i] || currentTarget.transform.IsChildOf(path[i].transform)) shared = i;
+        return shared < 0 ? root : path[Mathf.Min(shared + 1, path.Count - 1)];
     }
 }
