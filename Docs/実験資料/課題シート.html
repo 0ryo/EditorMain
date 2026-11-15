@@ -27,6 +27,7 @@ h1,h2,h3{font-family:"Zen Maru Gothic","Hiragino Maru Gothic ProN","Noto Sans JP
 .page > *{flex-shrink:0}
 .page.task1{--accent:var(--blue);--accent-soft:var(--blue-soft)}
 .page.task2{gap:6mm;--accent:var(--teal);--accent-soft:var(--teal-soft)}
+.page.task3{gap:6mm;--accent:var(--amber);--accent-soft:var(--amber-soft)}
 .foot{margin-top:auto;display:flex;justify-content:space-between;font-size:7.6pt;color:var(--muted);border-top:1px solid var(--subtle);padding-top:2mm}
 
 /* ---------- 見出し ---------- */
@@ -96,7 +97,7 @@ ul.dots li::before{content:"";position:absolute;left:.4mm;top:2.3mm;width:1.5mm;
 .cap{font-size:7.8pt;color:var(--muted);margin-top:1mm;text-align:center}
 
 /* ---------- 手順の流れ ---------- */
-.flow{display:grid;grid-template-columns:repeat(6,1fr);gap:1.6mm}
+.flow{display:grid;grid-template-columns:repeat(5,1fr);gap:1.6mm}
 .flow div{position:relative;background:var(--accent-soft);border-radius:2.4mm;padding:2mm 1.6mm 2mm;text-align:center;font-size:8.4pt;font-weight:700;line-height:1.35}
 .flow div b{display:block;margin:0 auto 1mm;width:5.6mm;height:5.6mm;border-radius:50%;background:var(--accent);color:#fff;font:700 8.6pt/5.6mm "Zen Maru Gothic",sans-serif}
 .flow div:not(:last-child)::after{content:"";position:absolute;right:-1.6mm;top:50%;transform:translate(50%,-50%);border:1.3mm solid transparent;border-left:1.6mm solid var(--accent);border-right:0;z-index:1}
@@ -115,8 +116,9 @@ ul.dots li::before{content:"";position:absolute;left:.4mm;top:2.3mm;width:1.5mm;
 .steps .work small{font:700 7.6pt "Noto Sans JP",sans-serif;color:var(--red);background:var(--red-soft);border-radius:1.2mm;padding:0 1.4mm;margin-top:1mm;align-self:flex-start}
 .steps ol{list-style:none;counter-reset:c;display:flex;flex-direction:column;gap:1.2mm}
 .steps ol li{counter-increment:c;position:relative;padding-left:11mm}
-.steps ol li::before{content:"基準" counter(c);position:absolute;left:0;top:.5mm;font-size:7pt;font-weight:700;color:var(--muted);background:var(--canvas);border-radius:1mm;padding:0 1mm;line-height:1.6;white-space:nowrap}
+.steps ol li::before{content:"条件" counter(c);position:absolute;left:0;top:.5mm;font-size:7pt;font-weight:700;color:var(--muted);background:var(--canvas);border-radius:1mm;padding:0 1mm;line-height:1.6;white-space:nowrap}
 .steps ol.one li{padding-left:0}
+.gref{display:inline-block;font:700 7.4pt/1.5 "Noto Sans JP",sans-serif;color:var(--accent);background:#fff;border:1px solid var(--accent);border-radius:1.2mm;padding:0 1.4mm;margin-left:2mm;white-space:nowrap;vertical-align:middle;letter-spacing:0}
 .steps ol.one li::before{display:none}
 
 /* ---------- 終わったら（チェック欄） ---------- */
@@ -130,6 +132,7 @@ ul.dots li::before{content:"";position:absolute;left:.4mm;top:2.3mm;width:1.5mm;
 .fix .fh{display:flex;align-items:center;gap:2.6mm;padding:2.6mm 4mm;background:var(--accent-soft)}
 .fix .fh b{flex:none;width:6.4mm;height:6.4mm;border-radius:50%;background:var(--accent);color:#fff;display:grid;place-items:center;font:700 9.5pt/1 "Zen Maru Gothic",sans-serif}
 .fix .fh span{font:700 11pt "Zen Maru Gothic",sans-serif}
+.fix .fh span.gref{font:700 7.4pt/1.5 "Noto Sans JP",sans-serif;letter-spacing:0}
 .fix .fb{padding:4.4mm 4.4mm}
 .ba{display:grid;grid-template-columns:1fr 9mm 1fr;align-items:center;gap:1mm}
 .ba .side{border-radius:2.6mm;padding:2.4mm 3mm;background:var(--canvas)}
@@ -148,6 +151,14 @@ ul.dots li::before{content:"";position:absolute;left:.4mm;top:2.3mm;width:1.5mm;
 .targets{display:flex;flex-wrap:wrap;gap:1.4mm;margin-top:2mm}
 .targets span{background:#fff;border:1px solid var(--border);border-radius:5mm;padding:.2mm 2.6mm;font-size:8.8pt;font-weight:500}
 
+/* ---------- 課題3（任意） ---------- */
+.opt{display:inline-block;vertical-align:middle;margin-left:2.4mm;font:700 8.4pt/1.6 "Zen Maru Gothic",sans-serif;color:var(--accent);border:1.4px solid var(--accent);border-radius:10mm;padding:0 2.6mm}
+.ways{display:grid;grid-template-columns:repeat(3,1fr);gap:3mm}
+.ways > div{background:var(--canvas);border-radius:3mm;padding:3mm 3.4mm;font-size:9pt;line-height:1.5}
+.ways .k{font:700 9.6pt "Zen Maru Gothic",sans-serif;margin-bottom:1mm;font-feature-settings:"palt";letter-spacing:.03em}
+.ways .gref{margin:1.4mm 0 0}
+.memo .line.free{height:12mm}
+.check.c3{grid-template-columns:repeat(3,1fr)}
 .shotlist{width:210mm;margin:8mm auto 16mm;background:#fff;padding:10mm 13mm;box-shadow:0 2px 14px rgba(23,34,54,.18)}
 .shotlist h2{font-size:14pt;margin-bottom:1mm}
 .shotlist p{color:var(--muted);font-size:9pt;margin-bottom:4mm}
@@ -203,7 +214,7 @@ h1,h2,h3,.steps .work,.fix .fh span,.place .box .k{font-feature-settings:"palt";
       <span class="tag">はじめに</span>
       <div>
         <h3>作業前のメモ<span class="sub">1分ほどでご記入ください</span></h3>
-        <p>これから、自動車のタイヤ交換の実習教材を作っていただきます。学生にタイヤ交換やナットの付け外しを教えるとき、特に意識してほしい注意点や、必ず守ってほしい基準を<span style="white-space:nowrap">1〜2点</span>書いてください。</p>
+        <p>これから、自動車のタイヤ交換の実習教材を作っていただきます。学生にタイヤ交換やナットの付け外しを教えるとき、特に意識してほしい注意点や、必ず守ってほしいことを<span style="white-space:nowrap">1〜2点</span>書いてください。</p>
       </div>
     </div>
     <div class="lines">
@@ -216,12 +227,12 @@ h1,h2,h3,.steps .work,.fix .fh span,.place .box .k{font-feature-settings:"palt";
     <div class="badge">課題1</div>
     <div>
       <h2>タイヤ交換の教材を新しく作る</h2>
-      <p>次のページの表のとおりに、6つの手順の教材を作ってください。</p>
+      <p>次のページの表のとおりに、5つの手順の教材を作ってください。</p>
     </div>
   </header>
 
   <div>
-    <h3>配置する物</h3>
+    <h3>配置する物<span class="gref">操作ガイド 2ページ</span></h3>
     <div class="place">
       <div class="box">
         <div class="k">最初から置いてある物</div>
@@ -253,31 +264,30 @@ h1,h2,h3,.steps .work,.fix .fh span,.place .box .k{font-feature-settings:"palt";
 
   <div class="note"><span class="ic">i</span><span>各手順の<b>題名と説明文</b>は、学生に作業内容が伝わるよう、先生ご自身の言葉で書いてください。また、関連する手順（1か所以上）の説明文には、<b>作業前のメモに書いた注意点</b>を盛り込んでください。</span></div>
 
-  <div class="foot"><span>教材の作成・修正 課題シート</span><span>1 / 3</span></div>
+  <div class="foot"><span>教材の作成・修正 課題シート</span><span>1 / 4</span></div>
 </section>
 
-<!-- ======================= 2. 課題1：手順と完了の基準 ======================= -->
+<!-- ======================= 2. 課題1：手順と完了条件 ======================= -->
 <section class="page task1">
   <header class="page-head">
     <div class="badge">課題1</div>
     <div>
       <div class="label">タイヤ交換の教材を新しく作る</div>
-      <h2>作る手順と完了の基準</h2>
-      <p>完了の基準は、ツールで「完了条件」として設定します。</p>
+      <h2>作る手順と完了条件</h2>
+      <p>完了条件は、ツールの「手順を編集」で設定します。<span class="gref">操作ガイド 3・4ページ</span></p>
     </div>
   </header>
 
   <div class="flow">
     <div><b>1</b>ジャッキを<br>設置する</div>
-    <div><b>2</b>工具を<br>手に取る</div>
-    <div><b>3</b>ナットを<br>緩める</div>
-    <div><b>4</b>タイヤを<br>外す</div>
-    <div><b>5</b>交換用タイヤを<br>付ける</div>
-    <div><b>6</b>ナットを<br>締める</div>
+    <div><b>2</b>ナットを<br>緩める</div>
+    <div><b>3</b>タイヤを<br>外す</div>
+    <div><b>4</b>交換用タイヤを<br>付ける</div>
+    <div><b>5</b>ナットを<br>締める</div>
   </div>
 
   <div class="steps">
-    <div class="hd"><div>手順</div><div>作業の内容</div><div>完了の基準（設定する内容）</div></div>
+    <div class="hd"><div>手順</div><div>作業の内容</div><div>完了条件（設定する内容）</div></div>
     <div class="st">
       <div class="no"><b>1</b></div>
       <div class="work">ジャッキを設置する</div>
@@ -285,31 +295,28 @@ h1,h2,h3,.steps .work,.fix .fh span,.place .box .k{font-feature-settings:"palt";
     </div>
     <div class="st">
       <div class="no"><b>2</b></div>
-      <div class="work">工具を手に取る</div>
-      <div><ol class="one"><li><span class="obj">ソケットレンチ</span>を手に取る。</li></ol></div>
-    </div>
-    <div class="st">
-      <div class="no"><b>3</b></div>
-      <div class="work">ナットを緩める<small>基準を2つ設定</small></div>
+      <div class="work">ナットを緩める<small>条件を3つ設定</small></div>
       <div><ol>
+        <li><span class="obj">ソケットレンチ</span>を手に持つ。</li>
         <li><span class="obj">ソケットレンチ</span>を、<span class="obj">ナット1（上・前側）</span>から<span class="val">10cm以内</span>に合わせ、そのまま<span class="val">2秒間</span>保つ。</li>
         <li><span class="obj">ソケットレンチ</span>を、<span class="val">反時計回り</span>に<span class="val">90度以上</span>回す。</li>
       </ol></div>
     </div>
     <div class="st">
-      <div class="no"><b>4</b></div>
+      <div class="no"><b>3</b></div>
       <div class="work">タイヤを外す</div>
       <div><ol class="one"><li><span class="obj">取り外すタイヤ</span>を、手前に引く。</li></ol></div>
     </div>
     <div class="st">
-      <div class="no"><b>5</b></div>
+      <div class="no"><b>4</b></div>
       <div class="work">交換用タイヤを付ける</div>
-      <div><ol class="one"><li><span class="obj">交換用タイヤ</span>を、<span class="obj">左前輪の取付位置</span>から<span class="val">5cm以内</span>に合わせる。</li></ol></div>
+      <div><ol class="one"><li><span class="obj">交換用タイヤ</span>を、<span class="obj">左前輪の取付位置</span>から<span class="val">5cm以内</span>に合わせる。<small style="display:block;margin-top:.6mm;font-size:7.6pt;color:#5a6578">左前輪の取付位置は自動車の部品で、左前輪の中心（ナットが並ぶ位置）にあります。</small></li></ol></div>
     </div>
     <div class="st">
-      <div class="no"><b>6</b></div>
-      <div class="work">ナットを締める<small>基準を2つ設定</small></div>
+      <div class="no"><b>5</b></div>
+      <div class="work">ナットを締める<small>条件を3つ設定</small></div>
       <div><ol>
+        <li><span class="obj">ソケットレンチ</span>を手に持つ。</li>
         <li><span class="obj">ソケットレンチ</span>を、<span class="obj">ナット1（上・前側）</span>から<span class="val">10cm以内</span>に合わせる。</li>
         <li><span class="obj">ソケットレンチ</span>を、<span class="val">時計回り</span>に<span class="val">90度以上</span>回す。</li>
       </ol></div>
@@ -319,7 +326,7 @@ h1,h2,h3,.steps .work,.fix .fh span,.place .box .k{font-feature-settings:"palt";
   <div class="note"><span class="ic">i</span><span>題名と説明文は、先生ご自身の言葉で入力してください。</span></div>
 
   <div class="card soft">
-    <h3>6つの手順を作ったら</h3>
+    <h3>5つの手順を作ったら<span class="gref">操作ガイド 5・6ページ</span></h3>
     <ol class="check c2">
       <li><span>「手順を編集」の画面の左にある<span class="btn">▶ 最初から通して確認</span>を押す</span></li>
       <li><span>部品が自動で動く様子を見て、手順1から順に進むか確かめる</span></li>
@@ -328,7 +335,7 @@ h1,h2,h3,.steps .work,.fix .fh span,.place .box .k{font-feature-settings:"palt";
     </ol>
   </div>
 
-  <div class="foot"><span>教材の作成・修正 課題シート</span><span>2 / 3</span></div>
+  <div class="foot"><span>教材の作成・修正 課題シート</span><span>2 / 4</span></div>
 </section>
 
 <!-- ======================= 3. 課題2 ======================= -->
@@ -342,22 +349,23 @@ h1,h2,h3,.steps .work,.fix .fh span,.place .box .k{font-feature-settings:"palt";
   </header>
 
   <div class="fix">
-    <div class="fh"><b>1</b><span>手順1と手順2の順番を入れ替える</span></div>
+    <div class="fh"><b>1</b><span>手順1と手順2の順番を入れ替える<span class="gref">操作ガイド 3ページ</span></span></div>
     <div class="fb">
+      <p style="margin-bottom:2.4mm">ナットは、タイヤが地面に着いているうちに緩めておきます（車を上げてからでは、タイヤが空回りして緩めにくいため）。</p>
       <div class="ba">
         <div class="side"><div class="k">変更前</div>
-          <div class="mini"><div><b>1</b>ジャッキを設置する</div><div><b>2</b>工具を手に取る</div></div>
+          <div class="mini"><div><b>1</b>ジャッキを設置する</div><div><b>2</b>ナットを緩める</div></div>
         </div>
         <div class="to">▶</div>
         <div class="side after"><div class="k">変更後</div>
-          <div class="mini"><div><b>1</b>工具を手に取る</div><div><b>2</b>ジャッキを設置する</div></div>
+          <div class="mini"><div><b>1</b>ナットを緩める</div><div><b>2</b>ジャッキを設置する</div></div>
         </div>
       </div>
     </div>
   </div>
 
   <div class="fix">
-    <div class="fh"><b>2</b><span>「ナットを緩める」手順の距離と時間を変える</span></div>
+    <div class="fh"><b>2</b><span>「ナットを緩める」手順の距離と時間を変える<span class="gref">操作ガイド 4ページ</span></span></div>
     <div class="fb">
       <p style="margin-bottom:2.4mm"><span class="obj">ナット1（上・前側）</span>に合わせる距離を広げ、保つ時間を短くします。</p>
       <div class="ba">
@@ -373,10 +381,10 @@ h1,h2,h3,.steps .work,.fix .fh span,.place .box .k{font-feature-settings:"palt";
   </div>
 
   <div class="fix">
-    <div class="fh"><b>3</b><span>工具をインパクトレンチに変える</span></div>
+    <div class="fh"><b>3</b><span>工具をインパクトレンチに変える<span class="gref">操作ガイド 2・3ページ</span></span></div>
     <div class="fb">
-      <p><span class="obj">インパクトレンチ</span>を新しく置き、次の3つの手順で、対象をソケットレンチからインパクトレンチに変えます。</p>
-      <div class="targets"><span>工具を手に取る</span><span>ナットを緩める</span><span>ナットを締める</span></div>
+      <p><span class="obj">インパクトレンチ</span>を新しく置き、次の2つの手順で、ソケットレンチを対象にした完了条件（各3つ）の対象をインパクトレンチに変えます。</p>
+      <div class="targets"><span>ナットを緩める</span><span>ナットを締める</span></div>
       <div class="ba" style="margin-top:2.6mm">
         <div class="side"><div class="k">変更前の対象</div><dl class="nums"><dt>工具</dt><dd>ソケットレンチ</dd></dl></div>
         <div class="to">▶</div>
@@ -386,14 +394,65 @@ h1,h2,h3,.steps .work,.fix .fh span,.place .box .k{font-feature-settings:"palt";
   </div>
 
   <div class="card soft">
-    <h3>直し終わったら</h3>
+    <h3>直し終わったら<span class="gref">操作ガイド 6ページ</span></h3>
     <ol class="check c2">
       <li><span>保存する</span></li>
       <li><span>もう一度、教材を書き出す</span></li>
     </ol>
   </div>
 
-  <div class="foot"><span>教材の作成・修正 課題シート</span><span>3 / 3</span></div>
+  <div class="foot"><span>教材の作成・修正 課題シート</span><span>3 / 4</span></div>
+</section>
+
+<!-- ======================= 4. 課題3（任意） ======================= -->
+<section class="page task3">
+  <header class="page-head">
+    <div class="badge">課題3</div>
+    <div>
+      <h2>注意点を教材に入れる<span class="opt">任意</span></h2>
+      <p>時間に余裕があれば取り組んでください。1ページ目の「作業前のメモ」に書いた注意点を、課題1・2で作った教材に追加します。</p>
+    </div>
+  </header>
+
+  <div>
+    <h3>やること</h3>
+    <p>メモに書いた注意点を、ツールでできる範囲で教材に入れてください。説明文に書くだけでなく、手順や完了条件で表せるものは表してみてください。課題1の表のとおりでなくてもかまいません。</p>
+  </div>
+
+  <div>
+    <h3>使える方法<span class="sub">組み合わせてもかまいません</span></h3>
+    <div class="ways">
+      <div><div class="k">手順を足す・並べ替える</div>新しい手順を追加したり、手順の順番を変えたりします。<br><span class="gref">操作ガイド 3ページ</span></div>
+      <div><div class="k">完了条件を足す・変える</div>完了条件を追加したり、対象・距離・時間などを変えたりします。<br><span class="gref">操作ガイド 3・4ページ</span></div>
+      <div><div class="k">説明文に書き足す</div>学生に伝えたいことを、手順の説明文に書き加えます。<br><span class="gref">操作ガイド 3ページ</span></div>
+    </div>
+  </div>
+
+  <div class="memo">
+    <div class="top">
+      <span class="tag">記入</span>
+      <div>
+        <h3>入れられなかった注意点</h3>
+        <p>入れたかったのに、ツールでは入れられなかった注意点があれば、どのように入れたかったかも書いてください。すべて入れられた場合は空欄でかまいません。</p>
+      </div>
+    </div>
+    <div class="lines">
+      <div class="line free"></div>
+      <div class="line free"></div>
+      <div class="line free"></div>
+    </div>
+  </div>
+
+  <div class="card soft">
+    <h3>終わったら<span class="gref">操作ガイド 5・6ページ</span></h3>
+    <ol class="check c3">
+      <li><span><span class="btn">▶ 最初から通して確認</span> で、手順1から順に進むか確かめる</span></li>
+      <li><span>保存する</span></li>
+      <li><span>もう一度、教材を書き出す</span></li>
+    </ol>
+  </div>
+
+  <div class="foot"><span>教材の作成・修正 課題シート</span><span>4 / 4</span></div>
 </section>
 
 <!-- ======================= 撮影リスト（印刷されません） ======================= -->
