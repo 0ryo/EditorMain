@@ -206,8 +206,8 @@ public sealed class SkillSyncStartScreen : MonoBehaviour
         Spacer(4f);
         AddText("Subtitle", "選んだもののコピーを、新しい教材として開きます。元の見本やテンプレートは変わりません。", 20, DesignTokens.TextSecondary);
         Spacer(18f);
-        var sample = SkillSyncSamples.TireChange();
-        if (sample != null)
+        var samples = SkillSyncSamples.All();
+        foreach (var sample in samples)
         {
             TMP_Text sampleDetail = null;
             sampleDetail = ListRow(sample.title, "見本", () => OpenSample(sample, sampleDetail));
@@ -225,7 +225,7 @@ public sealed class SkillSyncStartScreen : MonoBehaviour
         int shown = 0;
         foreach (var info in templates)
         {
-            if (shown++ >= 8) break;
+            if (shown++ >= Math.Max(0, 9 - samples.Count)) break;
             string baseName = EditorProjectPanel.TemplateBaseName(info.DisplayName);
             ListRow(info.DisplayName, info.LastWriteTimeUtc.ToLocalTime().ToString("yyyy/MM/dd HH:mm"),
                 () => CreateFrom(info.Path, baseName));

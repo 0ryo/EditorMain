@@ -45,6 +45,7 @@ public sealed class EditorProjectPanel : MonoBehaviour
     readonly Button[] libraryTabs = new Button[3];
     string selectedPath;
     string lastClickedPath;
+    bool creatingFromSample;
     float lastClickTime;
     bool recoveryWarningShown;
     bool allowQuit;
@@ -522,6 +523,15 @@ public sealed class EditorProjectPanel : MonoBehaviour
                 () => RequestOpenStartupRecovery(opened => { if (opened) Close(); }), () => RequestDiscardStartupRecovery());
         }
 
+        // The samples that ship with the app (the finished example and the task lessons) head the template list,
+        // the same as on the start screen.
+        var samples = new List<SkillSyncSamples.Sample>();
+        if (libraryMode == 1)
+            foreach (var sample in SkillSyncSamples.All())
+                if (query.Length == 0 || sample.title.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0) samples.Add(sample);
+        foreach (var sample in samples) CreateSampleRow(sample, ref cursor);
+
+        if (projects.Count == 0 && samples.Count > 0) { SetListContentHeight(cursor + 8f); return; }
         if (projects.Count == 0)
         {
             string emptyText = query.Length > 0 ? "「" + query + "」に合う教材はありません。"
@@ -562,6 +572,68 @@ public sealed class EditorProjectPanel : MonoBehaviour
         if (selected) AddSelectedActions(row, info);
         UiRoundedTheme.ApplyToHierarchy(row, DesignTokens.CornerRadius);
         UiAccessibilityMetrics.EnsureButtonTargets(row);
+    }
+
+    void CreateSampleRow(SkillSyncSamples.Sample sample, ref float cursor)
+    {
+        bool selected = string.Equals(sample.projectPath, selectedPath, StringComparison.OrdinalIgnoreCase);
+        float height = selected ? 112f : 60f;
+        var row = CreateRect("Sample_" + sample.title, listContent);
+        PlaceItem(row, cursor, height);
+        cursor += height + DesignTokens.SpaceSm;
+        var image = row.gameObject.AddComponent<Image>();
+        image.color = selected ? DesignTokens.BadgeBg(DesignTokens.Accent) : DesignTokens.Surface;
+        var rowButton = row.gameObject.AddComponent<Button>();
+        rowButton.targetGraphic = image;
+        rowButton.onClick.AddListener(() =>
+        {
+            bool doubleClick = string.Equals(lastClickedPath, sample.projectPath, StringComparison.OrdinalIgnoreCase) &&
+                Time.unscaledTime - lastClickTime < 0.4f;
+            lastClickedPath = sample.projectPath;
+            lastClickTime = Time.unscaledTime;
+            if (doubleClick) { CreateFromSample(sample); return; }
+            if (selected) return;
+            selectedPath = sample.projectPath;
+            RefreshProjectList();
+        });
+        var label = CreateText("Label", row, sample.title, DesignTokens.FontSizeBody, DesignTokens.TextPrimary);
+        SetRect(label.rectTransform, new Vector2(12f, -16f), new Vector2(430f, 28f));
+        var kind = CreateText("Date", row, "見本", DesignTokens.FontSizeCaption, DesignTokens.TextSecondary);
+        SetTopRight(kind.rectTransform, new Vector2(-12f, -16f), new Vector2(220f, 28f));
+        kind.alignment = TextAlignmentOptions.MidlineRight;
+        if (selected)
+        {
+            var create = CreateButton("Button_ActionSample", row, "この見本から作成", 180f, true);
+            SetRect(create.transform as RectTransform, new Vector2(12f, -60f), new Vector2(180f, 40f));
+            create.onClick.AddListener(() => CreateFromSample(sample));
+        }
+        UiRoundedTheme.ApplyToHierarchy(row, DesignTokens.CornerRadius);
+        UiAccessibilityMetrics.EnsureButtonTargets(row);
+    }
+
+    // A sample's 3D models are added to the library first (only the first time takes a while), then a copy is opened.
+    async void CreateFromSample(SkillSyncSamples.Sample sample)
+    {
+        if (creatingFromSample) return;
+        creatingFromSample = true;
+        try
+        {
+            TopCenterNotification.Ensure(uiRoot, null)?.Show("見本を準備しています。初めて開くときは少し時間がかかります。", false, 4f);
+            bool ready = await SkillSyncSamples.PrepareModelsAsync(sample, FindFirstObjectByType<CatalogUI>());
+            if (this == null) return;
+            if (!ready)
+            {
+                TopCenterNotification.Ensure(uiRoot, null)?.Show("見本の3Dモデルを準備できませんでした。もう一度試しても開けない場合は、アプリを再起動してください。", true, 8f);
+                return;
+            }
+            RequestCreateFrom(sample.projectPath, sample.title);
+        }
+        catch (Exception ex)
+        {
+            Debug.LogException(ex);
+            TopCenterNotification.Ensure(uiRoot, null)?.Show("見本を開けませんでした: " + ex.Message, true, 8f);
+        }
+        finally { creatingFromSample = false; }
     }
 
     // First click selects; a second click on the same row within 0.4s opens it (templates: creates a lesson from it).
