@@ -186,13 +186,22 @@ public sealed class SkillSyncTrialAutoplay
             case ConditionTypeCatalog.Pull:
                 if (a == null) { Unplayable(label); return; }
                 {
-                    // Pulled well clear toward the viewer, then gone: the part is off for the following steps.
                     var toward = Horizontal(-camera.transform.forward);
                     float size = PlacedObjectGrounding.TryGetRendererBounds(a, out var bounds) ? bounds.size.magnitude : .3f;
-                    Move(a, toward * Mathf.Clamp(size * 1.5f, PullMin, PullMax), 1.2f);
-                    Hold(a, .2f);
-                    segments.Enqueue(new Segment { target = a, axis = Vector3.up, duration = 0, hideAtEnd = true });
-                    Note = $"{label}：手前へ引いて取り外す動きで示します";
+                    if (ConditionTypeCatalog.PullsOff(c))
+                    {
+                        // Pulled well clear toward the viewer, then gone: the part is off for the following steps.
+                        Move(a, toward * Mathf.Clamp(size * 1.5f, PullMin, PullMax), 1.2f);
+                        Hold(a, .2f);
+                        segments.Enqueue(new Segment { target = a, axis = Vector3.up, duration = 0, hideAtEnd = true });
+                        Note = $"{label}：手前へ引き抜いて取り外す動きで示します";
+                    }
+                    else
+                    {
+                        // A short pull that stays: the next step starts from where the part now is.
+                        Move(a, toward * Mathf.Min(size * .3f, PullMin), .8f);
+                        Note = $"{label}：手前へ少し引く動きで示します";
+                    }
                 }
                 break;
             default:

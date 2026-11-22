@@ -62,7 +62,7 @@ persistentDataPath/Projects/*.skillsync.json
 - 元に戻せる削除（部品・手順・完了条件・ゴミ箱へ移す）は確認せず即時に実行し、影響を書いた「元に戻す」付き通知（8秒、ポインタを乗せている間は消えない）を出す。部品削除は`SelectionService.DeleteGuard`の`DeleteObjectsWithUndo`が実削除まで行う。取り返しのつかない操作（上書き、復旧dataの破棄、未保存の破棄、終了）だけ`SkillSyncConfirmDialog`（runtime生成の中央モーダル、Esc=取消、Enter=主ボタン、`Show`は即時return）で確認する。通し確認の完了画面も同じダイアログを使う。
 - 上部通知（`TopCenterNotification`）は、ボタンなしの情報通知どうしなら新しいものが即座に置き換える。エラーと「元に戻す」付き通知は置き換えない。結果が画面で見える頻繁な操作（大きさ・高さ・角度・手順移動・吸着・視点）は通知しない。
 - 手順・条件の未入力（完了条件なし`E-06`、対象未設定`E-08`）は、書き出しを試すまで「未完成：」の中立表示にし、⚠（要修正）は付けない。部品削除による参照切れなど実際の不整合は常に⚠。
-- 手順画面の3D表示は、選択中の手順より前（表示順）に「引く」で外した部品を非表示・クリック不可にする（その手順の条件で再び使う部品は除く）。`PlacedObjectEditState.SetStepHidden`のsession限定状態で、保存の`hidden`とは別。動作確認の開始前に解除し、試行コピー側は`SkillSyncTrialSession.Hide`で同じ部品を隠す。
+- 手順画面の3D表示は、選択中の手順より前（表示順）に「引く」の「引き抜く」オプション（`ConditionTypeCatalog.PullsOff`）で外した部品を非表示・クリック不可にする（その手順の条件で再び使う部品は除く）。`PlacedObjectEditState.SetStepHidden`のsession限定状態で、保存の`hidden`とは別。動作確認の開始前に解除し、試行コピー側は`SkillSyncTrialSession.Hide`で同じ部品を隠す。
 - 条件の対象リストを開いたまま3D画面の部品をクリックすると、そのまま3D選択に入りその部品を仮選択する（`SkillSyncEditorController.PickFromOpenMenu`）。
 - 動作確認画面の右パネルは`SkillSyncConditionEditorView.LayoutTrial`が、表示中の要素だけを上から詰めて並べる。デザイン原本の座標からの差分で動かす。原本座標を直接いじったり、要素ごとに固定座標を足したりしない。
 - 教材ごとの「続き」（配置／手順、選んでいた手順と条件、左タブ、視点）は`SkillSyncViewMemory`がPlayerPrefsに教材pathのhashで保存する。教材fileには入れない。controllerは0.25秒ごとの更新で、開いている教材のpathが変わったことを検知し、保存してから復元する。初回保存やリネームでは何も復元しない。
@@ -78,7 +78,7 @@ persistentDataPath/Projects/*.skillsync.json
 
 - `SkillSyncTrialSession`: PlacedObjectや保存対象のscriptを持たない表示専用コピーで条件を試行する。`MoveTool`のpreview対象としてギズモ操作し、編集選択・Undo履歴を変えず通常のカメラ操作を許可する。再試行ではコピーの位置・回転・scaleを戻し、終了時に原本の描画と編集toolの有効状態を復元する。
 - `Core/CurriculumModel.cs`: 編集モデル。Start/End/Step/ConditionとStepFlow/ConditionBind、Step詳細、拡張可能なCondition parameterを明示するschema version 5。Condition種別定義と既定parameterは`ConditionTypeCatalog`へ集約する。
-- `SkillSyncTrialAutoplay`: 動作確認中に、各条件の理想の動作（移動・回転・保持）を表示専用コピーへ順に再生する。「引く」は手前へ大きく引いてから非表示にする（「やり直す」で戻り、次の手順以降は非表示のまま）。「回す」は同じ手順の「近づける」相手（レンチ→ナット）があればその部品の軸と中心で回し、軸は部品自身の向きで2辺がほぼ等しい残りの辺（ナット・車輪）とする。モデル作成時の軸の向きに依存させない。距離の判定は部品の中心どうしなので、床置きの部品（ジャッキ）を床上の目印へ近づけると中心が沈む。再生では、開始時に底が地面（`EditWorkspace.GroundY`）以上だった部品の底を地面より下に行かせない。教材data・選択・Undoには触れない。選択中のコピーが再生以外で動いたら、その手順は手動に切り替わる。controllerの`Update`から`Tick`し、`true`が返ったら`AdvanceTrial`を呼ぶ。
+- `SkillSyncTrialAutoplay`: 動作確認中に、各条件の理想の動作（移動・回転・保持）を表示専用コピーへ順に再生する。「引く」は、「引き抜く」オプションありなら手前へ大きく引いてから非表示にし（「やり直す」で戻り、次の手順以降は非表示のまま）、なしなら少し引いてその位置に残す。「回す」は同じ手順の「近づける」相手（レンチ→ナット）があればその部品の軸と中心で回し、軸は部品自身の向きで2辺がほぼ等しい残りの辺（ナット・車輪）とする。モデル作成時の軸の向きに依存させない。距離の判定は部品の中心どうしなので、床置きの部品（ジャッキ）を床上の目印へ近づけると中心が沈む。再生では、開始時に底が地面（`EditWorkspace.GroundY`）以上だった部品の底を地面より下に行かせない。教材data・選択・Undoには触れない。選択中のコピーが再生以外で動いたら、その手順は手動に切り替わる。controllerの`Update`から`Tick`し、`true`が返ったら`AdvanceTrial`を呼ぶ。
 - `CurriculumGraphService`: node/edge操作、接続制約、欠損参照を保持した検証、分岐・合流を含むStep経路の検証と表示順生成、export model変換。UI非依存の中心サービス。
 - `ScenarioGraphUI`: nodeの配置・接続操作、status表示、保存処理を統括する。4種のnode生成と再構築時の破棄は`ScenarioNodeViewFactory`、旧Prefabの不足template補完は`ScenarioNodeTemplateFactory`へ委譲し、位置・展開状態と編集操作のcallbackはUI側で保持する。検証結果を各nodeの文字badgeと枠へ常時反映し、`ScenarioValidationPanel`の前後navigationから問題nodeへfocusする。検証済みgraphは`ScenarioPreviewPanel`で成功を模擬し、接続に沿って進路を選んで確認できる。
 - `ScenarioGraphSelection`はgraph UIの複数選択・集合移動・端揃えを扱い、`CurriculumGraphClipboard`はservice経由で選択ノードと内部接続をsnapshot複製する。Stepの埋込条件も含め、新node IDを発行する。

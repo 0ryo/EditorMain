@@ -53,10 +53,18 @@ public static class SkillSyncConditionEditing
         return (parameter.key == ConditionTypeCatalog.DistanceKey ? value * 100 : value).ToString("0.##", CultureInfo.CurrentCulture);
     }
 
+    // A one-button option (引き抜く) turns on and off with each press; other choices store the pressed index.
     public static void SetChoice(ConditionNodeData condition, int index)
     {
         var parameter = ChoiceParameter(condition);
-        if (parameter != null) ConditionTypeCatalog.SetNumber(condition, parameter.key, index);
+        if (parameter == null) return;
+        ConditionTypeCatalog.SetNumber(condition, parameter.key, parameter.choices.Length == 1 ? 1 - Choice(condition) : index);
+    }
+
+    public static bool ChoiceSelected(ConditionNodeData condition, int index)
+    {
+        var parameter = ChoiceParameter(condition);
+        return parameter != null && (parameter.choices.Length == 1 ? Choice(condition) == 1 : Choice(condition) == index);
     }
 
     public static bool TrySetValue(ConditionNodeData condition, int slot, string input) => TrySetValue(condition, slot, input, out _);
@@ -143,7 +151,8 @@ public static class SkillSyncConditionEditing
             ConditionTypeCatalog.Proximity => $"2つの部品の中心どうしが{distance} cm以内になると完了します（3D画面の球が判定範囲）",
             ConditionTypeCatalog.SnapHold => $"中心どうしが{distance} cm以内の状態を{hold}秒続けると完了します。部品をもつ必要はなく、範囲を出ると数え直します",
             ConditionTypeCatalog.Push => "対象を押す操作が1回あると完了します（何を押す操作とみなすかはXRアプリ側で判定します）",
-            ConditionTypeCatalog.Pull => "対象を引く操作が1回あると完了します（何を引く操作とみなすかはXRアプリ側で判定します）",
+            ConditionTypeCatalog.Pull => "対象を引く操作が1回あると完了します（何を引く操作とみなすかはXRアプリ側で判定します）" +
+                (ConditionTypeCatalog.PullsOff(condition) ? "。引き抜いた部品は、次の手順から3D画面に表示しません" : ""),
             ConditionTypeCatalog.Grabbed => "対象をつかんだ時点で完了します。運ぶ動きは判定しないので、運ぶ場合は「近づける」でとどまる秒数を決めます",
             ConditionTypeCatalog.Released => "対象をつかんだあと、手放すと完了します。最初からつかんでいないだけでは完了しません",
             ConditionTypeCatalog.Turn => $"対象を{distance}度以上回すと完了します。" + (Choice(condition) == 0 ? "向きは問いません（XRアプリ側で判定します）" : ChoiceLabel(condition) + "だけが数えられます（XRアプリ側で判定します）"),
@@ -163,7 +172,7 @@ public static class SkillSyncConditionEditing
             ConditionTypeCatalog.SnapHold => $"{distance} cm以内に{hold}秒とどまると完了（もつ必要なし）",
             ConditionTypeCatalog.Turn => $"{distance}度以上回すと完了（{ChoiceLabel(condition)}）",
             ConditionTypeCatalog.Push => "押す操作で完了",
-            ConditionTypeCatalog.Pull => "引く操作で完了",
+            ConditionTypeCatalog.Pull => ConditionTypeCatalog.PullsOff(condition) ? "引き抜くと完了（次の手順から表示しない）" : "引く操作で完了",
             ConditionTypeCatalog.Grabbed => "つかむと完了",
             ConditionTypeCatalog.Released => "つかんだあと手放すと完了",
             _ => ""
@@ -178,7 +187,7 @@ public static class SkillSyncConditionEditing
             ConditionTypeCatalog.Proximity => $"近づける：{distance} cm以内で完了",
             ConditionTypeCatalog.SnapHold => $"近づける：{distance} cm以内に{hold}秒とどまると完了",
             ConditionTypeCatalog.Push => "押す：対象を押す操作で完了",
-            ConditionTypeCatalog.Pull => "引く：対象を引く操作で完了",
+            ConditionTypeCatalog.Pull => ConditionTypeCatalog.PullsOff(condition) ? "引く：対象を引き抜くと完了（次の手順から表示しない）" : "引く：対象を引く操作で完了",
             ConditionTypeCatalog.Grabbed => "もつ：対象をつかむと完了",
             ConditionTypeCatalog.Turn => $"回す：対象を{distance}度以上回すと完了（{ChoiceLabel(condition)}）",
             ConditionTypeCatalog.Separation => $"離す：{distance} cm以上で完了",

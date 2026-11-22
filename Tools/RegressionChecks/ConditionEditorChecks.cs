@@ -49,6 +49,17 @@ static class ConditionEditorChecks
                 // "近づける" (Proximity) also edits the hold time: 0 seconds stays Proximity, more becomes SnapHold.
                 int slots = definition.id == "Proximity" ? 2 : definition.parameters.Count;
                 Check(SkillSyncConditionEditing.Parameter(Current(), slots) == null, "Unused parameter slot: " + definition.id);
+                if (definition.id == "Pull")
+                {
+                    // Without the option (or the key, as in lessons saved before it existed) a pull leaves the part in place.
+                    Check(!ConditionTypeCatalog.PullsOff(new ConditionNodeData { type = "Pull" }) && !ConditionTypeCatalog.PullsOff(Current()), "Pull defaults to a plain pull");
+                    Check(SkillSyncConditionEditing.Parameter(Current(), 0) == null && !SkillSyncConditionEditing.ChoiceSelected(Current(), 0), "引き抜く is an unselected option, not a numeric field");
+                    graph.UpdateConditionData(id, "Pull off", data => SkillSyncConditionEditing.SetChoice(data, 0));
+                    Check(ConditionTypeCatalog.PullsOff(Current()) && SkillSyncConditionEditing.ChoiceSelected(Current(), 0), "Pressing 引き抜く turns it on");
+                    Check(graph.BuildScenarioExport().requiredActions.Single().conditions.Single().parameters.Any(p => p.key == ConditionTypeCatalog.PullOffKey && p.numberValue == 1), "引き抜く is exported");
+                    graph.UpdateConditionData(id, "Plain pull", data => SkillSyncConditionEditing.SetChoice(data, 0));
+                    Check(!ConditionTypeCatalog.PullsOff(Current()), "Pressing 引き抜く again turns it off");
+                }
                 if (definition.id == "Proximity")
                 {
                     Check(SkillSyncConditionEditing.Value(Current(), 1) == "0", "Proximity holds for 0 seconds");

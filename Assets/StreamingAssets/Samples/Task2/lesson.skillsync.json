@@ -223,7 +223,14 @@
           "type": "Pull",
           "objectAId": "teacher-old-tire",
           "objectBId": "",
-          "parameters": []
+          "parameters": [
+            {
+              "key": "pullOff",
+              "numberValue": 1.0,
+              "textValue": "",
+              "boolValue": false
+            }
+          ]
         }
       },
       {

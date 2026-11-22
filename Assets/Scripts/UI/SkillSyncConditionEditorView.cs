@@ -225,10 +225,12 @@ public static class SkillSyncConditionEditorView
         return visual.label;
     }
 
-    // Segmented control for the turn direction; the labels come from the parameter definition.
+    // Segmented control for a choice parameter (turn direction), or one on/off button for an option (引き抜く);
+    // enough buttons for the longest choice list, and the refresh shows as many as the current condition has.
     static void EnsureDirectionButtons(SkillSyncDesignView view, Transform parent, TMP_Text font)
     {
-        var choices = ConditionTypeCatalog.Find(ConditionTypeCatalog.Turn).parameters.First(p => p.choices != null).choices;
+        var choices = ConditionTypeCatalog.Definitions.SelectMany(d => d.parameters).Where(p => p.choices != null)
+            .OrderByDescending(p => p.choices.Length).First().choices;
         for (int i = 0; i < choices.Length; i++)
         {
             string action = DirectionActionPrefix + i;
@@ -258,15 +260,20 @@ public static class SkillSyncConditionEditorView
         {
             var control = view.controls.FirstOrDefault(c => c.action == DirectionActionPrefix + i);
             if (control == null) break;
-            view.SetVisible(control.action, choice != null && (view.State == 1 || view.State == 5));
-            control.button.interactable = editing && choice != null;
-            bool selected = choice != null && SkillSyncConditionEditing.Choice(condition) == i;
+            bool shown = choice != null && i < choice.choices.Length;
+            view.SetVisible(control.action, shown && (view.State == 1 || view.State == 5));
+            control.button.interactable = editing && shown;
+            bool selected = shown && SkillSyncConditionEditing.ChoiceSelected(condition, i);
             var graphic = control.button.GetComponent<SkillSyncRoundedGraphic>();
             graphic.color = selected ? Blue : Color.white;
             graphic.borderColor = selected ? Blue : LineColor;
             graphic.SetAllDirty();
             var caption = control.button.GetComponentInChildren<TMP_Text>(true);
-            if (caption != null) caption.color = selected ? Color.white : new Color32(23, 34, 54, 255);
+            if (caption != null)
+            {
+                if (shown) caption.text = choice.choices[i];
+                caption.color = selected ? Color.white : new Color32(23, 34, 54, 255);
+            }
         }
     }
 
@@ -659,13 +666,15 @@ public static class SkillSyncConditionEditorView
             }
             cursor += LabelHeight + LabelGap + 46;
         }
-        if (SkillSyncConditionEditing.ChoiceParameter(condition) != null)
+        var choiceParameter = SkillSyncConditionEditing.ChoiceParameter(condition);
+        if (choiceParameter != null)
         {
             cursor += RowGap;
             PlaceRole("conditionChoiceLabel", 1200, cursor, ContentWidth, LabelHeight);
             cursor += LabelHeight + LabelGap;
-            float choiceWidth = (ContentWidth - 2 * 8) / 3;
-            for (int i = 0; i < 3; i++)
+            int count = choiceParameter.choices.Length;
+            float choiceWidth = (ContentWidth - (count - 1) * 8) / count;
+            for (int i = 0; i < count; i++)
                 PlaceControl(DirectionActionPrefix + i, 1200 + i * (choiceWidth + 8), cursor, choiceWidth, 44);
             cursor += 44;
         }
