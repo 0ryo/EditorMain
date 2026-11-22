@@ -192,6 +192,12 @@
                             "numberValue": 90.0,
                             "textValue": "",
                             "boolValue": false
+                        },
+                        {
+                            "key": "pullOff",
+                            "numberValue": 1.0,
+                            "textValue": "",
+                            "boolValue": false
                         }
                     ]
                 }
@@ -282,6 +288,12 @@
                         {
                             "key": "angleDegrees",
                             "numberValue": 90.0,
+                            "textValue": "",
+                            "boolValue": false
+                        },
+                        {
+                            "key": "pullOff",
+                            "numberValue": 1.0,
                             "textValue": "",
                             "boolValue": false
                         }
@@ -376,6 +388,12 @@
                             "numberValue": 90.0,
                             "textValue": "",
                             "boolValue": false
+                        },
+                        {
+                            "key": "pullOff",
+                            "numberValue": 1.0,
+                            "textValue": "",
+                            "boolValue": false
                         }
                     ]
                 }
@@ -468,6 +486,12 @@
                             "numberValue": 90.0,
                             "textValue": "",
                             "boolValue": false
+                        },
+                        {
+                            "key": "pullOff",
+                            "numberValue": 1.0,
+                            "textValue": "",
+                            "boolValue": false
                         }
                     ]
                 }
@@ -521,6 +545,12 @@
                         {
                             "key": "angleDegrees",
                             "numberValue": 90.0,
+                            "textValue": "",
+                            "boolValue": false
+                        },
+                        {
+                            "key": "pullOff",
+                            "numberValue": 1.0,
                             "textValue": "",
                             "boolValue": false
                         }

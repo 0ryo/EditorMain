@@ -1689,7 +1689,8 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         autoplay=new SkillSyncTrialAutoplay(cameraView,Log,m=>Notify(m,false));
         Log("動作の確認を開始");Refresh();
     }
-    // Parts pulled off ("引く") in an earlier step are gone in the steps after it, unless a later step uses them again.
+    // Parts pulled off ("引く" with the 引き抜く option) in an earlier step are gone in the steps after it, unless a later
+    // step uses them again. A plain "引く" leaves the part in place, like any other use.
     // Steps are taken in display order (the order the author reads them in).
     HashSet<string> PulledBefore(string currentStepId)
     {
@@ -1705,7 +1706,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
             }
             foreach(var c in conditions)
             {
-                if(c.condition.type==ConditionTypeCatalog.Pull && !string.IsNullOrEmpty(c.condition.objectAId)) pulled.Add(c.condition.objectAId);
+                if(ConditionTypeCatalog.PullsOff(c.condition) && !string.IsNullOrEmpty(c.condition.objectAId)) pulled.Add(c.condition.objectAId);
                 else {pulled.Remove(c.condition.objectAId??"");pulled.Remove(c.condition.objectBId??"");}
             }
         }

@@ -19,6 +19,9 @@ public static class ConditionTypeCatalog
     // Turn direction as seen by the operator: 0 either, 1 clockwise, 2 counterclockwise.
     public const string TurnDirectionKey = "turnDirection";
     public const int TurnEither = 0, TurnClockwise = 1, TurnCounterclockwise = 2;
+    // The "引き抜く" option of "引く": 1 means the part is gone from the following steps; 0 (or no key) is a plain pull
+    // that leaves the part where it was pulled. The XR side still judges only the pull count.
+    public const string PullOffKey = "pullOff";
 
     public sealed class ParameterDefinition
     {
@@ -75,7 +78,8 @@ public static class ConditionTypeCatalog
         },
         new Definition { id = Grabbed, label = "もつ", requiresObjectB = false, parameters = Array.Empty<ParameterDefinition>() },
         new Definition { id = Push, label = "押す", requiresObjectB = false, parameters = Array.Empty<ParameterDefinition>() },
-        new Definition { id = Pull, label = "引く", requiresObjectB = false, parameters = Array.Empty<ParameterDefinition>() },
+        new Definition { id = Pull, label = "引く", requiresObjectB = false,
+            parameters = new[] { Option(PullOffKey, "オプション", "引き抜く") } },
         new Definition { id = Turn, label = "回す", requiresObjectB = false,
             parameters = new[] { Parameter(AngleKey, "回す角度 (度)", 90f, 0.1f, 3600f),
                 Choice(TurnDirectionKey, "回す向き", "どちらでも", "時計回り", "反時計回り") } },
@@ -91,6 +95,10 @@ public static class ConditionTypeCatalog
     // so the XR side keeps receiving the same two types.
     public static IReadOnlyList<Definition> EditorChoices => Definitions.Where(d => d.id != SnapHold).ToArray();
     public static string EditorChoiceOf(string type) => type == SnapHold ? Proximity : type;
+
+    // A "引く" condition with the 引き抜く option on: the part is gone in the steps after it.
+    public static bool PullsOff(ConditionNodeData condition) =>
+        condition != null && condition.type == Pull && (int)GetNumber(condition, PullOffKey) == 1;
 
     public static Definition Find(string type)
     {
@@ -186,6 +194,14 @@ public static class ConditionTypeCatalog
     {
         var definition = Parameter(key, label, 0f, 0f, choices.Length - 1);
         definition.choices = choices;
+        return definition;
+    }
+
+    // An on/off option shown as one button with the caption: stored as 1 when on, 0 when off.
+    static ParameterDefinition Option(string key, string label, string caption)
+    {
+        var definition = Parameter(key, label, 0f, 0f, 1f);
+        definition.choices = new[] { caption };
         return definition;
     }
 

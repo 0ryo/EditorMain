@@ -169,16 +169,32 @@ h1,h2,h3,.cond .t,.flow .name{font-feature-settings:"palt";letter-spacing:.03em}
 @media print{.pin{box-shadow:0 0 0 .2mm rgba(23,34,54,.25)}}
 /* 番号の丸：丸ゴシックの数字は文字の枠の中で下寄りに描かれるため、grid の中央揃えでは丸の中心より下にずれる。
    文字の枠を数字の高さ（cap）まで詰め、その高さを丸の内側の上下中央に置く。--d は丸の内側の直径 */
-.pin,.legend b,.badge,ol.steps li::before{display:block;text-align:center;line-height:1;text-box:trim-both cap alphabetic;padding-top:calc((var(--d) - 1cap)/2)}
+.pin,ol.steps li::before{display:block;text-align:center;line-height:1;text-box:trim-both cap alphabetic;padding-top:calc((var(--d) - 1cap)/2)}
 .pin{--d:5mm}
 /* 写真上のピンは直径約23pxと小さく、文字位置の1px単位の丸めだけで直径の4%ずれる。
    4倍の大きさで描いて1/4に縮め、丸めの影響を1/4にする（見た目の大きさは元と同じ） */
 .pin{width:24.8mm;height:24.8mm;border-width:2.4mm;font-size:36pt;--d:20mm;transform:translate(-50%,-50%) scale(.25);box-shadow:0 1.6mm 5.6mm rgba(0,0,0,.28)}
 @media print{.pin{box-shadow:0 0 0 .8mm rgba(23,34,54,.25)}}
-.legend b,ol.steps li::before{--d:5mm}
-.badge{--d:13mm}
 /* 擬似要素には * の box-sizing が効かないため、padding で丸が縦に伸びないようにする */
 ol.steps li::before{box-sizing:border-box}
+/* 見出しの丸・凡例の番号・手順の番号・注意書きの印：
+   印刷では、丸の上下左右の端と文字の位置が1px（約0.26mm）単位で丸められ、置かれた位置によって丸が楕円になり、
+   数字も中心からずれる。ピンと同じく、丸（背景）と文字を4倍の大きさで描いて1/4に縮め、丸めの影響を1/4にする。
+   （8倍にすると、縮める前の大きな箱が印刷の区切りで切られ、ページ下の方の丸が欠ける）
+   凡例・見出し・注意書きは、要素そのものは場所を取るだけにして ::after に描く。--d は丸の直径。
+   --dx・--dy は字形の偏りを目で見た中心に合わせる補正で、丸は動かさず文字だけを余白で動かす（上は4倍、中央揃えの左は8倍） */
+.legend b,.badge,.note .ic{position:relative;display:block;background:transparent}
+.legend b::after,.badge::after,.note .ic::after{content:attr(data-t);position:absolute;left:50%;top:50%;width:400%;height:400%;box-sizing:border-box;background:var(--accent);border-radius:50%;font-size:400%;line-height:1;text-align:center;white-space:nowrap;text-box:trim-both cap alphabetic;padding-top:calc((var(--d)*4 - 1cap)/2 + var(--dy,0mm)*4);padding-left:calc(var(--dx,0mm)*8);transform:translate(-50%,-50%) scale(.25)}
+.legend b,.note .ic{--d:5mm}
+.badge{--d:13mm}
+/* 手順の番号は ::before 自体を4倍の大きさにし、丸の中心を変えずに1/4に縮める */
+ol.steps li::before{--d:20mm;left:-7.5mm;top:calc(.3mm - 7.5mm);width:20mm;height:20mm;font-size:32pt;transform:scale(.25)}
+/* 補正値はPDFを600dpiの画像にして、文字の白抜きの範囲の中心を丸の中心に合わせて決めた。
+   数字の「1」は旗の分だけ字形が左に寄り、「✓」は上に寄る */
+.legend b[data-t="1"]::after,.badge[data-t="1"]::after{--dx:calc(.055em/4)}
+.badge[data-t="✓"]::after{--dy:.3mm}
+ol.steps li:first-child::before{padding-left:.15em}
+.pin.one{padding-left:.11em}
 </style>
 </head>
 <body>
@@ -221,18 +237,18 @@ ol.steps li::before{box-sizing:border-box}
       data-what="ツール起動直後の画面全体"
       data-detail="「配置を編集」を選んだ状態。タイヤ交換の初期配置（車・タイヤ）が3D画面に見え、上部の3つのボタン、左の欄、右の欄、［↑ 教材を書き出す］がすべて写るように撮る。">
       <div class="wf"><i class="h"></i><i class="l"></i><i class="r"></i></div>
-      <span class="pin" style="--x:35.9%;--y:10.7%">1</span>
+      <span class="pin one" style="--x:35.9%;--y:10.7%">1</span>
       <span class="pin" style="--x:11.0%;--y:28.1%">2</span>
       <span class="pin" style="--x:45.0%;--y:22.6%">3</span>
       <span class="pin" style="--x:87.6%;--y:57.3%">4</span>
       <span class="pin" style="--x:94.1%;--y:10.7%">5</span>
     </figure>
     <div class="legend">
-      <div><b>1</b><span>3つのボタン（作業の切り替え）</span></div>
-      <div><b>2</b><span>左の欄：部品や手順の一覧</span></div>
-      <div><b>3</b><span>3D画面：教材の空間</span></div>
-      <div><b>4</b><span>右の欄：選んだものの設定</span></div>
-      <div><b>5</b><span><span class="btn">↑ 教材を書き出す</span>（6ページ）</span></div>
+      <div><b data-t="1"></b><span>3つのボタン（作業の切り替え）</span></div>
+      <div><b data-t="2"></b><span>左の欄：部品や手順の一覧</span></div>
+      <div><b data-t="3"></b><span>3D画面：教材の空間</span></div>
+      <div><b data-t="4"></b><span>右の欄：選んだものの設定</span></div>
+      <div><b data-t="5"></b><span><span class="btn">↑ 教材を書き出す</span>（6ページ）</span></div>
     </div>
     </div>
   </div>
@@ -255,7 +271,7 @@ ol.steps li::before{box-sizing:border-box}
     </div>
   </div>
 
-  <div class="note"><span class="ic">i</span><span>ボタンにマウスを重ねると、説明が表示されます。操作を間違えたときは、<span class="btn">↶ 元に戻す</span>を押すと戻せます。分からないことがあれば、いつでも声をかけてください。</span></div>
+  <div class="note"><span class="ic" data-t="i"></span><span>ボタンにマウスを重ねると、説明が表示されます。操作を間違えたときは、<span class="btn">↶ 元に戻す</span>を押すと戻せます。分からないことがあれば、いつでも声をかけてください。</span></div>
 
   <div class="foot"><span>教材作成ツール 操作ガイド</span><span>1 / 6</span></div>
 </section>
@@ -263,7 +279,7 @@ ol.steps li::before{box-sizing:border-box}
 <!-- ======================= 2. 配置を編集 ======================= -->
 <section class="page mode-place">
   <header class="page-head">
-    <div class="badge">1</div>
+    <div class="badge" data-t="1"></div>
     <div>
       <div class="label">STEP 1</div>
       <h2>配置を編集</h2>
@@ -337,7 +353,7 @@ ol.steps li::before{box-sizing:border-box}
 <!-- ======================= 3. 手順を編集 ======================= -->
 <section class="page mode-step">
   <header class="page-head">
-    <div class="badge">2</div>
+    <div class="badge" data-t="2"></div>
     <div>
       <div class="label">STEP 2</div>
       <h2>手順を編集</h2>
@@ -350,14 +366,14 @@ ol.steps li::before{box-sizing:border-box}
       data-what="「手順を編集」の画面全体"
       data-detail="手順が3つほどある教材で、1つの手順を選んだ状態。左の手順一覧、右の題名・説明文・完了条件の欄がすべて写るように撮る。">
       <div class="wf"><i class="h"></i><i class="l"></i><i class="r"></i></div>
-      <span class="pin" style="--x:11.5%;--y:15.4%">1</span>
+      <span class="pin one" style="--x:11.5%;--y:15.4%">1</span>
       <span class="pin" style="--x:87.8%;--y:11.7%">2</span>
       <span class="pin" style="--x:92.9%;--y:63.6%">3</span>
     </figure>
     <div class="legend">
-      <div><b>1</b><span>手順の一覧</span></div>
-      <div><b>2</b><span>題名と説明文</span></div>
-      <div><b>3</b><span>完了条件</span></div>
+      <div><b data-t="1"></b><span>手順の一覧</span></div>
+      <div><b data-t="2"></b><span>題名と説明文</span></div>
+      <div><b data-t="3"></b><span>完了条件</span></div>
     </div>
   </div>
 
@@ -373,7 +389,7 @@ ol.steps li::before{box-sizing:border-box}
     <div class="card">
       <h3>題名と説明文を書く</h3>
       <p>右の欄の題名と説明の欄に入力します。</p>
-      <div class="note" style="margin-top:2mm"><span class="ic">!</span><span>説明文は、学習者のVRゴーグルの画面に表示されます。</span></div>
+      <div class="note" style="margin-top:2mm"><span class="ic" data-t="!"></span><span>説明文は、学習者のVRゴーグルの画面に表示されます。</span></div>
     </div>
   </div>
 
@@ -386,7 +402,7 @@ ol.steps li::before{box-sizing:border-box}
           <li>条件の種類を選びます（6種類。4ページを参照）。</li>
           <li>対象の欄を押し、開いた一覧から部品を選びます。名前で探すこともできます。</li>
         </ol>
-        <div class="note" style="margin-top:2.4mm"><span class="ic">i</span><span>3D画面で選ぶときは、一覧を開いたまま3D画面の部品をクリックします（一覧の<span class="ui">「3D画面でクリックして選ぶ」</span>からも始められます）。クリックするたびに1段内側の部品が選ばれます。最後に<span class="btn">このオブジェクトに決定</span>を押します。</span></div>
+        <div class="note" style="margin-top:2.4mm"><span class="ic" data-t="i"></span><span>3D画面で選ぶときは、一覧を開いたまま3D画面の部品をクリックします（一覧の<span class="ui">「3D画面でクリックして選ぶ」</span>からも始められます）。クリックするたびに1段内側の部品が選ばれます。最後に<span class="btn">このオブジェクトに決定</span>を押します。</span></div>
       </div>
       <figure style="width:66mm;flex:none">
         <div class="shot sm" style="--r:4/3" data-id="S07"
@@ -397,7 +413,7 @@ ol.steps li::before{box-sizing:border-box}
     </div>
   </div>
 
-  <div class="note"><span class="ic">i</span><span>1つの手順に、完了条件は8個まで付けられます。複数付けた場合は、すべて満たした時点で次の手順に進みます（満たす順番は問いません）。</span></div>
+  <div class="note"><span class="ic" data-t="i"></span><span>1つの手順に、完了条件は8個まで付けられます。複数付けた場合は、すべて満たした時点で次の手順に進みます（満たす順番は問いません）。</span></div>
 
   <div class="foot"><span>教材作成ツール 操作ガイド</span><span>3 / 6</span></div>
 </section>
@@ -405,7 +421,7 @@ ol.steps li::before{box-sizing:border-box}
 <!-- ======================= 4. 完了条件の6種類 ======================= -->
 <section class="page mode-step">
   <header class="page-head">
-    <div class="badge">2</div>
+    <div class="badge" data-t="2"></div>
     <div>
       <div class="label">STEP 2 ・ 手順を編集</div>
       <h2>完了条件の6種類</h2>
@@ -439,14 +455,14 @@ ol.steps li::before{box-sizing:border-box}
     </div>
     <div class="card cond">
       <svg viewBox="0 0 56 56" fill="none" stroke="currentColor" stroke-width="2.2" style="color:var(--accent)"><rect x="30" y="12" width="18" height="32" rx="3"/><circle cx="39" cy="28" r="5"/><path d="M24 28H6M11 23l-5 5 5 5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      <div><div class="t">引く</div><div class="when">対象を1回引いたときに完了します。引いた部品は、次の手順から3D画面に表示されません。</div><div class="vals"><span class="none">入力する値はありません</span></div></div>
+      <div><div class="t">引く</div><div class="when">対象を1回引いたときに完了します。<span style="white-space:nowrap">「引き抜く」</span>オプションを選択すると、対象を取り除くことができます。</div><div class="vals"><span>引き抜く（オプション）</span></div></div>
     </div>
     <div class="card cond">
       <svg viewBox="0 0 56 56" fill="none" stroke="currentColor" stroke-width="2.2" style="color:var(--accent)"><path d="M14 30V18a3 3 0 0 1 6 0v8M20 26V14a3 3 0 0 1 6 0v12M26 26V16a3 3 0 0 1 6 0v10M32 26v-6a3 3 0 0 1 6 0v12c0 8-5 14-12 14h-2c-6 0-10-4-12-9l-4-8a3 3 0 0 1 5-3l3 4" stroke-linecap="round" stroke-linejoin="round"/></svg>
       <div><div class="t">もつ</div><div class="when">対象をつかんだときに完了します。</div><div class="vals"><span class="none">入力する値はありません</span></div></div>
     </div>
     <div class="card cond">
-      <svg viewBox="0 0 56 56" fill="none" stroke="currentColor" stroke-width="2.2" style="color:var(--accent)"><path d="M12 24V10a3 3 0 0 1 6 0v12M18 22V8a3 3 0 0 1 6 0v14M24 22V10a3 3 0 0 1 6 0v12M30 22v-8a3 3 0 0 1 6 0v12c0 7-4 12-11 12h-2c-6 0-9-3-11-8l-3-6" stroke-linecap="round" stroke-linejoin="round"/><path d="M44 36v12M40 44l4 4 4-4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <svg viewBox="0 0 56 56" fill="none" stroke="currentColor" stroke-width="2.2" style="color:var(--accent)"><path d="M14 30V18a3 3 0 0 1 6 0v8M20 26V14a3 3 0 0 1 6 0v12M26 26V16a3 3 0 0 1 6 0v10M32 26v-6a3 3 0 0 1 6 0v12c0 8-5 14-12 14h-2c-6 0-10-4-12-9l-4-8a3 3 0 0 1 5-3l3 4" stroke-linecap="round" stroke-linejoin="round"/><path d="M48 34v12M44 42l4 4 4-4" stroke-linecap="round" stroke-linejoin="round"/></svg>
       <div><div class="t">手放す</div><div class="when">つかんでいた対象を離したときに完了します。</div><div class="vals"><span class="none">入力する値はありません</span></div></div>
     </div>
   </div>
@@ -476,7 +492,7 @@ ol.steps li::before{box-sizing:border-box}
 <!-- ======================= 5. 動作を確認 ======================= -->
 <section class="page mode-check">
   <header class="page-head">
-    <div class="badge">3</div>
+    <div class="badge" data-t="3"></div>
     <div>
       <div class="label">STEP 3</div>
       <h2>動作を確認</h2>
@@ -489,14 +505,14 @@ ol.steps li::before{box-sizing:border-box}
       data-what="「動作を確認」中の画面全体"
       data-detail="確認の途中で、完了した手順・実行中の手順・待機中の手順が左に並び、右に条件の一覧が出ている状態。下部の［Ⅱ 一時停止］なども写るように撮る。">
       <div class="wf"><i class="h"></i><i class="l"></i><i class="r"></i></div>
-      <span class="pin" style="--x:12.0%;--y:16.3%">1</span>
+      <span class="pin one" style="--x:12.0%;--y:16.3%">1</span>
       <span class="pin" style="--x:88.9%;--y:39.3%">2</span>
       <span class="pin" style="--x:45.1%;--y:90.9%">3</span>
     </figure>
     <div class="legend">
-      <div><b>1</b><span>手順の進み具合</span></div>
-      <div><b>2</b><span>今の手順の条件の一覧</span></div>
-      <div><b>3</b><span>一時停止・やり直しなどのボタン</span></div>
+      <div><b data-t="1"></b><span>手順の進み具合</span></div>
+      <div><b data-t="2"></b><span>今の手順の条件の一覧</span></div>
+      <div><b data-t="3"></b><span>一時停止・やり直しなどのボタン</span></div>
     </div>
   </div>
 
@@ -522,7 +538,7 @@ ol.steps li::before{box-sizing:border-box}
     </figure>
   </div>
 
-  <div class="note"><span class="ic">!</span><span>確認中に動いた部品の位置は、保存されません。編集に戻ると元の位置に戻ります。</span></div>
+  <div class="note"><span class="ic" data-t="!"></span><span>確認中に動いた部品の位置は、保存されません。編集に戻ると元の位置に戻ります。</span></div>
 
   <div class="foot"><span>教材作成ツール 操作ガイド</span><span>5 / 6</span></div>
 </section>
@@ -530,7 +546,7 @@ ol.steps li::before{box-sizing:border-box}
 <!-- ======================= 6. 保存と書き出し ======================= -->
 <section class="page mode-file">
   <header class="page-head">
-    <div class="badge">✓</div>
+    <div class="badge" data-t="✓"></div>
     <div>
       <div class="label">仕上げ</div>
       <h2>保存と書き出し</h2>
@@ -558,7 +574,7 @@ ol.steps li::before{box-sizing:border-box}
           <li>一覧の行を押すと、直す所に移動します。</li>
           <li>表示された所を直してから、もう一度書き出します。</li>
         </ol>
-        <div class="note" style="margin-top:2.6mm"><span class="ic">i</span><span>画面上部の<span class="btn">⚠ 要修正</span>を押しても、直す所に移動できます。</span></div>
+        <div class="note" style="margin-top:2.6mm"><span class="ic" data-t="i"></span><span>画面上部の<span class="btn">⚠ 要修正</span>を押しても、直す所に移動できます。</span></div>
       </div>
       <figure style="width:86mm;flex:none">
         <div class="shot sm" style="--r:4/3" data-id="S12"

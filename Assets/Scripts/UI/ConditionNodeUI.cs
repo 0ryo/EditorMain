@@ -269,7 +269,8 @@ public class ConditionNodeUI : MonoBehaviour
         }
 
         var activeDefinition = ConditionTypeCatalog.Find(conditionNode.condition.type);
-        var parameters = activeDefinition?.parameters;
+        // Choice parameters (turn direction, the 引き抜く option) have no numeric field.
+        var parameters = activeDefinition?.parameters?.Where(p => p.choices == null).ToList();
         BindParameterSlot(distanceInput, distanceLabel, parameters != null && parameters.Count > 0 ? parameters[0] : null);
         BindParameterSlot(holdSecondsInput, holdSecondsLabel, parameters != null && parameters.Count > 1 ? parameters[1] : null);
         UpdateConditionLabels();
@@ -477,7 +478,7 @@ public class ConditionNodeUI : MonoBehaviour
     {
         bool needsB = conditionNode?.condition == null || ConditionTypeCatalog.RequiresObjectB(conditionNode.condition.type);
         float compactOffset = needsB ? 0 : 56;
-        bool hasParameters = conditionNode?.condition == null || (ConditionTypeCatalog.Find(conditionNode.condition.type)?.parameters?.Count ?? 0) > 0;
+        bool hasParameters = conditionNode?.condition == null || (ConditionTypeCatalog.Find(conditionNode.condition.type)?.parameters?.Count(p => p.choices == null) ?? 0) > 0;
         var root = transform as RectTransform;
         float height = needsB ? PreferredHeight : hasParameters ? PreferredHeight - compactOffset : 154;
         if (root) root.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, height);
