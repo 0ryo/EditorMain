@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>教材作成ツール 検証へのご協力のお願い</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --text:#172236; --muted:#58677C; --border:#CDD5E0; --canvas:#F5F7FA; --subtle:#EEF2F7; --surface:#FFFFFF;
+  --accent:var(--muted);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+body{background:#DDE3EB;color:var(--text);font-family:"Noto Sans JP","Hiragino Sans","Yu Gothic",sans-serif;font-size:9.8pt;line-height:1.75}
+h1,h2,h3{font-family:"Zen Maru Gothic","Hiragino Maru Gothic ProN","Noto Sans JP",sans-serif}
+
+/* ---------- ページ（A4縦） ---------- */
+.page{width:210mm;height:297mm;margin:8mm auto;background:var(--surface);padding:20mm 18mm 16mm;position:relative;overflow:hidden;display:flex;flex-direction:column;gap:10mm;box-shadow:0 2px 14px rgba(23,34,54,.18)}
+.page > *{flex-shrink:0}
+
+/* ---------- 表題 ---------- */
+.title{padding-bottom:4mm;border-bottom:2px solid var(--accent)}
+.title h1{font-size:18pt;line-height:1.4}
+.title .from{margin-top:2.4mm;text-align:right;font-size:9.4pt}
+.title .from strong{font-weight:700;margin-left:2mm}
+
+/* ---------- 各節 ---------- */
+h3{font-size:11.5pt;display:flex;align-items:center;gap:2mm;margin-bottom:2.4mm}
+h3::before{content:"";width:1.4mm;height:4.4mm;border-radius:1mm;background:var(--accent)}
+h3 .no{font-family:"Noto Sans JP",sans-serif;font-weight:700;color:var(--muted);margin-right:.6mm}
+.sec p + p{margin-top:1.6mm}
+.bg{display:grid;grid-template-columns:1fr 52mm;gap:6mm;align-items:start}
+.photo{position:relative;width:100%;aspect-ratio:16/10;border-radius:2.6mm;overflow:hidden;border:1px solid var(--border);margin-top:1mm}
+.photo img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.cap{font-size:7.6pt;color:var(--muted);margin-top:1.2mm;text-align:center;line-height:1.4}
+
+/* ---------- 実施の概要 ---------- */
+.rec{border:1px solid var(--border);border-radius:3.5mm;overflow:hidden;font-size:9.4pt}
+.rec .r{display:grid;grid-template-columns:34mm 1fr;border-top:1px solid var(--subtle)}
+.rec .r:first-child{border-top:0}
+.rec .r > div{padding:2.2mm 4mm;display:flex;align-items:center}
+.rec .r > div:first-child{background:var(--canvas);font-weight:700;font-size:8.8pt;color:var(--muted)}
+
+/* ---------- 連絡 ---------- */
+.contact{background:var(--canvas);border-radius:3mm;padding:4mm 5mm;text-align:center}
+.contact p{font-size:9.4pt}
+
+@page{size:A4;margin:0}
+@media print{
+  body{background:none}
+  .page{margin:0;box-shadow:none}
+}
+@media screen and (max-width:820px){
+  .page{zoom:.46}
+}
+
+/* ---------- 細部の調整（印刷・PDF用） ---------- */
+/* 日本語を文節単位で折り返し、1〜2文字だけが次の行に残るのを防ぐ */
+body{word-break:auto-phrase;line-break:strict;overflow-wrap:break-word}
+/* 丸ゴシックの見出しはかなの字間が空くため、プロポーショナル字詰めにする */
+h1,h3{font-feature-settings:"palt";letter-spacing:.03em}
+/* 丸ゴシックの「ツー」は字間が空いて見えるため詰める（Webフォントに palt がないため個別に調整） */
+.tight{letter-spacing:-.12em}
+</style>
+</head>
+<body>
+
+<section class="page">
+  <header class="title">
+    <h1>VR実習教材の作成<span class="tight">ツー</span>ルに関する検証へのご協力のお願い</h1>
+    <div class="from">専攻科2年 情報コース 水津研究室<strong>伊藤 瞭汰</strong></div>
+  </header>
+
+  <p>水津研究室の特別研究で、先生ご自身がVRの実習教材を作れるツールを開発しています。<br>つきましては、教材を作る立場にいらっしゃる先生方に、検証へのご協力をお願いしております。</p>
+
+  <div class="sec">
+    <h3><span class="no">1</span>研究の背景と目的</h3>
+    <div class="bg">
+      <div>
+        <p>VRの実習教材を使うと、学生は危険を伴う作業や設備の限られる作業を、安全に繰り返し練習できます。一方で、教材の作成や修正には専門的なプログラミングが必要なため、授業を担当する先生が内容を直接変えることは難しいのが現状です。</p>
+        <p>本研究では、部品を配置し、作業の手順と完了の条件を設定するだけで教材を作れるツールを開発しています。<br>今回の検証では、プログラミングの専門知識を要さずとも、少ない説明で教材を作成・修正できるかを確かめます。</p>
+      </div>
+      <figure>
+        <div class="photo"><img src="images/T01.png" alt="ツールの3D画面に置いた自動車とタイヤ"></div>
+        <figcaption class="cap">ツールで作成中の教材（タイヤ交換）</figcaption>
+      </figure>
+    </div>
+  </div>
+
+  <div class="sec">
+    <h3><span class="no">2</span>検証の内容</h3>
+    <p>自動車のタイヤ交換を題材に、ツールで教材を作成し、その一部を修正していただきます。<br>その後、使いやすさについてのアンケートにお答えいただきます。</p>
+    <p>なお、この検証はツールを評価するためのもので、先生の技能を評価するものではありません。</p>
+  </div>
+
+  <div class="sec">
+    <h3><span class="no">3</span>実施の概要</h3>
+    <div class="rec">
+      <div class="r"><div>所要時間</div><div>1時間程度</div></div>
+      <div class="r"><div>実施時期</div><div>11月下旬〜12月中で、先生のご都合のよろしい日時にお願いできれば幸いです</div></div>
+      <div class="r"><div>場所</div><div>先生のご指定の場所に伺います</div></div>
+      <div class="r"><div>事前の準備</div><div>不要です（PCはこちらで用意します）</div></div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <h3><span class="no">4</span>ご協力にあたって</h3>
+    <p>検証の結果は特別研究の論文と発表に使用し、先生のお名前は公表いたしません。</p>
+  </div>
+
+  <div class="contact">
+    <p>ご協力いただける場合は、ご都合のよろしい日時をTeamsのチャットでお知らせいただけますと幸いです。</p>
+  </div>
+
+</section>
+
+</body>
+</html>
