@@ -16,6 +16,13 @@ public interface IScenarioObjectStateSource
     bool TryGetState(string objectId, out ScenarioObjectState state);
 }
 
+// Optional: a source that measures a pair itself instead of between the two reported positions
+// (the editor's trial measures a tool at its tip and floor-standing parts on the floor).
+public interface IScenarioDistanceSource
+{
+    bool TryGetDistance(ConditionExport condition, out float distance);
+}
+
 // Optional adapter contract for deliberate operations, not inferred proximity.
 // Counters increase once per push/pull. Rotation is signed, continuous, unwrapped
 // degrees around the object's operation axis (positive = clockwise seen by the operator), excluding motion of its parent.
@@ -87,7 +94,8 @@ public sealed class ScenarioConditionEvaluator
             case ConditionTypeCatalog.Separation:
             case ConditionTypeCatalog.RotationMatch:
                 if (!source.TryGetState(condition.bObjectId, out var b)) { heldSeconds = 0f; return false; }
-                float distance = Vector3.Distance(a.position, b.position);
+                float distance = source is IScenarioDistanceSource measured && measured.TryGetDistance(condition, out var pairDistance)
+                    ? pairDistance : Vector3.Distance(a.position, b.position);
                 matches = condition.type == ConditionTypeCatalog.RotationMatch
                     ? Quaternion.Angle(a.rotation, b.rotation) <= Number(condition, ConditionTypeCatalog.AngleKey, 10f)
                     : condition.type == ConditionTypeCatalog.Separation

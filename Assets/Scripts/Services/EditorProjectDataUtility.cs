@@ -16,7 +16,8 @@ public static class EditorProjectSnapshotBuilder
     {
         using (CaptureMarker.Auto())
         {
-            return CaptureCore(graph, requestedName);
+            // The step editor may be showing parts where earlier steps leave them; the file keeps the layout.
+            return SkillSyncStepPose.WithLayout(() => CaptureCore(graph, requestedName));
         }
     }
 

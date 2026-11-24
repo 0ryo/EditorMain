@@ -48,6 +48,7 @@
 - Unityの背景実行による撮影では、Editorの更新継続だけでなくPlay側の`Application.runInBackground`も確認する。Game viewの古いRenderTextureを取得できてしまうため、解像度だけでなく状態変化とフレーム進行も確認する。
 
 - macOSのUnityは`Input.compositionCursorPos`を画面の下からの座標として扱い、TMP_InputFieldは上からの座標を渡すため、日本語の変換候補が上下反転した位置（画面外）に出て見えない（Unity issue「IME window is placed at the wrong position when using Input.compositionCursorPos on macOS」）。`MacImeCandidateInput`（入力モジュールの`inputOverride`）がmacOSだけyを反転して渡す。
+- 手順画面で部品を動かして見せる処理（`SkillSyncStepPose`）を足したため、Sceneの配置を読んで保存・書き出しする新しい経路は`SkillSyncStepPose.WithLayout`で包む。包まないと、前の手順の結果の位置が配置として保存される。
 - `StartCoroutine`は最初のyieldまで同期実行する。選択直後の詳細パネルでは、UI生成直後に`unscaledDeltaTime`を加算すると重いフレームでスライド終端へ飛び得る。現在位置を適用して一度yieldし、1フレームの進行を上限1/30秒に抑える。開閉は同じroutineで現在位置から反転する。
 
 - `MaterialPropertyBlock`などUnityネイティブ資源をMonoBehaviourのfield initializerで生成しない。`Awake`または明示的な初期化メソッドで生成する。候補輪郭でconstructor例外の後に描画callbackのNullReferenceが毎フレーム続き、スクロールまで重くなった。構文・型チェックでは検出できない。

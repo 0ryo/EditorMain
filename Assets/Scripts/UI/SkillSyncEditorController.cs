@@ -1466,6 +1466,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         if(!initialized) return;
         int state=Modal?5:trial!=null?(trial.Complete?4:2):ghost!=null?3:mode;
         RefreshStepVisibility();
+        RefreshStepPose();
         view.Show(state);extras?.BringToFront();RebuildObjects();RefreshValues();
     }
     void RefreshValues()
@@ -1507,6 +1508,8 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         var lookup=PlacedLookup();
         PlacedObject Find(string id)=>!string.IsNullOrEmpty(id) && lookup.TryGetValue(id,out var found)?found:null;
         var a=Find(Condition?.condition.objectAId);var b=requiresB?Find(Condition?.condition.objectBId):null;
+        // A tool put on a part in this step (a wrench on a nut) is measured at its tip, as the trial judges it.
+        bool toolOnPart=Step!=null && SkillSyncConditionMotion.IsToolApproach(Condition?.condition,graph.GetConditionNodesForStep(stepId));
         // Retain the selected condition, but only show its targets in the step view.
         bool showConditionLabels=mode==1 || trial!=null;
         PositionLabel(view.partALabel,labelTargetA=trial!=null?trial.Find(Condition?.condition.objectAId):ghost!=null?ghost.Transform:showConditionLabels&&a!=null?a.transform:target,
@@ -1516,7 +1519,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         if(view.objectBThumbnail!=null) {view.objectBThumbnail.texture=ObjectThumbnail(b);view.objectBThumbnail.enabled=b!=null;}
         if(view.conditionOverlay!=null) view.conditionOverlay.Configure(cameraView,
             trial!=null?trial.Find(Condition?.condition.objectAId):mode==1 && distanceCondition && a!=null?a.transform:null,
-            trial!=null?trial.Find(Condition?.condition.objectBId):mode==1 && distanceCondition && b!=null?b.transform:null,DistanceLimit(),trial!=null && trial.InRange);
+            trial!=null?trial.Find(Condition?.condition.objectBId):mode==1 && distanceCondition && b!=null?b.transform:null,DistanceLimit(),trial!=null && trial.InRange,toolOnPart);
         view.Text("objectA",a!=null?SkillSyncObjectPicker.DisplayLabel(a):"対象を選択してください");
         view.Text("objectB",b!=null?SkillSyncObjectPicker.DisplayLabel(b):"対象を選択してください");
         bool valid=SkillSyncConditionEditing.TargetsValid(Condition?.condition,lookup.ContainsKey);
@@ -1561,7 +1564,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         leftTabs?.Apply(placedRootCount,!string.IsNullOrEmpty(partsFilter));
         if(noSteps) view.HideInspectorBelowHeading();
         view.Text("status",pickTarget!=null?status:ghost!=null?"＋ 部品を置く場所を選んでいます":trial!=null?trial.Complete?"✓ 条件が成立しました":"▶ 動作確認中：部品をドラッグするか、矢印や輪のつまみで動かして確かめます":current!=null?"Escで選択を解除":"部品を選択してください"); // the right panel already names what is selected
-        if(trial==null) view.viewportDistance.text=valid && distanceCondition?$"現在の距離 {Vector3.Distance(SkillSyncTrialSession.Center(a.transform),SkillSyncTrialSession.Center(b.transform))*100:0} cm":"";
+        if(trial==null) view.viewportDistance.text=valid && distanceCondition?$"現在の距離 {SkillSyncConditionMotion.JudgeDistance(a.transform,b.transform,toolOnPart)*100:0} cm":"";
         view.viewportDistance.transform.parent.gameObject.SetActive(valid && distanceCondition && (view.State==1 || trial!=null));
         view.viewportGrid.text=EditSnapSettings.Enabled?$"吸着の間隔 {EditSnapSettings.GridSize*100:0.##} cm":"吸着：オフ";
         view.viewportGrid.color=new Color32(88,103,124,255);
@@ -1686,7 +1689,9 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         trialMoveTool = FindFirstObjectByType<MoveTool>();
         PauseTool(trialMoveTool);
         PlacedObjectEditState.SetStepHidden(null);
-        try {trial=new SkillSyncTrialSession(Placed);}
+        // The copies start from the layout, then take the earlier steps' results (the trial does not read the step view).
+        SkillSyncStepPose.Clear();poseKey=null;
+        try {trial=new SkillSyncTrialSession(Placed);trial.ApplyEarlier(EarlierConditions(stepId,null));}
         catch(Exception e) {EndTrial();Notify("試行を開始できません: "+e.Message,true);Debug.LogException(e);Refresh();return;}
         HidePulledInTrial();
         logs.Clear();trialTime=0;walkthroughTime=0;trialCarried=false;
@@ -1698,7 +1703,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         trialSelected = trialSelectedId != null ? trial.Find(trialSelectedId) : null;
         UpdateTrialGizmo();
         if (trialMoveTool != null) trialMoveTool.enabled = true;
-        autoplay=new SkillSyncTrialAutoplay(cameraView,Log,m=>Notify(m,false));
+        autoplay=new SkillSyncTrialAutoplay(Log,m=>Notify(m,false));
         Log("動作の確認を開始");Refresh();
     }
     // Parts pulled off ("引く" with the 引き抜く option) in an earlier step are gone in the steps after it, unless a later
@@ -1735,6 +1740,41 @@ public sealed class SkillSyncEditorController : MonoBehaviour
     {
         var hidden=mode==1 && trial==null?PulledBefore(stepId):null;
         PlacedObjectEditState.SetStepHidden(hidden!=null && hidden.Count>0?hidden.Select(FindPlaced).Where(p=>p!=null):null);
+    }
+    // The completion conditions before a step (and before one of its conditions, when given), in display order,
+    // each with the conditions of its own step (a "回す" finds the part it turns about there).
+    List<(ConditionNodeData condition,IReadOnlyList<ScenarioNode> step)> EarlierConditions(string currentStepId,string currentConditionId)
+    {
+        var earlier=new List<(ConditionNodeData,IReadOnlyList<ScenarioNode>)>();
+        if(graph==null || string.IsNullOrEmpty(currentStepId)) return earlier;
+        foreach(var step in graph.GetDisplayOrderedSteps())
+        {
+            var conditions=graph.GetConditionNodesForStep(step.nodeId);
+            foreach(var c in conditions)
+            {
+                if(step.nodeId==currentStepId && (currentConditionId==null || c.nodeId==currentConditionId)) return earlier;
+                if(c?.condition!=null) earlier.Add((c.condition,conditions));
+            }
+            if(step.nodeId==currentStepId) return earlier;
+        }
+        return new List<(ConditionNodeData,IReadOnlyList<ScenarioNode>)>();
+    }
+    // In the step editor, the parts stand where the earlier conditions leave them (a jack already placed, a nut already
+    // loosened), up to the selected condition. Only the view changes: saving and exporting use the layout (SkillSyncStepPose).
+    string poseKey;
+    void RefreshStepPose()
+    {
+        if(mode!=1 || trial!=null || graph==null)
+        {
+            SkillSyncStepPose.Clear();poseKey=null;return;
+        }
+        var earlier=EarlierConditions(stepId,conditionId);
+        var key=new System.Text.StringBuilder(stepId).Append('|').Append(conditionId);
+        foreach(var (condition,_) in earlier) key.Append('|').Append(JsonUtility.ToJson(condition));
+        string next=key.ToString();
+        if(next==poseKey && !SkillSyncStepPose.Stale) return;
+        poseKey=next;
+        SkillSyncStepPose.Apply(earlier);
     }
     void PauseTool(Behaviour tool) {if(tool!=null) {pausedTools[tool]=tool.enabled;tool.enabled=false;}}
     void EndTrial()
@@ -2047,7 +2087,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         var result=TeachingMaterialExportWorkflow.Run(
             (out string message)=>project.Save(project.CurrentProjectName,out message),
             ()=>{validation=graph.ValidateGraph();return validation.CanExport;},
-            ()=>TeachingMaterialExportService.Export(graph.BuildScenarioExport(),placement,root,materialName));
+            ()=>SkillSyncStepPose.WithLayout(()=>TeachingMaterialExportService.Export(graph.BuildScenarioExport(),placement,root,materialName)));
         status=result.message;
         if(result.outcome==TeachingMaterialExportWorkflow.Outcome.InvalidGraph)
         {

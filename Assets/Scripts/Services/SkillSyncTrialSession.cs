@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 
 // Copies rendering transforms only: no PlacedObject IDs, scripts, commands, or saved data.
-public sealed class SkillSyncTrialSession : IDisposable, IScenarioObjectStateSource
+public sealed class SkillSyncTrialSession : IDisposable, IScenarioObjectStateSource, IScenarioDistanceSource
 {
     readonly GameObject root;
     readonly Dictionary<Transform, Transform> copies = new();
@@ -13,6 +13,8 @@ public sealed class SkillSyncTrialSession : IDisposable, IScenarioObjectStateSou
     readonly Dictionary<Transform, TransformObjectCommand.State> initial = new();
     readonly Dictionary<string, ScenarioConditionEvaluator> evaluators = new();
     readonly Dictionary<string, ConditionExport> conditionsById = new();
+    // Conditions that put a tool on a part (measured at the tool's tip), by their exported form.
+    readonly HashSet<ConditionExport> toolConditions = new();
     // Conditions the PC cannot judge (push/pull/grab/turn) are marked met by hand, only to walk through the flow.
     readonly HashSet<string> manual = new();
     public float HeldSeconds { get; private set; }
@@ -74,7 +76,27 @@ public sealed class SkillSyncTrialSession : IDisposable, IScenarioObjectStateSou
     }
 
     public Transform Find(string id) => !string.IsNullOrEmpty(id) && objects.TryGetValue(id, out var t) ? t : null;
-    public static Vector3 Center(Transform t) => PlacedObjectGrounding.TryGetRendererBounds(t, out var b) ? b.center : t.position;
+    public static Vector3 Center(Transform t) => SkillSyncConditionMotion.Center(t);
+    // The copied model a part belongs to: the copies hang under one rendering-only root, not the scene root.
+    public Transform RootOf(Transform t)
+    {
+        if (t == null || root == null) return t;
+        while (t.parent != null && t.parent != root.transform) t = t.parent;
+        return t;
+    }
+    SkillSyncConditionMotion.Scene scene;
+    public SkillSyncConditionMotion.Scene Scene => scene ??= new SkillSyncConditionMotion.Scene { find = Find, rootOf = RootOf };
+    public bool TryGetDistance(ConditionExport condition, out float distance)
+    {
+        distance = SkillSyncConditionMotion.JudgeDistance(Find(condition.aObjectId), Find(condition.bObjectId), toolConditions.Contains(condition));
+        return !float.IsInfinity(distance);
+    }
+    // Starts the trial where the earlier steps leave the parts (a jack already in place, a wrench already on the nut).
+    public void ApplyEarlier(IEnumerable<(ConditionNodeData condition, IReadOnlyList<ScenarioNode> step)> earlier)
+    {
+        foreach (var (condition, step) in earlier) SkillSyncConditionMotion.ApplyAtOnce(SkillSyncConditionMotion.Make(condition, step, Scene), null);
+        foreach (var key in new List<Transform>(initial.Keys)) if (key != null) initial[key] = TransformObjectCommand.State.Capture(key);
+    }
     public bool TryGetState(string objectId, out ScenarioObjectState state)
     {
         var t=Find(objectId);state=default;
@@ -88,7 +110,8 @@ public sealed class SkillSyncTrialSession : IDisposable, IScenarioObjectStateSou
         foreach (var node in conditions)
         {
             var c = node.condition; var first = Find(c.objectAId); var second = Find(c.objectBId);
-            float distance = first != null && second != null ? Vector3.Distance(Center(first), Center(second)) : float.PositiveInfinity;
+            bool tool = SkillSyncConditionMotion.IsToolApproach(c, conditions);
+            float distance = SkillSyncConditionMotion.JudgeDistance(first, second, tool);
             if (!evaluators.TryGetValue(node.nodeId, out var evaluator))
             {
                 var export=new ConditionExport {type=c.type,aObjectId=c.objectAId,bObjectId=c.objectBId,
@@ -97,6 +120,7 @@ public sealed class SkillSyncTrialSession : IDisposable, IScenarioObjectStateSou
                 foreach(var p in c.parameters) if(p!=null) export.parameters.Add(new ConditionParameterExport
                     {key=p.key,numberValue=p.numberValue,textValue=p.textValue,boolValue=p.boolValue});
                 conditionsById[node.nodeId]=export;
+                if(tool) toolConditions.Add(export);
                 evaluators[node.nodeId]=evaluator=new ScenarioConditionEvaluator();evaluator.Begin(export,this);
             }
             if(!Paused) evaluator.Tick(conditionsById[node.nodeId],this,delta);
@@ -143,7 +167,7 @@ public sealed class SkillSyncTrialSession : IDisposable, IScenarioObjectStateSou
         if (restorePositions) foreach (var r in hiddenThisStep) if (r != null) r.enabled = true;
         hiddenThisStep.Clear();
         HeldSeconds = 0; Complete = false; InRange = false; Paused = false;
-        evaluators.Clear();conditionsById.Clear();manual.Clear();
+        evaluators.Clear();conditionsById.Clear();toolConditions.Clear();manual.Clear();
     }
     public void Dispose()
     {

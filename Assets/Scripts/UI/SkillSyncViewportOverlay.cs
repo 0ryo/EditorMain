@@ -7,13 +7,14 @@ public sealed class SkillSyncViewportOverlay : UnityEngine.UI.MaskableGraphic
     Camera sourceCamera;
     Transform first,second;
     float radius;
-    bool satisfied;
-    public void Configure(Camera camera,Transform a,Transform b,float metres,bool inRange)
-    {sourceCamera=camera;first=a;second=b;radius=metres;satisfied=inRange;SetVerticesDirty();}
+    bool satisfied,tool;
+    // tool: the first part is a tool put on the second, measured at its tip (SkillSyncConditionMotion.MeasurePoints).
+    public void Configure(Camera camera,Transform a,Transform b,float metres,bool inRange,bool tool=false)
+    {sourceCamera=camera;first=a;second=b;radius=metres;satisfied=inRange;this.tool=tool;SetVerticesDirty();}
     protected override void OnPopulateMesh(UnityEngine.UI.VertexHelper vh)
     {
         vh.Clear();if(sourceCamera==null || first==null || second==null || radius<=0) return;
-        var a=SkillSyncTrialSession.Center(first);var b=SkillSyncTrialSession.Center(second);
+        if(!SkillSyncConditionMotion.MeasurePoints(first,second,tool,out var a,out var b)) return;
         Color line=satisfied?new Color32(21,115,74,255):new Color32(8,102,232,255);
         // The condition is a 3D distance, so the range is drawn as a sphere: the floor circle is filled and two
         // vertical rings show that height counts as well.
