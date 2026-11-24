@@ -10,6 +10,7 @@ public sealed class SkillSyncTrialSession : IDisposable, IScenarioObjectStateSou
     readonly Dictionary<Renderer, bool> rendering = new();
     readonly List<Mesh> bakedMeshes = new();
     readonly Dictionary<string, Transform> objects = new();
+    readonly List<Transform> originPivots = new();
     readonly Dictionary<Transform, TransformObjectCommand.State> initial = new();
     readonly Dictionary<string, ScenarioConditionEvaluator> evaluators = new();
     readonly Dictionary<string, ConditionExport> conditionsById = new();
@@ -35,7 +36,12 @@ public sealed class SkillSyncTrialSession : IDisposable, IScenarioObjectStateSou
             Copy(p.transform, root.transform, true);
         }
         foreach (var p in placed)
-            if (p != null && copies.TryGetValue(p.transform, out var copy)) objects[p.Id] = copy;
+            if (p != null && copies.TryGetValue(p.transform, out var copy))
+            {
+                objects[p.Id] = copy;
+                // A copy of a model handled at its origin (the wrench's mouth) keeps its handles there.
+                if (TransformToolSettings.IsOriginPivotModel(p)) { TransformToolSettings.MarkOriginPivotCopy(copy, true); originPivots.Add(copy); }
+            }
         }
         catch { Dispose(); throw; }
     }
@@ -171,6 +177,8 @@ public sealed class SkillSyncTrialSession : IDisposable, IScenarioObjectStateSou
     }
     public void Dispose()
     {
+        foreach (var copy in originPivots) TransformToolSettings.MarkOriginPivotCopy(copy, false);
+        originPivots.Clear();
         foreach (var p in rendering) if (p.Key != null) p.Key.forceRenderingOff = p.Value;
         if (root != null) { root.SetActive(false); UnityEngine.Object.Destroy(root); }
         foreach (var mesh in bakedMeshes) UnityEngine.Object.Destroy(mesh);

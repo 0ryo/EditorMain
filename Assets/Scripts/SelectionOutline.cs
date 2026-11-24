@@ -216,7 +216,7 @@ public class SelectionOutline : MonoBehaviour
 
         var scaled = dragStartScale * ratio;
         target.transform.localScale = ClampScale(scaled, minScaleAxis);
-        if (TransformToolSettings.PivotMode == TransformPivotMode.Center)
+        if (!TransformToolSettings.PivotsAtOrigin(target.transform))
         {
             Vector3 currentCenterWorld = target.transform.TransformPoint(GetTargetLocalBounds().center);
             target.transform.position += dragStartCenterWorld - currentCenterWorld;
@@ -405,7 +405,7 @@ public class SelectionOutline : MonoBehaviour
         centerScreen = default;
         if (target == null) return false;
 
-        var centerWorld = TransformToolSettings.PivotMode == TransformPivotMode.Pivot
+        var centerWorld = TransformToolSettings.PivotsAtOrigin(target.transform)
             ? target.transform.position
             : target.transform.TransformPoint(GetTargetLocalBounds().center);
         var screen = cam.WorldToScreenPoint(centerWorld);

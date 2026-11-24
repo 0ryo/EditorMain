@@ -629,7 +629,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         Vector3 before=BoundsCenter(primary);
         t.localScale*=ratio;
         // Scale around the middle of the part, like dragging a corner does.
-        if(TransformToolSettings.PivotMode==TransformPivotMode.Center) t.position+=before-BoundsCenter(primary);
+        if(!TransformToolSettings.PivotsAtOrigin(t)) t.position+=before-BoundsCenter(primary);
         session.Commit("Scale selection");
         Refresh();
     }

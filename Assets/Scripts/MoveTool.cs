@@ -761,7 +761,7 @@ public class MoveTool : MonoBehaviour
             bounds.Encapsulate(renderers[i].bounds);
         }
 
-        center = TransformToolSettings.PivotMode == TransformPivotMode.Pivot
+        center = TransformToolSettings.PivotsAtOrigin(target.transform)
             ? target.transform.position
             : bounds.center;
         float maxExtent = Mathf.Max(bounds.extents.x, bounds.extents.y, bounds.extents.z);
