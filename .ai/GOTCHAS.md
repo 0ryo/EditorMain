@@ -50,6 +50,7 @@
 - macOSのUnityは`Input.compositionCursorPos`を「画面の下から・実画面のbacking pixel（Retinaの倍率で割って使う）」として扱い、TMP_InputFieldは「上から・Playerの描画解像度」で渡す。全画面のPlayerは1920×1080を黒帯付きで画面に拡大する（1440×900ptのMacBookでは2880×1800に×1.5、上下90px）ため、そのままでは変換候補が画面外や欄から離れた位置に出る。`MacImeCandidateInput`（入力モジュールの`inputOverride`）がmacOSだけ上下反転し、`Display.main.systemWidth/Height`への拡大と黒帯の分を足して渡す（2026-11に実機で欄の真下に出ることを確認）。
 - `TMP_InputField.richText`が既定のtrueのまま、表示側の`textComponent.richText`だけfalseにすると、日本語の入力中の文字が`<u>…</u>`付きでそのまま見える。実行時に作る入力欄は両方をfalseにする。
 - 手順画面で部品を動かして見せる処理（`SkillSyncStepPose`）を足したため、Sceneの配置を読んで保存・書き出しする新しい経路は`SkillSyncStepPose.WithLayout`で包む。包まないと、前の手順の結果の位置が配置として保存される。
+- 追加モデルの原点や向きをGLB側で変えると、ルート以外のノードのTransformが変わり`ImportedModelParts.Signature`が一致しなくなる。そのモデルを使う保存済み教材は「元モデルの部品構造が変更されています」で開けなくなるため、既存のtypeIdは書き換えず、別typeIdの新モデルとして足す（見本の教材は`sourceSignature`を空にし、部品の`localPosition/localRotation`を新しい値にする）。
 - `StartCoroutine`は最初のyieldまで同期実行する。選択直後の詳細パネルでは、UI生成直後に`unscaledDeltaTime`を加算すると重いフレームでスライド終端へ飛び得る。現在位置を適用して一度yieldし、1フレームの進行を上限1/30秒に抑える。開閉は同じroutineで現在位置から反転する。
 
 - `MaterialPropertyBlock`などUnityネイティブ資源をMonoBehaviourのfield initializerで生成しない。`Awake`または明示的な初期化メソッドで生成する。候補輪郭でconstructor例外の後に描画callbackのNullReferenceが毎フレーム続き、スクロールまで重くなった。構文・型チェックでは検出できない。

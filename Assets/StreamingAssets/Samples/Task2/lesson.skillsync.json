@@ -7010,26 +7010,26 @@
     },
     {
       "sourceNodePath": "",
-      "sourceSignature": "C58A0644DBAAAC563710A6D2858993B8F3BC8F1EE15FCE3696F119728DC1125A",
+      "sourceSignature": "",
       "parts": [
         {
           "nodePath": "0:Socket_Wrench_Parent",
-          "sourceSignature": "BD6B65D0E7AF4D5EA142A4C7A701E7F857E13B0661969A32C961CCCE7E865E5B",
+          "sourceSignature": "",
           "id": "teacher-wrench/part-246d40c2783c43f5baa3d0a97d49a04a",
           "displayName": "ソケットレンチ",
           "description": "",
           "editorGroupId": "",
           "hasDescriptionOverride": false,
           "localPosition": {
-            "x": 0.0,
-            "y": 0.01621996983885765,
-            "z": 0.0
+            "x": 0.09423740413837978,
+            "y": -0.14782962138937442,
+            "z": 2.5902625235363094e-05
           },
           "localRotation": {
-            "x": 0.7071068286895752,
-            "y": 0.0,
-            "z": 0.0,
-            "w": 0.7071068286895752
+            "x": -0.5,
+            "y": -0.5,
+            "z": 0.5,
+            "w": 0.5
           },
           "localScale": {
             "x": 0.00044494643225334585,
@@ -7042,7 +7042,7 @@
         },
         {
           "nodePath": "0:Socket_Wrench_Parent/0:Socket_Wrench_Handle",
-          "sourceSignature": "820018871B06214A88873098CC0E361CAE66AE3DE4DACCE4AEB6D2D194110482",
+          "sourceSignature": "",
           "id": "teacher-wrench/part-64f87f695cff4e30a34f36d3d9144cba",
           "displayName": "レンチの柄",
           "description": "",
@@ -7070,14 +7070,14 @@
         }
       ],
       "id": "teacher-wrench",
-      "typeId": "Imported/Socket_Wrench_639268510321211430",
+      "typeId": "Imported/TeacherSocketWrench",
       "displayName": "ソケットレンチ",
       "description": "",
       "editorGroupId": "",
       "hasDescriptionOverride": false,
       "position": {
         "x": 1.4696931838989258,
-        "y": 0.0780174508690834,
+        "y": 0.3044,
         "z": -1.8399275541305542
       },
       "rotation": {
@@ -7134,9 +7134,9 @@
       "editorGroupId": "",
       "hasDescriptionOverride": true,
       "position": {
-        "x": 0.6196931004524231,
+        "x": 1.22,
         "y": 0.0,
-        "z": -1.139927625656128
+        "z": -0.94
       },
       "rotation": {
         "x": 0.0,

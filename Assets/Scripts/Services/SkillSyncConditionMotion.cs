@@ -430,12 +430,15 @@ public static class SkillSyncConditionMotion
 
     static Vector3 Abs(Vector3 v) => new(Mathf.Abs(v.x), Mathf.Abs(v.y), Mathf.Abs(v.z));
 
-    // The tool turns so its tip opens onto the part along the part's axis, with the handle pointing up (or out of the
-    // model when the axis is upright), and moves so the tip sits on the part's middle.
+    // The tool turns so its tip opens onto the part along the part's axis and moves so the tip sits on the part's
+    // middle. The handle keeps the way it already points across the axis (a wrench placed handle-down stays so);
+    // a handle lying along the axis is turned up (or out of the model when the axis is upright).
     static void PutToolOn(Plan plan, Transform tool, Transform part, ToolShape shape, Scene scene)
     {
         var axis = TurnAxis(part, scene);
-        var up = Vector3.up - axis * Vector3.Dot(Vector3.up, axis);
+        var handle = tool.TransformDirection(shape.handle).normalized;
+        var up = handle - axis * Vector3.Dot(handle, axis);
+        if (up.sqrMagnitude < .25f) up = Vector3.up - axis * Vector3.Dot(Vector3.up, axis);
         if (up.sqrMagnitude < .1f)
         {
             var away = Outward(part, scene);
