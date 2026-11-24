@@ -8,7 +8,7 @@ using UnityEngine;
 public static class SkillSyncConditionEditorView
 {
     const float CardTop = 424, CardWidth = 392, ContentWidth = 360;
-    const float Padding = 16, RowGap = 12, LabelHeight = 20, LabelGap = 8, ListPadding = 8, BottomLimit = 984;
+    const float Padding = 16, RowGap = 12, LabelHeight = 20, LabelGap = 8, ListPadding = 8;
     // One glyph, size and weight for every dropdown/picker arrow.
     const string ArrowGlyph = "v";
     const float ArrowSize = 14;
@@ -114,6 +114,10 @@ public static class SkillSyncConditionEditorView
             Stretch(field.input.textViewport, 12, 0, -44, 0);
             Stretch(field.input.textComponent.rectTransform, 0, 0, 0, 0);
         }
+        // The step editor's part of the panel scrolls as one page (many conditions no longer squeeze the list).
+        SkillSyncInspectorScroll.Ensure(view, (RectTransform)parent, new Transform[]
+            { view.conditionList != null ? view.conditionList.transform : null, view.objectAThumbnail != null ? view.objectAThumbnail.transform : null,
+              view.objectBThumbnail != null ? view.objectBThumbnail.transform : null });
         Layout(view, new ConditionNodeData { type = ConditionTypeCatalog.SnapHold });
     }
 
@@ -265,12 +269,12 @@ public static class SkillSyncConditionEditorView
             view.SetVisible(control.action, shown && (view.State == 1 || view.State == 5));
             control.button.interactable = editing && shown;
             bool selected = shown && SkillSyncConditionEditing.ChoiceSelected(condition, i);
+            // A one-choice option is a checkbox row (box, gap, label); a choice list is a segmented control.
+            bool option = shown && choice.choices.Length == 1;
             var graphic = control.button.GetComponent<SkillSyncRoundedGraphic>();
             graphic.color = option ? Color.clear : selected ? Blue : Color.white;
             graphic.borderColor = option ? Color.clear : selected ? Blue : LineColor;
             graphic.SetAllDirty();
-            // A one-choice option is a checkbox row (box, gap, label); a choice list is a segmented control.
-            bool option = shown && choice.choices.Length == 1;
             var box = OptionBox(control.button, option ? control.button.GetComponentInChildren<TMP_Text>(true) : null);
             if (box != null)
             {
@@ -291,10 +295,6 @@ public static class SkillSyncConditionEditorView
         }
     }
 
-    static void EnsureConditionList(SkillSyncDesignView view, Transform parent, TMP_Text fontSource)
-    {
-        if (view.conditionList == null)
-        {
     // The checkbox of an option row, made on first use; with no font to draw the mark it only looks it up.
     static SkillSyncRoundedGraphic OptionBox(UnityEngine.UI.Button button, TMP_Text font)
     {
@@ -316,6 +316,10 @@ public static class SkillSyncConditionEditorView
         return box;
     }
 
+    static void EnsureConditionList(SkillSyncDesignView view, Transform parent, TMP_Text fontSource)
+    {
+        if (view.conditionList == null)
+        {
             var existing = parent.Find("ConditionList");
             view.conditionList = existing != null ? existing.GetComponent<SkillSyncItemList>() : null;
         }
@@ -709,12 +713,12 @@ public static class SkillSyncConditionEditorView
             cursor += LabelHeight + LabelGap;
             int count = choiceParameter.choices.Length;
             float choiceWidth = (ContentWidth - (count - 1) * 8) / count;
+            // A checkbox row needs less height than a segmented button, and the whole row stays clickable.
+            float choiceHeight = count == 1 ? OptionRowHeight : 44;
             for (int i = 0; i < count; i++)
                 PlaceControl(DirectionActionPrefix + i, 1200 + i * (choiceWidth + 8), cursor, choiceWidth, choiceHeight);
             cursor += choiceHeight;
         }
-            // A checkbox row needs less height than a segmented button, and the whole row stays clickable.
-            float choiceHeight = count == 1 ? OptionRowHeight : 44;
         float PreferredHeight(string role, float minimum) => view.visuals.Where(v => v.role == role && v.label != null)
             .Select(v => Mathf.Ceil(v.label.GetPreferredValues(v.label.text, ContentWidth, Mathf.Infinity).y)).DefaultIfEmpty(minimum).Max();
         cursor += RowGap;
@@ -734,20 +738,9 @@ public static class SkillSyncConditionEditorView
         }
         if (useList)
         {
-            // The list is the summary: one card per condition, shortened to the space the inspector has left.
-            float available = BottomLimit - (44 + Padding) - cursor - 2 * ListPadding;
-            // When every row fits, whole rows only. When some do not, the next row peeks out at the bottom edge,
-            // so it is plain without any text that the list goes on below.
-            float step = SkillSyncItemList.RowHeight + SkillSyncItemList.RowGap;
-            int rows = Mathf.Max(1, Mathf.FloorToInt((Mathf.Max(0, available) + SkillSyncItemList.RowGap) / step));
-            float visible = Mathf.Min(list.ContentHeight, rows * step - SkillSyncItemList.RowGap);
-            if (list.ContentHeight > visible)
-            {
-                float room = Mathf.Max(SkillSyncItemList.RowHeight, available);
-                int whole = Mathf.FloorToInt((room - SkillSyncItemList.PeekHeight) / step);
-                // Too tight for a row and a peek: the whole room is used and the scroll thumb shows there is more.
-                visible = whole >= 1 ? whole * step + SkillSyncItemList.PeekHeight : room;
-            }
+            // The list is the summary: one card per condition, all of them. When the panel runs out of room,
+            // the whole panel scrolls (SkillSyncInspectorScroll), not the list on its own.
+            float visible = list.ContentHeight;
             float boxHeight = visible + 2 * ListPadding;
             PlaceRole("conditionSummaryBox", 1184, cursor, CardWidth, boxHeight);
             list.SetBounds(X(1184) + ListPadding, cursor + ListPadding, CardWidth - 2 * ListPadding, visible);
@@ -763,8 +756,7 @@ public static class SkillSyncConditionEditorView
         // Add and trial share one row; without a condition only "add" is shown, full width.
         float half = (CardWidth - RowGap) / 2;
         float addWidth = condition != null ? half : CardWidth;
-        // The action row never leaves the inspector, whatever the editor above it needs.
-        cursor = Mathf.Min(cursor, BottomLimit - 44);
+        // The action row follows the list; a long page scrolls to reach it.
         PlaceControl("＋ 完了条件を追加", 1184, cursor, addWidth, 44);
         PlaceRole("conditionAddBox", 1184, cursor, addWidth, 44);
         PlaceRole("conditionAddLabel", 1184, cursor, addWidth, 44);
@@ -782,7 +774,10 @@ public static class SkillSyncConditionEditorView
         // belong to the inspector, so convert them instead of applying them twice.
         var parent = (RectTransform)rect.parent;
         var relative = Matrix4x4.identity;
-        for (var current = rect.parent; current != view.conditionTypeDropdown.transform.parent; current = current.parent)
+        // The step editor's parts live in the scrolling content, the trial's in the inspector; both share its coordinates.
+        var basis = view.conditionTypeDropdown.transform.parent;
+        if (!rect.IsChildOf(basis) && basis.name == SkillSyncInspectorScroll.ContentName) basis = basis.parent.parent;
+        for (var current = rect.parent; current != basis && current != null; current = current.parent)
             relative = Matrix4x4.TRS(current.localPosition, current.localRotation, current.localScale) * relative;
         // Use the local hierarchy, since a saved overlay Canvas can have scale 0.
         var point = relative.inverse.MultiplyPoint3x4(new Vector3(X(x), -y, 0));

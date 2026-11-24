@@ -1467,6 +1467,8 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         int state=Modal?5:trial!=null?(trial.Complete?4:2):ghost!=null?3:mode;
         RefreshStepVisibility();
         RefreshStepPose();
+        // Another step starts at the top of the right panel.
+        if(stepId!=inspectorStepId) {inspectorStepId=stepId;SkillSyncInspectorScroll.Find(view)?.ScrollToTop();}
         view.Show(state);extras?.BringToFront();RebuildObjects();RefreshValues();
     }
     void RefreshValues()
@@ -1761,7 +1763,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
     }
     // In the step editor, the parts stand where the earlier conditions leave them (a jack already placed, a nut already
     // loosened), up to the selected condition. Only the view changes: saving and exporting use the layout (SkillSyncStepPose).
-    string poseKey;
+    string poseKey,inspectorStepId;
     void RefreshStepPose()
     {
         if(mode!=1 || trial!=null || graph==null)

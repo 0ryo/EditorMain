@@ -198,7 +198,11 @@ public static class ConditionEditorLayoutChecks
         var add = (RectTransform)view.controls.First(c => c.action == "＋ 完了条件を追加").button.transform;
         var trial = (RectTransform)view.controls.First(c => c.action == "▶ この条件を試す").button.transform;
         // "Add" and "trial" share one row below the summary / condition list.
-        Require(Top(add) >= Bottom(summaryBox) + 12 && Mathf.Abs(Top(trial) - Top(add)) < 1 && Bottom(trial) <= 985 && Bottom(add) <= 985, type + " actions do not overlap or leave the inspector");
+        Require(Top(add) >= Bottom(summaryBox) + 12 && Mathf.Abs(Top(trial) - Top(add)) < 1, type + " actions do not overlap");
+        // Below the panel's bottom they are reached by scrolling the whole step panel.
+        var scroll = SkillSyncInspectorScroll.Find(view);
+        Require((Bottom(trial) <= 985 && Bottom(add) <= 985) || (scroll != null && add.IsChildOf(scroll.content) && trial.IsChildOf(scroll.content)),
+            type + " actions stay in the inspector or scroll with it");
         Require(trial.anchoredPosition.x >= add.anchoredPosition.x + add.rect.width + 8 && trial.anchoredPosition.x + trial.rect.width <= add.anchoredPosition.x + 392 + 1, type + " add and trial buttons sit side by side");
         foreach (string role in new[] { "conditionSummary", "objectA", "objectB", "conditionAddLabel", "conditionTestLabel" })
             foreach (var visual in view.visuals.Where(v => v.role == role && v.label != null && v.target.activeInHierarchy))
@@ -250,19 +254,12 @@ public static class ConditionEditorLayoutChecks
             var add = (RectTransform)view.controls.First(c => c.action == "＋ 完了条件を追加").button.transform;
             Require(list.gameObject.activeInHierarchy && !Active(view, "conditionSummary"), name + " replaces the single summary");
             Require(Top(listRect) >= Top(box) + 7 && Bottom(listRect) <= Bottom(box) - 7 && Top(box) >= Bottom(card) + 12, name + " sits inside its box below the card");
-            Require(Top(add) >= Bottom(box) + 12 && Bottom(add) <= 985, name + " leaves room for the action row");
-            float visible = Mathf.Min(list.ContentHeight, listRect.rect.height);
-            Require(listRect.rect.height >= Mathf.Min(list.ContentHeight, SkillSyncItemList.RowHeight) - .5f, name + " shows at least one row");
-            // All rows fit: whole rows only. Some do not: whole rows and the top of the next one, which invites scrolling.
-            float step = SkillSyncItemList.RowHeight + SkillSyncItemList.RowGap;
-            float rowsShown = (listRect.rect.height + SkillSyncItemList.RowGap) / step;
-            if (list.ContentHeight <= listRect.rect.height + .5f)
-                Require(Mathf.Abs(rowsShown - Mathf.Round(rowsShown)) < .01f, name + " shows whole rows only");
-            else
-            {
-                float peek = listRect.rect.height - Mathf.Floor(listRect.rect.height / step) * step;
-                Require(peek >= 10 || listRect.rect.height < step + SkillSyncItemList.PeekHeight, name + " shows the top of the next row");
-            }
+            Require(Top(add) >= Bottom(box) + 12, name + " puts the action row below the list");
+            // Every condition is listed; a page taller than the panel scrolls as a whole (SkillSyncInspectorScroll).
+            Require(Mathf.Abs(listRect.rect.height - list.ContentHeight) < .5f, name + " shows every row");
+            var scroll = SkillSyncInspectorScroll.Find(view);
+            Require(scroll != null && add.IsChildOf(scroll.content) && listRect.IsChildOf(scroll.content) && box.IsChildOf(scroll.content),
+                name + " scrolls with the rest of the step panel");
             var row = listRect.Find("Viewport/Content/Row_0");
             Require(row != null && row.Find("Tag") != null, name + " marks the condition being edited");
             foreach (string part in new[] { "Title", "Detail" })
