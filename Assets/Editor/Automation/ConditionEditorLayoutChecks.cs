@@ -165,11 +165,18 @@ public static class ConditionEditorLayoutChecks
         if (parameters > 0 && SkillSyncConditionEditing.Parameter(Condition(type), 0) != null) lastRow = Rect(view, "conditionParameter0Box");
         if (SkillSyncConditionEditing.ChoiceParameter(Condition(type)) != null)
         {
-            var directions = view.controls.Where(c => c.action.StartsWith(SkillSyncConditionEditorView.DirectionActionPrefix, StringComparison.Ordinal)).ToArray();
-            Require(directions.Length == 3 && directions.All(c => c.button.gameObject.activeInHierarchy), type + " shows the three turn directions");
+            var choices = SkillSyncConditionEditing.ChoiceParameter(Condition(type)).choices;
+            var directions = view.controls.Where(c => c.action.StartsWith(SkillSyncConditionEditorView.DirectionActionPrefix, StringComparison.Ordinal) && c.button.gameObject.activeInHierarchy).ToArray();
+            Require(directions.Length == choices.Length, type + " shows one button per choice");
             lastRow = (RectTransform)directions[0].button.transform;
-            foreach (var direction in directions) CheckText(direction.button.GetComponentInChildren<TMP_Text>(), (RectTransform)direction.button.transform, type + ": direction");
-            Require(Active(view, "conditionChoiceLabel"), type + " labels the direction row");
+            foreach (var direction in directions) CheckText(direction.button.transform.Find("Label").GetComponent<TMP_Text>(), (RectTransform)direction.button.transform, type + ": choice");
+            // A one-choice option (引き抜く) is a checkbox row: the box sits left of its label.
+            if (choices.Length == 1)
+            {
+                var box = directions[0].button.transform.Find("OptionBox") as RectTransform;
+                Require(box != null && box.gameObject.activeInHierarchy, type + " shows the option checkbox");
+            }
+            Require(Active(view, "conditionChoiceLabel"), type + " labels the choice row");
         }
         else Require(view.controls.Where(c => c.action.StartsWith(SkillSyncConditionEditorView.DirectionActionPrefix, StringComparison.Ordinal)).All(c => !c.button.gameObject.activeInHierarchy), type + " hides the turn directions");
         CheckRuleFits(Visual(view, "conditionRule").label, type + " rule");
@@ -185,7 +192,9 @@ public static class ConditionEditorLayoutChecks
         Require(Top(note) >= Bottom(lastRow) + 8 && Top(note) - Bottom(lastRow) <= 24, type + " note follows the last visible input without an empty row");
         Require(Bottom(card) - Bottom(note) >= 12 && Bottom(card) - Bottom(note) <= 24, type + " card ends with normal padding");
         Require(Top(summaryBox) >= Bottom(card) + 12 && Top(summaryBox) - Bottom(card) <= 24, type + " summary follows the resized card");
-        if (!requiresB && parameters == 0) Require(card.rect.height < 220, type + " single-object card has no reserved B/parameter space");
+        // A choice row (the 引き抜く checkbox) adds its gap, label and row: 12 + 20 + 8 + 32.
+        float choiceRow = SkillSyncConditionEditing.ChoiceParameter(Condition(type)) != null ? 72 : 0;
+        if (!requiresB && parameters == 0) Require(card.rect.height < 220 + choiceRow, type + " single-object card has no reserved B/parameter space");
         var add = (RectTransform)view.controls.First(c => c.action == "＋ 完了条件を追加").button.transform;
         var trial = (RectTransform)view.controls.First(c => c.action == "▶ この条件を試す").button.transform;
         // "Add" and "trial" share one row below the summary / condition list.

@@ -12,6 +12,7 @@ public static class SkillSyncConditionEditorView
     // One glyph, size and weight for every dropdown/picker arrow.
     const string ArrowGlyph = "v";
     const float ArrowSize = 14;
+    const float OptionBoxSize = 18, OptionLabelGap = 12, OptionRowHeight = 32;
     static readonly Color32 ArrowColor = new Color32(88, 103, 124, 255);
     public const string RuleLine = "すべての条件がそろうと次の手順へ進みます（順不同）";
     public const string RuleText = RuleLine + "\n順番が必要なときは、手順を分けてください";
@@ -225,7 +226,7 @@ public static class SkillSyncConditionEditorView
         return visual.label;
     }
 
-    // Segmented control for a choice parameter (turn direction), or one on/off button for an option (引き抜く);
+    // Segmented control for a choice parameter (turn direction), or one checkbox row for an option (引き抜く);
     // enough buttons for the longest choice list, and the refresh shows as many as the current condition has.
     static void EnsureDirectionButtons(SkillSyncDesignView view, Transform parent, TMP_Text font)
     {
@@ -265,14 +266,27 @@ public static class SkillSyncConditionEditorView
             control.button.interactable = editing && shown;
             bool selected = shown && SkillSyncConditionEditing.ChoiceSelected(condition, i);
             var graphic = control.button.GetComponent<SkillSyncRoundedGraphic>();
-            graphic.color = selected ? Blue : Color.white;
-            graphic.borderColor = selected ? Blue : LineColor;
+            graphic.color = option ? Color.clear : selected ? Blue : Color.white;
+            graphic.borderColor = option ? Color.clear : selected ? Blue : LineColor;
             graphic.SetAllDirty();
-            var caption = control.button.GetComponentInChildren<TMP_Text>(true);
+            // A one-choice option is a checkbox row (box, gap, label); a choice list is a segmented control.
+            bool option = shown && choice.choices.Length == 1;
+            var box = OptionBox(control.button, option ? control.button.GetComponentInChildren<TMP_Text>(true) : null);
+            if (box != null)
+            {
+                box.gameObject.SetActive(option);
+                box.color = selected ? Blue : Color.white;
+                box.borderColor = selected ? Blue : ArrowColor;
+                box.SetAllDirty();
+                box.transform.Find("Mark")?.gameObject.SetActive(selected);
+            }
+            var caption = control.button.transform.Find("Label")?.GetComponent<TMP_Text>();
             if (caption != null)
             {
                 if (shown) caption.text = choice.choices[i];
-                caption.color = selected ? Color.white : new Color32(23, 34, 54, 255);
+                caption.color = selected && !option ? Color.white : new Color32(23, 34, 54, 255);
+                caption.alignment = option ? TextAlignmentOptions.MidlineLeft : TextAlignmentOptions.Midline;
+                caption.margin = option ? new Vector4(OptionBoxSize + OptionLabelGap, 0, 0, 0) : Vector4.zero;
             }
         }
     }
@@ -281,6 +295,27 @@ public static class SkillSyncConditionEditorView
     {
         if (view.conditionList == null)
         {
+    // The checkbox of an option row, made on first use; with no font to draw the mark it only looks it up.
+    static SkillSyncRoundedGraphic OptionBox(UnityEngine.UI.Button button, TMP_Text font)
+    {
+        var existing = button.transform.Find("OptionBox");
+        if (existing != null) return existing.GetComponent<SkillSyncRoundedGraphic>();
+        if (font == null) return null;
+        var go = new GameObject("OptionBox", typeof(RectTransform), typeof(SkillSyncRoundedGraphic));
+        var rect = (RectTransform)go.transform;
+        rect.SetParent(button.transform, false);
+        rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(0, 0.5f);
+        rect.sizeDelta = new Vector2(OptionBoxSize, OptionBoxSize);
+        rect.anchoredPosition = Vector2.zero;
+        var box = go.GetComponent<SkillSyncRoundedGraphic>();
+        box.radius = 4; box.borderWidth = 1.5f; box.raycastTarget = false;
+        var mark = AddText("Mark", go.transform, font, 14, TextAlignmentOptions.Midline);
+        Stretch(mark.rectTransform, 0, 0, 0, 0);
+        mark.color = Color.white;
+        mark.text = "✓";
+        return box;
+    }
+
             var existing = parent.Find("ConditionList");
             view.conditionList = existing != null ? existing.GetComponent<SkillSyncItemList>() : null;
         }
@@ -675,9 +710,11 @@ public static class SkillSyncConditionEditorView
             int count = choiceParameter.choices.Length;
             float choiceWidth = (ContentWidth - (count - 1) * 8) / count;
             for (int i = 0; i < count; i++)
-                PlaceControl(DirectionActionPrefix + i, 1200 + i * (choiceWidth + 8), cursor, choiceWidth, 44);
-            cursor += 44;
+                PlaceControl(DirectionActionPrefix + i, 1200 + i * (choiceWidth + 8), cursor, choiceWidth, choiceHeight);
+            cursor += choiceHeight;
         }
+            // A checkbox row needs less height than a segmented button, and the whole row stays clickable.
+            float choiceHeight = count == 1 ? OptionRowHeight : 44;
         float PreferredHeight(string role, float minimum) => view.visuals.Where(v => v.role == role && v.label != null)
             .Select(v => Mathf.Ceil(v.label.GetPreferredValues(v.label.text, ContentWidth, Mathf.Infinity).y)).DefaultIfEmpty(minimum).Max();
         cursor += RowGap;
