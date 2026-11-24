@@ -59,18 +59,22 @@ public static class SkillSyncConditionMotion
                 {
                     bool apart = c.type == ConditionTypeCatalog.Separation;
                     bool tool = !apart && IsToolApproach(c, stepConditions);
-                    float now = JudgeDistance(a, b, tool);
-                    bool already = apart ? now >= distance : now <= distance * .5f;
+                    MeasurePoints(a, b, tool, out var from, out var to);
+                    float now = Vector3.Distance(from, to);
+                    // "近づける" brings the two origins together exactly (the wrench's mouth onto the nut, the jack's foot onto
+                    // its marker), however near they already are; Separation goes a little past its distance.
+                    bool already = apart ? now >= distance : now <= SnapTolerance;
                     if (!already && tool && TryToolShape(a, out var shape)) PutToolOn(plan, a, b, shape, scene);
                     else if (!already)
                     {
-                        Vector3 from = Center(a), to = Center(b), offset = from - to;
-                        // Parts both standing on the floor (a jack and its marker) are compared on the floor, not in height.
-                        if (Grounded(a) && Grounded(b)) { offset.y = 0; to.y = from.y; }
-                        Vector3 direction = offset.sqrMagnitude > 1e-8f ? offset.normalized : Horizontal(Outward(a, scene));
-                        // Half the range inside, so the gauge visibly passes the line; Separation goes a little past it.
-                        var target = to + direction * distance * (apart ? 1.2f : .5f);
-                        if (!apart) target = AboveGround(a, from, target, to, distance * .5f);
+                        Vector3 target = to;
+                        if (apart)
+                        {
+                            var offset = from - to;
+                            if (Grounded(a) && Grounded(b)) offset.y = 0;
+                            Vector3 direction = offset.sqrMagnitude > 1e-8f ? offset.normalized : Horizontal(Outward(a, scene));
+                            target = to + direction * distance * 1.2f;
+                        }
                         Move(plan, a, target - from);
                     }
                 }
@@ -200,16 +204,15 @@ public static class SkillSyncConditionMotion
     // With a center, the target swings about that part (a wrench about the nut) instead of about its own middle.
     static void Turn(Plan plan, Transform target, Vector3 axis, float angle, Transform center = null) =>
         plan.pieces.Add(new Piece { target = target, axis = axis, angle = angle, duration = Mathf.Clamp(Mathf.Abs(angle) / 180f, .6f, 3f),
-            fixedPivot = center != null, pivot = center != null ? Center(center) : Vector3.zero });
+            fixedPivot = center != null, pivot = center != null ? Anchor(center) : Vector3.zero });
 
     static void Hold(Plan plan, Transform target, float duration) =>
         plan.pieces.Add(new Piece { kind = Kind.Hold, target = target, duration = duration });
 
     // ---- Measuring the distance of a pair (the trial's judgement and the distance shown while editing) ----
 
-    // A tool to be turned on a part is measured at its tip (the socket of a wrench), not at the middle of its handle.
-    // Two parts standing on the floor (a jack and the marker where it goes) are measured on the floor, ignoring height,
-    // so a tall part can still reach a flat mark. Anything else is measured between the middles of the shapes.
+    // Parts are measured between their origins (Anchor), as the XR side judges; a tool to be turned on a part at its
+    // tip (the socket of a wrench). Two parts standing on the floor are measured on the floor, ignoring height.
     public static float JudgeDistance(Transform a, Transform b, bool tool) =>
         MeasurePoints(a, b, tool, out var from, out var to) ? Vector3.Distance(from, to) : float.PositiveInfinity;
 
@@ -218,11 +221,32 @@ public static class SkillSyncConditionMotion
     {
         from = to = Vector3.zero;
         if (a == null || b == null) return false;
-        to = Center(b);
-        if (tool && TryToolShape(a, out var shape)) { from = a.TransformPoint(shape.tip); return true; }
-        from = Center(a);
-        if (Grounded(a) && Grounded(b)) from.y = to.y;
+        to = Anchor(b);
+        from = tool ? ToolTip(a) : Anchor(a);
+        if (!tool && Grounded(a) && Grounded(b)) from.y = to.y;
         return true;
+    }
+
+    const float SnapTolerance = .001f;
+
+    // The point a part is measured at and brought together by: its origin (the wrench's mouth, the jack's foot, the
+    // marker's middle on the floor), as the XR side judges. A part whose origin lies away from its shape (a nut of a car
+    // model keeps the car's origin) is measured at the middle of its shape instead.
+    public static Vector3 Anchor(Transform t)
+    {
+        if (t == null || !PlacedObjectGrounding.TryGetRendererBounds(t, out var bounds)) return t != null ? t.position : Vector3.zero;
+        bounds.Expand(.04f);
+        return bounds.Contains(t.position) ? t.position : Center(t);
+    }
+
+    // Where a tool meets the part: its origin when that is the tip (a wrench made with its origin at the mouth),
+    // otherwise the tip read from its shape.
+    public static Vector3 ToolTip(Transform tool)
+    {
+        var anchor = Anchor(tool);
+        if (!TryToolShape(tool, out var shape)) return anchor;
+        var tip = tool.TransformPoint(shape.tip);
+        return Vector3.Distance(tip, anchor) <= .03f ? anchor : tip;
     }
 
     public static bool Grounded(Transform t) =>
@@ -336,19 +360,6 @@ public static class SkillSyncConditionMotion
         return true;
     }
 
-    // A part standing on the floor is never planned into it: its center is raised until its bottom is on the ground,
-    // still within range of the target if that is possible.
-    static Vector3 AboveGround(Transform part, Vector3 from, Vector3 target, Vector3 to, float range)
-    {
-        if (!PlacedObjectGrounding.TryGetRendererBounds(part, out var bounds) || bounds.min.y < EditWorkspace.GroundY - GroundSlack) return target;
-        float lowest = EditWorkspace.GroundY + from.y - bounds.min.y;
-        if (target.y >= lowest) return target;
-        var flat = target - to; flat.y = 0;
-        float rise = lowest - to.y, room = range * range - rise * rise;
-        if (range > 0) flat = room > 0 && flat.sqrMagnitude > 1e-8f ? flat.normalized * Mathf.Min(flat.magnitude, Mathf.Sqrt(room)) : Vector3.zero;
-        return new Vector3(to.x + flat.x, lowest, to.z + flat.z);
-    }
-
     // ---- A tool put on a part ----
 
     // In the tool's own space: the tip that goes on the part (the socket), the way the tip opens, and the way the
@@ -451,8 +462,8 @@ public static class SkillSyncConditionMotion
         (target * Quaternion.Inverse(tool.rotation)).ToAngleAxis(out float angle, out var turnAxis);
         if (angle > 180) angle -= 360;
         if (float.IsNaN(turnAxis.x) || Mathf.Abs(angle) < .01f) { angle = 0; turnAxis = Vector3.up; }
-        var tip = tool.TransformPoint(shape.tip);
-        var move = Center(part) - tip;
+        var tip = ToolTip(tool);
+        var move = Anchor(part) - tip;
         plan.pieces.Add(new Piece { target = tool, move = move, axis = turnAxis, angle = angle, fixedPivot = true, pivot = tip,
             duration = Mathf.Clamp(.6f + move.magnitude + Mathf.Abs(angle) / 360f, .6f, 2f) });
     }

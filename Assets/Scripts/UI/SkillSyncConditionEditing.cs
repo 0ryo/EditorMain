@@ -148,15 +148,15 @@ public static class SkillSyncConditionEditing
         string distance = Value(condition, 0), hold = Value(condition, 1);
         return condition?.type switch
         {
-            ConditionTypeCatalog.Proximity => $"2つの部品の中心どうしが{distance} cm以内になると完了します（3D画面の球が判定範囲）",
-            ConditionTypeCatalog.SnapHold => $"中心どうしが{distance} cm以内の状態を{hold}秒続けると完了します。部品をもつ必要はなく、範囲を出ると数え直します",
+            ConditionTypeCatalog.Proximity => $"2つの部品の原点どうしが{distance} cm以内になると完了します（3D画面の球が判定範囲）",
+            ConditionTypeCatalog.SnapHold => $"原点どうしが{distance} cm以内の状態を{hold}秒続けると完了します。部品をもつ必要はなく、範囲を出ると数え直します",
             ConditionTypeCatalog.Push => "対象を押す操作が1回あると完了します（何を押す操作とみなすかはXRアプリ側で判定します）",
             ConditionTypeCatalog.Pull => "対象を引く操作が1回あると完了します（何を引く操作とみなすかはXRアプリ側で判定します）" +
                 (ConditionTypeCatalog.PullsOff(condition) ? "。引き抜いた部品は、次の手順から3D画面に表示しません" : ""),
             ConditionTypeCatalog.Grabbed => "対象をつかんだ時点で完了します。運ぶ動きは判定しないので、運ぶ場合は「近づける」でとどまる秒数を決めます",
             ConditionTypeCatalog.Released => "対象をつかんだあと、手放すと完了します。最初からつかんでいないだけでは完了しません",
             ConditionTypeCatalog.Turn => $"対象を{distance}度以上回すと完了します。" + (Choice(condition) == 0 ? "向きは問いません（XRアプリ側で判定します）" : ChoiceLabel(condition) + "だけが数えられます（XRアプリ側で判定します）"),
-            ConditionTypeCatalog.Separation => $"2つの部品の中心どうしが{distance} cm以上離れると完了します",
+            ConditionTypeCatalog.Separation => $"2つの部品の原点どうしが{distance} cm以上離れると完了します",
             ConditionTypeCatalog.RotationMatch => $"2つの部品の向きの差が{distance}度以内の状態を{hold}秒続けると完了します",
             _ => ""
         };
