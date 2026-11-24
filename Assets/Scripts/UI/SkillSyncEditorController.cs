@@ -286,7 +286,9 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         // A target pick belongs to the condition it was started for; any other step or condition cancels it.
         if(pickTarget!=null && conditionId!=pickConditionId) CancelPick();
         bool inside=RectTransformUtility.RectangleContainsScreenPoint(view.viewport,EditInput.MousePosition);
-        if(pickTarget!=null && !TextInputFocused && SkillSyncObjectPicker.ConfirmPressedThisFrame()) CommitProvisional();
+        if(pickTarget!=null && !TextInputFocused && SkillSyncObjectPicker.ConfirmPressedThisFrame()) FinishPick();
+        // A click registers its part at once; the pick ends when anything other than the 3D view is clicked.
+        else if(pickTarget!=null && EditInput.LeftPressedThisFrame() && (!inside || GetComponent<SkillSyncObjectPicker>()?.BlocksPointer(EditInput.MousePosition)==true)) FinishPick();
         if(!TextInputFocused && EditInput.CancelPressedThisFrame() && SkillSyncInlineRename.EscapeFrame!=Time.frameCount && SkillSyncStepReorder.CancelFrame!=Time.frameCount && reorder?.Dragging!=true)
         {
             if(GetComponent<SkillSyncObjectPicker>()?.IsOpen==true) GetComponent<SkillSyncObjectPicker>().Close();
@@ -313,11 +315,10 @@ public sealed class SkillSyncEditorController : MonoBehaviour
             }
             else if(pickTarget!=null)
             {
-                // The first click only marks a provisional target; "このオブジェクトに決定" (or Enter) commits it.
+                // Each click sets the target at once; clicking again goes one level inside and sets that part instead.
                 var candidate=ScreenPickCandidate();
-                var picker=GetComponent<SkillSyncObjectPicker>();
-                picker?.ShowCandidate(candidate);
-                if(candidate!=null && EditInput.LeftPressedThisFrame()) picker?.SetProvisional(candidate);
+                GetComponent<SkillSyncObjectPicker>()?.ShowCandidate(candidate);
+                if(candidate!=null && EditInput.LeftPressedThisFrame()) PickInView(candidate);
             }
             else if(trial!=null) SelectTrialObject();
             else if(mode==0 && EditInput.LeftPressedThisFrame()) NoticeLockedClick();
@@ -813,7 +814,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         string otherId=which=="A"?Condition.condition.objectBId:Condition.condition.objectAId;
         string currentId=which=="A"?Condition.condition.objectAId:Condition.condition.objectBId;
         picker.Show(Placed,(RectTransform)view.controls.First(c=>c.action=="Pick"+which).button.transform,id=>{BeginPick(which);Pick(id);},()=>{
-            BeginPick(which);Notify("部品を3D画面でクリックしてください。「このオブジェクトに決定」を押すまで確定しません（Escで取消）",false,1.5f);Refresh();
+            BeginPick(which);Notify("部品を3D画面でクリックすると対象になります。3D画面の外をクリックすると終わります",false,1.5f);Refresh();
         },currentId,otherId,selection.Current!=null?selection.Current.Id:null);
     }
     void BeginPick(string which) {pickTarget=which;pickConditionId=conditionId;}
@@ -840,7 +841,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         if(candidate==null || !EditInput.LeftPressedThisFrame()) return false;
         menuViewHover=false;
         picker.PickFromView(candidate);
-        Refresh();
+        PickInView(candidate);
         return true;
     }
     void CancelPick()
@@ -848,7 +849,9 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         if(pickTarget==null) return;
         pickTarget=null;GetComponent<SkillSyncObjectPicker>()?.Close();
     }
-    void Pick(string id)
+    void Pick(string id) => Pick(id,true);
+    // From the 3D view the pick mode stays on (the next click can go one level inside); from a list it ends.
+    void Pick(string id,bool finish)
     {
         if(pickTarget!=null && conditionId!=pickConditionId) {CancelPick();Refresh();return;}
         if(Condition==null) {pickTarget=null;Notify("先に完了条件を追加してください",true);Refresh();return;}
@@ -857,18 +860,27 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         {pickTarget=null;Refresh();return;}
         if(id==(which=="A"?Condition.condition.objectBId:Condition.condition.objectAId) && !string.IsNullOrEmpty(id))
         {pickTarget=null;Notify(which=="A"?"近づける先と同じ部品は選べません":"動かすものと同じ部品は選べません",true);Refresh();return;}
-        graph.UpdateConditionData(Condition.nodeId,"Choose condition object",data=>
-        {
-            if(which=="A") data.objectAId=id;else data.objectBId=id;
-        });
-        pickTarget=null;GetComponent<SkillSyncObjectPicker>()?.SetPicking(null);Refresh(); // the field shows the new target; no notice needed
+        if(id!=(which=="A"?Condition.condition.objectAId:Condition.condition.objectBId))
+            graph.UpdateConditionData(Condition.nodeId,"Choose condition object",data=>
+            {
+                if(which=="A") data.objectAId=id;else data.objectBId=id;
+            });
+        if(finish) {pickTarget=null;GetComponent<SkillSyncObjectPicker>()?.SetPicking(null);}
+        Refresh(); // the field shows the new target; no notice needed
     }
-    void CommitProvisional()
+    void PickInView(PlacedObject candidate)
     {
-        var picker=GetComponent<SkillSyncObjectPicker>();
-        var chosen=picker!=null?picker.Provisional:null;
-        if(chosen==null || pickTarget==null) return;
-        Pick(chosen.Id);
+        if(candidate==null || pickTarget==null || Condition==null) return;
+        // The other field's part is refused without ending the pick: the next click can choose another part.
+        if(candidate.Id==(pickTarget=="A"?Condition.condition.objectBId:Condition.condition.objectAId))
+        {Notify(pickTarget=="A"?"近づける先と同じ部品は選べません":"動かすものと同じ部品は選べません",true);return;}
+        Pick(candidate.Id,false);
+        if(pickTarget!=null) GetComponent<SkillSyncObjectPicker>()?.SetProvisional(candidate);
+    }
+    void FinishPick()
+    {
+        if(pickTarget==null) return;
+        pickTarget=null;GetComponent<SkillSyncObjectPicker>()?.SetPicking(null);Refresh();
     }
     void SelectCondition(string id)
     {
@@ -1463,7 +1475,7 @@ public sealed class SkillSyncEditorController : MonoBehaviour
         var picker=GetComponent<SkillSyncObjectPicker>();
         if(picker!=null) {
             picker.CancelPicking=()=>{pickTarget=null;Refresh();};
-            picker.ConfirmPicking=CommitProvisional;
+            picker.ConfirmPicking=FinishPick;
             picker.SetPicking(pickTarget);
         }
         view.Value("project",project.CurrentProjectName);

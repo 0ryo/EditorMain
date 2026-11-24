@@ -63,7 +63,7 @@ persistentDataPath/Projects/*.skillsync.json
 - 上部通知（`TopCenterNotification`）は、ボタンなしの情報通知どうしなら新しいものが即座に置き換える。エラーと「元に戻す」付き通知は置き換えない。結果が画面で見える頻繁な操作（大きさ・高さ・角度・手順移動・吸着・視点）は通知しない。
 - 手順・条件の未入力（完了条件なし`E-06`、対象未設定`E-08`）は、書き出しを試すまで「未完成：」の中立表示にし、⚠（要修正）は付けない。部品削除による参照切れなど実際の不整合は常に⚠。
 - 手順画面の3D表示は、選択中の手順より前（表示順）に「引く」の「引き抜く」オプション（`ConditionTypeCatalog.PullsOff`）で外した部品を非表示・クリック不可にする（その手順の条件で再び使う部品は除く）。`PlacedObjectEditState.SetStepHidden`のsession限定状態で、保存の`hidden`とは別。動作確認の開始前に解除し、試行コピー側は`SkillSyncTrialSession.Hide`で同じ部品を隠す。
-- 条件の対象リストを開いたまま3D画面の部品をクリックすると、そのまま3D選択に入りその部品を仮選択する（`SkillSyncEditorController.PickFromOpenMenu`）。
+- 完了条件の対象は、3D画面のクリックでそのまま登録される（確定ボタンなし）。もう一度クリックすると1階層内側の部品に登録し直し、3D画面の外（UI）のクリック・Enter・Escで選択モードを終える。対象リストを開いたまま3D画面の部品をクリックしても同じモードに入る（`SkillSyncEditorController.PickFromOpenMenu`／`PickInView`）。
 - 動作確認画面の右パネルは`SkillSyncConditionEditorView.LayoutTrial`が、表示中の要素だけを上から詰めて並べる。デザイン原本の座標からの差分で動かす。原本座標を直接いじったり、要素ごとに固定座標を足したりしない。
 - 教材ごとの「続き」（配置／手順、選んでいた手順と条件、左タブ、視点）は`SkillSyncViewMemory`がPlayerPrefsに教材pathのhashで保存する。教材fileには入れない。controllerは0.25秒ごとの更新で、開いている教材のpathが変わったことを検知し、保存してから復元する。初回保存やリネームでは何も復元しない。
 - ボタンやキーによる視点変更は、`EditorCameraController.Transition`で0.3秒補間する。navigation入力があればその場で止まる。新しい視点操作も`Transition`か`BeginTransition`を通す。

@@ -26,7 +26,6 @@ public sealed class SkillSyncObjectPicker : MonoBehaviour
     ObjectCandidatePreview preview, provisionalPreview;
     public Action CancelPicking, ConfirmPicking;
     public PlacedObject Provisional { get; private set; }
-    UnityEngine.UI.Button confirm;
     TMP_InputField search;
     // Tree state of the open menu.
     PlacedObject[] all=new PlacedObject[0];
@@ -384,25 +383,14 @@ public sealed class SkillSyncObjectPicker : MonoBehaviour
     void LayoutBanner()
     {
         var banner=(RectTransform)instruction.transform.parent;
-        // Bottom centre of the 3D view: notices appear at the top, so they never cover "このオブジェクトに決定".
+        // Bottom centre of the 3D view: notices appear at the top, so they never cover the banner.
         banner.anchorMin=banner.anchorMax=banner.pivot=new Vector2(.5f,0);
         banner.anchoredPosition=new Vector2(0,16);
         banner.sizeDelta=new Vector2(800,64);
         instruction.rectTransform.anchoredPosition=new Vector2(14,0);
-        instruction.rectTransform.sizeDelta=new Vector2(468,64);
+        instruction.rectTransform.sizeDelta=new Vector2(660,64);
         instruction.textWrappingMode=TextWrappingModes.Normal;
         instruction.overflowMode=TextOverflowModes.Ellipsis;
-        if(!confirm)
-        {
-            confirm=Instantiate(cancel,cancel.transform.parent);
-            confirm.name="Confirm";
-            confirm.onClick.RemoveAllListeners();
-            confirm.onClick.AddListener(()=>ConfirmPicking?.Invoke());
-            var surface=confirm.GetComponent<SkillSyncRoundedGraphic>();
-            if(surface) {surface.color=Blue;surface.borderColor=Blue;}
-            var caption=confirm.GetComponentInChildren<TMP_Text>(true);
-            caption.text="このオブジェクトに決定";caption.color=Color.white;caption.fontStyle=FontStyles.Bold;
-        }
         void Place(UnityEngine.UI.Button button,float x,float width)
         {
             var rect=(RectTransform)button.transform;
@@ -411,9 +399,8 @@ public sealed class SkillSyncObjectPicker : MonoBehaviour
             caption.anchorMin=Vector2.zero;caption.anchorMax=Vector2.one;
             caption.offsetMin=new Vector2(6,0);caption.offsetMax=new Vector2(-6,0);
         }
-        Place(confirm,490,192);
-        Place(cancel,690,104);
-        cancel.GetComponentInChildren<TMP_Text>(true).text="取消（Esc）";
+        Place(cancel,682,112);
+        cancel.GetComponentInChildren<TMP_Text>(true).text="終える（Esc）";
     }
 
     void UpdateBanner()
@@ -422,11 +409,10 @@ public sealed class SkillSyncObjectPicker : MonoBehaviour
         if(Provisional)
         {
             bool whole=ImportedModelParts.IsGroup(Provisional);
-            instruction.text="仮選択中：「"+DisplayLabel(Provisional)+"」\n"+(whole?
-                "このまま「決定」するか、もう一度クリックして1段内側の部品を選びます。":"「決定」（Enter）で確定します。別の部品はクリックで選び直せます。");
+            instruction.text="対象にしました：「"+DisplayLabel(Provisional)+"」\n"+(whole?
+                "もう一度クリックすると1段内側の部品に変わります。3D画面の外をクリックすると終わります。":"別の部品をクリックすると選び直せます。3D画面の外をクリックすると終わります。");
         }
-        else instruction.text="対象をクリックしてください。\n最初のクリックでは全体が仮選択され、クリックするたびに1段ずつ内側の部品へ進みます。";
-        confirm.interactable=Provisional;
+        else instruction.text="対象をクリックすると、そのまま設定されます。\nクリックするたびに1段ずつ内側の部品へ進みます。3D画面の外をクリックすると終わります。";
     }
 
     public void SetPicking(string target) {
