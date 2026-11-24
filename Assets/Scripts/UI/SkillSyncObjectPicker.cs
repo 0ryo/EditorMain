@@ -250,6 +250,8 @@ public sealed class SkillSyncObjectPicker : MonoBehaviour
         search.textViewport=areaRect;search.textComponent=input;search.placeholder=placeholder;
         search.targetGraphic=background;search.lineType=TMP_InputField.LineType.SingleLine;
         search.onFocusSelectAll=false;
+        // The text shows tags as typed (richText off), so the field must not wrap the IME composition in <u>…</u>.
+        search.richText=false;
         search.onValueChanged.AddListener(_=>{forcedClosed.Clear();Rebuild(false);});
         go.SetActive(true);
     }

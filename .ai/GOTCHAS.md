@@ -47,7 +47,8 @@
 - Figma取得済みSVGには幅／高さ0のVECTOR（区切り線）が含まれない場合がある。nodes.jsonのstrokeWeight・色・座標から別途描画する。Sprite対応だけの照合では欠落を検出できない。
 - Unityの背景実行による撮影では、Editorの更新継続だけでなくPlay側の`Application.runInBackground`も確認する。Game viewの古いRenderTextureを取得できてしまうため、解像度だけでなく状態変化とフレーム進行も確認する。
 
-- macOSのUnityは`Input.compositionCursorPos`を画面の下からの座標として扱い、TMP_InputFieldは上からの座標を渡すため、日本語の変換候補が上下反転した位置（画面外）に出て見えない（Unity issue「IME window is placed at the wrong position when using Input.compositionCursorPos on macOS」）。`MacImeCandidateInput`（入力モジュールの`inputOverride`）がmacOSだけyを反転して渡す。
+- macOSのUnityは`Input.compositionCursorPos`を「画面の下から・実画面のbacking pixel（Retinaの倍率で割って使う）」として扱い、TMP_InputFieldは「上から・Playerの描画解像度」で渡す。全画面のPlayerは1920×1080を黒帯付きで画面に拡大する（1440×900ptのMacBookでは2880×1800に×1.5、上下90px）ため、そのままでは変換候補が画面外や欄から離れた位置に出る。`MacImeCandidateInput`（入力モジュールの`inputOverride`）がmacOSだけ上下反転し、`Display.main.systemWidth/Height`への拡大と黒帯の分を足して渡す（2026-11に実機で欄の真下に出ることを確認）。
+- `TMP_InputField.richText`が既定のtrueのまま、表示側の`textComponent.richText`だけfalseにすると、日本語の入力中の文字が`<u>…</u>`付きでそのまま見える。実行時に作る入力欄は両方をfalseにする。
 - 手順画面で部品を動かして見せる処理（`SkillSyncStepPose`）を足したため、Sceneの配置を読んで保存・書き出しする新しい経路は`SkillSyncStepPose.WithLayout`で包む。包まないと、前の手順の結果の位置が配置として保存される。
 - `StartCoroutine`は最初のyieldまで同期実行する。選択直後の詳細パネルでは、UI生成直後に`unscaledDeltaTime`を加算すると重いフレームでスライド終端へ飛び得る。現在位置を適用して一度yieldし、1フレームの進行を上限1/30秒に抑える。開閉は同じroutineで現在位置から反転する。
 

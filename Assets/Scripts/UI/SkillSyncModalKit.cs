@@ -175,6 +175,8 @@ public static class SkillSyncModalKit
         input.textComponent = value;
         input.placeholder = placeholder;
         input.lineType = TMP_InputField.LineType.SingleLine;
+        // The text shows tags as typed (richText off), so the field must not wrap the IME composition in <u>…</u>.
+        input.richText = false;
         input.characterLimit = 96;
         input.caretWidth = 2;
         input.customCaretColor = true; input.caretColor = DesignTokens.TextPrimary;
