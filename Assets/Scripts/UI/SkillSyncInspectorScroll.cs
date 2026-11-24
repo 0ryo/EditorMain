@@ -6,8 +6,10 @@ using UnityEngine.UI;
 // The step editor's right panel scrolls as one page when its content is taller than the panel (a step with many
 // completion conditions): the step's title and text, the condition editor, the list of conditions and the buttons.
 // The parts shown only in the step editor states are moved into a content rect with the same size and coordinates
-// as the inspector (InspectorSlide), so every existing layout keeps placing them as before; the content is shifted
-// and clipped to the panel. Placement and trial parts stay where they are; in those states nothing is clipped.
+// as the inspector (InspectorSlide), so every existing layout keeps placing them as before. The clipping rect itself
+// covers just the panel (RectMask2D padding is measured in canvas units, not in the panel's, so it is not used);
+// the content sits inside it offset back to the inspector's origin and moves by the scroll amount.
+// Placement and trial parts stay where they are; in those states nothing is clipped.
 public sealed class SkillSyncInspectorScroll : MonoBehaviour
 {
     public const string ContentName = "StepInspectorContent";
@@ -17,7 +19,7 @@ public sealed class SkillSyncInspectorScroll : MonoBehaviour
     public RectTransform content;
     SkillSyncDesignView view;
     RectMask2D mask;
-    RectTransform thumb;
+    RectTransform thumb, inspector;
     float offset, contentBottom;
     int lastState = -1;
     GameObject lastSelected;
@@ -34,13 +36,15 @@ public sealed class SkillSyncInspectorScroll : MonoBehaviour
         var go = new GameObject("StepInspectorScroll", typeof(RectTransform), typeof(RectMask2D), typeof(SkillSyncInspectorScroll));
         var rect = (RectTransform)go.transform;
         rect.SetParent(inspector, false);
-        Fill(rect);
+        rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(0, 1);
         var scroll = go.GetComponent<SkillSyncInspectorScroll>();
         scroll.view = view;
+        scroll.inspector = inspector;
         scroll.mask = go.GetComponent<RectMask2D>();
         scroll.content = new GameObject(ContentName, typeof(RectTransform)).GetComponent<RectTransform>();
         scroll.content.SetParent(rect, false);
-        Fill(scroll.content);
+        scroll.content.anchorMin = scroll.content.anchorMax = scroll.content.pivot = new Vector2(0, 1);
+        scroll.Fit();
         var moving = new List<Transform>();
         void Take(Transform t, int stateMask)
         {
@@ -65,15 +69,20 @@ public sealed class SkillSyncInspectorScroll : MonoBehaviour
         return scroll;
     }
 
-    static void Fill(RectTransform rect)
+    // The clip rect is the panel (from its left edge and below the header); the content is the inspector's size,
+    // placed so its coordinates are the inspector's, then raised by the scroll amount.
+    void Fit()
     {
-        rect.anchorMin = new Vector2(0, 0); rect.anchorMax = new Vector2(1, 1); rect.pivot = new Vector2(0, 1);
-        rect.offsetMin = rect.offsetMax = Vector2.zero;
+        var clip = (RectTransform)transform;
+        var size = inspector.rect.size;
+        clip.anchoredPosition = new Vector2(PanelLeft, -Top);
+        clip.sizeDelta = new Vector2(Mathf.Max(0, size.x - PanelLeft), Mathf.Max(0, size.y - Top));
+        if (content.sizeDelta != size) content.sizeDelta = size;
     }
 
     bool StepState => view != null && (view.State == 1 || view.State == 5);
     float PanelLeft => view != null && view.wideLayout ? SkillSyncDesignLayout.MapX(1160) : 1160;
-    float Height => ((RectTransform)transform).rect.height;
+    float Height => inspector != null ? inspector.rect.height : 0;
     float MaxOffset => Mathf.Max(0, contentBottom + Padding - Height);
 
     public void ScrollToTop() { offset = 0; Apply(); }
@@ -103,13 +112,15 @@ public sealed class SkillSyncInspectorScroll : MonoBehaviour
     {
         bool step = StepState;
         float shown = step ? offset : 0;
-        if (content != null && Mathf.Abs(content.anchoredPosition.y - shown) > .01f) content.anchoredPosition = new Vector2(0, shown);
-        if (mask != null)
-        {
-            if (mask.enabled != step) mask.enabled = step;
-            var padding = new Vector4(PanelLeft, 0, 0, Top);
-            if (mask.padding != padding) mask.padding = padding;
-        }
+        if (inspector == null || content == null) return;
+        Fit();
+        var position = new Vector2(-PanelLeft, Top + shown);
+        if ((content.anchoredPosition - position).sqrMagnitude > .0001f) content.anchoredPosition = position;
+        if (mask != null && mask.enabled != step) mask.enabled = step;
+        // The design view brings each state's parts to the front when it switches state; the step parts now live in
+        // this container, so the container itself goes to the front of the inspector (other parts there are
+        // hidden in the step states, but some stay drawn over it otherwise).
+        if (step && transform.GetSiblingIndex() != transform.parent.childCount - 1) transform.SetAsLastSibling();
         if (thumb == null) return;
         float max = MaxOffset, visible = Height - Top;
         bool overflow = step && max > 0 && visible > 0;
@@ -117,7 +128,7 @@ public sealed class SkillSyncInspectorScroll : MonoBehaviour
         if (!overflow) return;
         float track = visible - 8, length = Mathf.Max(24, track * visible / (visible + max));
         thumb.sizeDelta = new Vector2(ThumbWidth, length);
-        thumb.anchoredPosition = new Vector2(-4, -(Top + 4 + (track - length) * offset / max));
+        thumb.anchoredPosition = new Vector2(-4, -(4 + (track - length) * offset / max));
         thumb.SetAsLastSibling();
     }
 
@@ -139,8 +150,7 @@ public sealed class SkillSyncInspectorScroll : MonoBehaviour
     {
         var canvas = GetComponentInParent<Canvas>();
         var camera = canvas != null && canvas.rootCanvas.renderMode != RenderMode.ScreenSpaceOverlay ? canvas.rootCanvas.worldCamera : null;
-        var rect = (RectTransform)transform;
-        return RectTransformUtility.RectangleContainsScreenPoint(rect, EditInput.MousePosition, camera, new Vector4(PanelLeft, 0, 0, Top));
+        return RectTransformUtility.RectangleContainsScreenPoint((RectTransform)transform, EditInput.MousePosition, camera);
     }
 
     // An open list (the condition type, the target picker) or a dialog keeps the wheel for itself.
